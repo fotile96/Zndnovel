@@ -12,3 +12,4 @@ __pycache__/
 # tool outputs / scratch
 build/
 scratch/
+work/

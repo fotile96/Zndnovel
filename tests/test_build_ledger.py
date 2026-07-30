@@ -1,3 +1,5 @@
+import re
+
 from tools.build_ledger import parse_vms_lines
 
 FIXTURE = '''\
@@ -19,10 +21,76 @@ def test_parse_extracts_ids_voice_and_text():
     assert rows[1]["voice"] == "AYA00180"
     assert rows[1]["file"] == "snr_x_10_s"
 
-def test_func_tracking_follows_nearest_function_opener():
+def test_func_tracking_bubbles_past_bare_vn_to_named_opener():
     rows = parse_vms_lines("snr_x_10_s", FIXTURE)
     assert rows[0]["func"] == "scene_x1_10"
-    assert rows[2]["func"] == "v0"               # 嵌套闭包归最近的 opener
+    assert rows[2]["func"] == "scene_x1_10"      # 裸 vN 闭包穿透，归最近非裸 vN 祖先（嵌套栈追踪）
+
+# --- Hotfix A: 嵌套栈追踪（brief hotfix-a-brief.md 四组用例）---
+
+CASE1_PARENT_REBOUND = '''\
+scene_s1s_10 = function(scene_id, scene_title)
+    local v0
+    v0 = function()
+    end
+    vms(7296, "NONVOICE", "…") -- tr_line:3
+end
+'''
+
+def test_case1_parent_body_rebounds_after_closure_end():
+    # brief 背景示例原型：空闭包 v0 结束后，父体内的 vms 应归 scene_s1s_10，
+    # 而非（平面实现下）一直停留在 v0。
+    rows = parse_vms_lines("snr_s1_10_s", CASE1_PARENT_REBOUND)
+    assert [r["id"] for r in rows] == [7296]
+    assert rows[0]["func"] == "scene_s1s_10"
+
+CASE2_CLOSURE_PASSTHROUGH = '''\
+scene_s1s_20 = function(scene_id, scene_title)
+    local v0
+    v0 = function()
+        vms(7300, "NONVOICE", "closure body text")
+    end
+    v0()
+end
+'''
+
+def test_case2_vms_inside_bare_vn_closure_bubbles_to_parent():
+    rows = parse_vms_lines("snr_s1_10_s", CASE2_CLOSURE_PASSTHROUGH)
+    assert rows[0]["id"] == 7300
+    assert rows[0]["func"] == "scene_s1s_20"     # 最近非裸 vN 祖先
+
+CASE3_DOTTED_NAME_OWNS_ITSELF = '''\
+scene_s1s_30 = function(scene_id, scene_title)
+    local v0
+    v0 = {}
+    v0.mesNot = function()
+        vms(7310, "NONVOICE", "dotted-owner text")
+    end
+end
+'''
+
+def test_case3_dotted_name_keeps_own_ownership():
+    # v0.mesNot 不匹配 ^v\\d+$，按自身名字归属（snr_common 的 v0.mesNot/v0.mesNG 依赖此行为）。
+    rows = parse_vms_lines("snr_s1_10_s", CASE3_DOTTED_NAME_OWNS_ITSELF)
+    assert rows[0]["id"] == 7310
+    assert rows[0]["func"] == "v0.mesNot"
+
+CASE4_TOPLEVEL_RESET = '''\
+scene_s1s_40 = function(scene_id, scene_title)
+    vms(7320, "NONVOICE", "inside a")
+end
+vms(7321, "NONVOICE", "toplevel, no owner")
+scene_s1s_50 = function(scene_id, scene_title)
+    vms(7322, "NONVOICE", "inside b")
+end
+'''
+
+def test_case4_toplevel_vms_after_function_end_has_empty_func():
+    rows = parse_vms_lines("snr_s1_10_s", CASE4_TOPLEVEL_RESET)
+    by_id = {r["id"]: r["func"] for r in rows}
+    assert by_id[7320] == "scene_s1s_40"
+    assert by_id[7321] == ""                     # 弹栈后顶层复位
+    assert by_id[7322] == "scene_s1s_50"
 
 def test_literal_flag_false_for_concatenation():
     rows = parse_vms_lines("snr_x_10_s", FIXTURE)
@@ -96,6 +164,25 @@ def test_real_repo_ledger_counts_and_uniqueness(tmp_path):
     assert kinds == {"narrative", "ambient"}
     extra = read_jsonl(tmp_path / "ledger_extra.jsonl")
     assert sum(1 for r in extra if r["kind"] == "plot_title") == 195
+
+def test_real_repo_no_bare_vn_func_residue(tmp_path):
+    # Hotfix A 回归断言：嵌套栈追踪修复后，全库几乎不应再有 vms 行的 func 落在裸 vN 名字上。
+    # 已知且经调查确认的唯一例外：snr_crd_102 的 v0/v1/v2——三个文件顶层（indent 0）的
+    # 兄弟局部闭包（推理クイズ题面/两种误答提示），由 card_102_s6s_110_intro 以
+    # v0()/v1()/v2() 调用，但并未词法嵌套在其内部。嵌套栈在它们体内找不到任何非裸 vN
+    # 祖先，命中 brief 规则本身的兜底分支（"全是裸 vN 时取最外层名字"），只能停留在自身。
+    # 这不是实现缺陷——修复调用图追踪超出"嵌套栈追踪"范围，属过度设计——固定为已知清单，
+    # 而非放宽规则掩盖：出现清单之外的新残留、或这 24 行本身发生变化，都应让测试失败并复查。
+    out = subprocess.run(
+        [sys.executable, "tools/build_ledger.py", "--out-dir", str(tmp_path)],
+        cwd=REPO, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    rows = read_jsonl(tmp_path / "ledger.jsonl")
+    bare = [(r["file"], r["id"], r["func"]) for r in rows if re.match(r'^v\d+$', r["func"])]
+    known = {("snr_crd_102", "v0"), ("snr_crd_102", "v1"), ("snr_crd_102", "v2")}
+    unexpected = [b for b in bare if (b[0], b[2]) not in known]
+    assert unexpected == [], f"出现未知裸 vN 残留，需要按同样方法调查根因：{unexpected[:5]}"
+    assert len(bare) == 24, f"已知的 snr_crd_102 残留数量变化（现为 {len(bare)}），该文件是否被改动？"
 
 def test_double_run_is_byte_identical(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"

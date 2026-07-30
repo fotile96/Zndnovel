@@ -10,17 +10,33 @@ except ImportError:
     from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS, NARRATIVE_FUNC_EXCEPTIONS
 
 FUNC_RE = re.compile(r'^\s*([A-Za-z_][\w.]*)\s*=\s*function')
+END_RE = re.compile(r'^(\s*)end\b')
 VMS_RE = re.compile(r'vms\((\d+), "([A-Z0-9]+)", (.+)\)$')
 TR_LINE_RE = re.compile(r'\s*--\s*tr_line:\d+\s*$')
+BARE_VN_RE = re.compile(r'^v\d+$')
+
+
+def _owner_func(stack: list[tuple[str, int]]) -> str:
+    """从栈顶（最内层）向外找第一个不匹配 ^v\\d+$ 的名字；全是裸 vN 则取最外层；栈空则 ""。"""
+    if not stack:
+        return ""
+    for name, _indent in reversed(stack):
+        if not BARE_VN_RE.match(name):
+            return name
+    return stack[0][0]
 
 
 def parse_vms_lines(stem: str, text: str) -> list[dict]:
     rows = []
-    func = ""
+    stack: list[tuple[str, int]] = []  # (函数名, 该行前导空白长度)，嵌套栈
     for line in text.splitlines():
         m = FUNC_RE.match(line)
         if m:
-            func = m.group(1)
+            stack.append((m.group(1), m.start(1)))
+            continue
+        m_end = END_RE.match(line)
+        if m_end and stack and len(m_end.group(1)) == stack[-1][1]:
+            stack.pop()
             continue
         s = TR_LINE_RE.sub("", line.strip())
         m = VMS_RE.search(s)
@@ -31,7 +47,7 @@ def parse_vms_lines(stem: str, text: str) -> list[dict]:
         jp = arg[1:-1] if literal else arg
         rows.append({
             "id": int(m.group(1)), "jp": jp, "voice": m.group(2),
-            "file": stem, "func": func, "literal": literal,
+            "file": stem, "func": _owner_func(stack), "literal": literal,
         })
     return rows
 

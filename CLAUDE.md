@@ -39,7 +39,7 @@ skeleton/                       翻译骨架（git tag skeleton-v1 冻结）：c
                                 + 合并版 cards.{jp,zh}.yaml + anchors.yaml（120 条伏笔锚点定译）
 glossary/                       术语层：glossary.v1..v6.yaml（append-only，最高版为现行）+ active.json + speakers.json
                                 + style.md（风格与润色尺度）+ voices/ 7 份角色口调表
-pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；deps: pillow）
+pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12，不钉精确版；deps: pillow/pyyaml）
 ```
 
 **翻译骨架已冻结**（`git tag skeleton-v1`，2026-07-30）：正文翻译轨的定译基准 = `skeleton/anchors.yaml`（锚点句一律逐字沿用其 zh）+ `skeleton/cards.zh/`（卡面梗概定稿，亦是前缀 compact 的『あらすじ』语料）；术语取 `glossary/` 最高版本号（现 v6）与 `active.json`，风格与润色尺度见 `glossary/style.md`。骨架文件此后视同只读，改动须走新 glossary 版本 + 召回令。
@@ -147,7 +147,7 @@ pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；de
 
 ## 开发规约
 
-- **环境**：uv 管理的项目 venv。新会话先 `uv sync`；跑脚本 `uv run python ...`；加依赖 `uv add <pkg>`。`pyproject.toml`/`uv.lock`/`.python-version`(3.14) 入库，`.venv/` 已 gitignore。`tools/extract_*.py` 保持纯 stdlib（系统 python3 也能直接跑）。LLM API key 走 `.env`（已 gitignore）或环境变量，绝不入库。
+- **环境**：uv 管理的项目 venv。新会话先 `uv sync`；跑脚本 `uv run python ...`；加依赖 `uv add <pkg>`。`pyproject.toml`/`uv.lock` 入库，`.venv/` 已 gitignore。**只设下限 `>=3.12` 且不入 `.python-version`**：钉死精确版会让云端环境（Ubuntu 24.04 自带 3.12）必须联网下载托管解释器，且 root 建环境／非 root 跑会话的归属问题随之而来；3.12/3.13/3.14 全测已验证等价。`tools/extract_*.py` 保持纯 stdlib（系统 python3 也能直接跑）。LLM API key 走 `.env`（已 gitignore）或环境变量，绝不入库。
 - **原始资产只读**：`lua_scripts/`、`png/` 不就地修改。注入/回写类输出先落 `build/`（gitignore）；确需改原件时走分支，游戏内验证后再合并。
 - **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。

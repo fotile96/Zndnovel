@@ -1,5 +1,5 @@
 # skeleton/cards.zh/batch_00.yaml — 中文卡组 batch 00（card 1–39）
-# 来源：skeleton/cards.jp.yaml 同号条目中译（规程 B）；术语/人名依 glossary/glossary.v2.yaml 与 glossary/style.md
+# 来源：skeleton/cards.jp.yaml 同号条目中译（规程 B）；术语/人名依 glossary/glossary.v4.yaml 与 glossary/style.md（v4 召回修订已落于本批）
 #   （v2 用户裁决落于本批：ユウイチ 保留片假名、コックリさん→钱仙、セクション→章节）。
 # 字段：card(int) / variant("a") / title_zh / body_zh / tr_note
 # 约定：
@@ -14,9 +14,9 @@
 
 - card: 1
   variant: "a"
-  title_zh: "有个孩子来学校的物语"
+  title_zh: "有个孩子来学校的故事"
   body_zh: "走进教室时，看到课桌上的\n涂鸦，彩野同学想起自己以\n前写过「有个孩子来学校的\n故事」。"
-  tr_note: "标题「物語」→「物语」、正文书名式引用「お話」→「故事」，两词分译依 glossary；彩野さん→彩野同学（现实层称呼，依 style.md）。"
+  tr_note: "标题「物語」与正文引用「お話」自 v4 起同译「故事」；彩野さん→彩野同学（现实层称呼，依 style.md）。"
 - card: 2
   variant: "a"
   title_zh: "夏日清晨，通往高中的上学路"
@@ -141,7 +141,7 @@
   variant: "a"
   title_zh: "谁也没有来"
   body_zh: "要把故事……。"
-  tr_note: "原文「物語を……。」动词残缺（EX2 开场意识消散的笔触）。用户裁决定稿「要把故事……。」——此处为『物語→故事』的刻意特例（临终呓语取更柔软的口语词），非词表常规映射（物語→物语）。"
+  tr_note: "原文「物語を……。」动词残缺（EX2 开场意识消散的笔触）。用户裁决定稿「要把故事……。」；v4 起 物語→故事 即词表常规映射，本卡不再是特例。"
 - card: 27
   variant: "a"
   title_zh: "她的名字"

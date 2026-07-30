@@ -43,7 +43,8 @@ class Expander:
 
     def story(self, enter, choices=None, until=None):
         """沿状态图行进。skip 语义契约：card_gate/route_has 判假时，
-        跳过其后**紧随的一个** goto（含伴随 run）；判真则正常吸收。
+        跳过其后紧随的一个 goto；伴随的 run 事件不驱动行走、无需门控
+        （enter 跳转由 goto 承载；引擎先赋 doScriptScene 再 run；nxt 已指向目标脚本 enter 状态）。
         choice 事件：pick 命中的 {choice,goto} 提供 nxt，其余忽略。"""
         choices = choices or {}
         state = enter
@@ -52,7 +53,7 @@ class Expander:
             if st is None:
                 raise KeyError(f"未知状态 {state}")
             funcs, title = [], st["title"]
-            nxt, ran, skip = None, None, False
+            nxt, skip = None, False
             for ev in st["seq"]:
                 if "play" in ev:
                     funcs.append(ev["play"]); title = title or ev["title"]
@@ -73,8 +74,7 @@ class Expander:
                     if nxt is None:
                         nxt = ev["goto"]
                 elif "run" in ev:
-                    if not skip:
-                        ran = ev["run"]
+                    pass  # 跨文件切换由伴随 goto 承载（引擎先赋 doScriptScene 再 run；nxt 已指向目标脚本 enter 状态）
             if funcs:
                 self.emit_unit("scene", st["file"], state, title, funcs)
                 self.emitted_states.add(state)
@@ -83,4 +83,4 @@ class Expander:
                     self._apply_meta(f)
             if until and state == until:
                 return
-            state = nxt        # ran 时 nxt 已指向目标脚本的 enter 状态，跨文件直接续走
+            state = nxt

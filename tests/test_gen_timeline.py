@@ -39,3 +39,40 @@ def test_until_stops_after_that_state():
     ex = _ex()
     ex.story("a_10", choices={}, until="a_20")
     assert [u["state"] for u in ex.timeline] == ["a_10", "a_20"]
+
+def test_card_gate_goto_run_pattern_with_cross_file_jump():
+    """card_gate→goto→run→goto 版式：run 事件不驱动行走，enter 跳转由 goto 承载。"""
+    dag_with_gate = {"states": {
+        "b_10": {"file": "snr_b_10_s", "scene": "scene_b_10", "title": "门控分支",
+                 "seq": [{"play": "scene_b_10", "title": "门控分支"},
+                         {"card_gate": 99, "held": True},
+                         {"goto": "b_20_enter"},  # 持卡时走这条 goto → 跳转到 b_20_enter
+                         {"run": "snr_b_20_s"},   # run 无需门控，由伴随 goto 承载
+                         {"goto": "b_30"}]},      # 未持卡时走这条 goto → 跳转到 b_30
+        "b_20_enter": {"file": "snr_b_20_s", "scene": "scene_b_20", "title": "跨脚本片段",
+                       "seq": [{"play": "scene_b_20", "title": "跨脚本片段"}, {"goto": "end"}]},
+        "b_30": {"file": "snr_b_10_s", "scene": "scene_b_30", "title": "默认下一状态",
+                 "seq": [{"play": "scene_b_30", "title": "默认下一状态"}, {"goto": "end"}]},
+    }, "scene_meta": {
+        "scene_b_10": {"gets": [], "cost": [], "shows": [], "gameover": False, "complete": False},
+        "scene_b_20": {"gets": [], "cost": [], "shows": [], "gameover": False, "complete": False},
+        "scene_b_30": {"gets": [], "cost": [], "shows": [], "gameover": False, "complete": False},
+    }, "crds": {}}
+    ledger = [
+        {"id": 10, "file": "snr_b_10_s", "func": "scene_b_10", "kind": "narrative"},
+        {"id": 20, "file": "snr_b_20_s", "func": "scene_b_20", "kind": "narrative"},
+        {"id": 30, "file": "snr_b_10_s", "func": "scene_b_30", "kind": "narrative"},
+    ]
+
+    # 持卡 99 时：跳转到 b_20_enter
+    ex_held = Expander(dag_with_gate, ledger, unit_funcs={})
+    ex_held.held.add(99)
+    ex_held.story("b_10", choices={}, until=None)
+    states_held = [u["state"] for u in ex_held.timeline if u["type"] == "unit"]
+    assert states_held == ["b_10", "b_20_enter"], f"持卡时应跳 b_20_enter，得{states_held}"
+
+    # 未持卡 99 时：跳转到 b_30（run 事件被 skip=True 后的 goto 正常消费）
+    ex_unheld = Expander(dag_with_gate, ledger, unit_funcs={})
+    ex_unheld.story("b_10", choices={}, until=None)
+    states_unheld = [u["state"] for u in ex_unheld.timeline if u["type"] == "unit"]
+    assert states_unheld == ["b_10", "b_30"], f"未持卡时应跳 b_30，得{states_unheld}"

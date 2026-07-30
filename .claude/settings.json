@@ -1,0 +1,22 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
+    }
+  },
+  "enabledPlugins": [
+    "superpowers@claude-plugins-official",
+    "mattpocock-skills@claude-plugins-official"
+  ],
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command",
+        "command": "[ -n \"$CLAUDE_CODE_REMOTE\" ] && bash .claude/cloud-setup.sh --mode session || true" } ] }
+    ]
+  },
+  "permissions": {
+    "allow": ["Bash(uv sync:*)", "Bash(uv run pytest:*)", "Bash(uv run python tools/:*)",
+      "Bash(git status:*)", "Bash(git log:*)", "Bash(git diff:*)", "Bash(git show:*)",
+      "Bash(git ls-files:*)", "Bash(rg:*)", "Bash(grep:*)", "Bash(wc:*)"]
+  }
+}

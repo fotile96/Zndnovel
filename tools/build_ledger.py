@@ -104,10 +104,22 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default=str(DATA))
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--report", action="store_true")
     args = ap.parse_args(argv)
     from pathlib import Path
     out = Path(args.out_dir)
     ledger, extra = build(REPO / "lua_scripts")
+    if args.report:
+        from collections import Counter
+        by_file = Counter((r["file"], r["kind"]) for r in ledger)
+        for (f, k), n in sorted(by_file.items()):
+            print(f"{f:24s} {k:9s} {n}")
+        top = Counter(f'{r["file"]}:{r["func"]}' for r in ledger
+                      if r["kind"] == "ambient").most_common(20)
+        print("\n-- ambient 函数 TOP20 --")
+        for name, n in top:
+            print(f"{n:5d}  {name}")
+        return 0
     if args.check:
         same = (read_jsonl(out / "ledger.jsonl") == ledger
                 and read_jsonl(out / "ledger_extra.jsonl") == extra)

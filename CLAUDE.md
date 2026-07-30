@@ -157,12 +157,18 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 ## 云端环境（Claude Code web cloud environment）
 
-云端会话**不继承本机 `~/.claude`**（用户级 skills/agents/commands、用户级 enabledPlugins、用户级 CLAUDE.md 全都不载入），只吃仓库内的 `.claude/` 与 CLAUDE.md。初始化按两层设计：
+以下描述以 2026-07-30 首次实测为准，证据见 `docs/ops/cloud-acceptance-2026-07-30.md`（云端容器销毁后不可复现，故入库）。
 
-- `.claude/cloud-ui-setup.sh`——**粘贴到 claude.ai/code 环境设置的 “Setup script” 字段**（该字段不在仓库里，本文件只是版本化副本）。刻意写得极薄且稳定：改它会触发整机快照重建，而改下面那个不会。
-- `.claude/cloud-setup.sh`——真逻辑，幂等。首次建环境由 UI 脚本以 `--mode setup` 调用，之后每次会话由 SessionStart hook 以 `--mode session` 调用。做四件事：`uv sync --locked`（漂移则回退并告警）、建 `work/ctx work/out`、冒烟（`build_ledger`/`build_dag --check` + pytest）、写基线报告（HEAD、生成物行数、最新 `progress.md` 台账末尾）。另有一条 **SDD 证据保全**告警：`.superpowers/sdd/` 下未 `git add -f` 的 `*.md` 会随环境销毁而永久丢失。
+**云端会话开场第一件事：手动执行 `bash .claude/cloud-setup.sh --mode session`。** 它不会被自动调用（原因见下），而它是环境自检与基线报告的唯一入口。
+
+- **仓库级 `.claude/settings.json` 在云端整体不被采纳**：`hooks` / `enabledPlugins` / `extraKnownMarketplaces` / `permissions` 四项**全部失效**（该项目 `hasTrustDialogAccepted=false`；`permissions.allow` 也纯属装饰，放行实际来自 `IS_SANDBOX=yes`）。**插件路径另被环境级开关 `SKIP_PLUGIN_MARKETPLACE=true` 掐死**，仓库配置绕不过去——superpowers/mattpocock 在云端不可用。该文件仍保留，因为本地会话有效。
+- **真正生效的是账户级配置**：`CLAUDE_CODE_SYNC_SKILLS=1` 会把 claude.ai 账户下的自定义 skill 同步进 `~/.claude/skills/`，云端另有自带的 `~/.claude/launcher-settings.json`（含其自己的 SessionStart/Stop hook）。仓库 CLAUDE.md 本身**确实生效**。故「不继承本机 `~/.claude`」只在文件系统意义上成立，账户级 skill 是会到位的。`cloud-setup.sh` 会把 `~/.claude` 实况打进报告。
+- `.claude/cloud-ui-setup.sh`——**粘贴到 claude.ai/code 环境设置的 “Setup script” 字段**（该字段不在仓库里，本文件只是版本化副本）。刻意写得极薄且稳定：改它会触发整机快照重建，而改下面那个不会。它自己把 PWD/HOME/USER 等上下文写进 `/var/log/claude-cloud-setup.log`（打 stdout 会丢，首次验收即如此）。
+- `.claude/cloud-setup.sh`——真逻辑，幂等。首次建环境由 UI 脚本以 `--mode setup` 调用，之后每次会话手动以 `--mode session` 执行。内容：`uv sync --locked`（漂移则回退并告警）、探测 `~/.claude` 实况、建 `work/ctx work/out`、冒烟（`build_ledger`/`build_dag --check` + pytest + 系统 python3 编译 `extract_*.py`）、浅克隆/无 tag 告警、**SDD 证据保全**告警（`.superpowers/sdd/` 下未 `git add -f` 的 `*.md` 会随环境销毁而永久丢失）、写基线报告。报告首行自述 `--mode` 与时间——**「`work/setup-baseline.txt` 存在」不等于 session 跑过**，它可能是建环境时留下的。
 - **脚本永远 `exit 0`**：UI setup 脚本非零退出会让整个环境创建失败，而其日志位置无官方文档；故一切问题降级为告警写进报告，绝不由冒烟结果决定退出码（红测试恰恰可能正是云端会话要去修的东西）。
-- 约束速记（官方文档）：setup 以 root 跑、约 5 分钟预算、只在首次建环境时执行一次、其后整机文件系统被快照复用（装的包留存，进程不留存）；网络默认 Trusted（PyPI/GitHub 已放行）；环境变量在 UI 配置且**明文可见，不要放 API key**。setup 阶段的工作目录与仓库是否已 clone 均无文档，故脚本自行探测仓库、找不到就降级为只做机器级准备。
+- **克隆是浅克隆且不带 tag**：`git rev-list --count HEAD` 约 50，`skeleton-v1` 冻结点在云端**不存在**；凡以它为基准的核对须先 `git fetch --tags origin`（要全史再 `--unshallow`）。
+- 镜像实况：Ubuntu 24.04，**会话本身也是 root**；默认 `python3` 是 **3.11**，3.12/3.13 以 `python3.1x` 并存，uv 就地选 3.12、零下载（故 `tools/extract_*.py` 的「系统 python3 直接可跑」真实门槛是 **3.11 兼容**）。无 `gh`。网络：PyPI/`api.github.com`/`raw.githubusercontent.com` 通，git 走本地 proxy 重写，但 **github.com 网页抓取被拒**（400/403）。
+- 约束速记（官方文档）：setup 以 root 跑、约 5 分钟预算、只在首次建环境时执行一次、其后整机文件系统被快照复用（装的包留存，进程不留存）；环境变量在 UI 配置且**明文可见，不要放 API key**（本项目工具链全离线，无需任何密钥）。
 
 ## 常用操作（现阶段）
 

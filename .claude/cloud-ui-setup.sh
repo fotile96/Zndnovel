@@ -4,14 +4,25 @@
 # 本体逻辑一律进仓库（.claude/cloud-setup.sh），走 git 演进而非 UI 文本框。
 
 set -uo pipefail
-echo "== 探测上下文（工作目录/仓库位置无官方文档，先记录实况以便日后收紧） =="
-echo "PWD=$PWD  HOME=$HOME  USER=$(id -un)"
+LOG=/var/log/claude-cloud-setup.log
 
-# 仓库若已 clone，直接交给库内脚本；否则只做机器级预热（解释器进快照）。
+# setup 阶段的工作目录/HOME/USER 无官方文档，只能实测。**必须自己写文件**：
+# 2026-07-30 首次验收把这些打到 stdout，结果全流进了无文档的 UI 日志、一行没留下。
+{
+  echo "=== UI setup script 上下文 $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
+  echo "PWD=$PWD"
+  echo "HOME=$HOME"
+  echo "USER=$(id -un) (uid=$(id -u))"
+  echo "CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-（未设置）}"
+  echo "python3=$(python3 -V 2>&1)  uv=$(uv --version 2>&1)"
+} | tee -a "$LOG"
+
+# 仓库若已 clone，直接交给库内脚本；否则只做机器级预热。
 SELF=""
 for c in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /workspace/* /repo /home/*/*; do
   [[ -n "$c" && -f "$c/.claude/cloud-setup.sh" ]] && { SELF="$c/.claude/cloud-setup.sh"; break; }
 done
+echo "仓库探测结果：${SELF:-未找到（将只做机器级准备）}" | tee -a "$LOG"
 
 if [[ -n "$SELF" ]]; then
   bash "$SELF" --mode setup

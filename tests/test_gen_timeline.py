@@ -76,3 +76,57 @@ def test_card_gate_goto_run_pattern_with_cross_file_jump():
     ex_unheld.story("b_10", choices={}, until=None)
     states_unheld = [u["state"] for u in ex_unheld.timeline if u["type"] == "unit"]
     assert states_unheld == ["b_10", "b_30"], f"未持卡时应跳 b_30，得{states_unheld}"
+
+
+# Task 3 tests: fragment_sweep / replay / script / pool
+DAG2 = {"states": {
+    "b_10": {"file": "snr_b_10_s", "scene": "scene_b_10", "title": "一",
+             "seq": [{"play": "scene_b_10", "title": "一"}, {"goto": "b_20_sel"}]},
+    "b_20_sel": {"file": "snr_b_10_s", "scene": "scene_b_20_sel", "title": "选",
+             "seq": [{"play": "scene_b_20_sel", "title": "选"},
+                     {"choice": 1, "goto": "b_30"}, {"choice": 2, "goto": "b_40"}]},
+    "b_30": {"file": "snr_b_10_s", "scene": "scene_b_30", "title": "甲",
+             "seq": [{"play": "scene_b_30", "title": "甲"}, {"goto": "end"}]},
+    "b_40": {"file": "snr_b_10_s", "scene": "scene_b_40", "title": "乙",
+             "seq": [{"play": "scene_b_40", "title": "乙"}, {"goto": "end"}]},
+}, "scene_meta": {}, "crds": {
+    "11": {"stub": False, "req": [], "answers": [], "runs": []},
+    "12": {"stub": False, "req": [11], "answers": [11], "runs": ["snr_b_10_f"]},
+}}
+LEDGER2 = [
+    {"id": 10, "file": "snr_b_10_s", "func": "scene_b_10", "kind": "narrative"},
+    {"id": 20, "file": "snr_b_10_s", "func": "scene_b_20_sel", "kind": "narrative"},
+    {"id": 30, "file": "snr_b_10_s", "func": "scene_b_30", "kind": "narrative"},
+    {"id": 40, "file": "snr_b_10_s", "func": "scene_b_40", "kind": "narrative"},
+    {"id": 51, "file": "snr_crd_11", "func": "card_11_main", "kind": "narrative"},
+    {"id": 52, "file": "snr_crd_12", "func": "card_12_main", "kind": "narrative"},
+    {"id": 60, "file": "snr_b_10_f", "func": "scene_bf_10", "kind": "narrative"},
+    {"id": 70, "file": "snr_common", "func": "poolFn", "kind": "narrative"},
+]
+S2C = {"b_10": 11, "b_20_sel": 12}   # sceneId→卡号映射作为 Expander 构造参数传入
+
+def test_fragment_sweep_emits_cards_then_fchapter():
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)
+    ex.fragment_sweep()
+    kinds = [(u["unit_kind"], u.get("state"), u["ids"]) for u in ex.timeline if u["type"] == "unit"]
+    assert ("card", "b_10", [51]) in kinds
+    assert ("card", "b_20_sel", [52]) in kinds
+    assert ("fscene", None, [60]) in kinds          # crd_12 的 runs 紧随
+    assert {11, 12} <= ex.held
+
+def test_replay_emits_marker_and_only_new_units():
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)                # 默认走 b_30
+    ex.replay(at="b_20_sel", pick=2, until=None)
+    types = [(e["type"], e.get("state")) for e in ex.timeline]
+    assert ("marker", None) in types
+    states = [u["state"] for u in ex.timeline if u["type"] == "unit"]
+    assert states.count("b_20_sel") == 1 and "b_40" in states   # 折叠重讲
+
+def test_script_and_pool_units():
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.script("snr_crd_11")
+    ex.pool("snr_common:poolFn")
+    kinds = [(u["unit_kind"], u["ids"]) for u in ex.timeline]
+    assert ("script", [51]) in kinds and ("pool", [70]) in kinds

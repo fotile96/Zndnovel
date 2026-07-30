@@ -8,9 +8,10 @@ from tools.pipelib import REPO, DATA, read_jsonl, write_jsonl
 
 
 class Expander:
-    def __init__(self, dag, ledger_rows, unit_funcs):
+    def __init__(self, dag, ledger_rows, unit_funcs, scene2card=None):
         self.dag = dag
         self.unit_funcs = unit_funcs or {}
+        self.scene2card = scene2card or {}
         self.by_filefunc = {}
         for r in ledger_rows:
             if r.get("kind") == "narrative":
@@ -84,3 +85,72 @@ class Expander:
             if until and state == until:
                 return
             state = nxt
+
+    def _makeable(self, state):
+        """检查该状态对应的卡片是否可以做：
+        - 卡片必须在 scene2card 中有映射
+        - 卡片未持有
+        - 卡片的前置卡都已持有
+        - 若非 _sel 场景，其路线前缀上所有非 _sel 场景都已持卡"""
+        cid = self.scene2card.get(state)
+        if cid is None or cid in self.held:
+            return False
+        crd = self.dag["crds"].get(str(cid), {})
+        if not set(crd.get("req", [])) <= self.held:
+            return False
+        if state.endswith("_sel"):
+            return True
+        for prev in self.route:
+            if prev == state:
+                break
+            if prev.endswith("_sel"):
+                continue
+            pc = self.scene2card.get(prev)
+            if pc is not None and pc not in self.held:
+                return False
+        return True
+
+    def fragment_sweep(self, only=None):
+        """按 route 前缀序找可做的卡片，逐张 emit card unit 并持有，
+        然后发出 runs 中的 _f 章脚本作 fscene unit。"""
+        for state in list(self.route):
+            cid = self.scene2card.get(state)
+            if cid is None or (only and cid not in only):
+                continue
+            if not self._makeable(state):
+                continue
+            stem = f"snr_crd_{cid}"
+            funcs = sorted({fn for (f, fn) in self.by_filefunc if f == stem})
+            self.emit_unit("card", stem, state,
+                           self.dag["states"].get(state, {}).get("title"), funcs)
+            self.held.add(cid)
+            for runf in self.dag["crds"].get(str(cid), {}).get("runs", []):
+                fs = sorted({fn for (f, fn) in self.by_filefunc if f == runf})
+                self.emit_unit("fscene", runf, None, runf, fs)
+
+    def replay(self, at, pick, until=None):
+        """emit 回溯标记，然后沿状态图重讲，已 emit 过的状态折叠（不发 unit，只推进状态与 route）。"""
+        self.emit_marker(f"【讲述指针回溯至 {at}，本次选 {pick}】",
+                         recap=f"重讲：上一轮在 {at} 走了默认分支。")
+        before = set(self.emitted_states)
+        saved_emit = self.emit_unit
+        def dedup_emit(kind, src, state, title, funcs):
+            if state in before:
+                return
+            saved_emit(kind, src, state, title, funcs)
+        self.emit_unit = dedup_emit
+        try:
+            self.story(at, {at: pick}, until)
+        finally:
+            self.emit_unit = saved_emit
+
+    def script(self, file_stem):
+        """整文件 narrative ids 为一个 unit，用于无状态脚本（如 snr_crd_0）。"""
+        funcs = sorted({fn for (f, fn) in self.by_filefunc if f == file_stem})
+        self.emit_unit("script", file_stem, None,
+                       file_stem, funcs)
+
+    def pool(self, file_func):
+        """该函数全部 narrative ids 为一个 unit，用于 comSectionMapmoveAyanoIn 等函数级别复用。"""
+        f, fn = file_func.split(":")
+        self.emit_unit("pool", f, None, file_func, [fn])

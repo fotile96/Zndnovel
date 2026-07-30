@@ -159,6 +159,11 @@ inspect_user_config() {
 #   * 安装是 **false green**：组件只在会话启动时挂载，云端无 /reload-plugins，
 #     故新装的插件对**当前**会话无效，下个会话才生效。
 #   * 因此本函数在 setup 模式下最有价值（早于会话挂载）；session 模式下则是自愈补装。
+# 2026-07-30 第四会话**已证 setup 路径成立**（验收记录 §十）：setup 时点装的两个插件，
+# 在紧随其后的首个会话里 skill 清单可见、Skill() 可解析、插件自带 SessionStart hook 正常派生，
+# 而彼时 SKIP_PLUGIN_MARKETPLACE 仍是 true —— 该 flag 只短路 marketplace 解析（获取/更新），
+# **不挡加载已落盘且已 enable 的插件**；账户同步重写 ~/.claude/skills 也不会覆盖本函数写出的
+# ~/.claude/settings.json。尚未证的只剩「跨快照活到第 2 个会话」，判据就是下次的 plugins_prestate。
 PLUGIN_MARKETPLACE="anthropics/claude-plugins-official"
 PLUGIN_MARKETPLACE_NAME="claude-plugins-official"
 PLUGINS=(superpowers mattpocock-skills)   # 与仓库 .claude/settings.json 的声明保持一致

@@ -161,7 +161,8 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 **云端会话开场第一件事：手动执行 `bash .claude/cloud-setup.sh --mode session`。** 它不会被自动调用（原因见下），而它是环境自检与基线报告的唯一入口。
 
-- **仓库级 `.claude/settings.json` 在云端整体不被采纳**：`hooks` / `enabledPlugins` / `extraKnownMarketplaces` / `permissions` 四项**全部失效**（该项目 `hasTrustDialogAccepted=false`；`permissions.allow` 也纯属装饰，放行实际来自 `IS_SANDBOX=yes`）。**插件路径另被环境级开关 `SKIP_PLUGIN_MARKETPLACE=true` 掐死**，仓库配置绕不过去——superpowers/mattpocock 在云端不可用。该文件仍保留，因为本地会话有效。
+- **仓库级 `.claude/settings.json` 在云端整体不被采纳**：`hooks` / `enabledPlugins` / `extraKnownMarketplaces` / `permissions` 四项**全部失效**（该项目 `hasTrustDialogAccepted=false`；`permissions.allow` 也纯属装饰，放行实际来自 `IS_SANDBOX=yes`）。其中 `enabledPlugins`/`extraKnownMarketplaces` 两项已由 `cloud-setup.sh` §1.6 在 **setup 时点**装进用户级 `~/.claude/` 来兑现——**superpowers/mattpocock 在云端可用**（2026-07-30 实测：清单里 14 条 `superpowers:` skill、`Skill(superpowers:executing-plans)` 正常解析、插件自带的 SessionStart hook 正常派生）。`hooks`/`permissions` 两项仍无解——**注意区分**：派生的是插件自带的**用户级** hook，仓库级 hook 依旧不派生。该文件仍保留，因为本地会话有效。
+- **`SKIP_PLUGIN_MARKETPLACE=true` 只短路 marketplace 解析（获取/更新），不挡「加载已落盘且已 enable 的插件」**——这正是上面那条解法能成立的原因。该 flag 由控制面随 startup context 递入，容器内改不动（`--mode session` 里它照样是 `true`，插件照样挂载）。
 - **真正生效的是账户级配置**：`CLAUDE_CODE_SYNC_SKILLS=1` 会把 claude.ai 账户下的自定义 skill 同步进 `~/.claude/skills/`，云端另有自带的 `~/.claude/launcher-settings.json`（含其自己的 SessionStart/Stop hook）。仓库 CLAUDE.md 本身**确实生效**。故「不继承本机 `~/.claude`」只在文件系统意义上成立，账户级 skill 是会到位的。
 - **技能有两个可能载体，`cloud-setup.sh` 都会探测并打进报告**：`~/.claude/skills/`（账户同步的独立 skill）与 `~/.claude/plugins/cache/<市场>/<插件>/<版本>/`（插件形态，本机即如此）。两者皆空才告警。注意 `~/.claude/plugins/data/` 只是每插件的运行时目录（本机为空目录），**不能**当作「插件已装」的判据。报告同时打印 `SKIP_PLUGIN_MARKETPLACE` 与 `CLAUDE_CODE_SYNC_SKILLS` 的实际取值。
 - `.claude/cloud-ui-setup.sh`——**粘贴到 claude.ai/code 环境设置的 “Setup script” 字段**（该字段不在仓库里，本文件只是版本化副本）。刻意写得极薄且稳定：改它会触发整机快照重建，而改下面那个不会。它自己把 PWD/HOME/USER 等上下文写进 `/var/log/claude-cloud-setup.log`（打 stdout 会丢，首次验收即如此）。
@@ -170,6 +171,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - **克隆是浅克隆且不带 tag**：`git rev-list --count HEAD` 约 50，`skeleton-v1` 冻结点在云端**不存在**；凡以它为基准的核对须先 `git fetch --tags origin`（要全史再 `--unshallow`）。
 - 镜像实况：Ubuntu 24.04，**会话本身也是 root**；默认 `python3` 是 **3.11**，3.12/3.13 以 `python3.1x` 并存，uv 就地选 3.12、零下载（故 `tools/extract_*.py` 的「系统 python3 直接可跑」真实门槛是 **3.11 兼容**）。无 `gh`。网络：PyPI/`api.github.com`/`raw.githubusercontent.com` 通，git 走本地 proxy 重写，但 **github.com 网页抓取被拒**（400/403）。
 - 约束速记（官方文档）：setup 以 root 跑、约 5 分钟预算、只在首次建环境时执行一次、其后整机文件系统被快照复用（装的包留存，进程不留存）；环境变量在 UI 配置且**明文可见，不要放 API key**（本项目工具链全离线，无需任何密钥）。
+- **UI 配的环境变量到不了 setup，只到会话**（2026-07-30 探针实测）：平台自带的 20 个变量（含 `SKIP_PLUGIN_MARKETPLACE`/`CLAUDE_CODE_SYNC_SKILLS`）走 startup context，在引导层就位，setup 与会话都看得到；**UI 里自定义的变量走另一条通道**，由 `environment-manager` 在派生 `claude` 进程时才注入，`--mode setup` 的进程链上完全没有。故 **`cloud-setup.sh` 的 setup 分支不得依赖任何 UI 环境变量**。
 
 ## 常用操作（现阶段）
 

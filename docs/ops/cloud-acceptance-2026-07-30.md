@@ -243,7 +243,7 @@ stdout（逐行）：
 ## 六、待决（本次按要求未动脚本/未动 CLAUDE.md）
 
 1. `--mode session` 的自动触发需要替代方案（项目级 hook 在未信任项目下不派生）；在此之前，**新会话开场手动跑一次**是唯一可靠做法。
-2. 若 SDD 流程依赖 `superpowers` 插件，需另找载体（`SKIP_PLUGIN_MARKETPLACE=true` 是环境级、不可由仓库配置绕过）。<br>　↳ **已解，见 §八：每命令前缀可覆盖该开关，插件改装到用户级配置面。**
+2. 若 SDD 流程依赖 `superpowers` 插件，需另找载体（`SKIP_PLUGIN_MARKETPLACE=true` 是环境级、不可由仓库配置绕过）。<br>　↳ **已解，见 §八：每命令前缀可覆盖该开关，插件改装到用户级配置面。**<br>　↳ **已闭环，见 §十：装在 setup 时点，运行期实测可用（skill 清单、`Skill()` 解析、hook 派生三证）。**
 3. `cloud-ui-setup.sh` 的上下文探测行若真想留证，得自己写文件而不是靠 stdout。
 4. CLAUDE.md 第 1/2/4/9/11/14 条描述待按本记录订正。
 
@@ -479,6 +479,10 @@ A 判定为不留存 ⇒ `--mode session` 的自愈补装**永远追不上**：�
 这两条**在会话内测不了**（挂载发生在会话启动之前），只能靠真重建一次环境来判。
 （未证点 ① 后来被 §九 改判为**可以廉价先测**，见下节；本节文字保留原样不追改。）
 
+> **⚠ 本节结论已被 §十 超越（2026-07-30 第四会话）**：环境确实重建了，**根治路径走通**——
+> 两个未证点均证实为「无妨碍」（flag 只挡解析不挡加载；账户同步不覆盖 `settings.json`），
+> setup 时点装的插件在紧随其后的首个会话里运行期可用。本节文字保留原样存档，**以 §十 为准**。
+
 ---
 
 ## 九、`SKIP_PLUGIN_MARKETPLACE` 是从微 VM 外面注入的（2026-07-30 第三会话，进程链取证）
@@ -564,6 +568,103 @@ pid 1 是 Firecracker 的 init，只有两个变量。**第一个带该变量的
 - **`claude` 绝对路径回落**：`command -v` 落空时用 `/opt/claude-code/bin/claude`。
 - **timeout 90s/次**（原 180 + 240×2 = 660s，超 5 分钟预算一倍；实测全程约 8s）。
 - **告警按模式分措辞**：session 模式补装明说「既不对本会话生效，也不会留到下个会话」，不再给人 false green。是否把 session 分支彻底去掉仍未定，暂留（万一哪天 `~/.claude` 变成留存的）。
+
+---
+
+## 十、结案：setup 路径根治成功，插件在云端可用了（2026-07-30 第四会话＝建环境首个会话）
+
+- 采集背景：环境创建于 **16:54:09Z**（`--mode setup`），本会话 **16:55:09Z**（`--mode session`），相隔 60 秒
+- `/var/log/claude-cloud-setup.log` 里**只有 2 个取证段**（setup + 本 session）⇒ 这是建环境那次开机的**首个**会话
+- 会话分支 `claude/cloud-setup-diagnostics-2oh4h0`，HEAD `b5b84b4`
+
+### 1. A 判定翻盘：插件在位，且不是本次装的
+
+仍按 §八.6 的铁律「先拍照、后跑脚本」，在动 `cloud-setup.sh` 之前手工拍照：
+
+| 时点 | 探测 | 结果 |
+|---|---|---|
+| 跑脚本**前** | `ls /root/.claude/plugins` | **存在且完整**：`cache/ data/ marketplaces/ installed_plugins.json known_marketplaces.json .last_inuse_sweep`（全部 mtime 16:54） |
+| 跑脚本**前** | `find … -name SKILL.md \| wc -l` | **55** |
+| 跑脚本**前** | `/root/.claude/settings.json` | **存在**，内容恰为 `enabledPlugins`（superpowers + mattpocock）+ `extraKnownMarketplaces` |
+| 跑脚本时 | `ensure_plugins` 实际走的分支 | **「插件已在位…跳过安装」**，一次网络请求都没发 |
+| 脚本自证 | `plugins_prestate=` | `claude-plugins-official/superpowers/6.2.0 claude-plugins-official/mattpocock-skills/1.2.0` |
+
+`installed_plugins.json` 的 `installedAt` 为 `16:54:14.904Z` / `16:54:18.134Z`，落在 `--mode setup`（16:54:09Z）的窗口内 ⇒ 这两个插件是 **setup 装的**，不是本会话。日志两段的 prestate 可直接对照：
+
+- setup 段（L14）：`plugins_prestate=（安装前为空：未留存，或本环境首次）` ＋ 告警「本次新装 2 个插件」
+- session 段（L62）：两个插件俱在 → 跳过安装
+
+### 2. B 判定首次为真：运行期真的可用了
+
+三条独立证据，均为**运行期**读数而非文件系统读数：
+
+1. 会话 skill 清单含 **14 条 `superpowers:` 前缀**条目（brainstorming / executing-plans / writing-plans / subagent-driven-development / systematic-debugging / test-driven-development / verification-before-completion / requesting-code-review / receiving-code-review / finishing-a-development-branch / using-git-worktrees / dispatching-parallel-agents / writing-skills / using-superpowers），另有 9 条 `mattpocock-skills:`。
+2. `Skill(superpowers:executing-plans)` **正常加载**（非 Unknown skill），解析到 `/root/.claude/plugins/cache/claude-plugins-official/superpowers/6.2.0/skills/executing-plans`，正文完整返回。
+3. superpowers 自带的 **SessionStart hook 真的派生了**——`using-superpowers` 全文在会话开场被注入上下文。
+
+§七.3「直接调用 skill 报 Unknown skill」与 §八.7「第三次 false green」到此终结。
+
+### 3. §八.8 的两处「仍未证」全部证完，且都是好消息
+
+**未证点 ①：`SKIP_PLUGIN_MARKETPLACE=true` 是否连「加载已装插件」也挡？→ 不挡。**
+本会话 `env_val SKIP_PLUGIN_MARKETPLACE=true`（日志 L89，与 setup 段 L40 同值），插件照样挂载、skill 照样解析。**该 flag 只短路 marketplace 解析（获取/更新），不影响加载已落盘且已 enable 的插件**——这正是 §1.6「装到用户级配置面」解法能成立的机理。
+
+**未证点 ②：账户同步是否覆盖 setup 写下的 `~/.claude/settings.json`？→ 不覆盖。**
+mtime 序列自证：
+
+```
+16:54:15.757  ~/.claude/settings.json               ← 插件安装写出
+16:54:20.485  ~/.claude/plugins/installed_plugins.json
+16:54:25.339  ~/.claude/plugins
+16:54:30.029  ~/.claude/skills                      ← 账户同步（晚 15 秒）
+16:54:43.153  ~/.claude
+```
+
+账户同步在 `settings.json` **之后** 15 秒重写了 `skills/`，而 `settings.json` 内容原样存活（现仍是那两个 key）。两个载体互不干扰。
+
+### 4. 新发现：UI 环境变量**到不了 setup**，只到会话
+
+本次在 UI 环境设置里加了探针 `CLOUD_ENV_PROBE=canary-0731`。两个取证段读数相反：
+
+| 取证段 | `env_names` 含 `CLOUD_ENV_PROBE` |
+|---|---|
+| `mode=setup`（L39，16:54:09Z） | **无** |
+| `mode=session`（L88，16:55:09Z） | **有**，值 `canary-0731` |
+
+同一次开机、相隔 60 秒，故不是「探针没配好」。顺进程链定位到确切那一环：
+
+| pid | 进程 | env 数 | `CLOUD_ENV_PROBE` |
+|---|---|---|---|
+| 1 | `process_api --firecracker-init` | 2 | 无 |
+| 546 | `/bin/sh -c` 引导（建 `claude` 符号链接） | 56 | 无 |
+| 550 | `environment-manager task-run` | 58 | 无 |
+| 947 | `claude --settings …launcher-settings.json` | **70** | **有** |
+
+setup 侧那条链是 `550(58) → 638 /tmp/init-script-*.sh(60) → 650 脚本(62)`，全程无探针。
+
+**且它与平台的 20 个 startup-context 变量不同源**：`/tmp/environment-manager.out` 的 `startup_context_env_var_keys`（`count:20`，含 `SKIP_PLUGIN_MARKETPLACE`、`CLAUDE_CODE_SYNC_SKILLS`）里**没有** `CLOUD_ENV_PROBE`，全文 grep 该串命中 **0** 次。于是分层清楚了：
+
+- **平台变量**（含 `SKIP_PLUGIN_MARKETPLACE`）走 stdin 的 startup context，在 `/bin/sh -c` 引导层（56）就位，**setup 与 session 都看得到**；
+- **UI 用户变量**走另一条通道，由 `environment-manager` 在**派生 `claude` 进程时**注入（58→70 那一跳），**setup 的 init-script 完全拿不到**。
+
+两条实践结论：
+
+1. **`cloud-setup.sh` 的 setup 分支不得依赖任何 UI 环境变量**（本项目工具链全离线，恰好不受影响）。
+2. §九.3 那个「UI 里设 `SKIP_PLUGIN_MARKETPLACE=false`」的实验，在**会话侧确实可做**（用户变量进得了会话 env），但**已无必要**——setup 路径已根治，且未证点 ① 表明该 flag 本来就不挡加载。
+
+### 5. 仍未证的一点，别当已经成了
+
+本日志只有 2 个取证段 ⇒ setup 与本会话同处**建环境那一次开机**。所以现已证的是「setup 装的插件对**首个**会话可见可用」，**尚未证**「跨快照活到第 2、第 3 个会话」。判据现成——下个新会话开场跑 `--mode session`，看日志新增段的 `plugins_prestate=`：
+
+- 仍列出两个插件 ⇒ 快照留存，彻底结案；
+- 变回「安装前为空」⇒ §八.6 的冷启模型对 `~/.claude` 依然成立，setup 的成果只惠及首个会话，需另寻载体。
+
+### 6. 由此产生的文档订正（本次已落）
+
+- CLAUDE.md「superpowers/mattpocock 在云端不可用」→ 改为可用，并补记该 flag 只挡解析不挡加载。
+- CLAUDE.md 新增一条「UI 环境变量到不了 setup」。
+- §二.8「仓库级 hook 不派生」**仍成立**：本次派生的是插件自带的**用户级** hook，两回事，别混为一谈。
+- §八.5 注释「session 补装是自愈」按 §八.8 的更正理解（永不生效，保留只为万一）；本次 session 未触发补装，无从复验，故不追改。
 
 ---
 

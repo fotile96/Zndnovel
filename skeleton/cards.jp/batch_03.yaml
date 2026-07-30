@@ -1,0 +1,130 @@
+# skeleton/cards.jp/batch_03.yaml — 卡面日文转写 batch 03（card 60–79）
+# 来源：png/card/crd_<N>_a.png 逐字转写（规程 A）。
+# 字段：card(int) / variant("a"|"d") / title_jp / section_label / body_jp / note
+# 约定：
+#   - 卡面上的换行处以 \n 记录（双引号标量，\n 为换行转义）。
+#   - section_label 为右栏全部文字；右栏上下两个标签槽位之间以 \n 相连
+#     （如 "セクション2\nあらすじ"）。
+#   - 右栏标签「セクション2」「セクション3」的「2」「3」在卡面上为半角字形。
+#   - 本批 title_jp 已与 snr_common.lua plotTitle[60..79] 逐字比对（plotTitle 为权威）；
+#     唯一不一致为卡 70（卡面标题末尾多一全角句号，见该条 note）。
+- card: 60
+  variant: "a"
+  title_jp: "プラネタリウム"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "週末、アヤノとユウイチは\nプラネタリウムに行って遊\nんだ。上映が終わると、ア\nヤノはなぜか泣いていた。"
+  note: ""
+- card: 61
+  variant: "a"
+  title_jp: "オマジナイの効果"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "後日、ユウイチはアヤノに\n自分がみた「不思議な夢」\nの話をする。屋上、家には\n明かりが灯り始めていた。\n（完結）"
+  note: "末行「（完結）」独占一行、右侧缩进：起于左缘约 7.5 全角位处，未贴右缘（缩进空白的空格构成无法唯一判定，body_jp 仅录可见文字）。括号为全角（「）」字形与卡 30/89/91 行尾全角「（完結）」逐像素一致，与半角「)」不同），其后无句号。"
+- card: 62
+  variant: "a"
+  title_jp: "ナゾトキの正解"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "ナゾトキに正解する。これ\nで「オマジナイ」が成功す\nればいいんだけど。"
+  note: ""
+- card: 63
+  variant: "a"
+  title_jp: "サクラのため息"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノの答えにサクラはた\nめ息をつく。"
+  note: ""
+- card: 64
+  variant: "a"
+  title_jp: "昼休みの廊下"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "アヤノはサクラと廊下で話\nす。サクラはアヤノに「階\n段のウワサ」知っていると\n聞いてくる。"
+  note: "正文「階段のウワサ」」后直接接「知っていると」，中间无「を」（原版式如此）。"
+- card: 65
+  variant: "a"
+  title_jp: "選択：階段のウワサ"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「教えて」\n「知らない」\nの展開があり。"
+  note: ""
+- card: 66
+  variant: "a"
+  title_jp: "選択：興味深いウワサ"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「教えて」\n「聞かない」\nの展開があり。"
+  note: ""
+- card: 67
+  variant: "a"
+  title_jp: "選択：ウワサとは"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「お化け階段」\n「興味ないなあ」\n「知らない」\nの展開があり。"
+  note: ""
+- card: 68
+  variant: "a"
+  title_jp: "ウワサに興味がない"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "ウワサに興味が無い、とア\nヤノが答えると、サクラは\n小さくため息をついた。そ\nの後また、何事もない日常\nが訪れる。　　（おわり）"
+  note: "标题「ない」为假名，正文第 1 行作「興味が無い」（汉字「無」，原文如此）。末行「（おわり）」为全角括号、贴右缘收尾，与「が訪れる。」之间恰为 2 个全角空位（body_jp 以两个全角空格再现），其后无句号。"
+- card: 69
+  variant: "a"
+  title_jp: "お化け階段"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "おばけ階段のこと？ と聞\nくとサクラはうなずき、ア\nヤノに階段のウワサについ\nて説明する。"
+  note: "标题为「お化け階段」（与 plotTitle 一致），正文首行作「おばけ階段」（「ばけ」为假名，原文如此）。第 1 行「？」为全角，其后有一个半角空格宽度的空档（body_jp 以半角空格记录）。"
+- card: 70
+  variant: "a"
+  title_jp: "選択：ウワサ話を……"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「真剣に聞く」\n「適当に聞く」\n「とりあえず聞く」\nの展開があり。"
+  note: "卡面标题实渲染为「選択：ウワサ話を……。」（「……」后多一全角句号「。」）；plotTitle[70] 为「選択：ウワサ話を……」（无句号），title_jp 依 plotTitle 记录。"
+- card: 71
+  variant: "a"
+  title_jp: "適当に聞く"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "クラスメイトに階段のウワ\nサについて聞く。適当に聞\nくとアヤノは怒られてしま\nう。"
+  note: ""
+- card: 72
+  variant: "a"
+  title_jp: "とりあえず聞いてみる"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "クラスメイトに階段のウワ\nサについて聞く。とりあえ\nず……と聞いてみてもなし\nのつぶて。"
+  note: ""
+- card: 73
+  variant: "a"
+  title_jp: "真剣に聞く"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "クラスメイトに階段のウワ\nサについて真剣に聞く。夏\n休み中の部活の子が体験し\nたのでは、という情報を得\nる。"
+  note: ""
+- card: 74
+  variant: "a"
+  title_jp: "探索：放課後の学校"
+  section_label: "セクション3\n探索"
+  body_jp: "放課後のウワサについて学\n校を探索する。保健の先生\nと、ユカリ先生から情報を\n得る。途中、校内を歩くユ\nウイチを見かけた。"
+  note: "右栏第二标签槽位为「探索」（本批唯一非「あらすじ/選択肢」者）。末行「ウイチ」的「イ」为全尺寸假名（像素与他卡「ユウイチ」一致，低倍缩放下易误读作小「ィ」）。"
+- card: 75
+  variant: "a"
+  title_jp: "選択：ユウイチの影"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「後をつける」\n「ほうっておく」……\nの展開があり。"
+  note: "第 2 行「ほうっておく」」之后直接接「……」（两个三点省略号字符），中间无空格（六点恰落于紧随「」」的两个全角格内）。"
+- card: 76
+  variant: "a"
+  title_jp: "ほうっておく"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "ユウイチの事は放っておい\nて、きくちゃんの所に行く\nことに。"
+  note: "标题「ほうっておく」为假名；正文第 1 行作「放っておいて」（汉字「放」，原文如此）。"
+- card: 77
+  variant: "a"
+  title_jp: "陸上部のウワサ"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "きくちゃんから陸上部に流\nれるウワサを確認。ウワサ\nは真実だった。"
+  note: ""
+- card: 78
+  variant: "a"
+  title_jp: "選択：向かう場所"
+  section_label: "セクション3\n選択肢"
+  body_jp: "「図書室へ」\n「階段へ」\nの展開があり。"
+  note: ""
+- card: 79
+  variant: "a"
+  title_jp: "後をつける"
+  section_label: "セクション3\nあらすじ"
+  body_jp: "アヤノはユウイチの後をつ\nける。ユウイチは図書室へ\n入ったらしい。"
+  note: ""

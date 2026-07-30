@@ -34,7 +34,7 @@ tools/                          分析提取脚本（可复跑，路径相对仓
 analysis/                       上述脚本的产物归档（lua 变动后重跑，详见其 README.md）
   dag_all.txt                   全 23 章调度器场景图快照（DAG 权威参照）
   crd_summary.txt               196 个卡片谜题：前置卡/答案卡/触发章节/提示语
-  text_digest/*.txt             228 份纯文本摘要（17995 行，覆盖全部 16750 条 vms）
+  text_digest/*.txt             228 份纯文本摘要（17995 行，覆盖全部 16749 条 vms）
 pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；deps: pillow）
 ```
 
@@ -53,7 +53,7 @@ pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；de
 
 ### 文本调用与标记（翻译工具的解析对象）
 
-对白/旁白统一走 `vms(消息ID, 语音ID, "文本")`（snr_common 定义：播语音 + `msg`）。**消息 ID 全局唯一**（1..17220，共 16750 个静态调用；另有 `oCard.show` 动态用 18000+卡号），用于已读标记，是翻译数据库的天然主键。语音 ID 为 `"NAO05930"` 这类（无语音 = `NONVOICE`，有语音不进 backlog = `NORECORD`）。
+对白/旁白统一走 `vms(消息ID, 语音ID, "文本")`（snr_common 定义：播语音 + `msg`）。**消息 ID 全局唯一**（1..17220，共 16749 个静态调用；另有 `oCard.show` 动态用 18000+卡号），用于已读标记，是翻译数据库的天然主键。语音 ID 为 `"NAO05930"` 这类（无语音 = `NONVOICE`，有语音不进 backlog = `NORECORD`）。
 
 文本内标记（必须原样保留/正确迁移）：
 - `【名字】「…」` 说话人前缀；旁白无前缀；`○` 开头 = 场景说明式旁白（幕间描述）；`■` = 系统通知（【■おしらせ】等）。
@@ -117,7 +117,7 @@ pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；de
 
 ## 文本载体清单（翻译工作量地图）
 
-1. **脚本内文本**（主体）：16750 条 `vms`（全局唯一 ID 1..17220）+ `savedataTitle`/`plotTitle[1..195]`/场景标题参数/`oCard.show` 提示语（tr_line 已标记一部分）。提取正则：`vms\((\d+), "([A-Z0-9]+|NONVOICE|NORECORD)", "(.*)"\)`；场景归属按所在 `scene_*` 函数 + 各章 main() 调度器。
+1. **脚本内文本**（主体）：16749 条 `vms`（全局唯一 ID 1..17220）+ `savedataTitle`/`plotTitle[1..195]`/场景标题参数/`oCard.show` 提示语（tr_line 已标记一部分）。提取正则：`vms\((\d+), "([A-Z0-9]+|NONVOICE|NORECORD)", "(.*)"\)`；场景归属按所在 `scene_*` 函数 + 各章 main() 调度器。
 2. **图片烤字**（需图像重制）：
    - `select/` 278 张：全部选项按钮文字（`sel_<场景>_<a/b/c>_{on,off}`）+ 地图点名。
    - `card/` 197 张卡面：**含完整梗概正文段落**（标题+正文+セクション栏），是隐藏叙事语料，必须逐张翻译重排。

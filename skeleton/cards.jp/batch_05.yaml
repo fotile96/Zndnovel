@@ -1,0 +1,134 @@
+# skeleton/cards.jp/batch_05.yaml — 卡面日文转写 batch 05（card 100–119）
+# 来源：png/card/crd_<N>_a.png 逐字转写（规程 A）。
+# 字段：card(int) / variant("a"|"d") / title_jp / section_label / body_jp / note
+# 约定：
+#   - 卡面上的换行处以 \n 记录（双引号标量，\n 为换行转义）。
+#   - section_label 为右栏全部文字；右栏上下两个标签槽位之间以 \n 相连
+#     （如 "セクション6\nあらすじ"）。
+#   - 右栏标签「セクション6」「セクション8」的「6」「8」在卡面上为半角字形。
+#   - キーワード卡（105–107、109、114–117、119）右栏仅上槽位一行「キーワード」，
+#     无第二槽位文字。
+#   - 卡 118 右栏上槽位为「セクションEX1」，卡面上折为两行（セクション／EX1），
+#     E・X・1 均为半角字形，按实际折行记为 "セクション\nEX1\nあらすじ"。
+#   - 正文中的空格逐字原样记录：卡 101 第 5 行为 4 个全角空格（U+3000），
+#     卡 101 第 2 行与卡 103/104「Ｔｒｕｅ Ｃｏｌｏｒ」词间为半角空格（U+0020）。
+- card: 100
+  variant: "a"
+  title_jp: "選択：どこで読む"
+  section_label: "セクション6\n選択肢"
+  body_jp: "「家で読む」\n「図書室で読む」\nの展開があり。"
+  note: ""
+- card: 101
+  variant: "a"
+  title_jp: "サクラからの手紙"
+  section_label: "セクション6\nあらすじ"
+  body_jp: "アヤノはサクラと手紙のや\nりとりをしている。 しか\nし冬の最中、春が訪れる前\nに、手紙はぷつりと、途絶\nえた。　　　　（おわり）"
+  note: "第 2 行「している。」后有一个半角空格再接「しか」（像素间距约半个全角位）。第 5 行「えた。」与「（おわり）」之间为 4 个全角空格（\\u3000×4），使「（おわり）」靠行尾（落位与卡 19 的「（おわり）」逐像素一致）；「（おわり）」为全角括号，其后无句号，正文即止于此。"
+- card: 102
+  variant: "a"
+  title_jp: "図書室で読む"
+  section_label: "セクション6\nあらすじ"
+  body_jp: "図書室で手紙を読むと「推\n理クイズ」の便せんもある\nことに気がついた。クイズ\nの答えは「Ａアヤノ、Ｂサ\nクラ、Ｃユウイチ」。"
+  note: "正文中「Ａ」「Ｂ」「Ｃ」为全角字母字形。"
+- card: 103
+  variant: "a"
+  title_jp: "選択：ノート"
+  section_label: "セクション6\n選択肢"
+  body_jp: "「失われた夢の物語」\n「Ｔｒｕｅ Ｃｏｌｏｒ」\nの展開があり。"
+  note: "「Ｔｒｕｅ Ｃｏｌｏｒ」字母为全角字形，词间空格为半角（与 snr_common.lua plotTitle[104] 的字形一致）。"
+- card: 104
+  variant: "a"
+  title_jp: "Ｔｒｕｅ Ｃｏｌｏｒ"
+  section_label: "セクション6\nあらすじ"
+  body_jp: "物語の題名は\n「Ｔｒｕｅ Ｃｏｌｏｒ」\nサクラとアヤノ、二人がつ\nくる物語。"
+  note: "标题与正文中「Ｔｒｕｅ Ｃｏｌｏｒ」字母为全角、词间空格为半角，与 plotTitle[104] 逐字一致。正文第 1 行止于「は」、第 2 行止于「」」，其后均无标点。"
+- card: 105
+  variant: "a"
+  title_jp: "自己暗示"
+  section_label: "キーワード"
+  body_jp: "アヤノは自分に対して、何\nかを強く思い込む傾向があ\nる。"
+  note: ""
+- card: 106
+  variant: "a"
+  title_jp: "強迫観念"
+  section_label: "キーワード"
+  body_jp: "アヤノは無意識のうちに、\n「どうしてもそうしなきゃ\nいけない」と思う傾向があ\nる。"
+  note: ""
+- card: 107
+  variant: "a"
+  title_jp: "先生は信用できない"
+  section_label: "キーワード"
+  body_jp: "ユウイチとユカリ先生が抱\nき合っているのを目撃した\nとき、強く感じたこと。"
+  note: ""
+- card: 108
+  variant: "a"
+  title_jp: "選択：屋上の帰り道"
+  section_label: "セクション6\n選択肢"
+  body_jp: "「まだここにいる」\n「中庭へ行く」\nの展開があり。"
+  note: ""
+- card: 109
+  variant: "a"
+  title_jp: "冬の告白は失敗する"
+  section_label: "キーワード"
+  body_jp: "告白するなら春か夏がいい\n季節。なぜなら……。"
+  note: ""
+- card: 110
+  variant: "a"
+  title_jp: "中庭の雪"
+  section_label: "セクション6\nあらすじ"
+  body_jp: "物語は、もう、書けない。"
+  note: ""
+- card: 111
+  variant: "a"
+  title_jp: "僕の言葉"
+  section_label: "セクション8\nあらすじ"
+  body_jp: "僕がつくる物語。"
+  note: ""
+- card: 112
+  variant: "a"
+  title_jp: "セクション８：ユウイチ、直哉"
+  section_label: "セクション8\nあらすじ"
+  body_jp: "物語の主人公。"
+  note: "标题中「８」「：」为全角（与 plotTitle[112] 一致）；右栏标签「セクション8」的「8」为半角。"
+- card: 113
+  variant: "a"
+  title_jp: "フェンスの向こう側"
+  section_label: "セクション8\nあらすじ"
+  body_jp: "フェンスの向こう側へ。"
+  note: ""
+- card: 114
+  variant: "a"
+  title_jp: "ナオヤ"
+  section_label: "キーワード"
+  body_jp: "物語に登場する「ナオヤ」"
+  note: "正文止于「ナオヤ」，右引号后无句号。"
+- card: 115
+  variant: "a"
+  title_jp: "アヤノ"
+  section_label: "キーワード"
+  body_jp: "物語に登場する「アヤノ」"
+  note: "正文止于「アヤノ」，右引号后无句号。"
+- card: 116
+  variant: "a"
+  title_jp: "屋上から転落"
+  section_label: "キーワード"
+  body_jp: "とても、いやなこと……。\nでも、気になること……。"
+  note: ""
+- card: 117
+  variant: "a"
+  title_jp: "気がつくと屋上"
+  section_label: "キーワード"
+  body_jp: "気がつくと居た場所。"
+  note: ""
+- card: 118
+  variant: "a"
+  title_jp: "春"
+  section_label: "セクション\nEX1\nあらすじ"
+  body_jp: "そしてまた、春が訪れた。"
+  note: "右栏上槽位标签为「セクションEX1」，卡面上折为两行（第 1 行「セクション」、第 2 行「EX1」），E・X・1 均为半角字形；下槽位「あらすじ」相应下移一行。"
+- card: 119
+  variant: "a"
+  title_jp: "屋上"
+  section_label: "キーワード"
+  body_jp: "不思議な魅力がある。風が\n気持ちいい。"
+  note: ""

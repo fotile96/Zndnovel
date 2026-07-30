@@ -1,0 +1,515 @@
+local card_103_s6s_150_sel_step11, card_103_s6s_150_sel_intro, card_103_s6s_150_sel_resolve, card_103_s6s_150_sel_step3, card_103_s6s_150_sel_step4, card_103_s6s_150_sel_step5, card_103_s6s_150_sel_step6, card_103_s6s_150_sel_step7, card_103_s6s_150_sel_step8, card_103_s6s_150_sel_step9, card_103_s6s_150_sel_step10, card_103_s6s_150_sel_step12, v12, v13, v14, v15, v16
+card_103_s6s_150_sel_step11 = function()
+    local card_103_s6s_150_sel_step11
+    cStopBGMWrap()
+    comPoseLoad("po2_aya_f_2_e")
+    vms(371, "NONVOICE", "【彩野】「うーん……」")
+    vms(372, "NONVOICE", "【彩野】「直哉くん……」")
+    vms(373, "NONVOICE", "【彩野】「ごめんなさい、考えが上手くまとまらないの」")
+    vms(374, "NONVOICE", "【直哉】「出したカードが間違っていると言うこと？」")
+    vms(375, "NONVOICE", "【彩野】「ううん、渡してくれたカードはあっていると思うんだけど……」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(376, "NONVOICE", "【彩野】「途中でちょっと、集中ができなくなっちゃって」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(377, "NONVOICE", "そういえば、間違ったカード渡してしまった時があった。")
+    vms(378, "NONVOICE", "途中一度でもカードの選択を間違えるとだめみたいだ。")
+    vms(379, "NONVOICE", "なかなか厳しいな。もう一度、カードを選び直してみよう……。")
+    comPoseDelete()
+    comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    run(cGetFileName("script", "snr_fragment_main"))
+    quit()
+end
+card_103_s6s_150_sel_intro = function()
+    local card_103_s6s_150_sel_step11
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
+    comPoseLoad("po2_aya_f_1_a")
+    vms(380, "NONVOICE", "【直哉】「アヤノさんがノートにつけていたタイトル、だね」")
+    vms(381, "NONVOICE", "【彩野】「物語の、タイトル……」")
+    vms(382, "NONVOICE", "【直哉】「えっとね。『失われた夢の物語』の展開は、カードをつくってあるよ」")
+    comPoseLoad("po2_aya_f_2_a")
+    vms(383, "NONVOICE", "【彩野】「そうなんだ……。見せてもらっていい？」")
+    vms(384, "NONVOICE", "【直哉】「うん。えっとね、これになるよ」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_resolve = function()
+    local card_103_s6s_150_sel_step11
+    oCard.cardAnswerTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(385, "NONVOICE", "【彩野】「そっか……」")
+    cStopBGMWrap()
+    comPoseLoad("po2_aya_f_2_e")
+    vms(386, "NONVOICE", "【彩野】「……」")
+    vms(387, "NONVOICE", "【彩野】「……物語の、タイトル……」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(388, "NONVOICE", "【彩野】「……」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(389, "NONVOICE", "【彩野】「ごめんなさい、直哉くん、ちょっと手間を掛けさせてしまうんだけど……」")
+    vms(390, "NONVOICE", "【直哉】「ん、なんだろう？」")
+    vms(391, "NONVOICE", "【彩野】「これまで私たちが作ってきた物語のあらすじを、もう一度、一通り最初から見せてもらっていいかな？」")
+    vms(392, "NONVOICE", "【直哉】「物語――各セクションのあらすじカードだね」")
+    vms(393, "NONVOICE", "【彩野】「うん……そうだと思う……」")
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_7_x"))
+    vms(394, "NONVOICE", "【直哉】「まず、セクション１の物語のあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step3 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(395, "NONVOICE", "【彩野】「コックリさんをして……」")
+    vms(396, "NONVOICE", "【直哉】「セクション２のあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step4 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(397, "NONVOICE", "【彩野】「オマジナイをして……」")
+    vms(398, "NONVOICE", "【直哉】「セクション３Ａのあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step5 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(399, "NONVOICE", "【彩野】「階段のウワサ……」")
+    vms(400, "NONVOICE", "【直哉】「セクション３Ｂのあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step6 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(401, "NONVOICE", "【彩野】「花火を見て……」")
+    vms(402, "NONVOICE", "【直哉】「セクション４Ａのあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step7 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(403, "NONVOICE", "【彩野】「メモを見て……」")
+    vms(404, "NONVOICE", "【直哉】「セクション４Ｂのあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step8 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(405, "NONVOICE", "【彩野】「屋上……」")
+    vms(406, "NONVOICE", "【直哉】「セクション５のあらすじは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step9 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(407, "NONVOICE", "【彩野】「……サクラさん……」")
+    vms(408, "NONVOICE", "【直哉】「それとね、彩野さん」")
+    vms(409, "NONVOICE", "【彩野】「……うん」")
+    vms(410, "NONVOICE", "【直哉】「実はこの間、誰かからのメモが彩野さんの手帳に挟まれてたんだ」")
+    vms(411, "NONVOICE", "【彩野】「メモ？」")
+    vms(412, "NONVOICE", "【直哉】「うん。メモの内容は『お話のありかは、屋上にある』だった」")
+    vms(413, "NONVOICE", "【直哉】「それで実際に屋上に行ったら、本当に『物語』の冊子を発見したんだ」")
+    comPoseLoad("po2_aya_f_2_e")
+    vms(414, "NONVOICE", "【彩野】「物語……」")
+    vms(415, "NONVOICE", "【直哉】「うん。その物語のタイトルは――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step10 = function()
+    oCard.cardAnswerNonvoiceTrue()
+    cStopBGMWrap()
+    comPoseLoad("po2_aya_f_2_e")
+    vms(416, "NONVOICE", "【彩野】「いつか、君が、見る、お話……」")
+    vms(417, "NONVOICE", "【彩野】「屋上……メモ……」")
+    vms(418, "NONVOICE", "【彩野】「……夕焼け……」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(419, "NONVOICE", "【彩野】「直哉くん……」")
+    vms(420, "NONVOICE", "【直哉】「うん」")
+    vms(421, "NONVOICE", "【彩野】「さっき、セクション４の物語を教えて貰ったんだけど――」")
+    vms(422, "NONVOICE", "【彩野】「ここで、ユウイチのポケットに入っていたメモの内容って、どういう内容かわかる？」")
+    vms(423, "NONVOICE", "【直哉】「えっとね、確か、『ポケットの中のメモ』の場面に書いてあったはず――」")
+    comPoseDelete()
+end
+card_103_s6s_150_sel_step12 = function()
+    local card_103_s6s_150_sel_step11, card_103_s6s_150_sel_intro, card_103_s6s_150_sel_resolve
+    oCard.cardAnswerTrue()
+    comPoseLoad("po2_aya_f_1_a")
+    vms(424, "NONVOICE", "【彩野】「……」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(425, "NONVOICE", "【彩野】「……」")
+    comPoseLoad("po2_aya_f_2_e")
+    vms(426, "NONVOICE", "【彩野】「……タイトル……」")
+    vms(427, "NONVOICE", "【彩野】「……わかった」")
+    vms(428, "NONVOICE", "【直哉】「……え？」")
+    vms(429, "NONVOICE", "【彩野】「思い出したの。サクラさんと作った、『物語』のタイトル」")
+    vms(430, "NONVOICE", "【直哉】「物語の、タイトル」")
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
+    vms(431, "NONVOICE", "【彩野】「うん。――『<Ｔｒｕｅ Ｃｏｌｏｒ,トゥルー カラー>』」")
+    vms(432, "NONVOICE", "【彩野】「これが、物語のタイトルだよ、直哉くん」")
+    cLoadPlaySE(cGetFileName("se", "se_30"), false)
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：ノート』の選択肢（Ｔｒｕｅ Ｃｏｌｏｒ）を作成しました。") -- tr_line:144
+    comPoseDelete()
+    vms(433, "NONVOICE", "『Ｔｒｕｅ Ｃｏｌｏｒ』……。")
+    vms(434, "NONVOICE", "……。")
+    comPoseDelete()
+    if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
+        gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
+        comAyanoTimeRefresh()
+    end
+end
+main = function()
+    local v12, v13, v14, v15, v16, v17
+    comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    if gameSave.myCard[192].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[133].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[134].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[135].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[136].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[137].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[138].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[139].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[145].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    if gameSave.myCard[146].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    v12 = false
+    card_103_s6s_150_sel_intro()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 192 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(435, "NONVOICE", "『失われた夢の物語』のあらすじを見せてみよう。")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_resolve()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 133 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(436, "NONVOICE", "セクション１のあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step3()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 134 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(437, "NONVOICE", "セクション２のあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step4()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 135 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(438, "NONVOICE", "セクション３Ａのあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step5()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 136 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(439, "NONVOICE", "セクション３Ｂのあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step6()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 137 then
+            break
+        end
+        if v16 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(440, "NONVOICE", "セクション４Ａのあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            v12 = true
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step7()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 138 then
+            break
+        end
+        if v16 == -1 then
+            v12 = true
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(441, "NONVOICE", "セクション４Ｂのあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step8()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 139 then
+            break
+        end
+        if v16 == -1 then
+            v12 = true
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(442, "NONVOICE", "セクション５のあらすじは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step9()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 145 then
+            break
+        end
+        if v16 == -1 then
+            v12 = true
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(443, "NONVOICE", "屋上で見つけた『物語』のタイトルは――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_103_s6s_150_sel_step10()
+    v13 = 0
+    v14 = 0
+    v15 = -1
+    while v13 < 1 do
+        v16 = oCard.selectCardObj()
+        if v16 == 146 then
+            break
+        end
+        if v16 == -1 then
+            v12 = true
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v14 == 1 then
+            v12 = true
+            oCard.mesNG2()
+            vms(444, "NONVOICE", "セクション４、『ポケットの中のメモ』の場面――")
+            comPoseDelete()
+        end
+        if v14 == 0 then
+            oCard.mesNG()
+            v14 = v14 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    if v12 == true then
+        card_103_s6s_150_sel_step11()
+    end
+    card_103_s6s_150_sel_step12()
+    comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    run(cGetFileName("script", "snr_fragment_main"))
+    quit()
+end

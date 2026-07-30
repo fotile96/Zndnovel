@@ -1,0 +1,74 @@
+local card_148_s4s_40_intro, card_148_s4s_40_resolve, v2, v3, v4, v5
+card_148_s4s_40_intro = function()
+    local card_148_s4s_40_intro
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
+    comPoseLoad("po2_aya_f_1_a")
+    vms(760, "NONVOICE", "【直哉】「廊下でユウイチを見かけて、声を掛けるんだけど――」")
+    vms(761, "NONVOICE", "【直哉】「アヤノさんは『私じゃない』って、結局分かれちゃうんだね」")
+    vms(762, "NONVOICE", "【彩野】「うん……」")
+    vms(763, "NONVOICE", "【彩野】「あ、それで直哉くん。物語の中で、アヤノは『きくちゃんの所、行ってみよう』ってあったけど……」")
+    comPoseLoad("po2_aya_f_2_a")
+    vms(764, "NONVOICE", "【彩野】「この後の展開って、どんな展開になるのかな？」")
+    vms(765, "NONVOICE", "【直哉】「あ、うん。えっとね、きくちゃんの居るところ――校庭に行くんだ」")
+    vms(766, "NONVOICE", "【直哉】「場面は、セクション３になるね。あらすじが作ってあるよ」")
+    comPoseDelete()
+end
+card_148_s4s_40_resolve = function()
+    local card_148_s4s_40_intro, card_148_s4s_40_resolve
+    oCard.cardAnswerTrue()
+    comPoseLoad("po2_aya_f_1_e")
+    vms(767, "NONVOICE", "【彩野】「あ、なるほど。きくちゃんに階段のウワサを聞きに戻るんだね」")
+    vms(768, "NONVOICE", "【直哉】「うん。物語の展開的には、セクション３から４に行って、やっぱり３に戻るって感じ」")
+    vms(769, "NONVOICE", "【直哉】「でも……改めてこうやって物語の流れをまとめてみると、ちょっと面白いね」")
+    vms(770, "NONVOICE", "【直哉】「どうしてこんな展開にしたんだろう？」")
+    comPoseLoad("po2_aya_f_2_e")
+    vms(771, "NONVOICE", "【彩野】「うーん……そうだね……」")
+    cLoadPlaySE(cGetFileName("se", "se_30"), false)
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『私じゃない』のあらすじを作成しました。") -- tr_line:27
+    comPoseDelete()
+    if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
+        gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
+        comAyanoTimeRefresh()
+    end
+end
+main = function()
+    local v2, v3, v4, v5, v6
+    comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    if gameSave.myCard[77].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    card_148_s4s_40_intro()
+    v2 = 0
+    v3 = 0
+    v4 = -1
+    while v2 < 1 do
+        v5 = oCard.selectCardObj()
+        if v5 == 77 then
+            break
+        end
+        if v5 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v3 == 1 then
+            oCard.mesNG2()
+            vms(772, "NONVOICE", "『陸上部のウワサ』を聞きに行く場面だったかな……")
+            comPoseDelete()
+        end
+        if v3 == 0 then
+            oCard.mesNG()
+            v3 = v3 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_148_s4s_40_resolve()
+    comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    run(cGetFileName("script", "snr_fragment_main"))
+    quit()
+end

@@ -1,0 +1,92 @@
+local card_56_s2s_420_intro, card_56_s2s_420_resolve, v2, v3, v4, v5
+card_56_s2s_420_intro = function()
+    local card_56_s2s_420_intro
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
+    comPoseLoad("po2_aya_f_1_a")
+    vms(2912, "NONVOICE", "【彩野】「屋上から転落した、男子生徒を目撃する場面」")
+    vms(2913, "NONVOICE", "【彩野】「……なんだろう、すごく嫌な感じがする」")
+    vms(2914, "NONVOICE", "【彩野】「この男子生徒って……」")
+    cStopBGMWrap()
+    vms(2915, "NONVOICE", "【直哉】「……実は、もう一場面あるんだ、彩野さん」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(2916, "NONVOICE", "【彩野】「え？」")
+    vms(2917, "NONVOICE", "僕は、彩野さんに『ユウイチの後ろ姿』のあらすじを見せることにした。")
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_8_x"))
+    comPoseDelete()
+end
+card_56_s2s_420_resolve = function()
+    local card_56_s2s_420_intro, card_56_s2s_420_resolve
+    oCard.cardAnswerTrue()
+    comPoseLoad("po2_aya_f_1_c")
+    vms(2918, "NONVOICE", "【彩野】「え、これ……じゃあ……」")
+    vms(2919, "NONVOICE", "【直哉】「うん。このあらすじと組み合わせると、屋上から落ちたのはユウイチだと思う」")
+    comPoseLoad("po2_aya_f_2_e")
+    vms(2920, "NONVOICE", "【彩野】「……」")
+    vms(2921, "NONVOICE", "【彩野】「ユウイチ……」")
+    vms(2922, "NONVOICE", "【彩野】「直哉くん、これ、オマジナイが失敗しちゃったから、なのかな」")
+    vms(2923, "NONVOICE", "【直哉】「……たぶん。話の流れを考えると、その可能性は高いと思う」")
+    vms(2924, "NONVOICE", "【彩野】「たぶん効くオマジナイ、と、やってソンはないオマジナイ……」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(2925, "NONVOICE", "【彩野】「ね、直哉くん」")
+    vms(2926, "NONVOICE", "彩野さんは何かを思い詰めたように、僕の名前を呼んだ。")
+    vms(2927, "NONVOICE", "【彩野】「やっぱりここ、アヤノの意識が弱いからだと思う」")
+    vms(2928, "NONVOICE", "【直哉】「……意識」")
+    vms(2929, "NONVOICE", "【彩野】「そう、意識……オマジナイへの願いのようなもの」")
+    vms(2930, "NONVOICE", "【彩野】「カード、つくってもらっていいかな」")
+    vms(2931, "NONVOICE", "【直哉】「オマジナイの『願い』のカード？」")
+    comPoseLoad("po2_aya_f_1_e")
+    vms(2932, "NONVOICE", "【彩野】「うん。そういうこと。『絶対に効くオマジナイ』で、お願い」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(2933, "NONVOICE", "【直哉】「……わかった。つくってみるよ」")
+    cLoadPlaySE(cGetFileName("se", "se_30"), false)
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『廊下に響く声』のあらすじを作成しました。") -- tr_line:42
+    cLoadPlaySE(cGetFileName("se", "se_30"), false)
+    oCard.show(cGetFileName("card", "crd_97_a"), "『絶対に効くオマジナイ』のカードを作成しました。") -- tr_line:44
+    comPoseDelete()
+    if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
+        gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
+        gameSave.myCard[97].hold = 1
+        comAyanoTimeRefresh()
+    end
+end
+main = function()
+    local v2, v3, v4, v5, v6
+    comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    if gameSave.myCard[57].hold == -1 then
+        oCard.mesNot()
+        comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+        run(cGetFileName("script", "snr_fragment_main"))
+        quit()
+    end
+    card_56_s2s_420_intro()
+    v2 = 0
+    v3 = 0
+    v4 = -1
+    while v2 < 1 do
+        v5 = oCard.selectCardObj()
+        if v5 == 57 then
+            break
+        end
+        if v5 == -1 then
+            oCard.cancelCard()
+            comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+            run(cGetFileName("script", "snr_fragment_main"))
+            quit()
+        end
+        if v3 == 1 then
+            oCard.mesNG2()
+            vms(2934, "NONVOICE", "彩野さんに『ユウイチの後ろ姿』のあらすじを見せてみよう。")
+            comPoseDelete()
+        end
+        if v3 == 0 then
+            oCard.mesNG()
+            v3 = v3 + 1
+            comPoseDelete()
+        end
+        wait(30)
+    end
+    card_56_s2s_420_resolve()
+    comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    run(cGetFileName("script", "snr_fragment_main"))
+    quit()
+end

@@ -1,0 +1,37 @@
+local card_174_s4s_710_main, v1
+card_174_s4s_710_main = function()
+    local card_174_s4s_710_main, v1, v2
+    cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
+    comPoseLoad("po2_aya_f_1_a")
+    vms(1431, "NONVOICE", "【直哉】「セクション４の続き……というか、もう一つの物語、でいいのかな……」")
+    vms(1432, "NONVOICE", "【直哉】「ここから先はアヤノさん視点になる、でいい？」")
+    comPoseLoad("po2_aya_f_2_e")
+    vms(1433, "NONVOICE", "【彩野】「うん。ユウイチだとこれ以上、物語が進行しないような感じがする」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(1434, "NONVOICE", "【彩野】「また、アヤノの視点から見る必要があるのかなって」")
+    vms(1435, "NONVOICE", "【直哉】「ふむ……」")
+    cLoadPlaySE(cGetFileName("se", "se_30"), false)
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション４：アヤノ』のあらすじを作成しました。") -- tr_line:14
+    comPoseLoad("po2_aya_f_1_c")
+    vms(1436, "NONVOICE", "【彩野】「でも……」")
+    vms(1437, "NONVOICE", "【直哉】「……ん、どうかした？」")
+    comPoseLoad("po2_aya_f_1_a")
+    vms(1438, "NONVOICE", "【彩野】「あ……うん。何でもないの」")
+    comPoseLoad("po2_aya_f_1_c")
+    vms(1439, "NONVOICE", "【彩野】「……続けましょう」")
+    comPoseDelete()
+    vms(1440, "NONVOICE", "【直哉】「……」")
+    comPoseDelete()
+    if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
+        gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
+        comAyanoTimeRefresh()
+    end
+end
+main = function()
+    local v1
+    comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    card_174_s4s_710_main()
+    comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    run(cGetFileName("script", "snr_fragment_main"))
+    quit()
+end

@@ -153,6 +153,7 @@ pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；de
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。
 - **commit**：Claude 在每个自洽工作单元完成并自检通过后直接本地提交，无需逐次确认；一个逻辑变更一个 commit，工具代码与翻译数据分开提交。**push 仅在用户明示时执行**；如建远端必须 private（仓库含版权游戏素材，不得公开）。
 - **message 规范**：`type: 中文摘要`，type ∈ feat / fix / docs / data / analysis / chore / refactor。示例：`data: s1 章译文初稿入库`、`analysis: lua 变更后重跑提取产物`。
+- **SDD 工作台**：`.superpowers/sdd/<plan>/` 被插件自忽略（其脚本每次运行都会把该目录 .gitignore 重写为 `*`，改它无用）。其中 `*.md`（progress.md 台账、task-N-brief/report、hotfix 简报/报告）是不可再生的执行状态与证据，**入库携带**：新文件 `git add -f` 一次，已跟踪后随就近 commit 正常提交；`review-*.diff` 评审包可由 git 历史一键再生，保持忽略。
 
 ## 常用操作（现阶段）
 

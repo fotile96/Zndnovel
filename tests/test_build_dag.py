@@ -122,3 +122,34 @@ def test_real_data_s2s_190_sel_targets():
     # Should have exactly 2 choices pointing to the two expected targets
     targets = set(choice_targets.values())
     assert targets == {"s2s_208", "s2s_209"}, f"Expected {{s2s_208, s2s_209}}, got {targets}"
+
+
+import subprocess
+import sys
+
+from tools.pipelib import REPO
+
+
+def test_cli_check_matches_committed_dag():
+    # data/dag.json 是入库生成物，必须始终与 lua 源同步（冒烟/CI 的防线）
+    out = subprocess.run([sys.executable, "tools/build_dag.py", "--check"],
+                         cwd=REPO, capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "check: OK" in out.stdout
+
+
+def test_cli_check_detects_mismatch(tmp_path):
+    (tmp_path / "dag.json").write_text('{"states":{}}\n', encoding="utf-8")
+    out = subprocess.run([sys.executable, "tools/build_dag.py", "--check",
+                          "--out-dir", str(tmp_path)],
+                         cwd=REPO, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "MISMATCH" in out.stdout
+
+
+def test_cli_double_run_is_byte_identical(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    for d in (a, b):
+        subprocess.run([sys.executable, "tools/build_dag.py", "--out-dir", str(d)],
+                       cwd=REPO, check=True, capture_output=True)
+    assert (a / "dag.json").read_bytes() == (b / "dag.json").read_bytes()

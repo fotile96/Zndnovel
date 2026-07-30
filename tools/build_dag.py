@@ -125,17 +125,35 @@ def parse_crds(script_dir) -> dict:
     return crds
 
 
-def main():
-    script_dir = REPO / "lua_scripts"
+def build(script_dir):
     states, meta = {}, {}
     for p in sorted(script_dir.glob("snr_s*_10_*.lua")) + sorted(script_dir.glob("snr_e*_10_*.lua")):
         t = p.read_text(encoding="utf-8")
         states.update(parse_states(p.stem, t))
         meta.update(parse_scene_meta(p.stem, t))
-    dag = {"states": states, "scene_meta": meta, "crds": parse_crds(script_dir)}
-    (DATA / "dag.json").write_text(
-        json.dumps(dag, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"states={len(states)} scene_meta={len(meta)} crds={len(dag['crds'])}")
+    return {"states": states, "scene_meta": meta, "crds": parse_crds(script_dir)}
+
+
+def render(dag) -> str:
+    return json.dumps(dag, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
+
+
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out-dir", default=str(DATA))
+    ap.add_argument("--check", action="store_true")
+    args = ap.parse_args(argv)
+    dag = build(REPO / "lua_scripts")
+    text = render(dag)
+    path = Path(args.out_dir) / "dag.json"
+    if args.check:
+        same = path.exists() and path.read_text(encoding="utf-8") == text
+        print("check:", "OK" if same else "MISMATCH")
+        return 0 if same else 1
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    print(f"states={len(dag['states'])} scene_meta={len(dag['scene_meta'])} crds={len(dag['crds'])}")
     return 0
 
 

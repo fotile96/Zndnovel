@@ -2,12 +2,12 @@
 import re
 
 try:
-    from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS
+    from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS, NARRATIVE_FUNC_EXCEPTIONS
 except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS
+    from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS, NARRATIVE_FUNC_EXCEPTIONS
 
 FUNC_RE = re.compile(r'^\s*([A-Za-z_][\w.]*)\s*=\s*function')
 VMS_RE = re.compile(r'vms\((\d+), "([A-Z0-9]+)", (.+)\)$')
@@ -51,7 +51,9 @@ def chapter_of(stem: str) -> str:
 def classify(row: dict) -> dict:
     row["chapter"] = chapter_of(row["file"])
     key = f'{row["file"]}:{row["func"]}'
-    if row["file"] in SYS_FILES or row["chapter"] == "sys" or key in AMBIENT_FUNC_EXCEPTIONS:
+    if key in NARRATIVE_FUNC_EXCEPTIONS:
+        row["kind"] = "narrative"
+    elif row["file"] in SYS_FILES or row["chapter"] == "sys" or key in AMBIENT_FUNC_EXCEPTIONS:
         row["kind"] = "ambient"
     else:
         row["kind"] = "narrative"

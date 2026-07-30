@@ -104,3 +104,11 @@ def test_double_run_is_byte_identical(tmp_path):
                        cwd=REPO, check=True, capture_output=True)
     assert (a / "ledger.jsonl").read_bytes() == (b / "ledger.jsonl").read_bytes()
     assert (a / "ledger_extra.jsonl").read_bytes() == (b / "ledger_extra.jsonl").read_bytes()
+
+def test_narrative_exception_wins(monkeypatch):
+    import tools.build_ledger as bl
+    monkeypatch.setattr("tools.build_ledger.NARRATIVE_FUNC_EXCEPTIONS",
+                        {"snr_common:comSectionStoryEndAyanoTime": "时间轴事件"},
+                        raising=False)
+    row = bl.classify({"file": "snr_common", "func": "comSectionStoryEndAyanoTime"})
+    assert row["kind"] == "narrative"

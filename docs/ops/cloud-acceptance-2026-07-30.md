@@ -368,14 +368,115 @@ SKIP_PLUGIN_MARKETPLACE=false claude plugin install mattpocock-skills@claude-plu
 - **两模式分工**：`setup` 早于会话挂载，是理想位置（新建环境即生效）；`session` 是自愈补装，装完仍需下个会话才生效。
 - 插件清单 `PLUGINS=(superpowers mattpocock-skills)` 与仓库 `.claude/settings.json` 的声明保持一致。
 
-### 6. 未决：安装能否活到下个会话
+### 6. 已决：安装**不留存**，根因是「每会话从建环境快照冷启」（2026-07-30 第三会话实测）
 
-**本会话无法验证。** 云端文件系统在建环境后被快照复用，但「会话中途对 `~/.claude` 的写入是否随会话销毁」没有文档，也没法在同一会话里测。两种结局：
+- 采集时间：2026-07-30 16:10–16:20 UTC，**同一环境**（该环境创建于 15:50:48Z），新会话
+- 会话分支：`claude/superpowers-skill-sync-refs-xsjcsl`；快照里的工作树停在 `105dafa`，`git fetch` 后才见到 §八 那次会话推的 `9780946`
 
-- **能留存** → 下个会话直接可用，`--mode session` 的 `ensure_plugins` 走幂等跳过分支。
-- **不留存** → 每个新会话开场跑 `--mode session` 会自动补装，但**补装当次仍不可用**，要第三个会话才行；此时唯一根治法是把安装挪进环境 UI setup 脚本（改 `.claude/cloud-ui-setup.sh` 并重贴进 claude.ai 环境设置，会触发整机快照重建）。issue 亦提示 setup 脚本有约 7 天缓存，插件会冻结在上次 setup 时的 marketplace HEAD。
+**A 判定：未留存。** 证据必须按「先拍照、后跑脚本」的顺序取——`--mode session` 里的 `ensure_plugins` 自己会补装，跑完再看就分不清了：
 
-下个会话开场请先看报告里的 `user_plugins_installed` 一行，即可判定走的是哪条路。
+| 时点 | 探测 | 结果 |
+|---|---|---|
+| 跑脚本**前** | `ls /root/.claude/plugins` | `No such file or directory` |
+| 跑脚本**前** | `/root/.claude/settings.json`（§八.3 所说安装会写出的那份） | 不存在 |
+| 跑脚本**前** | `find /root/.claude/plugins -name SKILL.md \| wc -l` | 0 |
+| 跑脚本时 | `ensure_plugins` 实际走的分支 | **安装分支**（`marketplace 已添加` + 两条 `插件已安装`），**不是**「插件已在位…跳过安装」 |
+| 跑脚本后 | `/root/.claude/plugins` mtime | `16:12:09`（即本次写入） |
+
+⚠️ 报告行 `user_plugins_installed=claude-plugins-official/superpowers/6.2.0 …` **不能用来判留存**——`ensure_plugins` 按 §八.5 的设计跑在 `inspect_user_config` 之前，这一行拍到的永远是**安装后**状态。判据只有上表「跑脚本前」那三行。
+
+#### 根因：会话看到的是建环境时的快照，会话中途的写入一律丢弃
+
+比原先「文件系统被快照复用」的猜测更硬的证据来自 `/var/log/claude-cloud-setup.log`——**同一个文件，三个写入者，只有 setup 时点的活下来**：
+
+| 写入者 | 时点 | 现在还在吗 |
+|---|---|---|
+| UI setup 脚本 + `--mode setup` | 15:50:48 / 15:50:54Z（**建环境时**） | **在**（日志第 1–31 行） |
+| §七 会话的 `--mode session`（§七 明载「全绿」跑过） | ~15:51Z（**会话中途**） | **没了**，日志里查无此条 |
+| 本会话的 `--mode session` | 16:12:14Z | 在（本会话结束后同样会没） |
+
+同一模式在别处复现：
+
+- 工作树回到 `105dafa`（= 建环境时 `origin/main` 的头，15:49:19Z 推送），§八 会话 16:05 推的 `9780946` **不在本地**，`git fetch` 才拿回来。（`origin/claude/cloud-env-acceptance-4f035g` 也不在，但那是另一回事：快照里的克隆是 `--depth` 隐含的 `--single-branch main`。）
+- `work/` 目录 mtime `15:50:53`，建环境时建的，留存。
+
+**所以准确的说法不是「`~/.claude` 不留存」，而是：每个会话都从建环境快照冷启，会话内对整机任何位置的写入都随会话销毁。**
+
+#### 为什么 `~/.claude/skills/` 看着像留存
+
+它不是留存，是**每会话重新同步**：
+
+| 时点 | `user_skills` 读数 |
+|---|---|
+| 15:50:54Z 建环境 | **1 个**：`session-start-hook` |
+| 16:10:52（本会话启动时，早于我跑脚本 82 秒） | **8 个**：diverge docx morning pdf pptx session-start-hook skill-creator xlsx |
+
+`CLAUDE_CODE_SYNC_SKILLS=1` 在会话启动时把账户 skill 拉回来；`~/.claude/plugins/` 没有任何对应机制 → 归零。**两个载体命运不同，别拿 skills 目录的存在推断 plugins 也在。**
+
+### 7. B 判定：运行期仍未验证（第三次 false green），但静态引用图这次核完了
+
+安装是本会话临时补的，**挂载早于安装**，于是 §八.4 的 false green 原样复现：
+
+| 探测 | 结果 |
+|---|---|
+| 会话 skill 清单 | 21 项，**无任何 `superpowers:` 前缀条目**（与 §七.2 同） |
+| `Skill(superpowers:executing-plans)` | `Unknown skill` |
+| `Skill(superpowers:finishing-a-development-branch)` | `Unknown skill` |
+| `SearchSkills(["executing plans","finishing a development branch","subagent driven development","brainstorming"])` | `[]` |
+| `ListPlugins` | `superpowers` enabled（与 §七.1 同——账户面读数，与本会话可用性无关，§七.5 的判据继续有效） |
+
+**运行期的跨技能引用依旧走不到**：父技能挂不上，跳转无从谈起。
+
+但技能体这次在磁盘上，于是可以做**静态解析核验**（此前三次会话都做不了）——把安装体内所有 `superpowers:<名>` 引用抽出来，逐个查有无对应 `skills/<名>/SKILL.md`：
+
+| 引用目标 | 出现次数 | 解析 |
+|---|---|---|
+| `superpowers:test-driven-development` | 5 | OK |
+| `superpowers:finishing-a-development-branch` | 5 | OK |
+| `superpowers:subagent-driven-development` | 4 | OK |
+| `superpowers:using-git-worktrees` | 3 | OK |
+| `superpowers:systematic-debugging` / `:requesting-code-review` / `:executing-plans` | 各 2 | OK |
+| `superpowers:writing-skills` / `:verification-before-completion` / `:brainstorming` | 各 1 | OK |
+
+**10 个目标全部命中，引用图闭合零悬空。** §七.4 列的仓库内 4 处引用所用的 3 个名字（`executing-plans` / `subagent-driven-development` / `finishing-a-development-branch`）也全部命中。
+
+`executing-plans/SKILL.md` 里的引用原文（§八.4 只提了一句，这里录全）：
+
+```
+14: ... If subagents are available, use superpowers:subagent-driven-development instead of this skill.
+19: 1. Ensure an isolated workspace: use superpowers:using-git-worktrees to create one or verify the existing one
+37: - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
+```
+
+即：**引用形式与 `superpowers/6.2.0/skills/` 的目录名严格一一对应，名字层面无歧义；剩下的唯一变量是运行期挂载。**
+
+#### 附带（第 4 问）：agent type 那条轴对本插件**不适用**
+
+issue 提到 `<plugin>:` 形态的 agent type 会 not found。查安装体：
+
+- `superpowers/6.2.0/` 下**没有 `agents/` 目录**；`.agents/` 里只有一个 `plugins/marketplace.json`，不是 agent 定义。
+- `subagent-driven-development` 的派单方式是**通用子代理 + 提示词文件**（`implementer-prompt.md` / `task-reviewer-prompt.md` / `re-review-prompt.md`），不引用任何具名 agent type；整个 `skills/` 目录 grep 不到 `subagent_type`。
+
+**superpowers 6.2.0 根本不提供 agent 类型**，这条轴无从失败，也无需验证。`mattpocock-skills/1.2.0` 同理（其 `.agents/` 装的是 ADR 文档）。
+
+### 8. 根治路径：只剩改 UI setup 脚本——本节首次给出「它可行」的证据与「仍未证」的两点
+
+A 判定为不留存 ⇒ `--mode session` 的自愈补装**永远追不上**：每个新会话都从零装一遍，而挂载早于安装，于是**每个会话都不可用**。§八.5 那句「session 是自愈补装，装完仍需下个会话才生效」在「能留存」假设下成立，在实测的「不留存」下**等于永不生效**——这是本次要更正的判断。（`ensure_plugins` 的 session 分支因此每会话白花约 30–60s 网络时间；是否降级为仅 `setup` 模式跑，留待决定，本次未动脚本。）
+
+唯一出路是把安装挪到**建环境时**执行，即改 `.claude/cloud-ui-setup.sh` 并**重贴进 claude.ai 环境设置的 Setup script 字段**。代价与约束：
+
+- **会触发整机快照重建**（改库内的 `cloud-setup.sh` 不会，这正是两层拆分的意义）。
+- setup 脚本约有 **7 天缓存**，插件因此**冻结在上次 setup 时的 marketplace HEAD**，不随上游更新。
+- setup 有约 5 分钟预算且必须 `exit 0`（非零会让环境创建整体失败）——`ensure_plugins` 已满足（一切失败降级为 warn）。
+
+**本次新增的支持证据**：setup 时点的写入确实进得了快照并跨会话存活（`/var/log/claude-cloud-setup.log` 的 15:50:54 报告、`work/` 的 15:50:53 目录）。所以「装在 setup 就能被下个会话看到」不再是猜测。
+
+**但仍有两处未证，别当作已经成了**：
+
+1. `SKIP_PLUGIN_MARKETPLACE=true` 在会话启动时**依然是 true**。已证它短路 marketplace 解析；**未证**它是否同时挡住「加载已落在 `~/.claude/plugins/cache`、且已在用户级 `settings.json` 里 enable 的插件」。若连加载也挡，装在 setup 同样白装。
+2. 会话启动的账户同步会重写 `~/.claude/skills/`；它是否也会覆盖 setup 写下的 `~/.claude/settings.json`（`enabledPlugins` / `extraKnownMarketplaces`）未知。
+
+这两条**在会话内测不了**（挂载发生在会话启动之前），只能靠真重建一次环境来判。
 
 ---
 
@@ -405,3 +506,28 @@ grep -rn "superpowers:" --include="*.md" .             # 仓库内悬空引用
 
 其余为工具调用，非 bash：`ListPlugins`、`ListSkills`、`SearchSkills([...])`、
 `Skill(superpowers:executing-plans)` / `Skill(superpowers:finishing-a-development-branch)` / `Skill(executing-plans)`。
+
+§八.6–8 的复现。**次序要紧**：前三条必须在跑 `cloud-setup.sh` 之前执行，否则 `ensure_plugins`
+会补装，留存与否就再也分不出来了。
+
+```bash
+# —— A 判定：必须先拍照 ——
+ls -la /root/.claude/plugins/ ; cat /root/.claude/settings.json      # 应双双 No such file
+find /root/.claude/plugins -name SKILL.md 2>/dev/null | wc -l        # 应为 0
+bash .claude/cloud-setup.sh --mode session                           # 看走的是安装分支还是「已在位…跳过」
+
+# —— 根因：同一日志文件里 setup 时点写入存活、会话时点写入消失 ——
+grep -nE '=== claude cloud setup 报告|generated_by' /var/log/claude-cloud-setup.log
+stat -c '%y  %n' /root/.claude/plugins /root/.claude/skills /root/.claude/settings.json /home/user/Zndnovel/work
+git log --oneline -1                                                 # 快照里的头，非远端最新
+
+# —— B 判定：静态引用图核验 ——
+P=/root/.claude/plugins/cache/claude-plugins-official/superpowers/6.2.0
+grep -rhoE 'superpowers:[a-z0-9-]+' "$P/skills/" | sort | uniq -c | sort -rn
+for t in $(grep -rhoE 'superpowers:[a-z0-9-]+' "$P/skills/" | sed 's/^superpowers://' | sort -u); do
+  [ -f "$P/skills/$t/SKILL.md" ] && echo "OK $t" || echo "MISS $t"; done
+grep -nE 'superpowers:' "$P/skills/executing-plans/SKILL.md"
+
+# —— 第 4 问：本插件不提供 agent 类型 ——
+ls "$P/agents/" ; find "$P/.agents" -type f ; grep -rn 'subagent_type' "$P/skills/"
+```

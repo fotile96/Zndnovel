@@ -14,6 +14,7 @@ RUN_RE = re.compile(r'run\(cGetFileName\("scriptc?", ?"([^"]+)"\)\)')
 ROUTE_RE = re.compile(r'comSectionStoryCheckRoute\("([^"]+)"\)')
 GATE_RE = re.compile(r'gameSave\.myCard\[(\d+)\]\.hold == (-?1)')
 CHOICE_RE = re.compile(r'(?:else)?if (v\d+) == (\d+) then')
+SEL_ASSIGN_RE = re.compile(r'(v\d+) = comDlgSelectItem\(')
 SUBCALL_RE = re.compile(r'(scene_[\w]+)\(\)')
 COST_RE = re.compile(r'comSectionStoryEnd(?:Force)?\(gameSave\.sceneId, gameSave\.sceneName, (\d+)\)')
 GET_RE = re.compile(r'gameSave\.myCard\[(\d+)\]\.hold = 1')
@@ -24,12 +25,39 @@ def parse_states(stem: str, text: str) -> dict:
     idx = text.rfind("\nmain = function()")
     main = text[idx:] if idx >= 0 else ""
     states, cur, pend_choice = {}, None, None
+    choice_vars = set()  # Track which variables are assigned from comDlgSelectItem
+
+    # First pass: collect choice variables for each state (exclude vars inside while loops)
+    state_choice_vars = {}
+    cur_state = None
+    in_while = 0  # Track if we're inside a while loop
+    for line in main.splitlines():
+        s = line.strip()
+        if m := STATE_RE.match(s):
+            cur_state = m.group(1)
+            state_choice_vars[cur_state] = set()
+            in_while = 0
+            continue
+        if cur_state is None:
+            continue
+        # Track while loop nesting
+        if s.startswith("while "):
+            in_while += 1
+        elif s == "end":
+            if in_while > 0:
+                in_while -= 1
+        # Only collect choice vars if NOT inside a while loop
+        if in_while == 0 and (m := SEL_ASSIGN_RE.search(s)):
+            state_choice_vars[cur_state].add(m.group(1))
+
+    # Second pass: parse events
     for line in main.splitlines():
         s = line.strip()
         if m := STATE_RE.match(s):
             cur = m.group(1)
             states[cur] = {"file": stem, "scene": None, "title": None, "seq": []}
             pend_choice = None
+            choice_vars = state_choice_vars.get(cur, set())
             continue
         if cur is None:
             continue
@@ -41,6 +69,7 @@ def parse_states(stem: str, text: str) -> dict:
         elif m := GOTO_RE.search(s):
             if pend_choice is not None:
                 ev.append({"choice": pend_choice, "goto": m.group(1)})
+                pend_choice = None
             else:
                 ev.append({"goto": m.group(1)})
         elif m := RUN_RE.search(s):
@@ -50,8 +79,12 @@ def parse_states(stem: str, text: str) -> dict:
         elif m := GATE_RE.search(s):
             ev.append({"card_gate": int(m.group(1)), "held": m.group(2) == "1"})
         elif m := CHOICE_RE.match(s):
-            pend_choice = int(m.group(2))
+            var = m.group(1)
+            # Only arm pend_choice if this variable is a known choice variable
+            if var in choice_vars:
+                pend_choice = int(m.group(2))
         elif m := SUBCALL_RE.search(s):
+            # Guard: avoid matching scene function calls with parameters (dispatcher calls)
             if not s.startswith("scene_") or "(doScriptScene" not in s:
                 ev.append({"subcall": m.group(1)})
         elif m := COST_RE.search(s):
@@ -101,7 +134,7 @@ def main():
         meta.update(parse_scene_meta(p.stem, t))
     dag = {"states": states, "scene_meta": meta, "crds": parse_crds(script_dir)}
     (DATA / "dag.json").write_text(
-        json.dumps(dag, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+        json.dumps(dag, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"states={len(states)} scene_meta={len(meta)} crds={len(dag['crds'])}")
     return 0
 

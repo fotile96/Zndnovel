@@ -1,4 +1,5 @@
 from tools.build_dag import parse_states, parse_scene_meta
+import json
 
 FIX = '''\
 scene_x_20 = function(scene_id, scene_title)
@@ -51,3 +52,73 @@ def test_scene_meta_costs_and_gets():
     m = parse_scene_meta("snr_x_10_s", FIX)
     assert m["scene_x_20"]["cost"] == [25]
     assert m["scene_x_20"]["gets"] == [128]
+
+
+# Test fixture for choice variable tracking
+PUZZLE = '''\
+scene_puzzle = function(scene_id, scene_title)
+end
+main = function()
+    while v48 == 0 do
+        elseif doScriptScene == "puzzle_main" then
+            v60 = comDlgSelectItem(false, true, false, true, 1, "none", 0, 0, "sel_puzzle", 115, 140, 1)
+            if v60 == 1 then
+                doScriptScene = "puzzle_ok"
+            elseif v60 == 2 then
+                doScriptScene = "puzzle_fail"
+            end
+        elseif doScriptScene == "puzzle_logic" then
+            if v51 == 0 then
+                doScriptScene = "puzzle_continue"
+            end
+            if v62 == 2 then
+                doScriptScene = "puzzle_end"
+            end
+        end
+    end
+end
+'''
+
+def test_internal_if_blocks_not_marked_choice():
+    """Internal if blocks (v51, v62) not assigned from comDlgSelectItem should not mark goto as choice."""
+    st = parse_states("snr_puzzle", PUZZLE)
+    logic_ev = st["puzzle_logic"]["seq"]
+    # v51 and v62 are internal variables, not choice variables
+    # Their if blocks should not cause following gotos to be marked with choice
+    assert {"goto": "puzzle_continue"} in logic_ev
+    assert {"goto": "puzzle_end"} in logic_ev
+    # Ensure no spurious choice events with internal variable values
+    for ev in logic_ev:
+        if "choice" in ev:
+            assert ev["choice"] >= 1, f"Invalid choice value: {ev}"
+
+def test_choice_cleared_after_consumption():
+    """pend_choice should be cleared after being consumed by a goto."""
+    st = parse_states("snr_puzzle", PUZZLE)
+    main_ev = st["puzzle_main"]["seq"]
+    # v60 is assigned from comDlgSelectItem, so if v60 == N creates pending choice
+    # First goto should be marked with choice
+    assert {"choice": 1, "goto": "puzzle_ok"} in main_ev
+    assert {"choice": 2, "goto": "puzzle_fail"} in main_ev
+
+def test_real_data_all_choices_valid():
+    """Regression test: all choice events in real data should have value >= 1."""
+    dag = json.load(open("data/dag.json", encoding="utf-8"))
+    for state_id, state in dag["states"].items():
+        for event in state["seq"]:
+            if "choice" in event:
+                assert event["choice"] >= 1, f"Invalid choice value {event['choice']} in state {state_id}"
+
+def test_real_data_s2s_190_sel_targets():
+    """Regression test: s2s_190_sel should have exactly two choice targets: s2s_208 and s2s_209."""
+    dag = json.load(open("data/dag.json", encoding="utf-8"))
+    state = dag["states"].get("s2s_190_sel", {})
+    choice_targets = {}
+    for event in state.get("seq", []):
+        if "choice" in event and "goto" in event:
+            choice_num = event["choice"]
+            target = event["goto"]
+            choice_targets[choice_num] = target
+    # Should have exactly 2 choices pointing to the two expected targets
+    targets = set(choice_targets.values())
+    assert targets == {"s2s_208", "s2s_209"}, f"Expected {{s2s_208, s2s_209}}, got {targets}"

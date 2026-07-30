@@ -1,0 +1,12578 @@
+{
+ "crds": {
+  "0": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "1": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "10": {
+   "answers": [
+    9
+   ],
+   "req": [
+    9
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "100": {
+   "answers": [
+    101
+   ],
+   "req": [
+    101
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "101": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "102": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "103": {
+   "answers": [
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    145,
+    146,
+    192
+   ],
+   "req": [
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    145,
+    146,
+    192
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "104": {
+   "answers": [
+    93,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191
+   ],
+   "req": [
+    93,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "105": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "106": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "107": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "108": {
+   "answers": [],
+   "req": [
+    1,
+    104
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "109": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "11": {
+   "answers": [
+    6
+   ],
+   "req": [
+    6
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "110": {
+   "answers": [
+    98,
+    102,
+    104,
+    124
+   ],
+   "req": [
+    98,
+    102,
+    104,
+    124
+   ],
+   "runs": [
+    "snr_s6_10_f"
+   ],
+   "stub": false
+  },
+  "111": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "112": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "113": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "114": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "115": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "116": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "117": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "118": {
+   "answers": [
+    152
+   ],
+   "req": [
+    152
+   ],
+   "runs": [
+    "snr_e1_10_f"
+   ],
+   "stub": false
+  },
+  "119": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "12": {
+   "answers": [
+    14
+   ],
+   "req": [
+    14
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "120": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "121": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "122": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "123": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "124": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "125": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "126": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "127": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "128": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "129": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "13": {
+   "answers": [
+    132
+   ],
+   "req": [
+    132
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "130": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "131": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "132": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "133": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "134": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "135": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "136": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "137": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "138": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "139": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "14": {
+   "answers": [
+    10
+   ],
+   "req": [
+    10
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "140": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "141": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "142": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "143": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "144": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "145": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "146": {
+   "answers": [
+    75
+   ],
+   "req": [
+    75
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "147": {
+   "answers": [
+    148
+   ],
+   "req": [
+    148
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "148": {
+   "answers": [
+    77
+   ],
+   "req": [
+    77
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "149": {
+   "answers": [
+    135
+   ],
+   "req": [
+    135
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "15": {
+   "answers": [
+    125
+   ],
+   "req": [
+    125
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "150": {
+   "answers": [],
+   "req": [
+    149
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "151": {
+   "answers": [
+    80
+   ],
+   "req": [
+    80
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "152": {
+   "answers": [
+    142
+   ],
+   "req": [
+    142
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "153": {
+   "answers": [
+    124
+   ],
+   "req": [
+    124
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "154": {
+   "answers": [
+    157
+   ],
+   "req": [
+    157
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "155": {
+   "answers": [
+    95
+   ],
+   "req": [
+    95
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "156": {
+   "answers": [
+    157
+   ],
+   "req": [
+    157
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "157": {
+   "answers": [
+    28
+   ],
+   "req": [
+    28
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "158": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "159": {
+   "answers": [
+    165
+   ],
+   "req": [
+    165
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "16": {
+   "answers": [
+    9
+   ],
+   "req": [
+    9
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "160": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "161": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "162": {
+   "answers": [],
+   "req": [],
+   "runs": [
+    "snr_e2_10_f"
+   ],
+   "stub": false
+  },
+  "163": {
+   "answers": [
+    155
+   ],
+   "req": [
+    155
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "164": {
+   "answers": [
+    161
+   ],
+   "req": [
+    159,
+    161
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "165": {
+   "answers": [
+    157
+   ],
+   "req": [
+    157
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "166": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "167": {
+   "answers": [
+    124,
+    149,
+    154,
+    161,
+    166
+   ],
+   "req": [
+    124,
+    149,
+    153,
+    154,
+    161,
+    166
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "168": {
+   "answers": [
+    23,
+    50
+   ],
+   "req": [
+    23,
+    50
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "169": {
+   "answers": [
+    170
+   ],
+   "req": [
+    170
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "17": {
+   "answers": [
+    13
+   ],
+   "req": [
+    13
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "170": {
+   "answers": [
+    171
+   ],
+   "req": [
+    171
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "171": {
+   "answers": [
+    57
+   ],
+   "req": [
+    57
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "172": {
+   "answers": [
+    29
+   ],
+   "req": [
+    29
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "173": {
+   "answers": [
+    137
+   ],
+   "req": [
+    137
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "174": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "175": {
+   "answers": [],
+   "req": [
+    176
+   ],
+   "runs": [
+    "snr_s4_10_fb"
+   ],
+   "stub": false
+  },
+  "176": {
+   "answers": [
+    30,
+    167,
+    168,
+    172
+   ],
+   "req": [
+    30,
+    167,
+    168,
+    172
+   ],
+   "runs": [
+    "snr_s4_10_fa"
+   ],
+   "stub": false
+  },
+  "177": {
+   "answers": [
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    145
+   ],
+   "req": [
+    25,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    145
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "178": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "179": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "18": {
+   "answers": [
+    116
+   ],
+   "req": [
+    116
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "180": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "181": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "182": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "183": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "184": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "185": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "186": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "187": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "188": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "189": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "19": {
+   "answers": [
+    121
+   ],
+   "req": [
+    121
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "190": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "191": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "192": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "193": {
+   "answers": [
+    93,
+    179,
+    194
+   ],
+   "req": [
+    93,
+    179,
+    194
+   ],
+   "runs": [
+    "snr_s5_10_f"
+   ],
+   "stub": false
+  },
+  "194": {
+   "answers": [
+    179,
+    180
+   ],
+   "req": [
+    179,
+    180
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "195": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "2": {
+   "answers": [],
+   "req": [
+    1
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "20": {
+   "answers": [
+    119
+   ],
+   "req": [
+    119
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "21": {
+   "answers": [
+    122
+   ],
+   "req": [
+    122
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "22": {
+   "answers": [
+    131
+   ],
+   "req": [
+    131
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "23": {
+   "answers": [
+    120
+   ],
+   "req": [
+    20,
+    120
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "24": {
+   "answers": [
+    117
+   ],
+   "req": [
+    117
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "25": {
+   "answers": [
+    145
+   ],
+   "req": [
+    145
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "26": {
+   "answers": [
+    143
+   ],
+   "req": [
+    143
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "27": {
+   "answers": [
+    124
+   ],
+   "req": [
+    124
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "28": {
+   "answers": [
+    124
+   ],
+   "req": [
+    124
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "29": {
+   "answers": [
+    123
+   ],
+   "req": [
+    123
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "3": {
+   "answers": [
+    132
+   ],
+   "req": [
+    132
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "30": {
+   "answers": [
+    2,
+    10,
+    19,
+    21,
+    28,
+    29
+   ],
+   "req": [
+    1,
+    2,
+    10,
+    19,
+    21,
+    28,
+    29
+   ],
+   "runs": [
+    "snr_s1_10_f"
+   ],
+   "stub": false
+  },
+  "31": {
+   "answers": [
+    19
+   ],
+   "req": [
+    19
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "32": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "33": {
+   "answers": [
+    31
+   ],
+   "req": [
+    31,
+    32
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "34": {
+   "answers": [
+    21,
+    27
+   ],
+   "req": [
+    21,
+    27
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "35": {
+   "answers": [
+    23,
+    63
+   ],
+   "req": [
+    23,
+    63
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "36": {
+   "answers": [
+    126
+   ],
+   "req": [
+    126
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "37": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "38": {
+   "answers": [
+    39
+   ],
+   "req": [
+    39
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "39": {
+   "answers": [
+    29
+   ],
+   "req": [
+    29
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "4": {
+   "answers": [
+    131
+   ],
+   "req": [
+    131
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "40": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "41": {
+   "answers": [
+    42,
+    62
+   ],
+   "req": [
+    42,
+    62
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "42": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "43": {
+   "answers": [
+    32
+   ],
+   "req": [
+    32
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "44": {
+   "answers": [
+    30,
+    59
+   ],
+   "req": [
+    30,
+    59
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "45": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "46": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "47": {
+   "answers": [
+    9
+   ],
+   "req": [
+    9
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "48": {
+   "answers": [
+    41
+   ],
+   "req": [
+    41
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "49": {
+   "answers": [
+    56,
+    57
+   ],
+   "req": [
+    56,
+    57
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "5": {
+   "answers": [
+    129
+   ],
+   "req": [
+    129
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "50": {
+   "answers": [
+    5
+   ],
+   "req": [
+    5
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "51": {
+   "answers": [
+    97
+   ],
+   "req": [
+    97
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "52": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "53": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "54": {
+   "answers": [
+    53
+   ],
+   "req": [
+    53
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "55": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "56": {
+   "answers": [
+    57
+   ],
+   "req": [
+    57
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "57": {
+   "answers": [
+    95
+   ],
+   "req": [
+    95
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "58": {
+   "answers": [
+    50,
+    52,
+    62,
+    63
+   ],
+   "req": [
+    50,
+    52,
+    62,
+    63
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "59": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "6": {
+   "answers": [
+    7
+   ],
+   "req": [
+    7
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "60": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "61": {
+   "answers": [
+    58,
+    60
+   ],
+   "req": [
+    49,
+    58,
+    60
+   ],
+   "runs": [
+    "snr_s2_10_f"
+   ],
+   "stub": false
+  },
+  "62": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "63": {
+   "answers": [
+    31
+   ],
+   "req": [
+    31
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "64": {
+   "answers": [
+    34
+   ],
+   "req": [
+    34
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "65": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "66": {
+   "answers": [
+    139
+   ],
+   "req": [
+    139
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "67": {
+   "answers": [
+    20
+   ],
+   "req": [
+    20,
+    65
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "68": {
+   "answers": [
+    19,
+    31
+   ],
+   "req": [
+    19,
+    31
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "69": {
+   "answers": [],
+   "req": [
+    67
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "7": {
+   "answers": [
+    130
+   ],
+   "req": [
+    130
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "70": {
+   "answers": [
+    71,
+    72
+   ],
+   "req": [
+    71,
+    72
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "71": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "72": {
+   "answers": [],
+   "req": [
+    71
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "73": {
+   "answers": [
+    134
+   ],
+   "req": [
+    134
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "74": {
+   "answers": [],
+   "req": [
+    79
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "75": {
+   "answers": [
+    79
+   ],
+   "req": [
+    79,
+    80
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "76": {
+   "answers": [
+    57
+   ],
+   "req": [
+    57
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "77": {
+   "answers": [
+    6,
+    129
+   ],
+   "req": [
+    6,
+    129
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "78": {
+   "answers": [
+    107
+   ],
+   "req": [
+    107
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "79": {
+   "answers": [
+    58
+   ],
+   "req": [
+    58
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "8": {
+   "answers": [
+    127
+   ],
+   "req": [
+    127
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "80": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "81": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "82": {
+   "answers": [
+    24
+   ],
+   "req": [
+    24
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "83": {
+   "answers": [
+    123
+   ],
+   "req": [
+    123
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "84": {
+   "answers": [
+    80
+   ],
+   "req": [
+    80
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "85": {
+   "answers": [
+    27,
+    56
+   ],
+   "req": [
+    27,
+    56
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "86": {
+   "answers": [
+    77
+   ],
+   "req": [
+    77
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "87": {
+   "answers": [
+    92
+   ],
+   "req": [
+    92
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "88": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "89": {
+   "answers": [
+    64,
+    69,
+    74,
+    76,
+    77,
+    86,
+    88
+   ],
+   "req": [
+    64,
+    68,
+    69,
+    74,
+    76,
+    77,
+    84,
+    86,
+    88
+   ],
+   "runs": [
+    "snr_s3_10_fa"
+   ],
+   "stub": false
+  },
+  "9": {
+   "answers": [
+    128
+   ],
+   "req": [
+    128
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "90": {
+   "answers": [
+    135,
+    138
+   ],
+   "req": [
+    135,
+    138
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "91": {
+   "answers": [],
+   "req": [],
+   "runs": [
+    "snr_s3_10_fb"
+   ],
+   "stub": false
+  },
+  "92": {
+   "answers": [
+    80
+   ],
+   "req": [
+    80
+   ],
+   "runs": [],
+   "stub": false
+  },
+  "93": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "94": {
+   "answers": [
+    141
+   ],
+   "req": [
+    141
+   ],
+   "runs": [
+    "snr_s8_10_f"
+   ],
+   "stub": false
+  },
+  "95": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "96": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "97": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": true
+  },
+  "98": {
+   "answers": [],
+   "req": [],
+   "runs": [],
+   "stub": false
+  },
+  "99": {
+   "answers": [],
+   "req": [
+    98
+   ],
+   "runs": [],
+   "stub": false
+  }
+ },
+ "scene_meta": {
+  "scene_e1f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    118,
+    143
+   ],
+   "shows": []
+  },
+  "scene_e1s_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_11": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_12": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_13": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_14": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_15": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_16": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_17": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_18": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_19": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_21": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_22": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_23": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_24": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_25": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_26": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_5": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_6": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_7": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_8": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_10_9": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e1s_comp": {
+   "complete": true,
+   "cost": [
+    0,
+    0
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_100": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_10_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_110": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_120": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_130": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_160": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_170": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_180": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_190": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_200": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_210": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_215": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_220": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_230": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_240": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_270": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_280": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_290": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_300": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_310": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_320": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_330": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_340": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_350": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_55": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": [
+    114
+   ]
+  },
+  "scene_e2f_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_90": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    162,
+    144,
+    114
+   ],
+   "shows": []
+  },
+  "scene_e2s_10": {
+   "complete": false,
+   "cost": [
+    0
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_155": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_5": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_6": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_7": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_20_8": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_e2s_comp": {
+   "complete": true,
+   "cost": [
+    0,
+    0
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_end": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    30,
+    133
+   ],
+   "shows": []
+  },
+  "scene_s1s_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_100_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_110": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_120": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_130": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_140": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_160": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    123
+   ],
+   "shows": [
+    123
+   ]
+  },
+  "scene_s1s_170_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_180": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_190": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_20": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_200_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": [
+    121
+   ]
+  },
+  "scene_s1s_210": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    122
+   ],
+   "shows": [
+    122
+   ]
+  },
+  "scene_s1s_215": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_220": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    120
+   ],
+   "shows": [
+    120
+   ]
+  },
+  "scene_s1s_230": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    117
+   ],
+   "shows": [
+    117
+   ]
+  },
+  "scene_s1s_260_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_280": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    124
+   ],
+   "shows": [
+    124
+   ]
+  },
+  "scene_s1s_30": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    132,
+    128
+   ],
+   "shows": [
+    128,
+    132
+   ]
+  },
+  "scene_s1s_300": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    116
+   ],
+   "shows": []
+  },
+  "scene_s1s_310": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_320": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_330": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_35_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_36": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    130
+   ],
+   "shows": [
+    130
+   ]
+  },
+  "scene_s1s_37": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    129
+   ],
+   "shows": [
+    129
+   ]
+  },
+  "scene_s1s_38": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_60": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    131
+   ],
+   "shows": [
+    131
+   ]
+  },
+  "scene_s1s_70": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    127
+   ],
+   "shows": [
+    127
+   ]
+  },
+  "scene_s1s_80": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_90": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [
+    125
+   ],
+   "shows": [
+    125
+   ]
+  },
+  "scene_s1s_comp": {
+   "complete": true,
+   "cost": [
+    25,
+    25
+   ],
+   "gameover": false,
+   "gets": [
+    121,
+    119
+   ],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v21": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v22": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v23": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v24": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v25": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v26": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": [
+    119
+   ]
+  },
+  "scene_s1s_dispatch_v27": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v28": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v29": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v31": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v32": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v33": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v34": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s1s_dispatch_v35": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    61,
+    134
+   ],
+   "shows": []
+  },
+  "scene_s2s_120_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_120_sel_2": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_120_sel_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_120_sel_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_124": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_140": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_150": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_160_sel": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_170": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_180": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_11": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_12": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_13": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_5": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_6": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_7": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_8": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_190_sel_9": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_208": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [
+    96
+   ],
+   "shows": [
+    96
+   ]
+  },
+  "scene_s2s_209": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_210": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_220_sel": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_230": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_240": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_250": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_260_sel": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_260_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_260_sel_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_293": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_300": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_340_sel": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_350": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_360": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_370": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_380": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_40": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_420": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    95
+   ],
+   "shows": [
+    95
+   ]
+  },
+  "scene_s2s_440": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_450": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_490": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_500": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_570": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_590": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_60": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_610": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_80_sel": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_80_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_80_sel_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_90": {
+   "complete": false,
+   "cost": [
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_comp": {
+   "complete": true,
+   "cost": [
+    20,
+    20,
+    20
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_shared_v49": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_shared_v50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_shared_v51": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s2s_shared_v52": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fa_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    89,
+    135
+   ],
+   "shows": []
+  },
+  "scene_s3fb_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fb_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fb_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fb_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fb_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    91,
+    136
+   ],
+   "shows": []
+  },
+  "scene_s3fc_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3fc_90": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    145
+   ],
+   "shows": []
+  },
+  "scene_s3s_10": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_100": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_110": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_120": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_170_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_171": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_172": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_190": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_20_sel": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_230_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_300_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_301": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_340": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_350_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_350_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_350_sel_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_360": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_370": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    107
+   ],
+   "shows": [
+    107
+   ]
+  },
+  "scene_s3s_375": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_375_2": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_380": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_410": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_460": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_470": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_50_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_540": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_550": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_580_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_590": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_600": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_641_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_650": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_670": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_90_sel": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_comp_a": {
+   "complete": true,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_comp_b": {
+   "complete": true,
+   "cost": [
+    25,
+    25,
+    25,
+    25,
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v12": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v13": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v14": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v15": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v16": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v17": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v18": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v19": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v21": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v22": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v23": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v24": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v25": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v26": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v27": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v28": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v29": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v31": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v32": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_dispatch_v33": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s3s_helper_v35": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_110": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_120": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_130": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_150": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_160": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_170": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_180": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_190": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_200": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fa_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    176,
+    137
+   ],
+   "shows": []
+  },
+  "scene_s4fb_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_110": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_120": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_130": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_15": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_150": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_65": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4fb_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    175,
+    138
+   ],
+   "shows": []
+  },
+  "scene_s4s_10": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_100_sel": {
+   "complete": false,
+   "cost": [
+    0
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_100_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_130": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_160_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_180": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_210_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_215": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_250": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_290_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_300": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_30_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_310": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_330": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_360_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_370": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_380": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_390": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_40": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_420_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_420_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_430": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_450_sel": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_490_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_490_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_51": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_560": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_570": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_60": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_620": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_670_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_680": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_70": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_710": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_720": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_comp_a": {
+   "complete": true,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_comp_b": {
+   "complete": true,
+   "cost": [
+    25,
+    25,
+    25,
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v14": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v15": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v16": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v17": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v18": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v19": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v21": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v22": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v23": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v24": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v25": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v26": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v27": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v28": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v34": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v44": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v45": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_dispatch_v46": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_shared_v10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s4s_shared_v11": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    193,
+    139
+   ],
+   "shows": []
+  },
+  "scene_s5s_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_140_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_140_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_20": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_200": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_260": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_30": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_320": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_320_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_320_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_320_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_380": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_5": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_6": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_40_7": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_410": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_430": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_430_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_430_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_510": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_520": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_550": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_580": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": [
+    105,
+    106,
+    109
+   ]
+  },
+  "scene_s5s_660": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_680": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_680_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_680_3": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_680_4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_740": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_740_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_800": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_805": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_806": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_820": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_870": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_comp": {
+   "complete": true,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_dispatch_v42": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_dispatch_v43": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_dispatch_v44": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_dispatch_v45": {
+   "complete": false,
+   "cost": [
+    0,
+    100,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "gameover": false,
+   "gets": [
+    105,
+    106,
+    109
+   ],
+   "shows": []
+  },
+  "scene_s5s_shared_v0": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s5s_shared_v1": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    110,
+    140
+   ],
+   "shows": []
+  },
+  "scene_s6s_10": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_100": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_110": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_150_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_151": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_153": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_160": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_20": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_280_sel": {
+   "complete": false,
+   "cost": [
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_280_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_282": {
+   "complete": false,
+   "cost": [],
+   "gameover": true,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_290": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_60_sel": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_60_sel_2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_70": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_comp": {
+   "complete": true,
+   "cost": [
+    100,
+    100
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_shared_v4": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_shared_v5": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s6s_shared_v6": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_100": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_130": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_160": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_180": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_186": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_190": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_200": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_215": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_240": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_260": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_270": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_280": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_290": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_300": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_310": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_320": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_340": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_350": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_360": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_370": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_380": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_410": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_420": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_430": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_440": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_450": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_460": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_470": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_480": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_490": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_500": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_510": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_520": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_530": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_550": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_560": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_570": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_590": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_600": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_610": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_620": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_70": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_90": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_comp": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_dispatch_v52": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    141,
+    111,
+    112,
+    113
+   ],
+   "shows": []
+  },
+  "scene_s7f_shared_v0": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_shared_v1": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s7f_shared_v2": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_100": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_120": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_130": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_140": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_150": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_160": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_170": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_80": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_90": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8f_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    94,
+    142
+   ],
+   "shows": []
+  },
+  "scene_s8s_10": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8s_30": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8s_40": {
+   "complete": false,
+   "cost": [
+    25
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8s_50": {
+   "complete": false,
+   "cost": [
+    0
+   ],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_s8s_comp": {
+   "complete": true,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_10": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_20": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_30": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_40": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_50": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_60": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [],
+   "shows": []
+  },
+  "scene_sof_complete": {
+   "complete": false,
+   "cost": [],
+   "gameover": false,
+   "gets": [
+    1
+   ],
+   "shows": []
+  }
+ },
+ "states": {
+  "e1f-10": {
+   "file": "snr_e1_10_f",
+   "scene": "scene_e1f_10",
+   "seq": [
+    {
+     "play": "scene_e1f_10",
+     "title": "由加里先生"
+    },
+    {
+     "goto": "e1f-complete"
+    }
+   ],
+   "title": "由加里先生"
+  },
+  "e1f-complete": {
+   "file": "snr_e1_10_f",
+   "scene": "scene_e1f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_e1f_complete",
+     "title": "セクションＥＸ１読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクションＥＸ１読了"
+  },
+  "e1s_10": {
+   "file": "snr_e1_10_s",
+   "scene": "scene_e1s_10_11",
+   "seq": [
+    {
+     "play": "scene_e1s_10_11",
+     "title": "春"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "e1s_comp"
+    },
+    {
+     "play": "scene_e1s_10_20",
+     "title": "セクションＥＸ１：ユカリ"
+    },
+    {
+     "play": "scene_e1s_10_21",
+     "title": "春"
+    },
+    {
+     "play": "scene_e1s_10_22",
+     "title": "屋上の男子生徒"
+    },
+    {
+     "play": "scene_e1s_10_23",
+     "title": "屋上の男子生徒、再び"
+    },
+    {
+     "play": "scene_e1s_10_24",
+     "title": "奇妙な交流"
+    },
+    {
+     "play": "scene_e1s_10_25",
+     "title": "学校のカイダン"
+    },
+    {
+     "play": "scene_e1s_10_26",
+     "title": "共犯者"
+    },
+    {
+     "play": "scene_e1s_10",
+     "title": "花火大会"
+    },
+    {
+     "play": "scene_e1s_10_2",
+     "title": "教師を続ける理由"
+    },
+    {
+     "play": "scene_e1s_10_3",
+     "title": "ユウイチの事情"
+    },
+    {
+     "play": "scene_e1s_10_4",
+     "title": "気分転換"
+    },
+    {
+     "play": "scene_e1s_10_5",
+     "title": "私にできること"
+    },
+    {
+     "play": "scene_e1s_10_6",
+     "title": "プール"
+    },
+    {
+     "play": "scene_e1s_10_7",
+     "title": "君につく嘘"
+    },
+    {
+     "play": "scene_e1s_10_8",
+     "title": "アヤノの家出"
+    },
+    {
+     "play": "scene_e1s_10_9",
+     "title": "両親"
+    },
+    {
+     "play": "scene_e1s_10_10",
+     "title": "あるいは埋め合わせ"
+    },
+    {
+     "play": "scene_e1s_10_12",
+     "title": "そして、夏のあの日の図書室"
+    },
+    {
+     "play": "scene_e1s_10_13",
+     "title": "三つの気になること"
+    },
+    {
+     "play": "scene_e1s_10_14",
+     "title": "告白"
+    },
+    {
+     "play": "scene_e1s_10_15",
+     "title": "二人の姿"
+    },
+    {
+     "play": "scene_e1s_10_16",
+     "title": "幾度目の夏"
+    },
+    {
+     "play": "scene_e1s_10_17",
+     "title": "再会の物語"
+    },
+    {
+     "play": "scene_e1s_10_18",
+     "title": "そして、物語はエンドロールを迎えた"
+    },
+    {
+     "play": "scene_e1s_10_19",
+     "title": "中庭の男子生徒"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "e1s_comp"
+    }
+   ],
+   "title": "春"
+  },
+  "e1s_comp": {
+   "file": "snr_e1_10_s",
+   "scene": "scene_e1s_comp",
+   "seq": [
+    {
+     "play": "scene_e1s_comp",
+     "title": "セクションＥＸ１完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクションＥＸ１完了"
+  },
+  "e2f-10": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_10",
+   "seq": [
+    {
+     "play": "scene_e2f_10",
+     "title": "誰も来ない"
+    },
+    {
+     "play": "scene_e2f_10_2",
+     "title": "雪乃"
+    },
+    {
+     "goto": "e2f-30"
+    }
+   ],
+   "title": "誰も来ない"
+  },
+  "e2f-100": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_100",
+   "seq": [
+    {
+     "play": "scene_e2f_100",
+     "title": "ため息"
+    },
+    {
+     "goto": "e2f-110"
+    }
+   ],
+   "title": "ため息"
+  },
+  "e2f-110": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_110",
+   "seq": [
+    {
+     "play": "scene_e2f_110",
+     "title": "次に逢うときは"
+    },
+    {
+     "goto": "e2f-120"
+    }
+   ],
+   "title": "次に逢うときは"
+  },
+  "e2f-120": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_120",
+   "seq": [
+    {
+     "play": "scene_e2f_120",
+     "title": "唐突に"
+    },
+    {
+     "goto": "e2f-130"
+    }
+   ],
+   "title": "唐突に"
+  },
+  "e2f-130": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_130",
+   "seq": [
+    {
+     "play": "scene_e2f_130",
+     "title": "その後"
+    },
+    {
+     "goto": "e2f-140"
+    }
+   ],
+   "title": "その後"
+  },
+  "e2f-140": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_140",
+   "seq": [
+    {
+     "play": "scene_e2f_140",
+     "title": "暗転"
+    },
+    {
+     "goto": "e2f-160"
+    }
+   ],
+   "title": "暗転"
+  },
+  "e2f-160": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_160",
+   "seq": [
+    {
+     "play": "scene_e2f_160",
+     "title": "中庭の雪"
+    },
+    {
+     "goto": "e2f-170"
+    }
+   ],
+   "title": "中庭の雪"
+  },
+  "e2f-170": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_170",
+   "seq": [
+    {
+     "play": "scene_e2f_170",
+     "title": "気がつくと病室"
+    },
+    {
+     "goto": "e2f-180"
+    }
+   ],
+   "title": "気がつくと病室"
+  },
+  "e2f-180": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_180",
+   "seq": [
+    {
+     "play": "scene_e2f_180",
+     "title": "チョコの味"
+    },
+    {
+     "goto": "e2f-190"
+    }
+   ],
+   "title": "チョコの味"
+  },
+  "e2f-190": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_190",
+   "seq": [
+    {
+     "play": "scene_e2f_190",
+     "title": "始業式"
+    },
+    {
+     "goto": "e2f-200"
+    }
+   ],
+   "title": "始業式"
+  },
+  "e2f-200": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_200",
+   "seq": [
+    {
+     "play": "scene_e2f_200",
+     "title": "２ｎｄＮｏｖｅｌ"
+    },
+    {
+     "goto": "e2f-210"
+    }
+   ],
+   "title": "２ｎｄＮｏｖｅｌ"
+  },
+  "e2f-210": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_210",
+   "seq": [
+    {
+     "play": "scene_e2f_210",
+     "title": "プール"
+    },
+    {
+     "goto": "e2f-215"
+    }
+   ],
+   "title": "プール"
+  },
+  "e2f-215": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_215",
+   "seq": [
+    {
+     "play": "scene_e2f_215",
+     "title": "ファストフード"
+    },
+    {
+     "goto": "e2f-220"
+    }
+   ],
+   "title": "ファストフード"
+  },
+  "e2f-220": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_220",
+   "seq": [
+    {
+     "play": "scene_e2f_220",
+     "title": "プラネタリウム"
+    },
+    {
+     "goto": "e2f-230"
+    }
+   ],
+   "title": "プラネタリウム"
+  },
+  "e2f-230": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_230",
+   "seq": [
+    {
+     "play": "scene_e2f_230",
+     "title": "お祭り"
+    },
+    {
+     "goto": "e2f-240"
+    }
+   ],
+   "title": "お祭り"
+  },
+  "e2f-240": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_240",
+   "seq": [
+    {
+     "play": "scene_e2f_240",
+     "title": "花火"
+    },
+    {
+     "goto": "e2f-270"
+    }
+   ],
+   "title": "花火"
+  },
+  "e2f-270": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_270",
+   "seq": [
+    {
+     "play": "scene_e2f_270",
+     "title": "放課後の教室"
+    },
+    {
+     "goto": "e2f-280"
+    }
+   ],
+   "title": "放課後の教室"
+  },
+  "e2f-280": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_280",
+   "seq": [
+    {
+     "play": "scene_e2f_280",
+     "title": "私たちの物語"
+    },
+    {
+     "goto": "e2f-290"
+    }
+   ],
+   "title": "私たちの物語"
+  },
+  "e2f-290": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_290",
+   "seq": [
+    {
+     "play": "scene_e2f_290",
+     "title": "伝言ゲーム"
+    },
+    {
+     "goto": "e2f-300"
+    }
+   ],
+   "title": "伝言ゲーム"
+  },
+  "e2f-30": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_30",
+   "seq": [
+    {
+     "play": "scene_e2f_30",
+     "title": "誰も来ない"
+    },
+    {
+     "goto": "e2f-40"
+    }
+   ],
+   "title": "誰も来ない"
+  },
+  "e2f-300": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_300",
+   "seq": [
+    {
+     "play": "scene_e2f_300",
+     "title": "文化祭"
+    },
+    {
+     "goto": "e2f-310"
+    }
+   ],
+   "title": "文化祭"
+  },
+  "e2f-310": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_310",
+   "seq": [
+    {
+     "play": "scene_e2f_310",
+     "title": "セクションコンプリート"
+    },
+    {
+     "goto": "e2f-320"
+    }
+   ],
+   "title": "セクションコンプリート"
+  },
+  "e2f-320": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_320",
+   "seq": [
+    {
+     "play": "scene_e2f_320",
+     "title": "屋上"
+    },
+    {
+     "goto": "e2f-330"
+    }
+   ],
+   "title": "屋上"
+  },
+  "e2f-330": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_330",
+   "seq": [
+    {
+     "play": "scene_e2f_330",
+     "title": "授業の終わり"
+    },
+    {
+     "goto": "e2f-340"
+    }
+   ],
+   "title": "授業の終わり"
+  },
+  "e2f-340": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_340",
+   "seq": [
+    {
+     "play": "scene_e2f_340",
+     "title": "受け継がれる物語"
+    },
+    {
+     "goto": "e2f-350"
+    }
+   ],
+   "title": "受け継がれる物語"
+  },
+  "e2f-350": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_350",
+   "seq": [
+    {
+     "play": "scene_e2f_350",
+     "title": "セカンドノベル"
+    },
+    {
+     "goto": "e2f-complete"
+    }
+   ],
+   "title": "セカンドノベル"
+  },
+  "e2f-40": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_40",
+   "seq": [
+    {
+     "play": "scene_e2f_40",
+     "title": "暗転"
+    },
+    {
+     "goto": "e2f-50"
+    }
+   ],
+   "title": "暗転"
+  },
+  "e2f-50": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_50",
+   "seq": [
+    {
+     "play": "scene_e2f_50",
+     "title": "誰も来ない"
+    },
+    {
+     "goto": "e2f-55"
+    }
+   ],
+   "title": "誰も来ない"
+  },
+  "e2f-55": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_55",
+   "seq": [
+    {
+     "play": "scene_e2f_55",
+     "title": "どこからか聞こえてくる声"
+    },
+    {
+     "goto": "e2f-60"
+    }
+   ],
+   "title": "どこからか聞こえてくる声"
+  },
+  "e2f-60": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_60",
+   "seq": [
+    {
+     "play": "scene_e2f_60",
+     "title": "朝"
+    },
+    {
+     "goto": "e2f-70"
+    }
+   ],
+   "title": "朝"
+  },
+  "e2f-70": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_70",
+   "seq": [
+    {
+     "play": "scene_e2f_70",
+     "title": "その後"
+    },
+    {
+     "goto": "e2f-80"
+    }
+   ],
+   "title": "その後"
+  },
+  "e2f-80": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_80",
+   "seq": [
+    {
+     "play": "scene_e2f_80",
+     "title": "退院"
+    },
+    {
+     "goto": "e2f-90"
+    }
+   ],
+   "title": "退院"
+  },
+  "e2f-90": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_90",
+   "seq": [
+    {
+     "play": "scene_e2f_90",
+     "title": "ありきたりなモノの組み合わせ"
+    },
+    {
+     "goto": "e2f-100"
+    }
+   ],
+   "title": "ありきたりなモノの組み合わせ"
+  },
+  "e2f-complete": {
+   "file": "snr_e2_10_f",
+   "scene": "scene_e2f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_e2f_complete",
+     "title": "セクションＥＸ２読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクションＥＸ２読了"
+  },
+  "e2s_10": {
+   "file": "snr_e2_10_s",
+   "scene": "scene_e2s_10",
+   "seq": [
+    {
+     "play": "scene_e2s_10",
+     "title": "誰も来ない"
+    },
+    {
+     "goto": "e2s_20"
+    }
+   ],
+   "title": "誰も来ない"
+  },
+  "e2s_155": {
+   "file": "snr_e2_10_s",
+   "scene": "scene_e2s_155",
+   "seq": [
+    {
+     "play": "scene_e2s_155",
+     "title": "セカンドノベル"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "e2s_comp"
+    }
+   ],
+   "title": "セカンドノベル"
+  },
+  "e2s_20": {
+   "file": "snr_e2_10_s",
+   "scene": "scene_e2s_20_2",
+   "seq": [
+    {
+     "play": "scene_e2s_20_2",
+     "title": "セクションＥＸ２：女子生徒"
+    },
+    {
+     "play": "scene_e2s_20_3",
+     "title": "学校"
+    },
+    {
+     "play": "scene_e2s_20_4",
+     "title": "電話"
+    },
+    {
+     "play": "scene_e2s_20_5",
+     "title": "病院"
+    },
+    {
+     "play": "scene_e2s_20_6",
+     "title": "父親"
+    },
+    {
+     "play": "scene_e2s_20_7",
+     "title": "病院"
+    },
+    {
+     "play": "scene_e2s_20_8",
+     "title": "居酒屋"
+    },
+    {
+     "play": "scene_e2s_20",
+     "title": "リビングルーム"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "e2s_155"
+    }
+   ],
+   "title": "セクションＥＸ２：女子生徒"
+  },
+  "e2s_comp": {
+   "file": "snr_e2_10_s",
+   "scene": "scene_e2s_comp",
+   "seq": [
+    {
+     "play": "scene_e2s_comp",
+     "title": "セクションＥＸ２完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクションＥＸ２完了"
+  },
+  "end": {
+   "file": "snr_e2_10_s",
+   "scene": null,
+   "seq": [],
+   "title": null
+  },
+  "s1f-10": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_10",
+   "seq": [
+    {
+     "play": "scene_s1f_10",
+     "title": "彩野さんの家へ"
+    },
+    {
+     "goto": "s1f-20"
+    }
+   ],
+   "title": "彩野さんの家へ"
+  },
+  "s1f-20": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_20",
+   "seq": [
+    {
+     "play": "scene_s1f_20",
+     "title": "お母さん"
+    },
+    {
+     "goto": "s1f-30"
+    }
+   ],
+   "title": "お母さん"
+  },
+  "s1f-30": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_30",
+   "seq": [
+    {
+     "play": "scene_s1f_30",
+     "title": "彩野さんの部屋へ"
+    },
+    {
+     "goto": "s1f-40"
+    }
+   ],
+   "title": "彩野さんの部屋へ"
+  },
+  "s1f-40": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_40",
+   "seq": [
+    {
+     "play": "scene_s1f_40",
+     "title": "電話の相手"
+    },
+    {
+     "goto": "s1f-50"
+    }
+   ],
+   "title": "電話の相手"
+  },
+  "s1f-50": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_50",
+   "seq": [
+    {
+     "play": "scene_s1f_50",
+     "title": "待ち合わせの場所へ"
+    },
+    {
+     "goto": "s1f-60"
+    }
+   ],
+   "title": "待ち合わせの場所へ"
+  },
+  "s1f-60": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_60",
+   "seq": [
+    {
+     "play": "scene_s1f_60",
+     "title": "『あらすじ』"
+    },
+    {
+     "goto": "s1f-complete"
+    }
+   ],
+   "title": "『あらすじ』"
+  },
+  "s1f-complete": {
+   "file": "snr_s1_10_f",
+   "scene": "scene_s1f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s1f_complete",
+     "title": "セクション１読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション１読了"
+  },
+  "s1s_10": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_10",
+   "seq": [
+    {
+     "play": "scene_s1s_10",
+     "title": "オープニング"
+    },
+    {
+     "goto": "s1s_20"
+    }
+   ],
+   "title": "オープニング"
+  },
+  "s1s_100_sel": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_100_sel",
+   "seq": [
+    {
+     "play": "scene_s1s_100_sel",
+     "title": "選択：ユウイチの答案"
+    },
+    {
+     "choice": 1,
+     "goto": "s1s_110"
+    },
+    {
+     "choice": 2,
+     "goto": "s1s_120"
+    }
+   ],
+   "title": "選択：ユウイチの答案"
+  },
+  "s1s_110": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_110",
+   "seq": [
+    {
+     "play": "scene_s1s_110",
+     "title": "答案を羨ましがる"
+    },
+    {
+     "goto": "s1s_130"
+    }
+   ],
+   "title": "答案を羨ましがる"
+  },
+  "s1s_120": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_120",
+   "seq": [
+    {
+     "play": "scene_s1s_120",
+     "title": "答案を受け流す"
+    },
+    {
+     "goto": "s1s_130"
+    }
+   ],
+   "title": "答案を受け流す"
+  },
+  "s1s_130": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_130",
+   "seq": [
+    {
+     "play": "scene_s1s_130",
+     "title": "授業が始まる"
+    },
+    {
+     "goto": "s1s_140"
+    }
+   ],
+   "title": "授業が始まる"
+  },
+  "s1s_140": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_140",
+   "seq": [
+    {
+     "play": "scene_s1s_140",
+     "title": "放課後"
+    },
+    {
+     "goto": "s1s_150"
+    }
+   ],
+   "title": "放課後"
+  },
+  "s1s_150": {
+   "file": "snr_s1_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "route_has": "s1s_110"
+    },
+    {
+     "goto": "s1s_160"
+    },
+    {
+     "goto": "s1s_200_sel"
+    }
+   ],
+   "title": null
+  },
+  "s1s_160": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_160",
+   "seq": [
+    {
+     "play": "scene_s1s_160",
+     "title": "ユウイチとファストフード"
+    },
+    {
+     "goto": "s1s_170_sel"
+    }
+   ],
+   "title": "ユウイチとファストフード"
+  },
+  "s1s_170_sel": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_170_sel",
+   "seq": [
+    {
+     "play": "scene_s1s_170_sel",
+     "title": "選択：学校に戻る"
+    },
+    {
+     "choice": 1,
+     "goto": "s1s_210"
+    },
+    {
+     "choice": 2,
+     "goto": "s1s_180"
+    }
+   ],
+   "title": "選択：学校に戻る"
+  },
+  "s1s_180": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_180",
+   "seq": [
+    {
+     "play": "scene_s1s_180",
+     "title": "いつもの生活"
+    },
+    {
+     "goto": "s1s_190"
+    }
+   ],
+   "title": "いつもの生活"
+  },
+  "s1s_190": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_190",
+   "seq": [
+    {
+     "play": "scene_s1s_190",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s1s_20": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_20",
+   "seq": [
+    {
+     "play": "scene_s1s_20",
+     "title": "夏の朝、高校までの通学路"
+    },
+    {
+     "goto": "s1s_30"
+    }
+   ],
+   "title": "夏の朝、高校までの通学路"
+  },
+  "s1s_200_sel": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_200_sel",
+   "seq": [
+    {
+     "play": "scene_s1s_200_sel",
+     "title": "探索：放課後の学校"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s1s_210"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v29"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v30"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v31"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v20"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v21"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v22"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v23"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v24"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v25"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v26"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v27"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v28"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v32"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v33"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v34"
+    },
+    {
+     "subcall": "scene_s1s_dispatch_v35"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "choice": 9,
+     "goto": "s1s_210"
+    }
+   ],
+   "title": "探索：放課後の学校"
+  },
+  "s1s_210": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_210",
+   "seq": [
+    {
+     "play": "scene_s1s_210",
+     "title": "放課後のコックリさん"
+    },
+    {
+     "goto": "s1s_215"
+    }
+   ],
+   "title": "放課後のコックリさん"
+  },
+  "s1s_215": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_215",
+   "seq": [
+    {
+     "play": "scene_s1s_215",
+     "title": "彼女との出会い"
+    },
+    {
+     "goto": "s1s_220"
+    }
+   ],
+   "title": "彼女との出会い"
+  },
+  "s1s_220": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_220",
+   "seq": [
+    {
+     "play": "scene_s1s_220",
+     "title": "良くない結果"
+    },
+    {
+     "goto": "s1s_230"
+    }
+   ],
+   "title": "良くない結果"
+  },
+  "s1s_230": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_230",
+   "seq": [
+    {
+     "play": "scene_s1s_230",
+     "title": "気がつくといる場所"
+    },
+    {
+     "goto": "s1s_260_sel"
+    }
+   ],
+   "title": "気がつくといる場所"
+  },
+  "s1s_260_sel": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_260_sel",
+   "seq": [
+    {
+     "play": "scene_s1s_260_sel",
+     "title": "選択：声の主"
+    },
+    {
+     "choice": 1,
+     "goto": "s1s_270"
+    },
+    {
+     "choice": 2,
+     "goto": "s1s_280"
+    }
+   ],
+   "title": "選択：声の主"
+  },
+  "s1s_270": {
+   "file": "snr_s1_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s5s_10"
+    },
+    {
+     "run": "snr_s5_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s1s_280": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_280",
+   "seq": [
+    {
+     "play": "scene_s1s_280",
+     "title": "彼女の名前"
+    },
+    {
+     "route_has": "s1s_110"
+    },
+    {
+     "goto": "s1s_320"
+    },
+    {
+     "goto": "s1s_300"
+    }
+   ],
+   "title": "彼女の名前"
+  },
+  "s1s_30": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_30",
+   "seq": [
+    {
+     "play": "scene_s1s_30",
+     "title": "放課後の約束"
+    },
+    {
+     "goto": "s1s_35_sel"
+    }
+   ],
+   "title": "放課後の約束"
+  },
+  "s1s_300": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_300",
+   "seq": [
+    {
+     "play": "scene_s1s_300",
+     "title": "約束はまもらないと"
+    },
+    {
+     "goto": "s1s_310"
+    }
+   ],
+   "title": "約束はまもらないと"
+  },
+  "s1s_310": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_310",
+   "seq": [
+    {
+     "play": "scene_s1s_310",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s1s_320": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_320",
+   "seq": [
+    {
+     "play": "scene_s1s_320",
+     "title": "ユウイチはアヤノを助ける"
+    },
+    {
+     "goto": "s1s_330"
+    }
+   ],
+   "title": "ユウイチはアヤノを助ける"
+  },
+  "s1s_330": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_330",
+   "seq": [
+    {
+     "play": "scene_s1s_330",
+     "title": "誰かが呼んでた"
+    },
+    {
+     "goto": "s1s_comp"
+    }
+   ],
+   "title": "誰かが呼んでた"
+  },
+  "s1s_35_sel": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_35_sel",
+   "seq": [
+    {
+     "play": "scene_s1s_35_sel",
+     "title": "選択：放課後の約束"
+    },
+    {
+     "choice": 1,
+     "goto": "s1s_37"
+    },
+    {
+     "choice": 2,
+     "goto": "s1s_36"
+    },
+    {
+     "choice": 3,
+     "goto": "s1s_38"
+    }
+   ],
+   "title": "選択：放課後の約束"
+  },
+  "s1s_36": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_36",
+   "seq": [
+    {
+     "play": "scene_s1s_36",
+     "title": "約束をしている"
+    },
+    {
+     "goto": "s1s_70"
+    }
+   ],
+   "title": "約束をしている"
+  },
+  "s1s_37": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_37",
+   "seq": [
+    {
+     "play": "scene_s1s_37",
+     "title": "約束を思い出せない"
+    },
+    {
+     "goto": "s1s_60"
+    }
+   ],
+   "title": "約束を思い出せない"
+  },
+  "s1s_38": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_38",
+   "seq": [
+    {
+     "play": "scene_s1s_38",
+     "title": "約束をしていない"
+    },
+    {
+     "goto": "s1s_40"
+    }
+   ],
+   "title": "約束をしていない"
+  },
+  "s1s_40": {
+   "file": "snr_s1_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "card_gate": 133,
+     "held": true
+    },
+    {
+     "goto": "s2s_10"
+    },
+    {
+     "run": "snr_s2_10_s"
+    },
+    {
+     "goto": "s1s_60"
+    }
+   ],
+   "title": null
+  },
+  "s1s_60": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_60",
+   "seq": [
+    {
+     "play": "scene_s1s_60",
+     "title": "約束を思い出す"
+    },
+    {
+     "goto": "s1s_70"
+    }
+   ],
+   "title": "約束を思い出す"
+  },
+  "s1s_70": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_70",
+   "seq": [
+    {
+     "play": "scene_s1s_70",
+     "title": "朝の教室"
+    },
+    {
+     "goto": "s1s_80"
+    }
+   ],
+   "title": "朝の教室"
+  },
+  "s1s_80": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_80",
+   "seq": [
+    {
+     "play": "scene_s1s_80",
+     "title": "セクション１：アヤノ"
+    },
+    {
+     "goto": "s1s_90"
+    }
+   ],
+   "title": "セクション１：アヤノ"
+  },
+  "s1s_90": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_90",
+   "seq": [
+    {
+     "play": "scene_s1s_90",
+     "title": "昼休みの教室"
+    },
+    {
+     "goto": "s1s_100_sel"
+    }
+   ],
+   "title": "昼休みの教室"
+  },
+  "s1s_comp": {
+   "file": "snr_s1_10_s",
+   "scene": "scene_s1s_comp",
+   "seq": [
+    {
+     "play": "scene_s1s_comp",
+     "title": "セクション１完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション１完了"
+  },
+  "s2f-10": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_10",
+   "seq": [
+    {
+     "play": "scene_s2f_10",
+     "title": "夕方の校庭"
+    },
+    {
+     "goto": "s2f-20"
+    }
+   ],
+   "title": "夕方の校庭"
+  },
+  "s2f-20": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_20",
+   "seq": [
+    {
+     "play": "scene_s2f_20",
+     "title": "当時の記憶"
+    },
+    {
+     "goto": "s2f-30"
+    }
+   ],
+   "title": "当時の記憶"
+  },
+  "s2f-30": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_30",
+   "seq": [
+    {
+     "play": "scene_s2f_30",
+     "title": "まっすぐ家に帰る気になれない"
+    },
+    {
+     "goto": "s2f-40"
+    }
+   ],
+   "title": "まっすぐ家に帰る気になれない"
+  },
+  "s2f-40": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_40",
+   "seq": [
+    {
+     "play": "scene_s2f_40",
+     "title": "校庭の千秋"
+    },
+    {
+     "goto": "s2f-50"
+    }
+   ],
+   "title": "校庭の千秋"
+  },
+  "s2f-50": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_50",
+   "seq": [
+    {
+     "play": "scene_s2f_50",
+     "title": "千秋の家庭の事情"
+    },
+    {
+     "goto": "s2f-60"
+    }
+   ],
+   "title": "千秋の家庭の事情"
+  },
+  "s2f-60": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_60",
+   "seq": [
+    {
+     "play": "scene_s2f_60",
+     "title": "あの子には優しくしてあげてね"
+    },
+    {
+     "goto": "s2f-70"
+    }
+   ],
+   "title": "あの子には優しくしてあげてね"
+  },
+  "s2f-70": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_70",
+   "seq": [
+    {
+     "play": "scene_s2f_70",
+     "title": "日暮れ"
+    },
+    {
+     "goto": "s2f-complete"
+    }
+   ],
+   "title": "日暮れ"
+  },
+  "s2f-complete": {
+   "file": "snr_s2_10_f",
+   "scene": "scene_s2f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s2f_complete",
+     "title": "セクション２読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション２読了"
+  },
+  "s2s_10": {
+   "file": "snr_s2_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "card_gate": 31,
+     "held": true
+    },
+    {
+     "goto": "s2s_60"
+    },
+    {
+     "goto": "s2s_20"
+    }
+   ],
+   "title": null
+  },
+  "s2s_120_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_120_sel_2",
+   "seq": [
+    {
+     "play": "scene_s2s_120_sel_2",
+     "title": "選択：オマジナイへの興味"
+    },
+    {
+     "play": "scene_s2s_120_sel_3",
+     "title": "特にない"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_124"
+    },
+    {
+     "play": "scene_s2s_120_sel_4",
+     "title": "テストで満点取る"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_124"
+    },
+    {
+     "play": "scene_s2s_120_sel",
+     "title": "歌が上手くなる"
+    },
+    {
+     "choice": 3,
+     "goto": "s2s_124"
+    },
+    {
+     "choice": 4,
+     "goto": "s2s_140"
+    }
+   ],
+   "title": "選択：オマジナイへの興味"
+  },
+  "s2s_124": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_124",
+   "seq": [
+    {
+     "play": "scene_s2s_124",
+     "title": "サクラのため息"
+    },
+    {
+     "goto": "s2s_20"
+    }
+   ],
+   "title": "サクラのため息"
+  },
+  "s2s_140": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_140",
+   "seq": [
+    {
+     "play": "scene_s2s_140",
+     "title": "セクション２：アヤノ"
+    },
+    {
+     "goto": "s2s_150"
+    }
+   ],
+   "title": "セクション２：アヤノ"
+  },
+  "s2s_150": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_150",
+   "seq": [
+    {
+     "play": "scene_s2s_150",
+     "title": "ユウイチとの仲"
+    },
+    {
+     "goto": "s2s_160_sel"
+    }
+   ],
+   "title": "ユウイチとの仲"
+  },
+  "s2s_160_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_160_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_160_sel",
+     "title": "選択：ユウイチへの想い"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_170"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_180"
+    }
+   ],
+   "title": "選択：ユウイチへの想い"
+  },
+  "s2s_170": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_170",
+   "seq": [
+    {
+     "play": "scene_s2s_170",
+     "title": "ユウイチのことが好き"
+    },
+    {
+     "goto": "s2s_190_sel"
+    }
+   ],
+   "title": "ユウイチのことが好き"
+  },
+  "s2s_180": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_180",
+   "seq": [
+    {
+     "play": "scene_s2s_180",
+     "title": "ユウイチのことは……"
+    },
+    {
+     "goto": "s2s_190_sel"
+    }
+   ],
+   "title": "ユウイチのことは……"
+  },
+  "s2s_190_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_190_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_190_sel",
+     "title": "選択：ナゾトキ"
+    },
+    {
+     "end_cost": 20
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_208"
+    },
+    {
+     "end_cost": 20
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_209"
+    },
+    {
+     "play": "scene_s2s_190_sel_2",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_3",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_4",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_6",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_5",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_5",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_7",
+     "title": "ナゾトキ１"
+    },
+    {
+     "play": "scene_s2s_190_sel_8",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_9",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_10",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_12",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_11",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_11",
+     "title": "ナゾトキ２"
+    },
+    {
+     "play": "scene_s2s_190_sel_13",
+     "title": "ナゾトキ２"
+    },
+    {
+     "end_cost": 20
+    },
+    {
+     "choice": 0,
+     "goto": "s2s_208"
+    },
+    {
+     "choice": 0,
+     "goto": "s2s_209"
+    }
+   ],
+   "title": "選択：ナゾトキ"
+  },
+  "s2s_20": {
+   "file": "snr_s2_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "card_gate": 134,
+     "held": true
+    },
+    {
+     "goto": "s3s_10"
+    },
+    {
+     "run": "snr_s3_10_s"
+    },
+    {
+     "goto": "s2s_40"
+    }
+   ],
+   "title": null
+  },
+  "s2s_208": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_208",
+   "seq": [
+    {
+     "play": "scene_s2s_208",
+     "title": "ナゾトキの正解"
+    },
+    {
+     "goto": "s2s_210"
+    }
+   ],
+   "title": "ナゾトキの正解"
+  },
+  "s2s_209": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_209",
+   "seq": [
+    {
+     "play": "scene_s2s_209",
+     "title": "ナゾトキの間違い"
+    },
+    {
+     "goto": "s2s_210"
+    }
+   ],
+   "title": "ナゾトキの間違い"
+  },
+  "s2s_210": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_210",
+   "seq": [
+    {
+     "play": "scene_s2s_210",
+     "title": "出かける場所"
+    },
+    {
+     "goto": "s2s_220_sel"
+    }
+   ],
+   "title": "出かける場所"
+  },
+  "s2s_220_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_220_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_220_sel",
+     "title": "選択：出かける場所"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_230"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_240"
+    }
+   ],
+   "title": "選択：出かける場所"
+  },
+  "s2s_230": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_230",
+   "seq": [
+    {
+     "play": "scene_s2s_230",
+     "title": "プールの約束"
+    },
+    {
+     "goto": "s2s_250"
+    }
+   ],
+   "title": "プールの約束"
+  },
+  "s2s_240": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_240",
+   "seq": [
+    {
+     "play": "scene_s2s_240",
+     "title": "プラネタリウムの約束"
+    },
+    {
+     "goto": "s2s_250"
+    }
+   ],
+   "title": "プラネタリウムの約束"
+  },
+  "s2s_250": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_250",
+   "seq": [
+    {
+     "play": "scene_s2s_250",
+     "title": "図書室"
+    },
+    {
+     "goto": "s2s_260_sel"
+    }
+   ],
+   "title": "図書室"
+  },
+  "s2s_260_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_260_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_260_sel",
+     "title": "選択：放課後のオマジナイ"
+    },
+    {
+     "route_has": "s2s_209"
+    },
+    {
+     "play": "scene_s2s_260_sel_2",
+     "title": "夕日を見ながら歌を聞く"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_293"
+    },
+    {
+     "play": "scene_s2s_260_sel_3",
+     "title": "教科書の裏に名前"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_293"
+    },
+    {
+     "choice": 3,
+     "goto": "s2s_300"
+    }
+   ],
+   "title": "選択：放課後のオマジナイ"
+  },
+  "s2s_293": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_293",
+   "seq": [
+    {
+     "play": "scene_s2s_293",
+     "title": "オマジナイ、成功……？"
+    },
+    {
+     "goto": "s2s_310"
+    }
+   ],
+   "title": "オマジナイ、成功……？"
+  },
+  "s2s_300": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_300",
+   "seq": [
+    {
+     "play": "scene_s2s_300",
+     "title": "消しゴムに名前"
+    },
+    {
+     "goto": "s2s_310"
+    }
+   ],
+   "title": "消しゴムに名前"
+  },
+  "s2s_310": {
+   "file": "snr_s2_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s2s_340_sel"
+    }
+   ],
+   "title": null
+  },
+  "s2s_340_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_340_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_340_sel",
+     "title": "選択：オマジナイの効果"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_350"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_360"
+    },
+    {
+     "choice": 3,
+     "goto": "s2s_370"
+    }
+   ],
+   "title": "選択：オマジナイの効果"
+  },
+  "s2s_350": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_350",
+   "seq": [
+    {
+     "play": "scene_s2s_350",
+     "title": "絶対に効くと思う"
+    },
+    {
+     "goto": "s2s_380"
+    }
+   ],
+   "title": "絶対に効くと思う"
+  },
+  "s2s_360": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_360",
+   "seq": [
+    {
+     "play": "scene_s2s_360",
+     "title": "たぶん効くと思う"
+    },
+    {
+     "goto": "s2s_380"
+    }
+   ],
+   "title": "たぶん効くと思う"
+  },
+  "s2s_370": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_370",
+   "seq": [
+    {
+     "play": "scene_s2s_370",
+     "title": "やってソンはないと思う"
+    },
+    {
+     "goto": "s2s_380"
+    }
+   ],
+   "title": "やってソンはないと思う"
+  },
+  "s2s_380": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_380",
+   "seq": [
+    {
+     "play": "scene_s2s_380",
+     "title": "オマジナイ完了"
+    },
+    {
+     "goto": "s2s_390"
+    }
+   ],
+   "title": "オマジナイ完了"
+  },
+  "s2s_390": {
+   "file": "snr_s2_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "route_has": "s2s_170"
+    },
+    {
+     "route_has": "s2s_300"
+    },
+    {
+     "route_has": "s2s_350"
+    },
+    {
+     "goto": "s2s_500"
+    },
+    {
+     "route_has": "s2s_170"
+    },
+    {
+     "goto": "s2s_420"
+    },
+    {
+     "goto": "s2s_450"
+    }
+   ],
+   "title": null
+  },
+  "s2s_40": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_40",
+   "seq": [
+    {
+     "play": "scene_s2s_40",
+     "title": "また、いつもの生活"
+    },
+    {
+     "goto": "s2s_50"
+    }
+   ],
+   "title": "また、いつもの生活"
+  },
+  "s2s_420": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_420",
+   "seq": [
+    {
+     "play": "scene_s2s_420",
+     "title": "廊下に響く声"
+    },
+    {
+     "goto": "s2s_440"
+    }
+   ],
+   "title": "廊下に響く声"
+  },
+  "s2s_440": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_440",
+   "seq": [
+    {
+     "play": "scene_s2s_440",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s2s_450": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_450",
+   "seq": [
+    {
+     "play": "scene_s2s_450",
+     "title": "ユウイチの後ろ姿"
+    },
+    {
+     "goto": "s2s_490"
+    }
+   ],
+   "title": "ユウイチの後ろ姿"
+  },
+  "s2s_490": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_490",
+   "seq": [
+    {
+     "play": "scene_s2s_490",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s2s_50": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_50",
+   "seq": [
+    {
+     "play": "scene_s2s_50",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s2s_500": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_500",
+   "seq": [
+    {
+     "play": "scene_s2s_500",
+     "title": "夜の廊下"
+    },
+    {
+     "goto": "s2s_550"
+    }
+   ],
+   "title": "夜の廊下"
+  },
+  "s2s_550": {
+   "file": "snr_s2_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "route_has": "s2s_230"
+    },
+    {
+     "goto": "s2s_570"
+    },
+    {
+     "goto": "s2s_590"
+    }
+   ],
+   "title": null
+  },
+  "s2s_570": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_570",
+   "seq": [
+    {
+     "play": "scene_s2s_570",
+     "title": "プール"
+    },
+    {
+     "goto": "s2s_610"
+    }
+   ],
+   "title": "プール"
+  },
+  "s2s_590": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_590",
+   "seq": [
+    {
+     "play": "scene_s2s_590",
+     "title": "プラネタリウム"
+    },
+    {
+     "goto": "s2s_610"
+    }
+   ],
+   "title": "プラネタリウム"
+  },
+  "s2s_60": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_60",
+   "seq": [
+    {
+     "play": "scene_s2s_60",
+     "title": "夏の予定"
+    },
+    {
+     "goto": "s2s_80_sel"
+    }
+   ],
+   "title": "夏の予定"
+  },
+  "s2s_610": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_610",
+   "seq": [
+    {
+     "play": "scene_s2s_610",
+     "title": "オマジナイの効果"
+    },
+    {
+     "goto": "s2s_comp"
+    }
+   ],
+   "title": "オマジナイの効果"
+  },
+  "s2s_80_sel": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_80_sel",
+   "seq": [
+    {
+     "play": "scene_s2s_80_sel",
+     "title": "選択：週末の予定"
+    },
+    {
+     "choice": 1,
+     "goto": "s2s_90"
+    },
+    {
+     "play": "scene_s2s_80_sel_2",
+     "title": "行かない"
+    },
+    {
+     "choice": 2,
+     "goto": "s2s_20"
+    },
+    {
+     "play": "scene_s2s_80_sel_3",
+     "title": "濁す"
+    },
+    {
+     "choice": 3,
+     "goto": "s2s_40"
+    }
+   ],
+   "title": "選択：週末の予定"
+  },
+  "s2s_90": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_90",
+   "seq": [
+    {
+     "play": "scene_s2s_90",
+     "title": "休み時間"
+    },
+    {
+     "goto": "s2s_120_sel"
+    }
+   ],
+   "title": "休み時間"
+  },
+  "s2s_comp": {
+   "file": "snr_s2_10_s",
+   "scene": "scene_s2s_comp",
+   "seq": [
+    {
+     "play": "scene_s2s_comp",
+     "title": "セクション２完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション２完了"
+  },
+  "s3fa-10": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_10",
+   "seq": [
+    {
+     "play": "scene_s3fa_10",
+     "title": "図書室の由加里先生"
+    },
+    {
+     "goto": "s3fa-20"
+    }
+   ],
+   "title": "図書室の由加里先生"
+  },
+  "s3fa-20": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_20",
+   "seq": [
+    {
+     "play": "scene_s3fa_20",
+     "title": "千秋と帰りの歌"
+    },
+    {
+     "goto": "s3fa-30"
+    }
+   ],
+   "title": "千秋と帰りの歌"
+  },
+  "s3fa-30": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_30",
+   "seq": [
+    {
+     "play": "scene_s3fa_30",
+     "title": "コーヒー"
+    },
+    {
+     "goto": "s3fa-40"
+    }
+   ],
+   "title": "コーヒー"
+  },
+  "s3fa-40": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_40",
+   "seq": [
+    {
+     "play": "scene_s3fa_40",
+     "title": "神社でお祭り"
+    },
+    {
+     "goto": "s3fa-50"
+    }
+   ],
+   "title": "神社でお祭り"
+  },
+  "s3fa-50": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_50",
+   "seq": [
+    {
+     "play": "scene_s3fa_50",
+     "title": "近道"
+    },
+    {
+     "goto": "s3fa-60"
+    }
+   ],
+   "title": "近道"
+  },
+  "s3fa-60": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_60",
+   "seq": [
+    {
+     "play": "scene_s3fa_60",
+     "title": "誰も見たことのない夕焼け"
+    },
+    {
+     "goto": "s3fa-complete"
+    }
+   ],
+   "title": "誰も見たことのない夕焼け"
+  },
+  "s3fa-complete": {
+   "file": "snr_s3_10_fa",
+   "scene": "scene_s3fa_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s3fa_complete",
+     "title": "セクション３Ａ読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション３Ａ読了"
+  },
+  "s3fb-10": {
+   "file": "snr_s3_10_fb",
+   "scene": "scene_s3fb_10",
+   "seq": [
+    {
+     "play": "scene_s3fb_10",
+     "title": "彩野さんの家へ"
+    },
+    {
+     "goto": "s3fb-20"
+    }
+   ],
+   "title": "彩野さんの家へ"
+  },
+  "s3fb-20": {
+   "file": "snr_s3_10_fb",
+   "scene": "scene_s3fb_20",
+   "seq": [
+    {
+     "play": "scene_s3fb_20",
+     "title": "居酒屋：羊道"
+    },
+    {
+     "goto": "s3fb-30"
+    }
+   ],
+   "title": "居酒屋：羊道"
+  },
+  "s3fb-30": {
+   "file": "snr_s3_10_fb",
+   "scene": "scene_s3fb_30",
+   "seq": [
+    {
+     "play": "scene_s3fb_30",
+     "title": "言いたげな由加里"
+    },
+    {
+     "goto": "s3fb-40"
+    }
+   ],
+   "title": "言いたげな由加里"
+  },
+  "s3fb-40": {
+   "file": "snr_s3_10_fb",
+   "scene": "scene_s3fb_40",
+   "seq": [
+    {
+     "play": "scene_s3fb_40",
+     "title": "缶蹴り"
+    },
+    {
+     "goto": "s3fb-complete"
+    }
+   ],
+   "title": "缶蹴り"
+  },
+  "s3fb-complete": {
+   "file": "snr_s3_10_fb",
+   "scene": "scene_s3fb_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s3fb_complete",
+     "title": "セクション３Ｂ読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション３Ｂ読了"
+  },
+  "s3fc-10": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_10",
+   "seq": [
+    {
+     "play": "scene_s3fc_10",
+     "title": "連絡"
+    },
+    {
+     "goto": "s3fc-20"
+    }
+   ],
+   "title": "連絡"
+  },
+  "s3fc-20": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_20",
+   "seq": [
+    {
+     "play": "scene_s3fc_20",
+     "title": "病院１"
+    },
+    {
+     "goto": "s3fc-30"
+    }
+   ],
+   "title": "病院１"
+  },
+  "s3fc-30": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_30",
+   "seq": [
+    {
+     "play": "scene_s3fc_30",
+     "title": "病院２"
+    },
+    {
+     "goto": "s3fc-40"
+    }
+   ],
+   "title": "病院２"
+  },
+  "s3fc-40": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_40",
+   "seq": [
+    {
+     "play": "scene_s3fc_40",
+     "title": "病院３"
+    },
+    {
+     "goto": "s3fc-50"
+    }
+   ],
+   "title": "病院３"
+  },
+  "s3fc-50": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_50",
+   "seq": [
+    {
+     "play": "scene_s3fc_50",
+     "title": "中庭"
+    },
+    {
+     "goto": "s3fc-60"
+    }
+   ],
+   "title": "中庭"
+  },
+  "s3fc-60": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_60",
+   "seq": [
+    {
+     "play": "scene_s3fc_60",
+     "title": "彩野の家"
+    },
+    {
+     "goto": "s3fc-70"
+    }
+   ],
+   "title": "彩野の家"
+  },
+  "s3fc-70": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_70",
+   "seq": [
+    {
+     "play": "scene_s3fc_70",
+     "title": "今夜の予定"
+    },
+    {
+     "goto": "s3fc-80"
+    }
+   ],
+   "title": "今夜の予定"
+  },
+  "s3fc-80": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_80",
+   "seq": [
+    {
+     "play": "scene_s3fc_80",
+     "title": "手帳のメモ"
+    },
+    {
+     "goto": "s3fc-90"
+    }
+   ],
+   "title": "手帳のメモ"
+  },
+  "s3fc-90": {
+   "file": "snr_s3_10_fc",
+   "scene": "scene_s3fc_90",
+   "seq": [
+    {
+     "play": "scene_s3fc_90",
+     "title": "いつかきみがみるお話"
+    },
+    {
+     "goto": "s3fc-complete"
+    }
+   ],
+   "title": "いつかきみがみるお話"
+  },
+  "s3fc-complete": {
+   "file": "snr_s3_10_fc",
+   "scene": null,
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": null
+  },
+  "s3s_10": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_10",
+   "seq": [
+    {
+     "play": "scene_s3s_10",
+     "title": "昼休みの廊下"
+    },
+    {
+     "goto": "s3s_20_sel"
+    }
+   ],
+   "title": "昼休みの廊下"
+  },
+  "s3s_100": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_100",
+   "seq": [
+    {
+     "play": "scene_s3s_100",
+     "title": "ウワサに興味がない"
+    },
+    {
+     "goto": "s3s_110"
+    }
+   ],
+   "title": "ウワサに興味がない"
+  },
+  "s3s_110": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_110",
+   "seq": [
+    {
+     "play": "scene_s3s_110",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s3s_120": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_120",
+   "seq": [
+    {
+     "play": "scene_s3s_120",
+     "title": "お化け階段"
+    },
+    {
+     "goto": "s3s_170_sel"
+    }
+   ],
+   "title": "お化け階段"
+  },
+  "s3s_170_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_170_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_170_sel",
+     "title": "選択：ウワサ話を……"
+    },
+    {
+     "route_has": "s3s_170_sel"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_190"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_171"
+    },
+    {
+     "choice": 3,
+     "goto": "s3s_172"
+    }
+   ],
+   "title": "選択：ウワサ話を……"
+  },
+  "s3s_171": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_171",
+   "seq": [
+    {
+     "play": "scene_s3s_171",
+     "title": "適当に聞く"
+    },
+    {
+     "route_has": "s3s_171"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s3s_170_sel"
+    }
+   ],
+   "title": "適当に聞く"
+  },
+  "s3s_172": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_172",
+   "seq": [
+    {
+     "play": "scene_s3s_172",
+     "title": "とりあえず聞いてみる"
+    },
+    {
+     "route_has": "s3s_172"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s3s_170_sel"
+    }
+   ],
+   "title": "とりあえず聞いてみる"
+  },
+  "s3s_190": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_190",
+   "seq": [
+    {
+     "play": "scene_s3s_190",
+     "title": "真剣に聞く"
+    },
+    {
+     "goto": "s3s_230_sel"
+    }
+   ],
+   "title": "真剣に聞く"
+  },
+  "s3s_20_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_20_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_20_sel",
+     "title": "選択：階段のウワサ"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_65"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_30"
+    }
+   ],
+   "title": "選択：階段のウワサ"
+  },
+  "s3s_230_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_230_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_230_sel",
+     "title": "探索：放課後の学校"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s3s_300_sel"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v12"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v13"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v14"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v15"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v18"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v16"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v17"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v19"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v22"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v23"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v24"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v25"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v20"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v21"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v26"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v29"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v27"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v28"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v30"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v32"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v31"
+    },
+    {
+     "subcall": "scene_s3s_dispatch_v33"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "choice": 4,
+     "goto": "s3s_300_sel"
+    }
+   ],
+   "title": "探索：放課後の学校"
+  },
+  "s3s_30": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s3s_50_sel"
+    }
+   ],
+   "title": null
+  },
+  "s3s_300_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_300_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_300_sel",
+     "title": "選択：ユウイチの影"
+    },
+    {
+     "card_gate": 135,
+     "held": false
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_360"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_301"
+    },
+    {
+     "choice": 3,
+     "goto": "s3s_330"
+    }
+   ],
+   "title": "選択：ユウイチの影"
+  },
+  "s3s_301": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_301",
+   "seq": [
+    {
+     "play": "scene_s3s_301",
+     "title": "ほうっておく"
+    },
+    {
+     "goto": "s3s_340"
+    }
+   ],
+   "title": "ほうっておく"
+  },
+  "s3s_330": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s4s_10"
+    },
+    {
+     "run": "snr_s4_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s3s_340": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_340",
+   "seq": [
+    {
+     "play": "scene_s3s_340",
+     "title": "陸上部のウワサ"
+    },
+    {
+     "goto": "s3s_350_sel"
+    }
+   ],
+   "title": "陸上部のウワサ"
+  },
+  "s3s_350_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_350_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_350_sel",
+     "title": "選択：向かう場所"
+    },
+    {
+     "play": "scene_s3s_350_sel_2",
+     "title": "図書室へ"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_360"
+    },
+    {
+     "play": "scene_s3s_350_sel_3",
+     "title": "階段へ"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_375"
+    }
+   ],
+   "title": "選択：向かう場所"
+  },
+  "s3s_360": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_360",
+   "seq": [
+    {
+     "play": "scene_s3s_360",
+     "title": "後をつける"
+    },
+    {
+     "goto": "s3s_370"
+    }
+   ],
+   "title": "後をつける"
+  },
+  "s3s_370": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_370",
+   "seq": [
+    {
+     "play": "scene_s3s_370",
+     "title": "口づけ"
+    },
+    {
+     "goto": "s3s_375"
+    }
+   ],
+   "title": "口づけ"
+  },
+  "s3s_375": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_375_2",
+   "seq": [
+    {
+     "route_has": "s3s_375"
+    },
+    {
+     "route_has": "s3s_370"
+    },
+    {
+     "play": "scene_s3s_375_2",
+     "title": "セクション３：アヤノ"
+    },
+    {
+     "play": "scene_s3s_375",
+     "title": "セクション３：アヤノ"
+    },
+    {
+     "route_has": "s3s_370"
+    },
+    {
+     "goto": "s3s_380"
+    },
+    {
+     "goto": "s3s_410"
+    }
+   ],
+   "title": "セクション３：アヤノ"
+  },
+  "s3s_380": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_380",
+   "seq": [
+    {
+     "play": "scene_s3s_380",
+     "title": "走り去るアヤノ"
+    },
+    {
+     "goto": "s3s_410"
+    }
+   ],
+   "title": "走り去るアヤノ"
+  },
+  "s3s_410": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_410",
+   "seq": [
+    {
+     "play": "scene_s3s_410",
+     "title": "階段へ"
+    },
+    {
+     "goto": "s3s_425"
+    }
+   ],
+   "title": "階段へ"
+  },
+  "s3s_425": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "route_has": "s3s_380"
+    },
+    {
+     "goto": "s3s_460"
+    },
+    {
+     "goto": "s3s_550"
+    }
+   ],
+   "title": null
+  },
+  "s3s_460": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_460",
+   "seq": [
+    {
+     "play": "scene_s3s_460",
+     "title": "ユウイチの腕"
+    },
+    {
+     "goto": "s3s_470"
+    }
+   ],
+   "title": "ユウイチの腕"
+  },
+  "s3s_470": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_470",
+   "seq": [
+    {
+     "play": "scene_s3s_470",
+     "title": "屋上"
+    },
+    {
+     "goto": "s3s_540"
+    }
+   ],
+   "title": "屋上"
+  },
+  "s3s_50_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_50_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_50_sel",
+     "title": "選択：興味深いウワサ"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_65"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_60"
+    }
+   ],
+   "title": "選択：興味深いウワサ"
+  },
+  "s3s_540": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_540",
+   "seq": [
+    {
+     "play": "scene_s3s_540",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s3s_550": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_550",
+   "seq": [
+    {
+     "play": "scene_s3s_550",
+     "title": "ユウイチと階段へ"
+    },
+    {
+     "goto": "s3s_580_sel"
+    }
+   ],
+   "title": "ユウイチと階段へ"
+  },
+  "s3s_580_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_580_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_580_sel",
+     "title": "選択：ユウイチと……"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_600"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_590"
+    }
+   ],
+   "title": "選択：ユウイチと……"
+  },
+  "s3s_590": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_590",
+   "seq": [
+    {
+     "play": "scene_s3s_590",
+     "title": "でも、いつかは別れが"
+    },
+    {
+     "goto": "s3s_370"
+    }
+   ],
+   "title": "でも、いつかは別れが"
+  },
+  "s3s_60": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s6s_10"
+    },
+    {
+     "run": "snr_s6_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s3s_600": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_600",
+   "seq": [
+    {
+     "play": "scene_s3s_600",
+     "title": "ずっと一緒にいたい"
+    },
+    {
+     "goto": "s3s_620"
+    }
+   ],
+   "title": "ずっと一緒にいたい"
+  },
+  "s3s_620": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "card_gate": 138,
+     "held": false
+    },
+    {
+     "goto": "s3s_640"
+    },
+    {
+     "goto": "s3s_641_sel"
+    }
+   ],
+   "title": null
+  },
+  "s3s_640": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s3s_650"
+    }
+   ],
+   "title": null
+  },
+  "s3s_641_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_641_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_641_sel",
+     "title": "選択：花火の中、ユウイチと"
+    },
+    {
+     "route_has": "s4s_40"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_650"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_670"
+    }
+   ],
+   "title": "選択：花火の中、ユウイチと"
+  },
+  "s3s_65": {
+   "file": "snr_s3_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s3s_90_sel"
+    }
+   ],
+   "title": null
+  },
+  "s3s_650": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_650",
+   "seq": [
+    {
+     "play": "scene_s3s_650",
+     "title": "ユウイチとキス"
+    },
+    {
+     "goto": "s3s_comp_a"
+    }
+   ],
+   "title": "ユウイチとキス"
+  },
+  "s3s_670": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_670",
+   "seq": [
+    {
+     "play": "scene_s3s_670",
+     "title": "ユウイチとキスしない"
+    },
+    {
+     "goto": "s3s_comp_b"
+    }
+   ],
+   "title": "ユウイチとキスしない"
+  },
+  "s3s_90_sel": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_90_sel",
+   "seq": [
+    {
+     "play": "scene_s3s_90_sel",
+     "title": "選択：ウワサとは"
+    },
+    {
+     "choice": 1,
+     "goto": "s3s_120"
+    },
+    {
+     "choice": 2,
+     "goto": "s3s_100"
+    },
+    {
+     "choice": 3,
+     "goto": "s3s_100"
+    }
+   ],
+   "title": "選択：ウワサとは"
+  },
+  "s3s_comp_a": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_comp_a",
+   "seq": [
+    {
+     "play": "scene_s3s_comp_a",
+     "title": "セクション３Ａ完了"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "セクション３Ａ完了"
+  },
+  "s3s_comp_b": {
+   "file": "snr_s3_10_s",
+   "scene": "scene_s3s_comp_b",
+   "seq": [
+    {
+     "play": "scene_s3s_comp_b",
+     "title": "セクション３Ｂ完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション３Ｂ完了"
+  },
+  "s4fa-10": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_10",
+   "seq": [
+    {
+     "play": "scene_s4fa_10",
+     "title": "彩野を家に帰す"
+    },
+    {
+     "goto": "s4fa-20"
+    }
+   ],
+   "title": "彩野を家に帰す"
+  },
+  "s4fa-110": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_110",
+   "seq": [
+    {
+     "play": "scene_s4fa_110",
+     "title": "雨脚"
+    },
+    {
+     "goto": "s4fa-120"
+    }
+   ],
+   "title": "雨脚"
+  },
+  "s4fa-120": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_120",
+   "seq": [
+    {
+     "play": "scene_s4fa_120",
+     "title": "湯船"
+    },
+    {
+     "goto": "s4fa-130"
+    }
+   ],
+   "title": "湯船"
+  },
+  "s4fa-130": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_130",
+   "seq": [
+    {
+     "play": "scene_s4fa_130",
+     "title": "湯船"
+    },
+    {
+     "goto": "s4fa-140"
+    }
+   ],
+   "title": "湯船"
+  },
+  "s4fa-140": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_140",
+   "seq": [
+    {
+     "play": "scene_s4fa_140",
+     "title": "千秋の家庭の事情"
+    },
+    {
+     "goto": "s4fa-150"
+    }
+   ],
+   "title": "千秋の家庭の事情"
+  },
+  "s4fa-150": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_150",
+   "seq": [
+    {
+     "play": "scene_s4fa_150",
+     "title": "風呂上がり"
+    },
+    {
+     "goto": "s4fa-160"
+    }
+   ],
+   "title": "風呂上がり"
+  },
+  "s4fa-160": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_160",
+   "seq": [
+    {
+     "play": "scene_s4fa_160",
+     "title": "夜が更ける"
+    },
+    {
+     "goto": "s4fa-170"
+    }
+   ],
+   "title": "夜が更ける"
+  },
+  "s4fa-170": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_170",
+   "seq": [
+    {
+     "play": "scene_s4fa_170",
+     "title": "眠れない"
+    },
+    {
+     "goto": "s4fa-180"
+    }
+   ],
+   "title": "眠れない"
+  },
+  "s4fa-180": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_180",
+   "seq": [
+    {
+     "play": "scene_s4fa_180",
+     "title": "睡眠"
+    },
+    {
+     "goto": "s4fa-190"
+    }
+   ],
+   "title": "睡眠"
+  },
+  "s4fa-190": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_190",
+   "seq": [
+    {
+     "play": "scene_s4fa_190",
+     "title": "朝"
+    },
+    {
+     "goto": "s4fa-200"
+    }
+   ],
+   "title": "朝"
+  },
+  "s4fa-20": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_20",
+   "seq": [
+    {
+     "play": "scene_s4fa_20",
+     "title": "通り雨"
+    },
+    {
+     "goto": "s4fa-30"
+    }
+   ],
+   "title": "通り雨"
+  },
+  "s4fa-200": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_200",
+   "seq": [
+    {
+     "play": "scene_s4fa_200",
+     "title": "教室の千秋"
+    },
+    {
+     "goto": "s4fa-complete"
+    }
+   ],
+   "title": "教室の千秋"
+  },
+  "s4fa-30": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_30",
+   "seq": [
+    {
+     "play": "scene_s4fa_30",
+     "title": "学校の千秋"
+    },
+    {
+     "goto": "s4fa-60"
+    }
+   ],
+   "title": "学校の千秋"
+  },
+  "s4fa-60": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_60",
+   "seq": [
+    {
+     "play": "scene_s4fa_60",
+     "title": "自宅へ"
+    },
+    {
+     "goto": "s4fa-70"
+    }
+   ],
+   "title": "自宅へ"
+  },
+  "s4fa-70": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_70",
+   "seq": [
+    {
+     "play": "scene_s4fa_70",
+     "title": "夕ご飯"
+    },
+    {
+     "goto": "s4fa-80"
+    }
+   ],
+   "title": "夕ご飯"
+  },
+  "s4fa-80": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_80",
+   "seq": [
+    {
+     "play": "scene_s4fa_80",
+     "title": "千秋の家に電話"
+    },
+    {
+     "goto": "s4fa-110"
+    }
+   ],
+   "title": "千秋の家に電話"
+  },
+  "s4fa-complete": {
+   "file": "snr_s4_10_fa",
+   "scene": "scene_s4fa_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s4fa_complete",
+     "title": "セクション４Ａ読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション４Ａ読了"
+  },
+  "s4fb-10": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_10",
+   "seq": [
+    {
+     "play": "scene_s4fb_10",
+     "title": "物語のすべて"
+    },
+    {
+     "goto": "s4fb-15"
+    }
+   ],
+   "title": "物語のすべて"
+  },
+  "s4fb-110": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_110",
+   "seq": [
+    {
+     "play": "scene_s4fb_110",
+     "title": "彼女の『物語』"
+    },
+    {
+     "goto": "s4fb-120"
+    }
+   ],
+   "title": "彼女の『物語』"
+  },
+  "s4fb-120": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_120",
+   "seq": [
+    {
+     "play": "scene_s4fb_120",
+     "title": "難しそうな顔"
+    },
+    {
+     "goto": "s4fb-130"
+    }
+   ],
+   "title": "難しそうな顔"
+  },
+  "s4fb-130": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_130",
+   "seq": [
+    {
+     "play": "scene_s4fb_130",
+     "title": "彩野を家に帰す"
+    },
+    {
+     "goto": "s4fb-140"
+    }
+   ],
+   "title": "彩野を家に帰す"
+  },
+  "s4fb-140": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_140",
+   "seq": [
+    {
+     "play": "scene_s4fb_140",
+     "title": "バーへ"
+    },
+    {
+     "goto": "s4fb-150"
+    }
+   ],
+   "title": "バーへ"
+  },
+  "s4fb-15": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_15",
+   "seq": [
+    {
+     "play": "scene_s4fb_15",
+     "title": "日暮れ"
+    },
+    {
+     "goto": "s4fb-20"
+    }
+   ],
+   "title": "日暮れ"
+  },
+  "s4fb-150": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_150",
+   "seq": [
+    {
+     "play": "scene_s4fb_150",
+     "title": "彩野さんからの電話"
+    },
+    {
+     "goto": "s4fb-complete"
+    }
+   ],
+   "title": "彩野さんからの電話"
+  },
+  "s4fb-20": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_20",
+   "seq": [
+    {
+     "play": "scene_s4fb_20",
+     "title": "しゃがみ込む彩野"
+    },
+    {
+     "goto": "s4fb-30"
+    }
+   ],
+   "title": "しゃがみ込む彩野"
+  },
+  "s4fb-30": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_30",
+   "seq": [
+    {
+     "play": "scene_s4fb_30",
+     "title": "選択：彩野さんを――"
+    },
+    {
+     "goto": "s4fb-40"
+    }
+   ],
+   "title": "選択：彩野さんを――"
+  },
+  "s4fb-40": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_40",
+   "seq": [
+    {
+     "play": "scene_s4fb_40",
+     "title": "彩野さんを抱きしめる"
+    },
+    {
+     "goto": "s4fb-50"
+    }
+   ],
+   "title": "彩野さんを抱きしめる"
+  },
+  "s4fb-50": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_50",
+   "seq": [
+    {
+     "play": "scene_s4fb_50",
+     "title": "選択：彩野さん――"
+    },
+    {
+     "goto": "s4fb-60"
+    }
+   ],
+   "title": "選択：彩野さん――"
+  },
+  "s4fb-60": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_60",
+   "seq": [
+    {
+     "play": "scene_s4fb_60",
+     "title": "僕は彩野さんにキスをする"
+    },
+    {
+     "goto": "s4fb-65"
+    }
+   ],
+   "title": "僕は彩野さんにキスをする"
+  },
+  "s4fb-65": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_65",
+   "seq": [
+    {
+     "play": "scene_s4fb_65",
+     "title": "てのひらを握り会う二人"
+    },
+    {
+     "goto": "s4fb-70"
+    }
+   ],
+   "title": "てのひらを握り会う二人"
+  },
+  "s4fb-70": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_70",
+   "seq": [
+    {
+     "play": "scene_s4fb_70",
+     "title": "花火の終わり"
+    },
+    {
+     "goto": "s4fb-80"
+    }
+   ],
+   "title": "花火の終わり"
+  },
+  "s4fb-80": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_80",
+   "seq": [
+    {
+     "play": "scene_s4fb_80",
+     "title": "家に帰ろう"
+    },
+    {
+     "goto": "s4fb-110"
+    }
+   ],
+   "title": "家に帰ろう"
+  },
+  "s4fb-complete": {
+   "file": "snr_s4_10_fb",
+   "scene": "scene_s4fb_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s4fb_complete",
+     "title": "セクション４Ｂ読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション４Ｂ読了"
+  },
+  "s4s_10": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_10",
+   "seq": [
+    {
+     "play": "scene_s4s_10",
+     "title": "ポケットの中のメモ"
+    },
+    {
+     "goto": "s4s_30_sel"
+    }
+   ],
+   "title": "ポケットの中のメモ"
+  },
+  "s4s_100_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_100_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_100_sel",
+     "title": "選択：ユカリ先生"
+    },
+    {
+     "play": "scene_s4s_100_sel_2",
+     "title": "先生を受け入れる"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_110"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_130"
+    }
+   ],
+   "title": "選択：ユカリ先生"
+  },
+  "s4s_110": {
+   "file": "snr_s4_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "e1s_10"
+    },
+    {
+     "run": "snr_e1_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s4s_130": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_130",
+   "seq": [
+    {
+     "play": "scene_s4s_130",
+     "title": "どこかで見たことのある少女"
+    },
+    {
+     "goto": "s4s_160_sel"
+    }
+   ],
+   "title": "どこかで見たことのある少女"
+  },
+  "s4s_160_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_160_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_160_sel",
+     "title": "選択：メモを見たとき"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_280"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_180"
+    }
+   ],
+   "title": "選択：メモを見たとき"
+  },
+  "s4s_180": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_180",
+   "seq": [
+    {
+     "play": "scene_s4s_180",
+     "title": "興味はない"
+    },
+    {
+     "goto": "s4s_210_sel"
+    }
+   ],
+   "title": "興味はない"
+  },
+  "s4s_210_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_210_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_210_sel",
+     "title": "探索：アヤノに何が？"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s4s_215"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v14"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v15"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v16"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v17"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v17"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v17"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v18"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v19"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v20"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v21"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v22"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v23"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v24"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v25"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v26"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v27"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v28"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "choice": 7,
+     "goto": "s4s_215"
+    }
+   ],
+   "title": "探索：アヤノに何が？"
+  },
+  "s4s_215": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_215",
+   "seq": [
+    {
+     "play": "scene_s4s_215",
+     "title": "廊下のユウイチ"
+    },
+    {
+     "goto": "s4s_250"
+    }
+   ],
+   "title": "廊下のユウイチ"
+  },
+  "s4s_250": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_250",
+   "seq": [
+    {
+     "play": "scene_s4s_250",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s4s_280": {
+   "file": "snr_s4_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s4s_290_sel"
+    }
+   ],
+   "title": null
+  },
+  "s4s_290_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_290_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_290_sel",
+     "title": "選択：メモの内容"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_300"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_310"
+    }
+   ],
+   "title": "選択：メモの内容"
+  },
+  "s4s_300": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_300",
+   "seq": [
+    {
+     "play": "scene_s4s_300",
+     "title": "下らない、と思った"
+    },
+    {
+     "goto": "s4s_330"
+    },
+    {
+     "play": "scene_s4s_dispatch_v34",
+     "title": "物音"
+    },
+    {
+     "goto": "s4s_330"
+    }
+   ],
+   "title": "下らない、と思った"
+  },
+  "s4s_30_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_30_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_30_sel",
+     "title": "選択：屋上のウワサ"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_51"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_40"
+    }
+   ],
+   "title": "選択：屋上のウワサ"
+  },
+  "s4s_310": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_310",
+   "seq": [
+    {
+     "play": "scene_s4s_310",
+     "title": "信じてみてもいい"
+    },
+    {
+     "goto": "s4s_330"
+    },
+    {
+     "play": "scene_s4s_dispatch_v34",
+     "title": "物音"
+    },
+    {
+     "goto": "s4s_330"
+    }
+   ],
+   "title": "信じてみてもいい"
+  },
+  "s4s_330": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_330",
+   "seq": [
+    {
+     "play": "scene_s4s_330",
+     "title": "ひっくり返った机"
+    },
+    {
+     "route_has": "s4s_310"
+    },
+    {
+     "goto": "s4s_360_sel"
+    },
+    {
+     "goto": "s4s_370"
+    }
+   ],
+   "title": "ひっくり返った机"
+  },
+  "s4s_360_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_360_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_360_sel",
+     "title": "選択：アヤノの机"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_390"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_370"
+    }
+   ],
+   "title": "選択：アヤノの机"
+  },
+  "s4s_370": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_370",
+   "seq": [
+    {
+     "play": "scene_s4s_370",
+     "title": "屋上の人影"
+    },
+    {
+     "goto": "s4s_380"
+    }
+   ],
+   "title": "屋上の人影"
+  },
+  "s4s_380": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_380",
+   "seq": [
+    {
+     "play": "scene_s4s_380",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s4s_390": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_390",
+   "seq": [
+    {
+     "play": "scene_s4s_390",
+     "title": "アヤノの机を調べる"
+    },
+    {
+     "goto": "s4s_420_sel"
+    }
+   ],
+   "title": "アヤノの机を調べる"
+  },
+  "s4s_40": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_40",
+   "seq": [
+    {
+     "play": "scene_s4s_40",
+     "title": "私じゃない"
+    },
+    {
+     "goto": "s4s_41"
+    }
+   ],
+   "title": "私じゃない"
+  },
+  "s4s_41": {
+   "file": "snr_s4_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s3s_340"
+    },
+    {
+     "run": "snr_s3_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s4s_420_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_420_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_420_sel",
+     "title": "選択：アヤノのノート"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_430"
+    },
+    {
+     "play": "scene_s4s_420_sel_2",
+     "title": "アヤノを捜す"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_370"
+    }
+   ],
+   "title": "選択：アヤノのノート"
+  },
+  "s4s_430": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_430",
+   "seq": [
+    {
+     "play": "scene_s4s_430",
+     "title": "ノートに書かれた名前"
+    },
+    {
+     "goto": "s4s_450_sel"
+    }
+   ],
+   "title": "ノートに書かれた名前"
+  },
+  "s4s_450_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_450_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_450_sel",
+     "title": "探索：アヤノの居場所"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "goto": "s4s_455"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v14"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v15"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v16"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v17"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v18"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v19"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v19"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v19"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v20"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v21"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v22"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v23"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v24"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v25"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v26"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v27"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v44"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v45"
+    },
+    {
+     "subcall": "scene_s4s_dispatch_v46"
+    },
+    {
+     "end_cost": 25
+    },
+    {
+     "choice": 8,
+     "goto": "s4s_455"
+    }
+   ],
+   "title": "探索：アヤノの居場所"
+  },
+  "s4s_455": {
+   "file": "snr_s4_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s4s_490_sel"
+    }
+   ],
+   "title": null
+  },
+  "s4s_490_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_490_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_490_sel",
+     "title": "選択：アヤノを――"
+    },
+    {
+     "card_gate": 141,
+     "held": false
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_560"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_620"
+    },
+    {
+     "play": "scene_s4s_490_sel_2",
+     "title": "彩野を元の姿に戻す"
+    },
+    {
+     "choice": 3,
+     "goto": "s4s_580"
+    }
+   ],
+   "title": "選択：アヤノを――"
+  },
+  "s4s_51": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_51",
+   "seq": [
+    {
+     "play": "scene_s4s_51",
+     "title": "気になるね"
+    },
+    {
+     "goto": "s4s_60"
+    }
+   ],
+   "title": "気になるね"
+  },
+  "s4s_560": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_560",
+   "seq": [
+    {
+     "play": "scene_s4s_560",
+     "title": "腕をつかむ"
+    },
+    {
+     "goto": "s4s_570"
+    }
+   ],
+   "title": "腕をつかむ"
+  },
+  "s4s_570": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_570",
+   "seq": [
+    {
+     "play": "scene_s4s_570",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s4s_580": {
+   "file": "snr_s4_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s8s_10"
+    },
+    {
+     "run": "snr_s8_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s4s_60": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_60",
+   "seq": [
+    {
+     "play": "scene_s4s_60",
+     "title": "セクション４：ユウイチ"
+    },
+    {
+     "goto": "s4s_70"
+    }
+   ],
+   "title": "セクション４：ユウイチ"
+  },
+  "s4s_620": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_620",
+   "seq": [
+    {
+     "play": "scene_s4s_620",
+     "title": "アヤノは意識を取り戻す"
+    },
+    {
+     "goto": "s4s_670_sel"
+    }
+   ],
+   "title": "アヤノは意識を取り戻す"
+  },
+  "s4s_670_sel": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_670_sel",
+   "seq": [
+    {
+     "play": "scene_s4s_670_sel",
+     "title": "選択：放課後の学校"
+    },
+    {
+     "choice": 1,
+     "goto": "s4s_710"
+    },
+    {
+     "choice": 2,
+     "goto": "s4s_680"
+    }
+   ],
+   "title": "選択：放課後の学校"
+  },
+  "s4s_680": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_680",
+   "seq": [
+    {
+     "play": "scene_s4s_680",
+     "title": "消えたサクラ"
+    },
+    {
+     "goto": "s4s_comp_a"
+    }
+   ],
+   "title": "消えたサクラ"
+  },
+  "s4s_70": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_70",
+   "seq": [
+    {
+     "play": "scene_s4s_70",
+     "title": "図書室の先生"
+    },
+    {
+     "card_gate": 142,
+     "held": false
+    },
+    {
+     "goto": "s4s_130"
+    },
+    {
+     "goto": "s4s_100_sel"
+    }
+   ],
+   "title": "図書室の先生"
+  },
+  "s4s_710": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_710",
+   "seq": [
+    {
+     "play": "scene_s4s_710",
+     "title": "セクション４：アヤノ"
+    },
+    {
+     "goto": "s4s_720"
+    }
+   ],
+   "title": "セクション４：アヤノ"
+  },
+  "s4s_720": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_720",
+   "seq": [
+    {
+     "play": "scene_s4s_720",
+     "title": "サクラを待つ"
+    },
+    {
+     "goto": "s4s_comp_b"
+    }
+   ],
+   "title": "サクラを待つ"
+  },
+  "s4s_comp_a": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_comp_a",
+   "seq": [
+    {
+     "play": "scene_s4s_comp_a",
+     "title": "セクション４Ａ完了"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "セクション４Ａ完了"
+  },
+  "s4s_comp_b": {
+   "file": "snr_s4_10_s",
+   "scene": "scene_s4s_comp_b",
+   "seq": [
+    {
+     "play": "scene_s4s_comp_b",
+     "title": "セクション４Ｂ完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション４Ｂ完了"
+  },
+  "s5f-10": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_10",
+   "seq": [
+    {
+     "play": "scene_s5f_10",
+     "title": "夕方の教室"
+    },
+    {
+     "goto": "s5f-20"
+    }
+   ],
+   "title": "夕方の教室"
+  },
+  "s5f-20": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_20",
+   "seq": [
+    {
+     "play": "scene_s5f_20",
+     "title": "彩野の家、晩ご飯"
+    },
+    {
+     "goto": "s5f-30"
+    }
+   ],
+   "title": "彩野の家、晩ご飯"
+  },
+  "s5f-30": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_30",
+   "seq": [
+    {
+     "play": "scene_s5f_30",
+     "title": "トランプ"
+    },
+    {
+     "goto": "s5f-40"
+    }
+   ],
+   "title": "トランプ"
+  },
+  "s5f-40": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_40",
+   "seq": [
+    {
+     "play": "scene_s5f_40",
+     "title": "マスターからのウイスキー"
+    },
+    {
+     "goto": "s5f-70"
+    }
+   ],
+   "title": "マスターからのウイスキー"
+  },
+  "s5f-70": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_70",
+   "seq": [
+    {
+     "play": "scene_s5f_70",
+     "title": "彩野のノート"
+    },
+    {
+     "goto": "s5f-80"
+    }
+   ],
+   "title": "彩野のノート"
+  },
+  "s5f-80": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_80",
+   "seq": [
+    {
+     "play": "scene_s5f_80",
+     "title": "９月の手紙"
+    },
+    {
+     "goto": "s5f-complete"
+    }
+   ],
+   "title": "９月の手紙"
+  },
+  "s5f-complete": {
+   "file": "snr_s5_10_f",
+   "scene": "scene_s5f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s5f_complete",
+     "title": "セクション５読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション５読了"
+  },
+  "s5s_10": {
+   "file": "snr_s5_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s5s_20"
+    }
+   ],
+   "title": null
+  },
+  "s5s_140": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_140",
+   "seq": [
+    {
+     "play": "scene_s5s_140",
+     "title": "サクラの日記：７月（書きかけ）"
+    },
+    {
+     "goto": "s5s_260"
+    },
+    {
+     "play": "scene_s5s_140_2",
+     "title": "選択：どこに行く？"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_200"
+    },
+    {
+     "play": "scene_s5s_140_3",
+     "title": "もしかしたらアヤノさんが"
+    },
+    {
+     "goto": "s5s_260"
+    }
+   ],
+   "title": "サクラの日記：７月（書きかけ）"
+  },
+  "s5s_20": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_20",
+   "seq": [
+    {
+     "play": "scene_s5s_20",
+     "title": "サクラさん"
+    },
+    {
+     "goto": "s5s_30"
+    }
+   ],
+   "title": "サクラさん"
+  },
+  "s5s_200": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_200",
+   "seq": [
+    {
+     "play": "scene_s5s_200",
+     "title": "中庭のアヤノさん"
+    },
+    {
+     "card_gate": 194,
+     "held": false
+    },
+    {
+     "end_cost": 100
+    },
+    {
+     "goto": "s5s_260"
+    }
+   ],
+   "title": "中庭のアヤノさん"
+  },
+  "s5s_260": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_260",
+   "seq": [
+    {
+     "play": "scene_s5s_260",
+     "title": "サクラの日記：９月１６日"
+    },
+    {
+     "goto": "s5s_320"
+    }
+   ],
+   "title": "サクラの日記：９月１６日"
+  },
+  "s5s_30": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_30",
+   "seq": [
+    {
+     "play": "scene_s5s_30",
+     "title": "セクション５：サクラ"
+    },
+    {
+     "goto": "s5s_40"
+    }
+   ],
+   "title": "セクション５：サクラ"
+  },
+  "s5s_320": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_320",
+   "seq": [
+    {
+     "play": "scene_s5s_320",
+     "title": "サクラの日記：９月１６日（夜）"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_380"
+    },
+    {
+     "play": "scene_s5s_320_2",
+     "title": "選択：耐えられそうにない発作"
+    },
+    {
+     "route_has": "s5s_200"
+    },
+    {
+     "play": "scene_s5s_320_4",
+     "title": "ナースコールのボタン"
+    },
+    {
+     "choice": 1,
+     "goto": "s5s_410"
+    },
+    {
+     "play": "scene_s5s_320_3",
+     "title": "がんばってみる"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "choice": 2,
+     "goto": "s5s_380"
+    }
+   ],
+   "title": "サクラの日記：９月１６日（夜）"
+  },
+  "s5s_380": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_380",
+   "seq": [
+    {
+     "play": "scene_s5s_380",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s5s_40": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_40_2",
+   "seq": [
+    {
+     "play": "scene_s5s_40_2",
+     "title": "サクラの日記：９月１３日"
+    },
+    {
+     "play": "scene_s5s_40_3",
+     "title": "選択：ウワサとは？"
+    },
+    {
+     "play": "scene_s5s_40_4",
+     "title": "花が咲き乱れる"
+    },
+    {
+     "play": "scene_s5s_40_6",
+     "title": "違うウワサ"
+    },
+    {
+     "play": "scene_s5s_40_5",
+     "title": "人が落ちてくる"
+    },
+    {
+     "play": "scene_s5s_40_7",
+     "title": "違うウワサ"
+    },
+    {
+     "play": "scene_s5s_40",
+     "title": "雪が降るって言うウワサ"
+    },
+    {
+     "choice": 3,
+     "goto": "s5s_140"
+    }
+   ],
+   "title": "サクラの日記：９月１３日"
+  },
+  "s5s_410": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_410",
+   "seq": [
+    {
+     "play": "scene_s5s_410",
+     "title": "サクラの日記：９月２０日"
+    },
+    {
+     "goto": "s5s_430"
+    }
+   ],
+   "title": "サクラの日記：９月２０日"
+  },
+  "s5s_430": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_430",
+   "seq": [
+    {
+     "play": "scene_s5s_430",
+     "title": "サクラの日記：９月２２日"
+    },
+    {
+     "play": "scene_s5s_430_2",
+     "title": "選択：耐えられそうにない発作"
+    },
+    {
+     "subcall": "scene_s5s_dispatch_v44"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_520"
+    },
+    {
+     "play": "scene_s5s_430_3",
+     "title": "あきらめる"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_510"
+    }
+   ],
+   "title": "サクラの日記：９月２２日"
+  },
+  "s5s_510": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_510",
+   "seq": [
+    {
+     "play": "scene_s5s_510",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s5s_520": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_520",
+   "seq": [
+    {
+     "play": "scene_s5s_520",
+     "title": "サクラの日記：９月２３日"
+    },
+    {
+     "goto": "s5s_550"
+    }
+   ],
+   "title": "サクラの日記：９月２３日"
+  },
+  "s5s_550": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_550",
+   "seq": [
+    {
+     "play": "scene_s5s_550",
+     "title": "サクラの日記：９月２９日"
+    },
+    {
+     "goto": "s5s_580"
+    }
+   ],
+   "title": "サクラの日記：９月２９日"
+  },
+  "s5s_580": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_580",
+   "seq": [
+    {
+     "play": "scene_s5s_580",
+     "title": "サクラの日記：断片"
+    },
+    {
+     "goto": "s5s_660"
+    }
+   ],
+   "title": "サクラの日記：断片"
+  },
+  "s5s_660": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_660",
+   "seq": [
+    {
+     "play": "scene_s5s_660",
+     "title": "サクラの日記：１０月３日"
+    },
+    {
+     "goto": "s5s_680"
+    }
+   ],
+   "title": "サクラの日記：１０月３日"
+  },
+  "s5s_680": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_680",
+   "seq": [
+    {
+     "play": "scene_s5s_680",
+     "title": "サクラの日記：１１月１２日"
+    },
+    {
+     "goto": "s5s_740"
+    },
+    {
+     "card_gate": 143,
+     "held": false
+    },
+    {
+     "play": "scene_s5s_680_2",
+     "title": "選択：彼の姿"
+    },
+    {
+     "play": "scene_s5s_680_3",
+     "title": "帰る"
+    },
+    {
+     "choice": 1,
+     "goto": "s5s_740"
+    },
+    {
+     "play": "scene_s5s_680_4",
+     "title": "もうしばらく待つ"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "choice": 2,
+     "goto": "s5s_720"
+    }
+   ],
+   "title": "サクラの日記：１１月１２日"
+  },
+  "s5s_720": {
+   "file": "snr_s5_10_s",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "e2s_10"
+    },
+    {
+     "run": "snr_e2_10_s"
+    }
+   ],
+   "title": null
+  },
+  "s5s_740": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_740",
+   "seq": [
+    {
+     "play": "scene_s5s_740",
+     "title": "サクラの日記：２月１３日"
+    },
+    {
+     "subcall": "scene_s5s_dispatch_v45"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_805"
+    },
+    {
+     "play": "scene_s5s_740_2",
+     "title": "でも、楽しかった"
+    },
+    {
+     "end_cost": 0
+    },
+    {
+     "goto": "s5s_800"
+    }
+   ],
+   "title": "サクラの日記：２月１３日"
+  },
+  "s5s_800": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_800",
+   "seq": [
+    {
+     "play": "scene_s5s_800",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s5s_805": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_805",
+   "seq": [
+    {
+     "play": "scene_s5s_805",
+     "title": "セクション５：アヤノ"
+    },
+    {
+     "goto": "s5s_806"
+    }
+   ],
+   "title": "セクション５：アヤノ"
+  },
+  "s5s_806": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_806",
+   "seq": [
+    {
+     "play": "scene_s5s_806",
+     "title": "アヤノの返信：９月２５日"
+    },
+    {
+     "goto": "s5s_820"
+    }
+   ],
+   "title": "アヤノの返信：９月２５日"
+  },
+  "s5s_820": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_820",
+   "seq": [
+    {
+     "play": "scene_s5s_820",
+     "title": "アヤノの返信：１０月３０日"
+    },
+    {
+     "goto": "s5s_870"
+    }
+   ],
+   "title": "アヤノの返信：１０月３０日"
+  },
+  "s5s_870": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_870",
+   "seq": [
+    {
+     "play": "scene_s5s_870",
+     "title": "２月、中庭"
+    },
+    {
+     "goto": "s5s_comp"
+    }
+   ],
+   "title": "２月、中庭"
+  },
+  "s5s_comp": {
+   "file": "snr_s5_10_s",
+   "scene": "scene_s5s_comp",
+   "seq": [
+    {
+     "play": "scene_s5s_comp",
+     "title": "セクション５完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション５完了"
+  },
+  "s6f-10": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_10",
+   "seq": [
+    {
+     "play": "scene_s6f_10",
+     "title": "サクラの日記"
+    },
+    {
+     "goto": "s6f-20"
+    }
+   ],
+   "title": "サクラの日記"
+  },
+  "s6f-20": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_20",
+   "seq": [
+    {
+     "play": "scene_s6f_20",
+     "title": "ユウイチの伝言"
+    },
+    {
+     "goto": "s6f-30"
+    }
+   ],
+   "title": "ユウイチの伝言"
+  },
+  "s6f-30": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_30",
+   "seq": [
+    {
+     "play": "scene_s6f_30",
+     "title": "眠っている二人"
+    },
+    {
+     "goto": "s6f-40"
+    }
+   ],
+   "title": "眠っている二人"
+  },
+  "s6f-40": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_40",
+   "seq": [
+    {
+     "play": "scene_s6f_40",
+     "title": "ユウイチの遺書"
+    },
+    {
+     "goto": "s6f-50"
+    }
+   ],
+   "title": "ユウイチの遺書"
+  },
+  "s6f-50": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_50",
+   "seq": [
+    {
+     "play": "scene_s6f_50",
+     "title": "君の優しい所"
+    },
+    {
+     "goto": "s6f-complete"
+    }
+   ],
+   "title": "君の優しい所"
+  },
+  "s6f-complete": {
+   "file": "snr_s6_10_f",
+   "scene": "scene_s6f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s6f_complete",
+     "title": "セクション６読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション６読了"
+  },
+  "s6s_10": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_10",
+   "seq": [
+    {
+     "play": "scene_s6s_10",
+     "title": "インパクトのあるウワサ"
+    },
+    {
+     "goto": "s6s_20"
+    }
+   ],
+   "title": "インパクトのあるウワサ"
+  },
+  "s6s_100": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_100",
+   "seq": [
+    {
+     "play": "scene_s6s_100",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s6s_110": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_110",
+   "seq": [
+    {
+     "play": "scene_s6s_110",
+     "title": "図書室で読む"
+    },
+    {
+     "end_cost": 100
+    },
+    {
+     "goto": "s6s_150_sel"
+    },
+    {
+     "end_cost": 100
+    },
+    {
+     "goto": "s6s_150_sel"
+    }
+   ],
+   "title": "図書室で読む"
+  },
+  "s6s_150_sel": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_150_sel",
+   "seq": [
+    {
+     "play": "scene_s6s_150_sel",
+     "title": "選択：ノート"
+    },
+    {
+     "choice": 1,
+     "goto": "s6s_151"
+    },
+    {
+     "choice": 2,
+     "goto": "s6s_160"
+    }
+   ],
+   "title": "選択：ノート"
+  },
+  "s6s_151": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_151",
+   "seq": [
+    {
+     "play": "scene_s6s_151",
+     "title": "失われた夢の物語"
+    },
+    {
+     "goto": "s6s_153"
+    }
+   ],
+   "title": "失われた夢の物語"
+  },
+  "s6s_153": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_153",
+   "seq": [
+    {
+     "play": "scene_s6s_153",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s6s_160": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_160",
+   "seq": [
+    {
+     "play": "scene_s6s_160",
+     "title": "Ｔｒｕｅ Ｃｏｌｏｒ"
+    },
+    {
+     "goto": "s6s_280_sel"
+    }
+   ],
+   "title": "Ｔｒｕｅ Ｃｏｌｏｒ"
+  },
+  "s6s_20": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_20",
+   "seq": [
+    {
+     "play": "scene_s6s_20",
+     "title": "セクション６：アヤノ"
+    },
+    {
+     "goto": "s6s_60_sel"
+    }
+   ],
+   "title": "セクション６：アヤノ"
+  },
+  "s6s_280_sel": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_280_sel",
+   "seq": [
+    {
+     "play": "scene_s6s_280_sel",
+     "title": "選択：屋上の帰り道"
+    },
+    {
+     "play": "scene_s6s_280_sel_2",
+     "title": "まだここにいる"
+    },
+    {
+     "choice": 1,
+     "goto": "s6s_282"
+    },
+    {
+     "choice": 2,
+     "goto": "s6s_290"
+    }
+   ],
+   "title": "選択：屋上の帰り道"
+  },
+  "s6s_282": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_282",
+   "seq": [
+    {
+     "play": "scene_s6s_282",
+     "title": "ゲームオーバー"
+    },
+    {
+     "goto": "end"
+    }
+   ],
+   "title": "ゲームオーバー"
+  },
+  "s6s_290": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_290",
+   "seq": [
+    {
+     "play": "scene_s6s_290",
+     "title": "中庭の雪"
+    },
+    {
+     "goto": "s6s_comp"
+    }
+   ],
+   "title": "中庭の雪"
+  },
+  "s6s_60_sel": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_60_sel",
+   "seq": [
+    {
+     "play": "scene_s6s_60_sel",
+     "title": "選択：どこで読む"
+    },
+    {
+     "play": "scene_s6s_60_sel_2",
+     "title": "家で読む"
+    },
+    {
+     "choice": 1,
+     "goto": "s6s_70"
+    },
+    {
+     "choice": 2,
+     "goto": "s6s_110"
+    }
+   ],
+   "title": "選択：どこで読む"
+  },
+  "s6s_70": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_70",
+   "seq": [
+    {
+     "play": "scene_s6s_70",
+     "title": "サクラからの手紙"
+    },
+    {
+     "goto": "s6s_100"
+    }
+   ],
+   "title": "サクラからの手紙"
+  },
+  "s6s_comp": {
+   "file": "snr_s6_10_s",
+   "scene": "scene_s6s_comp",
+   "seq": [
+    {
+     "play": "scene_s6s_comp",
+     "title": "セクション６完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション６完了"
+  },
+  "s7f-10": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_10",
+   "seq": [
+    {
+     "play": "scene_s7f_10",
+     "title": "オープニング"
+    },
+    {
+     "goto": "s7f-20"
+    }
+   ],
+   "title": "オープニング"
+  },
+  "s7f-100": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_100",
+   "seq": [
+    {
+     "play": "scene_s7f_100",
+     "title": "学校のウワサ話が好きな子"
+    },
+    {
+     "goto": "s7f-110"
+    }
+   ],
+   "title": "学校のウワサ話が好きな子"
+  },
+  "s7f-110": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-130"
+    }
+   ],
+   "title": null
+  },
+  "s7f-130": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_130",
+   "seq": [
+    {
+     "play": "scene_s7f_130",
+     "title": "担任の教師"
+    },
+    {
+     "goto": "s7f-135"
+    }
+   ],
+   "title": "担任の教師"
+  },
+  "s7f-135": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-140"
+    }
+   ],
+   "title": null
+  },
+  "s7f-140": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_140",
+   "seq": [
+    {
+     "play": "scene_s7f_140",
+     "title": "現実の登場人物"
+    },
+    {
+     "goto": "s7f-160"
+    }
+   ],
+   "title": "現実の登場人物"
+  },
+  "s7f-160": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_160",
+   "seq": [
+    {
+     "play": "scene_s7f_160",
+     "title": "ある種の日記"
+    },
+    {
+     "goto": "s7f-170"
+    }
+   ],
+   "title": "ある種の日記"
+  },
+  "s7f-170": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-180"
+    }
+   ],
+   "title": null
+  },
+  "s7f-180": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_180",
+   "seq": [
+    {
+     "play": "scene_s7f_180",
+     "title": "物語に欠けていたもの"
+    },
+    {
+     "goto": "s7f-185"
+    }
+   ],
+   "title": "物語に欠けていたもの"
+  },
+  "s7f-185": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-186"
+    }
+   ],
+   "title": null
+  },
+  "s7f-186": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_186",
+   "seq": [
+    {
+     "play": "scene_s7f_186",
+     "title": "未完の物語"
+    },
+    {
+     "goto": "s7f-190"
+    }
+   ],
+   "title": "未完の物語"
+  },
+  "s7f-190": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_190",
+   "seq": [
+    {
+     "play": "scene_s7f_190",
+     "title": "物語の結末"
+    },
+    {
+     "goto": "s7f-200"
+    }
+   ],
+   "title": "物語の結末"
+  },
+  "s7f-20": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_20",
+   "seq": [
+    {
+     "play": "scene_s7f_20",
+     "title": "セクション７：直哉"
+    },
+    {
+     "goto": "s7f-50"
+    }
+   ],
+   "title": "セクション７：直哉"
+  },
+  "s7f-200": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_200",
+   "seq": [
+    {
+     "play": "scene_s7f_200",
+     "title": "導くためのオマジナイ"
+    },
+    {
+     "goto": "s7f-210"
+    }
+   ],
+   "title": "導くためのオマジナイ"
+  },
+  "s7f-210": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-215"
+    }
+   ],
+   "title": null
+  },
+  "s7f-215": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_215",
+   "seq": [
+    {
+     "play": "scene_s7f_215",
+     "title": "手紙の差出人"
+    },
+    {
+     "goto": "s7f-240"
+    }
+   ],
+   "title": "手紙の差出人"
+  },
+  "s7f-240": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_240",
+   "seq": [
+    {
+     "play": "scene_s7f_240",
+     "title": "サクラさんの暗示"
+    },
+    {
+     "goto": "s7f-241"
+    }
+   ],
+   "title": "サクラさんの暗示"
+  },
+  "s7f-241": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-260"
+    }
+   ],
+   "title": null
+  },
+  "s7f-260": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_260",
+   "seq": [
+    {
+     "play": "scene_s7f_260",
+     "title": "とっておきのオマジナイ"
+    },
+    {
+     "goto": "s7f-270"
+    }
+   ],
+   "title": "とっておきのオマジナイ"
+  },
+  "s7f-270": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_270",
+   "seq": [
+    {
+     "play": "scene_s7f_270",
+     "title": "それが正しいのなら"
+    },
+    {
+     "goto": "s7f-280"
+    }
+   ],
+   "title": "それが正しいのなら"
+  },
+  "s7f-280": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_280",
+   "seq": [
+    {
+     "play": "scene_s7f_280",
+     "title": "僕たちの番"
+    },
+    {
+     "goto": "s7f-290"
+    }
+   ],
+   "title": "僕たちの番"
+  },
+  "s7f-290": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_290",
+   "seq": [
+    {
+     "play": "scene_s7f_290",
+     "title": "始まりの時間"
+    },
+    {
+     "goto": "s7f-300"
+    }
+   ],
+   "title": "始まりの時間"
+  },
+  "s7f-300": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_300",
+   "seq": [
+    {
+     "play": "scene_s7f_300",
+     "title": "始まりの歌"
+    },
+    {
+     "goto": "s7f-310"
+    }
+   ],
+   "title": "始まりの歌"
+  },
+  "s7f-310": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_310",
+   "seq": [
+    {
+     "play": "scene_s7f_310",
+     "title": "帰りの歌"
+    },
+    {
+     "goto": "s7f-320"
+    }
+   ],
+   "title": "帰りの歌"
+  },
+  "s7f-320": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_320",
+   "seq": [
+    {
+     "play": "scene_s7f_320",
+     "title": "セレクト＋ラン"
+    },
+    {
+     "goto": "s7f-340"
+    }
+   ],
+   "title": "セレクト＋ラン"
+  },
+  "s7f-340": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_340",
+   "seq": [
+    {
+     "play": "scene_s7f_340",
+     "title": "中庭で"
+    },
+    {
+     "goto": "s7f-350"
+    }
+   ],
+   "title": "中庭で"
+  },
+  "s7f-350": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_350",
+   "seq": [
+    {
+     "play": "scene_s7f_350",
+     "title": "彩野さんの席"
+    },
+    {
+     "goto": "s7f-360"
+    }
+   ],
+   "title": "彩野さんの席"
+  },
+  "s7f-360": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_360",
+   "seq": [
+    {
+     "play": "scene_s7f_360",
+     "title": "図書室の光景"
+    },
+    {
+     "goto": "s7f-370"
+    }
+   ],
+   "title": "図書室の光景"
+  },
+  "s7f-370": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_370",
+   "seq": [
+    {
+     "play": "scene_s7f_370",
+     "title": "もう一度だけ"
+    },
+    {
+     "goto": "s7f-380"
+    }
+   ],
+   "title": "もう一度だけ"
+  },
+  "s7f-380": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_380",
+   "seq": [
+    {
+     "play": "scene_s7f_380",
+     "title": "教室の机"
+    },
+    {
+     "goto": "s7f-410"
+    }
+   ],
+   "title": "教室の机"
+  },
+  "s7f-410": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_410",
+   "seq": [
+    {
+     "play": "scene_s7f_410",
+     "title": "彩野さんの後ろ姿"
+    },
+    {
+     "goto": "s7f-420"
+    }
+   ],
+   "title": "彩野さんの後ろ姿"
+  },
+  "s7f-420": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_420",
+   "seq": [
+    {
+     "play": "scene_s7f_420",
+     "title": "お父さん"
+    },
+    {
+     "goto": "s7f-430"
+    }
+   ],
+   "title": "お父さん"
+  },
+  "s7f-430": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_430",
+   "seq": [
+    {
+     "play": "scene_s7f_430",
+     "title": "あの日の思い出"
+    },
+    {
+     "goto": "s7f-440"
+    }
+   ],
+   "title": "あの日の思い出"
+  },
+  "s7f-440": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_440",
+   "seq": [
+    {
+     "play": "scene_s7f_440",
+     "title": "とっておきのオマジナイ"
+    },
+    {
+     "goto": "s7f-450"
+    }
+   ],
+   "title": "とっておきのオマジナイ"
+  },
+  "s7f-450": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_450",
+   "seq": [
+    {
+     "play": "scene_s7f_450",
+     "title": "夏の物語"
+    },
+    {
+     "goto": "s7f-460"
+    }
+   ],
+   "title": "夏の物語"
+  },
+  "s7f-460": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_460",
+   "seq": [
+    {
+     "play": "scene_s7f_460",
+     "title": "始まりの歌、帰りの歌"
+    },
+    {
+     "goto": "s7f-470"
+    }
+   ],
+   "title": "始まりの歌、帰りの歌"
+  },
+  "s7f-470": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_470",
+   "seq": [
+    {
+     "play": "scene_s7f_470",
+     "title": "図書室の光景"
+    },
+    {
+     "goto": "s7f-480"
+    }
+   ],
+   "title": "図書室の光景"
+  },
+  "s7f-480": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_480",
+   "seq": [
+    {
+     "play": "scene_s7f_480",
+     "title": "混沌とした物語"
+    },
+    {
+     "goto": "s7f-490"
+    }
+   ],
+   "title": "混沌とした物語"
+  },
+  "s7f-490": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_490",
+   "seq": [
+    {
+     "play": "scene_s7f_490",
+     "title": "屋上の風"
+    },
+    {
+     "goto": "s7f-500"
+    }
+   ],
+   "title": "屋上の風"
+  },
+  "s7f-50": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_50",
+   "seq": [
+    {
+     "play": "scene_s7f_50",
+     "title": "あの日の再現"
+    },
+    {
+     "goto": "s7f-60"
+    }
+   ],
+   "title": "あの日の再現"
+  },
+  "s7f-500": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_500",
+   "seq": [
+    {
+     "play": "scene_s7f_500",
+     "title": "この先に起きる事"
+    },
+    {
+     "goto": "s7f-510"
+    }
+   ],
+   "title": "この先に起きる事"
+  },
+  "s7f-510": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_510",
+   "seq": [
+    {
+     "play": "scene_s7f_510",
+     "title": "オマジナイの失敗"
+    },
+    {
+     "goto": "s7f-520"
+    }
+   ],
+   "title": "オマジナイの失敗"
+  },
+  "s7f-520": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_520",
+   "seq": [
+    {
+     "play": "scene_s7f_520",
+     "title": "シンプルで単純で明確な答え"
+    },
+    {
+     "goto": "s7f-530"
+    }
+   ],
+   "title": "シンプルで単純で明確な答え"
+  },
+  "s7f-530": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_530",
+   "seq": [
+    {
+     "play": "scene_s7f_530",
+     "title": "お見舞いの人物"
+    },
+    {
+     "goto": "s7f-550"
+    }
+   ],
+   "title": "お見舞いの人物"
+  },
+  "s7f-550": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_550",
+   "seq": [
+    {
+     "play": "scene_s7f_550",
+     "title": "深呼吸"
+    },
+    {
+     "goto": "s7f-560"
+    }
+   ],
+   "title": "深呼吸"
+  },
+  "s7f-560": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_560",
+   "seq": [
+    {
+     "play": "scene_s7f_560",
+     "title": "夕焼けの真実"
+    },
+    {
+     "goto": "s7f-570"
+    }
+   ],
+   "title": "夕焼けの真実"
+  },
+  "s7f-570": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_570",
+   "seq": [
+    {
+     "play": "scene_s7f_570",
+     "title": "こちら側へ"
+    },
+    {
+     "goto": "s7f-590"
+    }
+   ],
+   "title": "こちら側へ"
+  },
+  "s7f-590": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_590",
+   "seq": [
+    {
+     "play": "scene_s7f_590",
+     "title": "物語を終わらせる事ができる人物"
+    },
+    {
+     "goto": "s7f-600"
+    }
+   ],
+   "title": "物語を終わらせる事ができる人物"
+  },
+  "s7f-60": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-70"
+    }
+   ],
+   "title": null
+  },
+  "s7f-600": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_600",
+   "seq": [
+    {
+     "play": "scene_s7f_600",
+     "title": "夕暮れ"
+    },
+    {
+     "goto": "s7f-610"
+    }
+   ],
+   "title": "夕暮れ"
+  },
+  "s7f-610": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_610",
+   "seq": [
+    {
+     "play": "scene_s7f_610",
+     "title": "スタッフロール"
+    },
+    {
+     "goto": "s7f-620"
+    }
+   ],
+   "title": "スタッフロール"
+  },
+  "s7f-620": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_620",
+   "seq": [
+    {
+     "play": "scene_s7f_620",
+     "title": "物語の終わり"
+    },
+    {
+     "goto": "s7f-comp"
+    }
+   ],
+   "title": "物語の終わり"
+  },
+  "s7f-70": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_70",
+   "seq": [
+    {
+     "play": "scene_s7f_70",
+     "title": "ＴｒｕｅＣｏｌｏｒプロット"
+    },
+    {
+     "goto": "s7f-80"
+    }
+   ],
+   "title": "ＴｒｕｅＣｏｌｏｒプロット"
+  },
+  "s7f-80": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-90"
+    }
+   ],
+   "title": null
+  },
+  "s7f-90": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_90",
+   "seq": [
+    {
+     "play": "scene_s7f_90",
+     "title": "アヤノさんが好きな人"
+    },
+    {
+     "goto": "s7f-95"
+    }
+   ],
+   "title": "アヤノさんが好きな人"
+  },
+  "s7f-95": {
+   "file": "snr_s7_10_f",
+   "scene": null,
+   "seq": [
+    {
+     "goto": "s7f-100"
+    }
+   ],
+   "title": null
+  },
+  "s7f-comp": {
+   "file": "snr_s7_10_f",
+   "scene": "scene_s7f_comp",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s7f_comp",
+     "title": "セクション７完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション７完了"
+  },
+  "s8f-10": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_10",
+   "seq": [
+    {
+     "play": "scene_s8f_10",
+     "title": "晩酌"
+    },
+    {
+     "goto": "s8f-20"
+    }
+   ],
+   "title": "晩酌"
+  },
+  "s8f-100": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_100",
+   "seq": [
+    {
+     "play": "scene_s8f_100",
+     "title": "久しぶりだね"
+    },
+    {
+     "goto": "s8f-120"
+    }
+   ],
+   "title": "久しぶりだね"
+  },
+  "s8f-120": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_120",
+   "seq": [
+    {
+     "play": "scene_s8f_120",
+     "title": "次に逢うときは"
+    },
+    {
+     "goto": "s8f-130"
+    }
+   ],
+   "title": "次に逢うときは"
+  },
+  "s8f-130": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_130",
+   "seq": [
+    {
+     "play": "scene_s8f_130",
+     "title": "じゃあな、ユウイチ"
+    },
+    {
+     "goto": "s8f-140"
+    }
+   ],
+   "title": "じゃあな、ユウイチ"
+  },
+  "s8f-140": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_140",
+   "seq": [
+    {
+     "play": "scene_s8f_140",
+     "title": "始業式終了"
+    },
+    {
+     "goto": "s8f-150"
+    }
+   ],
+   "title": "始業式終了"
+  },
+  "s8f-150": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_150",
+   "seq": [
+    {
+     "play": "scene_s8f_150",
+     "title": "受け継がれる物語"
+    },
+    {
+     "goto": "s8f-160"
+    }
+   ],
+   "title": "受け継がれる物語"
+  },
+  "s8f-160": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_160",
+   "seq": [
+    {
+     "play": "scene_s8f_160",
+     "title": "セクション８の終わりに"
+    },
+    {
+     "goto": "s8f-170"
+    }
+   ],
+   "title": "セクション８の終わりに"
+  },
+  "s8f-170": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_170",
+   "seq": [
+    {
+     "play": "scene_s8f_170",
+     "title": "スタッフロール２"
+    },
+    {
+     "goto": "s8f-complete"
+    }
+   ],
+   "title": "スタッフロール２"
+  },
+  "s8f-20": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_20",
+   "seq": [
+    {
+     "play": "scene_s8f_20",
+     "title": "そらのむこうにみえるひかり"
+    },
+    {
+     "goto": "s8f-30"
+    }
+   ],
+   "title": "そらのむこうにみえるひかり"
+  },
+  "s8f-30": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_30",
+   "seq": [
+    {
+     "play": "scene_s8f_30",
+     "title": "彩野さんが見た光"
+    },
+    {
+     "goto": "s8f-40"
+    }
+   ],
+   "title": "彩野さんが見た光"
+  },
+  "s8f-40": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_40",
+   "seq": [
+    {
+     "play": "scene_s8f_40",
+     "title": "家に帰ろう"
+    },
+    {
+     "goto": "s8f-50"
+    }
+   ],
+   "title": "家に帰ろう"
+  },
+  "s8f-50": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_50",
+   "seq": [
+    {
+     "play": "scene_s8f_50",
+     "title": "物語の終わり"
+    },
+    {
+     "goto": "s8f-80"
+    }
+   ],
+   "title": "物語の終わり"
+  },
+  "s8f-80": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_80",
+   "seq": [
+    {
+     "play": "scene_s8f_80",
+     "title": "五年後"
+    },
+    {
+     "goto": "s8f-90"
+    }
+   ],
+   "title": "五年後"
+  },
+  "s8f-90": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_90",
+   "seq": [
+    {
+     "play": "scene_s8f_90",
+     "title": "制服に身を包んだ女生徒"
+    },
+    {
+     "goto": "s8f-100"
+    }
+   ],
+   "title": "制服に身を包んだ女生徒"
+  },
+  "s8f-complete": {
+   "file": "snr_s8_10_f",
+   "scene": "scene_s8f_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_s8f_complete",
+     "title": "セクション８読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション８読了"
+  },
+  "s8s_10": {
+   "file": "snr_s8_10_s",
+   "scene": "scene_s8s_10",
+   "seq": [
+    {
+     "play": "scene_s8s_10",
+     "title": "僕の言葉"
+    },
+    {
+     "goto": "s8s_30"
+    }
+   ],
+   "title": "僕の言葉"
+  },
+  "s8s_30": {
+   "file": "snr_s8_10_s",
+   "scene": "scene_s8s_30",
+   "seq": [
+    {
+     "play": "scene_s8s_30",
+     "title": "セクション８：ユウイチ、直哉"
+    },
+    {
+     "goto": "s8s_40"
+    }
+   ],
+   "title": "セクション８：ユウイチ、直哉"
+  },
+  "s8s_40": {
+   "file": "snr_s8_10_s",
+   "scene": "scene_s8s_40",
+   "seq": [
+    {
+     "play": "scene_s8s_40",
+     "title": "フェンスの向こう側"
+    },
+    {
+     "goto": "s8s_50"
+    }
+   ],
+   "title": "フェンスの向こう側"
+  },
+  "s8s_50": {
+   "file": "snr_s8_10_s",
+   "scene": "scene_s8s_50",
+   "seq": [
+    {
+     "play": "scene_s8s_50",
+     "title": "誰も見たことのない夕焼け"
+    },
+    {
+     "goto": "s8s_comp"
+    }
+   ],
+   "title": "誰も見たことのない夕焼け"
+  },
+  "s8s_comp": {
+   "file": "snr_s8_10_s",
+   "scene": "scene_s8s_comp",
+   "seq": [
+    {
+     "play": "scene_s8s_comp",
+     "title": "セクション８完了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "セクション８完了"
+  },
+  "sof_10": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_10",
+   "seq": [
+    {
+     "play": "scene_sof_10",
+     "title": "オープニング"
+    },
+    {
+     "goto": "sof_20"
+    }
+   ],
+   "title": "オープニング"
+  },
+  "sof_20": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_20",
+   "seq": [
+    {
+     "play": "scene_sof_20",
+     "title": "忘れたい記憶"
+    },
+    {
+     "goto": "sof_30"
+    }
+   ],
+   "title": "忘れたい記憶"
+  },
+  "sof_30": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_30",
+   "seq": [
+    {
+     "play": "scene_sof_30",
+     "title": "校内へ"
+    },
+    {
+     "goto": "sof_40"
+    }
+   ],
+   "title": "校内へ"
+  },
+  "sof_40": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_40",
+   "seq": [
+    {
+     "play": "scene_sof_40",
+     "title": "廊下を歩く"
+    },
+    {
+     "goto": "sof_50"
+    }
+   ],
+   "title": "廊下を歩く"
+  },
+  "sof_50": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_50",
+   "seq": [
+    {
+     "play": "scene_sof_50",
+     "title": "彩野さんの記憶"
+    },
+    {
+     "goto": "sof_60"
+    }
+   ],
+   "title": "彩野さんの記憶"
+  },
+  "sof_60": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_60",
+   "seq": [
+    {
+     "play": "scene_sof_60",
+     "title": "僕たちの教室"
+    },
+    {
+     "goto": "sof_complete"
+    }
+   ],
+   "title": "僕たちの教室"
+  },
+  "sof_complete": {
+   "file": "snr_s0_10_f",
+   "scene": "scene_sof_complete",
+   "seq": [
+    {
+     "run": "snr_memory"
+    },
+    {
+     "play": "scene_sof_complete",
+     "title": "オープニング読了"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "goto": "end"
+    },
+    {
+     "run": "snr_mainmenu"
+    }
+   ],
+   "title": "オープニング読了"
+  }
+ }
+}

@@ -1,4 +1,9 @@
-"""骨架 YAML 机械校验。用法见 --help。"""
+"""骨架 YAML 机械校验。用法见 --help。
+
+- --range A-B 规定本批应覆盖的卡号（variant "a" 计数）；
+- --extra N[,M…] 追加编外卡号（如 200）；
+- 范围外的条目（如卡 0 的空白模板记录行）不做字段检查、不计覆盖。
+"""
 import argparse
 import sys
 import unicodedata
@@ -23,12 +28,15 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--jp"); ap.add_argument("--zh"); ap.add_argument("--against")
     ap.add_argument("--range", required=True)
+    ap.add_argument("--extra", default="")
     args = ap.parse_args(argv)
     lo, hi = (int(x) for x in args.range.split("-"))
     want = set(range(lo, hi + 1))
+    if args.extra:
+        want |= {int(x) for x in args.extra.split(",")}
     errs = []
     if args.jp:
-        rows = load(args.jp)
+        rows = [r for r in load(args.jp) if r.get("card") in want]
         got = {r["card"] for r in rows if r.get("variant", "a") == "a"}
         if got != want:
             errs.append(f"jp 卡号缺漏: 缺{sorted(want-got)} 多{sorted(got-want)}")
@@ -39,9 +47,9 @@ def main(argv=None):
             if not r.get("title_jp"):
                 errs.append(f"card {r.get('card')}: title_jp 为空")
     if args.zh:
-        zh, jp = load(args.zh), load(args.against)
-        jpk = {(r["card"], r.get("variant", "a")) for r in jp
-               if lo <= r["card"] <= hi}
+        zh = [r for r in load(args.zh) if r.get("card") in want]
+        jp = load(args.against)
+        jpk = {(r["card"], r.get("variant", "a")) for r in jp if r.get("card") in want}
         zhk = {(r["card"], r.get("variant", "a")) for r in zh}
         if zhk != jpk:
             errs.append(f"zh/jp 不对应: 缺{sorted(jpk-zhk)} 多{sorted(zhk-jpk)}")

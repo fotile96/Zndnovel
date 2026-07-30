@@ -130,3 +130,109 @@ def test_script_and_pool_units():
     ex.pool("snr_common:poolFn")
     kinds = [(u["unit_kind"], u["ids"]) for u in ex.timeline]
     assert ("script", [51]) in kinds and ("pool", [70]) in kinds
+
+
+# Task 3 fix round 1: Semantic regression tests for four critical branches
+DAG3 = {"states": {
+    "c_10": {"file": "snr_c_10_s", "scene": "scene_c_10", "title": "开始",
+             "seq": [{"play": "scene_c_10", "title": "开始"}, {"goto": "c_20"}]},
+    "c_20": {"file": "snr_c_10_s", "scene": "scene_c_20", "title": "中间",
+             "seq": [{"play": "scene_c_20", "title": "中间"}, {"goto": "c_30_sel"}]},
+    "c_30_sel": {"file": "snr_c_10_s", "scene": "scene_c_30_sel", "title": "选",
+             "seq": [{"play": "scene_c_30_sel", "title": "选"},
+                     {"choice": 1, "goto": "c_40"}, {"choice": 2, "goto": "c_50"}]},
+    "c_40": {"file": "snr_c_10_s", "scene": "scene_c_40", "title": "甲",
+             "seq": [{"play": "scene_c_40", "title": "甲"}, {"goto": "c_60"}]},
+    "c_50": {"file": "snr_c_10_s", "scene": "scene_c_50", "title": "乙",
+             "seq": [{"play": "scene_c_50", "title": "乙"}, {"goto": "c_60"}]},
+    "c_60": {"file": "snr_c_10_s", "scene": "scene_c_60", "title": "结束",
+             "seq": [{"play": "scene_c_60", "title": "结束"}, {"goto": "end"}]},
+}, "scene_meta": {}, "crds": {
+    "21": {"stub": False, "req": [], "answers": [], "runs": []},
+    "22": {"stub": False, "req": [], "answers": [], "runs": []},
+    "23": {"stub": False, "req": [], "answers": [], "runs": ["snr_c_10_f"]},
+}}
+LEDGER3 = [
+    {"id": 100, "file": "snr_c_10_s", "func": "scene_c_10", "kind": "narrative"},
+    {"id": 101, "file": "snr_c_10_s", "func": "scene_c_20", "kind": "narrative"},
+    {"id": 102, "file": "snr_c_10_s", "func": "scene_c_30_sel", "kind": "narrative"},
+    {"id": 103, "file": "snr_c_10_s", "func": "scene_c_40", "kind": "narrative"},
+    {"id": 104, "file": "snr_c_10_s", "func": "scene_c_50", "kind": "narrative"},
+    {"id": 105, "file": "snr_c_10_s", "func": "scene_c_60", "kind": "narrative"},
+    {"id": 111, "file": "snr_crd_21", "func": "card_21_main", "kind": "narrative"},
+    {"id": 112, "file": "snr_crd_22", "func": "card_22_main", "kind": "narrative"},
+    {"id": 113, "file": "snr_crd_23", "func": "card_23_main", "kind": "narrative"},
+    {"id": 120, "file": "snr_c_10_f", "func": "scene_cf_10", "kind": "narrative"},
+]
+S3C = {"c_10": 21, "c_20": 22, "c_40": 23}
+
+def test_makeable_blocks_on_prefix_uncarded():
+    """_makeable 阻断分支：c_10→21(req[]), c_20→22(req[]), c_40→23(req[])
+    无交叉依赖，但 c_20 的卡 22 未持卡时，c_40 的卡 23 应被前缀阻断（同路由上
+    c_20 是 c_40 之前的非 _sel 场景，其卡必须先持有）。
+    fragment_sweep(only=[23]) 应因前缀阻断而不 emit；
+    全量 sweep 应按顺序 emit 21，22，23。"""
+    ex = Expander(DAG3, LEDGER3, {}, scene2card=S3C)
+    ex.story("c_10", {}, until=None)  # route: [c_10, c_20, c_30_sel, c_40, c_60]
+
+    # c_20 的卡 22 未持卡，c_40 的卡 23 被前缀阻断
+    cards_before_count = len([u for u in ex.timeline if u.get("type") == "unit" and u.get("unit_kind") == "card"])
+    ex.fragment_sweep(only=[23])
+    cards_after_count = len([u for u in ex.timeline if u.get("type") == "unit" and u.get("unit_kind") == "card"])
+    assert cards_before_count == cards_after_count, "Should emit no cards when prefix is uncarded"
+    assert ex.held == set(), "held should remain empty"
+
+    # 全量 sweep：21 → 22 → 23（按前缀顺序）
+    ex2 = Expander(DAG3, LEDGER3, {}, scene2card=S3C)
+    ex2.story("c_10", {}, until=None)
+    ex2.fragment_sweep()
+    card_units = [u for u in ex2.timeline if u.get("type") == "unit" and u.get("unit_kind") == "card"]
+    card_states = [u.get("state") for u in card_units]
+    assert card_states == ["c_10", "c_20", "c_40"], f"Card order should be c_10→c_20→c_40, got {card_states}"
+    assert ex2.held == {21, 22, 23}, "All three cards should be held"
+
+def test_only_filter_semantics():
+    """only= 过滤语义：fragment_sweep(only=[21]) 只 emit 21，不 emit 22 和 23，held 恰增 {21}。"""
+    ex = Expander(DAG3, LEDGER3, {}, scene2card=S3C)
+    ex.story("c_10", {}, until=None)
+
+    ex.fragment_sweep(only=[21])
+    card_units = [u for u in ex.timeline if u.get("type") == "unit" and u.get("unit_kind") == "card"]
+    assert len(card_units) == 1, f"Should emit exactly 1 card, got {len(card_units)}"
+    assert card_units[0].get("state") == "c_10", f"Should emit c_10, got {card_units[0].get('state')}"
+    assert card_units[0].get("ids") == [111], f"Should have IDs [111], got {card_units[0].get('ids')}"
+    assert ex.held == {21}, f"held should be {{21}}, got {ex.held}"
+
+def test_fscene_positioned_after_card():
+    """fscene 紧随位置：card 23 的 runs["snr_c_10_f"] 应紧在 card 23 后（非批尾）。
+    单位序列应精确为 [card c_10, card c_20, card c_40, fscene snr_c_10_f]，
+    不允许 [card c_10, card c_20, card c_40, fscene] 之间有 gap 或倒序。"""
+    ex = Expander(DAG3, LEDGER3, {}, scene2card=S3C)
+    ex.story("c_10", {}, until=None)
+    ex.fragment_sweep()
+
+    # Only look at card and fscene units from fragment_sweep, not story's scene units
+    units = [u for u in ex.timeline if u.get("type") == "unit" and u.get("unit_kind") in ["card", "fscene"]]
+    # Verify exact order: [card 21, card 22, card 23, fscene]
+    assert len(units) == 4, f"Should have 4 card/fscene units, got {len(units)}: {[(u.get('unit_kind'), u.get('state')) for u in units]}"
+
+    unit_kinds = [u.get("unit_kind") for u in units]
+    assert unit_kinds == ["card", "card", "card", "fscene"], f"Kind order wrong: {unit_kinds}"
+
+    card_states = [u.get("state") for u in units if u.get("unit_kind") == "card"]
+    assert card_states == ["c_10", "c_20", "c_40"], f"Card state order wrong: {card_states}"
+
+    assert units[2].get("state") == "c_40", "Unit 2 should be card c_40"
+    assert units[3].get("unit_kind") == "fscene", "Unit 3 should be fscene"
+    assert units[3].get("src") == "snr_c_10_f", "fscene src should be snr_c_10_f"
+
+def test_replay_route_single_write():
+    """replay route 单写回归：dedup_emit 不追加 route，由 story() 唯一写入。
+    执行后 route 应精确为 ["b_10", "b_20_sel", "b_30", "b_20_sel", "b_40"]
+    （b_20_sel 出现两次，各一次）。"""
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)  # route: [b_10, b_20_sel, b_30]
+    ex.replay(at="b_20_sel", pick=2, until=None)  # Re-enter at choice, pick option 2
+
+    expected_route = ["b_10", "b_20_sel", "b_30", "b_20_sel", "b_40"]
+    assert ex.route == expected_route, f"route should be {expected_route}, got {ex.route}"

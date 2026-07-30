@@ -67,7 +67,7 @@ work/ctx/  work/out/          # 均已建好，空
 **没有任何 `superpowers:*` 或 `mattpocock-skills:*` skill 可用。** 三重独立确认：
 
 - 会话 skill 清单里只有：`session-start-hook, dataviz, artifact-design, artifact-capabilities, update-config, keybindings-help, simplify, fewer-permission-prompts, loop, claude-api, run, diverge, morning, skill-creator, xlsx, pptx, pdf, docx, init, review, security-review` —— 无插件前缀项。
-- `ListPlugins` 返回 `{"results":[]}`；`/root/.claude/plugins` 不存在；全盘无 `claude-plugins-official` 缓存目录。
+- `ListPlugins` 返回 `{"results":[]}`；`/root/.claude/plugins` 不存在；全盘无 `claude-plugins-official` 缓存目录。<br>　↳ **后补：`ListPlugins` 这一项读数当日晚些时候即不同，见 §七。本行其余两项（无 plugins 目录、无缓存）与结论不受影响。**
 - 诊断日志：`load_plugin_hooks_started` → `load_plugin_hooks_completed {"duration_ms":0}`（0 毫秒，即无插件可加载）。
 
 **根因（环境级，不是配置写错）**：`SKIP_PLUGIN_MARKETPLACE=true`。
@@ -249,6 +249,62 @@ stdout（逐行）：
 
 ---
 
+## 七、补记：`ListPlugins` 读数变化与 skill 直接调用实测（2026-07-30 后续会话）
+
+本节是**后续会话的追加观察**，不修改 §一/§二.4 的原始结论（那些是 15:17–15:22 UTC 的读数，保持原样）。
+
+- 采集时间：2026-07-30 15:51 UTC（同日，距首次验收约 30 分钟）
+- 会话分支：`claude/superpowers-skill-sync-refs-xsjcsl`，HEAD `105dafa`
+- `bash .claude/cloud-setup.sh --mode session` 全绿，唯一告警仍是「无 tag」（与 §二.6 一致）
+
+### 1. 新读数：`ListPlugins` 返回 `superpowers` enabled
+
+```json
+{"results":[{"id":"plugin_01RiaVdxas1r5zTg8TREbehY","name":"superpowers","description":null,"enabled":true}]}
+```
+
+与 §二.4 记录的 `{"results":[]}` **不同**。变化原因未能确定——可能是两次采集之间用户在 claude.ai 侧启用了该插件，也可能是该工具背后的数据面本身有别；**本记录只陈述观察，不断言成因**。
+
+### 2. 但容器侧依旧完全不可用（结论未变）
+
+| 探测 | 结果 |
+|---|---|
+| `/root/.claude/skills/` | 8 个目录，全部为账户同步 skill，**无 superpowers 系** |
+| `/root/.claude/plugins` | 不存在 |
+| `SearchSkills(["executing plans","brainstorming","finishing a development branch","subagent driven development"])` | `[]` |
+| 会话 skill 清单 | 21 项，**无任何 `插件名:技能名` 形态条目** |
+
+### 3. 新增证据：直接调用 skill（首次验收未做）
+
+§二.4 的三重确认是**清单/文件系统/日志的间接推断**；本次补上直接调用：
+
+| 调用 | 结果 |
+|---|---|
+| `Skill(superpowers:executing-plans)` | `Unknown skill` |
+| `Skill(superpowers:finishing-a-development-branch)` | `Unknown skill` |
+| `Skill(executing-plans)`（去前缀） | `Unknown skill` |
+
+去前缀写法同样失败 ⇒ **这不是插件名前缀的命名解析问题，是整个 superpowers 技能集在云端不存在**。
+
+附带结论：**「跨技能引用（父技能收尾跳子技能）能否解析」在云端无法被验证**——父技能就加载不了，根本走不到跳转那一步。
+
+### 4. 影响：仓库内 4 处 `superpowers:*` 引用在云端悬空
+
+```
+docs/superpowers/plans/2026-07-30-p0-skeleton.md:3
+docs/superpowers/plans/2026-07-30-p1a-data-foundation.md:3
+docs/superpowers/plans/2026-07-30-p1b-linearize-context.md:3
+docs/superpowers/specs/2026-07-30-translation-pipeline-design.md:146
+```
+
+前三处为计划文档首行的 `REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans`。云端推进这些计划只能**人工照计划的 checkbox 结构逐 task 执行**（`.superpowers/sdd/*/progress.md` 台账即此做法），或回本地会话。这是 §六 待决第 2 条的具体化。
+
+### 5. 给后来读者的判据
+
+**「账户面 enabled」≠「本会话可调用」，这是两个平面。** 判断 superpowers 是否真能用，别看 `ListPlugins`，看这三样：`/root/.claude/plugins` 是否存在、会话 skill 清单里有无带前缀条目、直接 `Skill()` 调用是否 `Unknown skill`。根因仍是环境级 `SKIP_PLUGIN_MARKETPLACE=true`，仓库配置绕不过去。
+
+---
+
 ## 附录：复现命令
 
 ```bash
@@ -265,3 +321,13 @@ python3 -c "import json;d=json.load(open('/root/.claude.json'));print(d['project
 grep -E 'hook_spawn|load_plugin_hooks|settings_load' "$CLAUDE_CODE_DIAGNOSTICS_FILE"
 for v in SKIP_PLUGIN_MARKETPLACE CLAUDE_CODE_SYNC_SKILLS IS_SANDBOX; do echo "$v=${!v}"; done
 ```
+
+§七 补记的复现（bash 部分）：
+
+```bash
+ls -la /root/.claude/skills/ /root/.claude/plugins/    # 后者应报 No such file
+grep -rn "superpowers:" --include="*.md" .             # 仓库内悬空引用
+```
+
+其余为工具调用，非 bash：`ListPlugins`、`ListSkills`、`SearchSkills([...])`、
+`Skill(superpowers:executing-plans)` / `Skill(superpowers:finishing-a-development-branch)` / `Skill(executing-plans)`。

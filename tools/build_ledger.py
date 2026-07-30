@@ -56,3 +56,29 @@ def classify(row: dict) -> dict:
     else:
         row["kind"] = "narrative"
     return row
+
+
+PLOT_TITLE_RE = re.compile(r'^plotTitle\[(\d+)\] = "(.*)"')
+SCENE_TITLE_RE = re.compile(r'scene_[\w]+\((?:doScriptScene|p0), "([^"]*)"')
+SAVEDATA_RE = re.compile(r'savedataTitle\("([^"]*)", "([^"]*)"\)')
+CARD_MSG_RE = re.compile(r'oCard\.show\([^,]+, "([^"]+)"\)')
+
+
+def parse_extra(stem: str, text: str) -> list[dict]:
+    rows = []
+    for lineno, raw in enumerate(text.splitlines(), 1):
+        line = TR_LINE_RE.sub("", raw.strip())
+        if m := PLOT_TITLE_RE.match(line):
+            rows.append({"key": f"plotTitle:{m.group(1)}", "jp": m.group(2),
+                         "kind": "plot_title", "file": stem})
+        elif m := SAVEDATA_RE.search(line):
+            for i in (1, 2):
+                rows.append({"key": f"{stem}:{lineno}:{i}", "jp": m.group(i),
+                             "kind": "savedata", "file": stem})
+        elif m := CARD_MSG_RE.search(line):
+            rows.append({"key": f"{stem}:{lineno}", "jp": m.group(1),
+                         "kind": "card_msg", "file": stem})
+        elif m := SCENE_TITLE_RE.search(line):
+            rows.append({"key": f"{stem}:{lineno}", "jp": m.group(1),
+                         "kind": "scene_title", "file": stem})
+    return rows

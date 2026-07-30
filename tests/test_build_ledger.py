@@ -47,3 +47,23 @@ def test_classify_kind_by_file():
     assert (story["chapter"], story["kind"]) == ("s1s", "narrative")
     card = classify({"file": "snr_crd_2", "func": "card_2_s1s_20_intro"})
     assert (card["chapter"], card["kind"]) == ("crd", "narrative")
+
+from tools.build_ledger import parse_extra
+
+EXTRA_FIXTURE = '''\
+plotTitle[1] = "ある子が学校にくる物語"
+scene_s1s_20(doScriptScene, "夏の朝、高校までの通学路") -- tr_line:2
+savedataTitle("オープニング", "フラグメント")
+oCard.show(cGetFileName("card", "crd_1_a"), "書きとめました：『ある子』")
+'''
+
+def test_parse_extra_four_kinds():
+    rows = parse_extra("snr_test", EXTRA_FIXTURE)
+    kinds = {r["kind"] for r in rows}
+    assert kinds == {"plot_title", "scene_title", "savedata", "card_msg"}
+    byk = {r["kind"]: r for r in rows if r["kind"] != "savedata"}
+    assert byk["plot_title"]["key"] == "plotTitle:1"
+    assert byk["scene_title"]["jp"] == "夏の朝、高校までの通学路"
+    savedata = [r for r in rows if r["kind"] == "savedata"]
+    assert [r["jp"] for r in savedata] == ["オープニング", "フラグメント"]
+    assert savedata[0]["key"].endswith(":1") and savedata[1]["key"].endswith(":2")

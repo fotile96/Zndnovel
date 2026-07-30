@@ -148,9 +148,9 @@ DAG3 = {"states": {
     "c_60": {"file": "snr_c_10_s", "scene": "scene_c_60", "title": "结束",
              "seq": [{"play": "scene_c_60", "title": "结束"}, {"goto": "end"}]},
 }, "scene_meta": {}, "crds": {
-    "21": {"stub": False, "req": [], "answers": [], "runs": []},
+    "21": {"stub": False, "req": [], "answers": [], "runs": ["snr_c_10_f"]},
     "22": {"stub": False, "req": [], "answers": [], "runs": []},
-    "23": {"stub": False, "req": [], "answers": [], "runs": ["snr_c_10_f"]},
+    "23": {"stub": False, "req": [], "answers": [], "runs": []},
 }}
 LEDGER3 = [
     {"id": 100, "file": "snr_c_10_s", "func": "scene_c_10", "kind": "narrative"},
@@ -204,27 +204,35 @@ def test_only_filter_semantics():
     assert ex.held == {21}, f"held should be {{21}}, got {ex.held}"
 
 def test_fscene_positioned_after_card():
-    """fscene 紧随位置：card 23 的 runs["snr_c_10_f"] 应紧在 card 23 后（非批尾）。
-    单位序列应精确为 [card c_10, card c_20, card c_40, fscene snr_c_10_f]，
-    不允许 [card c_10, card c_20, card c_40, fscene] 之间有 gap 或倒序。"""
+    """fscene 紧随位置：card 21 的 runs["snr_c_10_f"] 应紧在 card 21 后（非批尾）。
+    单位序列应精确为 [card c_10, fscene snr_c_10_f, card c_20, card c_40]
+    （若为批尾实现则会是 [card c_10, card c_20, card c_40, fscene]——可判别）。"""
     ex = Expander(DAG3, LEDGER3, {}, scene2card=S3C)
     ex.story("c_10", {}, until=None)
     ex.fragment_sweep()
 
     # Only look at card and fscene units from fragment_sweep, not story's scene units
     units = [u for u in ex.timeline if u.get("type") == "unit" and u.get("unit_kind") in ["card", "fscene"]]
-    # Verify exact order: [card 21, card 22, card 23, fscene]
+    # Verify exact order: [card(c_10/21), fscene(snr_c_10_f), card(c_20/22), card(c_40/23)]
     assert len(units) == 4, f"Should have 4 card/fscene units, got {len(units)}: {[(u.get('unit_kind'), u.get('state')) for u in units]}"
 
+    # Precise sequence validation
     unit_kinds = [u.get("unit_kind") for u in units]
-    assert unit_kinds == ["card", "card", "card", "fscene"], f"Kind order wrong: {unit_kinds}"
+    assert unit_kinds == ["card", "fscene", "card", "card"], f"Kind order wrong: {unit_kinds}"
 
+    # Verify unit 0 is card c_10
+    assert units[0].get("unit_kind") == "card", "Unit 0 should be card"
+    assert units[0].get("state") == "c_10", "Unit 0 should be card c_10"
+    assert units[0].get("ids") == [111], "Card 21 (c_10) should have ID 111"
+
+    # Verify unit 1 is fscene immediately after card c_10
+    assert units[1].get("unit_kind") == "fscene", "Unit 1 should be fscene"
+    assert units[1].get("src") == "snr_c_10_f", "fscene src should be snr_c_10_f"
+    assert units[1].get("ids") == [120], "fscene should have ID 120"
+
+    # Verify units 2-3 are cards c_20 and c_40
     card_states = [u.get("state") for u in units if u.get("unit_kind") == "card"]
     assert card_states == ["c_10", "c_20", "c_40"], f"Card state order wrong: {card_states}"
-
-    assert units[2].get("state") == "c_40", "Unit 2 should be card c_40"
-    assert units[3].get("unit_kind") == "fscene", "Unit 3 should be fscene"
-    assert units[3].get("src") == "snr_c_10_f", "fscene src should be snr_c_10_f"
 
 def test_replay_route_single_write():
     """replay route 单写回归：dedup_emit 不追加 route，由 story() 唯一写入。

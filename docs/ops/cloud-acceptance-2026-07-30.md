@@ -477,6 +477,93 @@ A 判定为不留存 ⇒ `--mode session` 的自愈补装**永远追不上**：�
 2. 会话启动的账户同步会重写 `~/.claude/skills/`；它是否也会覆盖 setup 写下的 `~/.claude/settings.json`（`enabledPlugins` / `extraKnownMarketplaces`）未知。
 
 这两条**在会话内测不了**（挂载发生在会话启动之前），只能靠真重建一次环境来判。
+（未证点 ① 后来被 §九 改判为**可以廉价先测**，见下节；本节文字保留原样不追改。）
+
+---
+
+## 九、`SKIP_PLUGIN_MARKETPLACE` 是从微 VM 外面注入的（2026-07-30 第三会话，进程链取证）
+
+§八 一直把这个 flag 当作「环境级开关」，但没查过它究竟由谁设置。用 `ps` + `/proc` 走一遍父进程链，答案是**容器内根本没人设它**。
+
+### 1. 父进程链：变量在哪一环出现
+
+同一次会话启动（16:10:41）：
+
+| pid | 进程 | env 数 | `SKIP_PLUGIN_MARKETPLACE` |
+|---|---|---|---|
+| 1 | `/process_api --firecracker-init --addr 0.0.0.0:2024 --listen-vsock-port 2024` | **2**（`HOME=/`、`TERM=linux`） | **无** |
+| 549 | `/bin/sh -c` 引导：`ln -sf /opt/claude-code/bin/claude /opt/node22/bin/claude` → `environment-manager task-run` | 56 | **true ← 首次出现** |
+| 553 | `environment-manager task-run --stdin --session cse_… --session-mode resume-cached --upgrade-claude-code=False` | 58 | true |
+| 583 | `claude --settings /root/.claude/launcher-settings.json …` | 69 | true |
+
+pid 1 是 Firecracker 的 init，只有两个变量。**第一个带该变量的进程是 pid 549，而它由 `process_api` 按外部 API 请求拉起**——整套 env 是**宿主/控制面在请求启动会话时一并递进来的**。
+
+`/tmp/environment-manager.out` 里有直供词：
+
+```json
+{"msg":"startup_context_env_var_keys","count":20,
+ "keys":[…,"CLAUDE_CODE_SYNC_SKILLS","SKIP_PLUGIN_MARKETPLACE","USE_BUILTIN_RIPGREP"]}
+```
+
+这 20 个变量来自 **stdin 里 43972 字节的 V0 格式 startup context**，由 sandbox-gateway 递入。三条旁证：`environment-manager` 二进制里 grep 不到该串；容器内没有任何文件设置它；`~/.claude/launcher-settings.json` 里也没有（那份只有 SessionStart/Stop 两个 hook 和 `permissions.allow: ["Skill"]`）。
+
+### 2. `cloud_default` 正解
+
+`CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE=cloud_default`——**它是环境类型名，不是什么"运行时重置机制"**。控制面为这个环境类型配了一组固定 env，`SKIP_PLUGIN_MARKETPLACE=true` 是其成员。§八.1 转述 issue 的「设成环境变量不生效，cloud_default 会在运行时重置」，方向对（容器内确实改不动），机理描述错，此处更正。
+
+### 3. 由此改判：环境变量实验变成几乎免费，应当**先做**
+
+§八.8 把「UI 里设 `SKIP_PLUGIN_MARKETPLACE=false`」和「重建整机」绑成一次实验。现在有了**直接可观测量**：UI 配的变量若能进 startup context，新会话里 `echo $SKIP_PLUGIN_MARKETPLACE` 就是 `false`，上面那行日志也会跟着变。**这不需要重建快照**（改环境变量只影响每次会话的 startup context）。
+
+而且若真能翻成 false，很可能**不必改 setup 脚本**：账户面 superpowers 本就 enabled（§七.1），flag 一关，正常插件解析流程可能自行到位。
+
+**修订后的实验顺序：**
+
+1. 只在 UI 环境变量里加 `SKIP_PLUGIN_MARKETPLACE=false`，开新会话，跑：
+   ```sh
+   echo "$SKIP_PLUGIN_MARKETPLACE"
+   grep -o 'startup_context_env_var_keys.*' /tmp/environment-manager.out | head -1
+   ls /root/.claude/plugins 2>&1
+   ```
+   - 变成 `false` → 用户变量能盖过平台变量；再看插件是否自动到位（到位即完结）。
+   - 仍是 `true` → 用户变量盖不过平台默认，挂载期 flag 无解；再决定要不要花那次重建。
+2. 重建放第 2 步，**知道 flag 结局之后再做**。
+
+### 4. 顺带澄清的三件事
+
+- **§八.8 的「`claude` 可能不在 setup 时的 PATH」风险基本撤销。** 日志显示 UI setup 脚本是作为 **init script 跑在一个完整的 `setup-only` 会话里**（`Running init script` 15:50:48.15 → `Successfully executed init script` 15:50:54.12，**5.97 秒**），拉起它的是**同一个** `/bin/sh -c` 引导，而那条引导第一件事就是建 `claude` 符号链接。故 setup 时点 `claude` 在 PATH。绝对路径回落仍已加上（两行的事），但它不再是可能让方案静默空转的头号风险。**setup 预算也随之确认宽裕**：5 分钟额度只用了 6 秒。
+- **`Running init script` 在整段日志里只出现一次**（就是建环境那次）。这独立证实了 CLAUDE.md 那句「setup 脚本不会被自动调用，云端会话开场必须手动跑 `--mode session`」。
+- **`/tmp/environment-manager.out` 里只有建环境那次和本次会话**，§七/§八 那次会话同样查无此条——与 `/var/log/claude-cloud-setup.log` 完全同一模式，是 §八.6 快照模型的**第二条独立证据**（而且这次是平台自己写的文件，不是我们的脚本）。
+
+另记一处读数分歧，免得后人踩：`CLAUDE_CODE_VERSION=2.1.42`，而 `claude --version` 报 `2.1.220`。两者都是真的但来源不同，**判断 CLI 行为（如 §八.2 的保留名守卫）要以 `claude --version` 为准**，别信那个环境变量。
+
+### 5. 取证已固化进 `.claude/cloud-setup.sh` §1.4
+
+上面这些是靠会话内手工走 `/proc` 得到的，**而 setup 时点的进程/环境上下文在任何会话里都看不到**（那是另一次启动）。故新增 `capture_forensics()`，`setup`/`session` 两模式都跑、**最先跑**（纯只读，拍下"刚到达"的原始现场），结果写进 `/var/log/claude-cloud-setup.log`——setup 时点的写入是唯一能跨会话存活的位置，两个模式的记录叠在同一文件里可直接对照。
+
+捕获项按「要回答哪个待决问题」挑选，不是无差别 dump：
+
+| 捕获 | 回答的问题 |
+|---|---|
+| 父进程链（pid / env 数 / cmdline） | 注入层在哪一环；setup 时的引导与会话时是否同一条 |
+| 本进程可见变量**名**全集 | **UI 配的自定义环境变量到底有没有到达**（§九.3 的实验就靠这个判） |
+| 白名单变量的值（8 个，均非机密） | flag、同步开关、环境类型、CLI 版本的实际取值 |
+| `command -v claude` + 镜像内绝对路径 | setup 时点 CLI 可用性（§八.8 风险 1） |
+| `~/.claude`、`/opt/node22/bin/claude` 的 mtime | 机械判别「哪些是快照带来的、哪些是本次会话铺的」（§八.6 的 skills 1→8 就是这么反推的） |
+
+**两条设计约束，改动时别破坏：**
+
+1. **放在 `cloud-setup.sh` 而不是 UI 脚本。** 进程链在两者里是同一条（后者是前者的父进程），但放仓库可走 git 演进、随时改、**不触发整机重建**；放 UI 文本框每改一次取证逻辑就烧一次快照。UI 脚本现有的自述上下文已是「仓库探测失败时也有记录」的兜底。
+2. **只打变量名，值只走白名单。** env 里有 `AWS_SECRET_ACCESS_KEY`/`GH_TOKEN`/`CLOUDSDK_AUTH_ACCESS_TOKEN` 等，名字本身无害，值绝不能进日志。
+
+**踩到并已修的坑**（首次试跑即复现）：`claude` 进程的 cmdline 里有 `--append-system-prompt`，**整份系统提示词就在参数内且含大量换行**；只做 `tr '\0' ' '` 的话 `cut -c1-170` 仅截掉第一行，其余整篇原样流进日志。必须把换行一起压成空格再截断。`env | cut -d= -f1` 有同类问题（多行值的续行会被当成变量名打出来），已改为先按 `^[A-Za-z_][A-Za-z0-9_]*=` 过滤。落盘日志已核对无残留。
+
+### 6. `ensure_plugins` 同批修正
+
+- **新增 `plugins_prestate=` 行**：本函数跑在 `inspect_user_config` 之前，报告里的 `user_plugins_installed` 永远是**安装后**读数，拿它判留存必然误判（§八.6 就是靠手工先拍照才判出来的）。此后由脚本自己记安装前状态。
+- **`claude` 绝对路径回落**：`command -v` 落空时用 `/opt/claude-code/bin/claude`。
+- **timeout 90s/次**（原 180 + 240×2 = 660s，超 5 分钟预算一倍；实测全程约 8s）。
+- **告警按模式分措辞**：session 模式补装明说「既不对本会话生效，也不会留到下个会话」，不再给人 false green。是否把 session 分支彻底去掉仍未定，暂留（万一哪天 `~/.claude` 变成留存的）。
 
 ---
 
@@ -531,3 +618,29 @@ grep -nE 'superpowers:' "$P/skills/executing-plans/SKILL.md"
 # —— 第 4 问：本插件不提供 agent 类型 ——
 ls "$P/agents/" ; find "$P/.agents" -type f ; grep -rn 'subagent_type' "$P/skills/"
 ```
+
+§九 的复现。**注意 cmdline 里嵌着整份系统提示词**，务必连换行一起压掉再截断，
+否则会把它整篇打进日志（首次试跑即中招）：
+
+```bash
+# 父进程链 + 每环 env 数（变量在「2 → 几十」的那一跳被注入）
+p=$$; while [ -n "$p" ] && [ "$p" != 0 ]; do
+  printf 'pid=%s envn=%s cmd=%s\n' "$p" \
+    "$(tr '\0' '\n' < /proc/$p/environ | grep -cE '^[A-Za-z_][A-Za-z0-9_]*=')" \
+    "$(tr '\0\n\r\t' '    ' < /proc/$p/cmdline | cut -c1-170)"
+  p=$(awk '{print $4}' /proc/$p/stat); done
+tr '\0' '\n' < /proc/1/environ                        # microVM init：只有 HOME/TERM
+
+# 控制面递进来的那 20 个变量（直供词）
+grep -o 'startup_context_env_var_keys.*' /tmp/environment-manager.out | head -1
+grep -nE 'Running init script|Successfully executed init script' /tmp/environment-manager.out
+
+# 容器内确实没人设它
+strings -a /opt/env-runner/environment-manager | grep SKIP_PLUGIN_MARKETPLACE   # 空
+grep -rl SKIP_PLUGIN_MARKETPLACE /opt /usr/local/bin /etc /root/.claude          # 只命中 transcript
+
+claude --version; echo "$CLAUDE_CODE_VERSION"          # 2.1.220 vs 2.1.42，以前者为准
+```
+
+§九.5 之后，上述取证由 `bash .claude/cloud-setup.sh --mode session` 自动留档，
+读 `/var/log/claude-cloud-setup.log` 里的 `--- 现场取证 ---` 段即可。

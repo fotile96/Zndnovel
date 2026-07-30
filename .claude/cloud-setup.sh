@@ -54,6 +54,59 @@ find_repo() {
   return 1
 }
 
+# ---------- 1.4 现场取证：进程链与被注入的环境变量 ----------
+# 为什么非得写在脚本里：**setup 时点的进程/环境上下文，在任何会话里都看不到**——那是另一次
+# 启动，会话只能看到自己那一次。而 /var/log 的 setup 时点写入会进快照、跨会话存活（§八.6 实证）。
+# 2026-07-30 §九 是靠会话内手工走 /proc 才定位到 SKIP_PLUGIN_MARKETPLACE 来自**微 VM 之外**
+# （pid 1 只有 2 个变量，56 个变量出现在控制面递进来的引导进程上）；那次取证不可复现，
+# 故固化成每次运行都留档，两个模式的记录落在同一个日志里、可直接对照。
+#
+# 安全：只打变量**名**（名字本身不含机密），值仅限白名单。claude 进程的 environ 里含完整
+# 系统提示词与多个 token 引用，**绝不整体 dump**。
+FORENSIC_VALUE_KEYS=(SKIP_PLUGIN_MARKETPLACE CLAUDE_CODE_SYNC_SKILLS CLAUDE_CODE_REMOTE
+                     CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE CLAUDE_CODE_ENTRYPOINT
+                     CLAUDE_CODE_VERSION IS_SANDBOX HOME)
+FORENSICS=""
+capture_forensics() {
+  local p cmd n depth=0 k
+  FORENSICS="$(
+    echo "--- 现场取证 mode=$MODE at $(date -u '+%Y-%m-%dT%H:%M:%SZ') ---"
+    # ① 父进程链：注入层就在「env 数从 2 跳到几十」的那一环
+    if [[ -r "/proc/$$/stat" ]]; then
+      p=$$
+      while [[ -n "$p" && "$p" != "0" ]] && ((depth++ < 12)); do
+        # 换行必须一起压成空格再截断：claude 的 cmdline 里有 --append-system-prompt，
+        # 整份系统提示词就在参数内且含大量换行；只 tr '\0' 的话 cut 只截掉第一行，
+        # 其余整篇原样流进日志（2026-07-30 首次试跑即复现）。
+        cmd=$(tr '\0\n\r\t' '    ' < "/proc/$p/cmdline" 2>/dev/null | cut -c1-170)
+        [[ -z "${cmd// /}" ]] && cmd="[$(cat "/proc/$p/comm" 2>/dev/null)]"
+        n=$(tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -cE '^[A-Za-z_][A-Za-z0-9_]*=') || n="?"
+        echo "proc pid=$p envn=$n cmd=$cmd"
+        p=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null) || break
+      done
+    else
+      echo "proc=（/proc 不可读，跳过进程链取证）"
+    fi
+    # ② 本进程可见的变量**名**全集：UI 里配的自定义环境变量若真能到达，就会出现在这里。
+    #    先按「合法标识符=」过滤：多行值（系统提示词就是）会让 env 输出出现续行，
+    #    直接 cut -d= -f1 会把正文当成变量名打出来。
+    echo "env_names=$(env 2>/dev/null | grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' | tr -d = | sort -u | tr '\n' ' ')"
+    # ③ 白名单变量的值
+    for k in "${FORENSIC_VALUE_KEYS[@]}"; do
+      echo "env_val $k=${!k:-（未设置）}"
+    done
+    # ④ claude CLI 从哪来（会话引导脚本在启动时才建符号链接，setup 时点未必已在 PATH）
+    echo "claude_in_path=$(command -v claude 2>/dev/null || echo '（不在 PATH）')"
+    echo "claude_real=$([[ -x /opt/claude-code/bin/claude ]] && echo /opt/claude-code/bin/claude || echo '（不存在）')"
+    # ⑤ mtime 基线：会话启动的账户同步会重写 ~/.claude 的一部分，有基线才能机械地判别
+    #    「哪些是快照带来的、哪些是本次会话铺的」（§八.6 的 skills 1→8 就是这么反推出来的）
+    stat -c 'mtime %y %n' "${HOME:-/root}/.claude" "${HOME:-/root}/.claude/skills" \
+         "${HOME:-/root}/.claude/settings.json" "${HOME:-/root}/.claude/plugins" \
+         /opt/node22/bin/claude 2>/dev/null || true
+  )"
+  while IFS= read -r line; do log "$line"; done <<< "$FORENSICS"
+}
+
 # ---------- 1.5 用户级配置：技能的两个可能载体 ----------
 # 仓库级 .claude/settings.json 不被采纳（结论已定案，不再验证），故技能只可能来自家目录：
 #   载体一 ~/.claude/skills/            —— 账户级独立 skill，经 CLAUDE_CODE_SYNC_SKILLS 同步
@@ -110,9 +163,31 @@ PLUGIN_MARKETPLACE="anthropics/claude-plugins-official"
 PLUGIN_MARKETPLACE_NAME="claude-plugins-official"
 PLUGINS=(superpowers mattpocock-skills)   # 与仓库 .claude/settings.json 的声明保持一致
 
+# 安装前状态**必须单独留档**：本函数跑在 inspect_user_config 之前，报告里的
+# user_plugins_installed 永远是安装后读数，拿它判「插件有没有活过上次会话」必然误判——
+# 2026-07-30 §八.6 正是靠「跑脚本前先手工拍照」才判出不留存的。此后由脚本自己记。
+PLUGINS_PRESTATE=""
+# claude CLI 解析：会话引导脚本（/bin/sh -c ln -sf …）在**每次启动时**才建
+# /opt/node22/bin/claude 符号链接，setup 时点未必已在 PATH；真二进制是镜像烤进去的（§九）。
+CLAUDE_BIN=""
+resolve_claude() {
+  if command -v claude >/dev/null 2>&1; then CLAUDE_BIN="claude"; return 0; fi
+  if [[ -x /opt/claude-code/bin/claude ]]; then
+    CLAUDE_BIN="/opt/claude-code/bin/claude"
+    log "claude 不在 PATH，回落到镜像内绝对路径 $CLAUDE_BIN"
+    return 0
+  fi
+  return 1
+}
+
 ensure_plugins() {
   local pd="${HOME:-/root}/.claude/plugins"
-  local missing=() installed=0 p
+  local missing=() installed=0 p held=""
+  [[ -d "$pd/cache" ]] && held=$(find "$pd/cache" -mindepth 3 -maxdepth 3 -type d 2>/dev/null |
+                                 sed "s|$pd/cache/||" | tr '\n' ' ')
+  PLUGINS_PRESTATE="plugins_prestate=${held:-（安装前为空：未留存，或本环境首次）}"
+  log "$PLUGINS_PRESTATE"
+
   for p in "${PLUGINS[@]}"; do
     [[ -d "$pd/cache/$PLUGIN_MARKETPLACE_NAME/$p" ]] || missing+=("$p")
   done
@@ -120,10 +195,12 @@ ensure_plugins() {
     log "插件已在位（${PLUGINS[*]}），跳过安装"
     return
   fi
-  command -v claude >/dev/null || { warn "claude CLI 不在 PATH，插件无法安装（仍缺：${missing[*]}）"; return; }
+  resolve_claude || { warn "claude CLI 既不在 PATH 也无 /opt/claude-code/bin/claude，插件无法安装（仍缺：${missing[*]}）"; return; }
 
+  # timeout 收紧到 90s/次：setup 只有约 5 分钟预算，而实测 marketplace+2 插件共约 8s。
+  # 原先的 180+240×2=660s 最坏情况会把整个建环境拖垮。
   if [[ ! -f "$pd/known_marketplaces.json" ]]; then
-    if SKIP_PLUGIN_MARKETPLACE=false timeout 180 claude plugin marketplace add "$PLUGIN_MARKETPLACE" >/dev/null 2>&1; then
+    if SKIP_PLUGIN_MARKETPLACE=false timeout 90 "$CLAUDE_BIN" plugin marketplace add "$PLUGIN_MARKETPLACE" >/dev/null 2>&1; then
       log "marketplace 已添加：$PLUGIN_MARKETPLACE"
     else
       warn "marketplace 添加失败（$PLUGIN_MARKETPLACE）：插件装不上，superpowers 等流程技能仍不可用，SDD 需手工执行"
@@ -131,13 +208,21 @@ ensure_plugins() {
     fi
   fi
   for p in "${missing[@]}"; do
-    if SKIP_PLUGIN_MARKETPLACE=false timeout 240 claude plugin install "$p@$PLUGIN_MARKETPLACE_NAME" >/dev/null 2>&1; then
+    if SKIP_PLUGIN_MARKETPLACE=false timeout 90 "$CLAUDE_BIN" plugin install "$p@$PLUGIN_MARKETPLACE_NAME" >/dev/null 2>&1; then
       log "插件已安装：$p"; installed=$((installed + 1))
     else
       warn "插件安装失败：$p（$PLUGIN_MARKETPLACE_NAME）"
     fi
   done
-  ((installed > 0)) && warn "本次新装 $installed 个插件：组件只在会话启动时挂载，**当前会话仍不可用**，须开新会话才生效"
+  # session 模式补装已证明**永远不会生效**（装在会话内 → 随会话销毁；且挂载早于安装）。
+  # 保留它只为「万一哪天 ~/.claude 变成留存的」，告警措辞据模式区分，别再给人 false green。
+  if ((installed > 0)); then
+    if [[ "$MODE" == "setup" ]]; then
+      warn "本次新装 $installed 个插件（setup 时点，进快照）：对建环境这次的 setup-only 会话无效，从下个真实会话起才可能挂载"
+    else
+      warn "本次新装 $installed 个插件（session 时点）：既不对本会话生效（挂载早于安装），也不会留到下个会话（§八.6）——根治须走 setup 路径"
+    fi
+  fi
 }
 
 # ---------- 2. 机器级预热（无需仓库，成果进快照） ----------
@@ -217,6 +302,7 @@ prepare_repo() {
     echo "head=$(git rev-parse --short HEAD 2>/dev/null) $(git log -1 --format=%s 2>/dev/null)"
     echo "dirty=$(git status --porcelain 2>/dev/null | wc -l) 个未提交改动"
     echo "python=$(uv run python -V 2>/dev/null)"
+    echo "$PLUGINS_PRESTATE"   # 安装前读数：判「是否留存」只能看这行，不能看下面的 installed
     echo "$USER_CFG"
     for f in data/ledger.jsonl data/forward.jsonl data/patches.jsonl; do
       [[ -f $f ]] && echo "$f=$(wc -l <"$f") 行" || echo "$f=（不存在）"
@@ -232,11 +318,12 @@ prepare_repo() {
 }
 
 # ---------- 主流程 ----------
+capture_forensics     # 最先：纯只读，拍下本次启动「刚到达」的原始现场，勿被后续步骤污染
 PROBE="$(find_repo || true)"
 FOUND_BY="${PROBE%%|*}"
 REPO="${PROBE#*|}"
 prewarm_machine
-ensure_plugins        # 先补装，再体检 —— 否则报告拍到的是安装前的旧状态
+ensure_plugins        # 先补装，再体检 —— 否则报告拍到的是安装前的旧状态（故另存 PLUGINS_PRESTATE）
 inspect_user_config
 if [[ -n "$REPO" ]]; then
   prepare_repo
@@ -248,6 +335,9 @@ fi
 {
   echo "=== claude cloud setup 报告 mode=$MODE ==="
   [[ -n "$REPO" && -f "$REPO/work/setup-baseline.txt" ]] && cat "$REPO/work/setup-baseline.txt"
+  # 取证只进 /var/log（不进 work/setup-baseline.txt）：前者是 setup 时点写入唯一能跨会话
+  # 存活的位置，后者每次运行都被覆盖。两个模式的记录叠在同一文件里，可直接对照。
+  echo "$FORENSICS"
   if ((${#WARNINGS[@]})); then
     printf '需要注意 %d 项：\n' "${#WARNINGS[@]}"
     printf '  - %s\n' "${WARNINGS[@]}"

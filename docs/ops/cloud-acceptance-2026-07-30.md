@@ -243,7 +243,7 @@ stdout（逐行）：
 ## 六、待决（本次按要求未动脚本/未动 CLAUDE.md）
 
 1. `--mode session` 的自动触发需要替代方案（项目级 hook 在未信任项目下不派生）；在此之前，**新会话开场手动跑一次**是唯一可靠做法。
-2. 若 SDD 流程依赖 `superpowers` 插件，需另找载体（`SKIP_PLUGIN_MARKETPLACE=true` 是环境级、不可由仓库配置绕过）。
+2. 若 SDD 流程依赖 `superpowers` 插件，需另找载体（`SKIP_PLUGIN_MARKETPLACE=true` 是环境级、不可由仓库配置绕过）。<br>　↳ **已解，见 §八：每命令前缀可覆盖该开关，插件改装到用户级配置面。**
 3. `cloud-ui-setup.sh` 的上下文探测行若真想留证，得自己写文件而不是靠 stdout。
 4. CLAUDE.md 第 1/2/4/9/11/14 条描述待按本记录订正。
 
@@ -302,6 +302,80 @@ docs/superpowers/specs/2026-07-30-translation-pipeline-design.md:146
 ### 5. 给后来读者的判据
 
 **「账户面 enabled」≠「本会话可调用」，这是两个平面。** 判断 superpowers 是否真能用，别看 `ListPlugins`，看这三样：`/root/.claude/plugins` 是否存在、会话 skill 清单里有无带前缀条目、直接 `Skill()` 调用是否 `Unknown skill`。根因仍是环境级 `SKIP_PLUGIN_MARKETPLACE=true`，仓库配置绕不过去。
+
+---
+
+## 八、插件失效的解法（2026-07-30，据 anthropics/claude-code#68264 实测）
+
+§二.4 判定 `SKIP_PLUGIN_MARKETPLACE=true` 是环境级开关、仓库配置绕不过去——**这半句仍然对，但"无解"是错的**。上游 issue #68264 给出了可行路径，本节是在本容器上的完整复现与偏差修正。
+
+> issue 内容由用户转贴（`api.github.com` 与 `github.com` 在本环境均 403，MCP 亦因 repo scope 拒绝，无法自取）。
+
+### 1. 病根（issue 的诊断，本容器逐条吻合）
+
+两重失效叠加，缺一都不至于全灭：
+
+| 层 | 现象 | 本容器实测 |
+|---|---|---|
+| 仓库级 | `.claude/settings.json` 因项目未受信整体不采纳，`enabledPlugins`/`extraKnownMarketplaces` 形同虚设 | §二.8 已证 |
+| 环境级 | `SKIP_PLUGIN_MARKETPLACE=true` 在启动时**短路 marketplace 解析**，连取都不去取 | `plugin list` 空、`known_marketplaces.json` 不存在、`echo $SKIP_PLUGIN_MARKETPLACE`→`true` |
+
+关键点：**该变量设成环境变量不生效**（`cloud_default` 运行时重置），**只有每命令前缀能覆盖**。
+
+### 2. 与 issue 环境的三处偏差
+
+issue 报的是 Routine runner 2.1.177，本容器是普通云端会话 2.1.220：
+
+| 偏差 | 影响 |
+|---|---|
+| `CLAUDE_CODE_REMOTE_SKIP_SETTINGS_SYNC` **未设置** | issue 附注的「git HTTPS 因空密码 `x-access-token:` 全挂」不适用；本容器重写为 `url.http://local_proxy@127.0.0.1:41729/git/.insteadOf https://github.com/`，clone **通** |
+| 因而**无须**加第 2 个 source | issue 的「marketplace 作为第 2 routine source 克隆到 `/home/user/`」这步可跳过（本会话也做不到：`add_repo` 拒绝跨 owner，marketplace 与 superpowers 都不在 `fotile96` 名下） |
+| 2.1.220 新增**保留名守卫** | issue 的本地路径安装法**已失效**：`claude plugin marketplace add <本地clone路径>` 报 `The name 'claude-plugins-official' is reserved for official Anthropic marketplaces and can only be used with GitHub sources from the 'anthropics' organization` |
+
+### 3. 可行命令（本容器验证通过）
+
+绕开保留名守卫的办法就是**别喂本地路径，直接按 GitHub 源加**——反正 clone 是通的：
+
+```sh
+SKIP_PLUGIN_MARKETPLACE=false claude plugin marketplace add anthropics/claude-plugins-official
+SKIP_PLUGIN_MARKETPLACE=false claude plugin install superpowers@claude-plugins-official
+SKIP_PLUGIN_MARKETPLACE=false claude plugin install mattpocock-skills@claude-plugins-official
+```
+
+结果：`superpowers 6.2.0` + `mattpocock-skills 1.2.0`，落在 `~/.claude/plugins/cache/<市场>/<插件>/<版本>/`（即 §二.4 说的「载体二」），共 55 份 `SKILL.md`；superpowers 侧 14 个技能，`executing-plans`/`subagent-driven-development`/`finishing-a-development-branch` 三个都在。
+
+**为什么这样就绕过了病根**：安装会自动写出 `~/.claude/settings.json`（此前不存在）——
+
+```json
+{ "extraKnownMarketplaces": { "claude-plugins-official": { "source": { "source": "github", "repo": "anthropics/claude-plugins-official" } } },
+  "enabledPlugins": { "superpowers@claude-plugins-official": true } }
+```
+
+内容与仓库那份等价，但**这份在用户级配置面，云端真正采纳**。等于把被忽略的仓库声明搬到了生效的那一层。
+
+### 4. false green：当前会话不生效（issue 的警告已复现）
+
+装完 `plugin list` 报两个 `√ enabled`、技能体确实在磁盘上，但同一会话内 `Skill(superpowers:executing-plans)` 仍返回 `Unknown skill`。**组件只在会话启动时挂载，云端无 `/reload-plugins`。** 去前缀 `Skill(executing-plans)` 同样失败——与 §七.3 一致，不是命名解析问题。
+
+因此「跨技能引用能否解析」**本次仍未验证**：技能体虽已落盘（`executing-plans` 内部确实写着 `superpowers:finishing-a-development-branch`），但父技能在本会话挂不上，走不到跳转。**留待下个会话验证。**
+
+### 5. 已固化进 `.claude/cloud-setup.sh` §1.6
+
+新增 `ensure_plugins()`，`setup` 与 `session` 两模式都跑，在 `inspect_user_config` **之前**执行（否则报告拍到的是安装前状态）：
+
+- **幂等**：`~/.claude/plugins/cache/<市场>/<插件>/` 存在即跳过（实测空跑 3s，无网络动作）。
+- **不改退出码**：一切失败降级为 warn，遵守「永远 exit 0」约束。
+- **两模式分工**：`setup` 早于会话挂载，是理想位置（新建环境即生效）；`session` 是自愈补装，装完仍需下个会话才生效。
+- 插件清单 `PLUGINS=(superpowers mattpocock-skills)` 与仓库 `.claude/settings.json` 的声明保持一致。
+
+### 6. 未决：安装能否活到下个会话
+
+**本会话无法验证。** 云端文件系统在建环境后被快照复用，但「会话中途对 `~/.claude` 的写入是否随会话销毁」没有文档，也没法在同一会话里测。两种结局：
+
+- **能留存** → 下个会话直接可用，`--mode session` 的 `ensure_plugins` 走幂等跳过分支。
+- **不留存** → 每个新会话开场跑 `--mode session` 会自动补装，但**补装当次仍不可用**，要第三个会话才行；此时唯一根治法是把安装挪进环境 UI setup 脚本（改 `.claude/cloud-ui-setup.sh` 并重贴进 claude.ai 环境设置，会触发整机快照重建）。issue 亦提示 setup 脚本有约 7 天缓存，插件会冻结在上次 setup 时的 marketplace HEAD。
+
+下个会话开场请先看报告里的 `user_plugins_installed` 一行，即可判定走的是哪条路。
 
 ---
 

@@ -7,7 +7,8 @@
 #   extraKnownMarketplaces/permissions 四项皆失效，实证见 docs/ops/cloud-acceptance-2026-07-30.md
 #   §二.8），SessionStart hook 永不派生。该结论已定案，本脚本不再重复验证它；
 #   诊断改为探测家目录下真正生效的用户级配置与账户同步的 skills（见 §1.5）。
-#   settings.json 仍保留，因为本地会话有效。
+#   settings.json 仍保留，因为本地会话有效；其中 enabledPlugins/extraKnownMarketplaces
+#   两项在云端另由 §1.6 主动补装到用户级配置来兑现（hooks/permissions 两项无解，仍失效）。
 # 因此本脚本必须幂等：重复运行只做增量，不重复下载。
 #
 # 其余设计约束（据 code.claude.com/docs/en/cloud-environments）：
@@ -57,7 +58,7 @@ find_repo() {
 # 仓库级 .claude/settings.json 不被采纳（结论已定案，不再验证），故技能只可能来自家目录：
 #   载体一 ~/.claude/skills/            —— 账户级独立 skill，经 CLAUDE_CODE_SYNC_SKILLS 同步
 #   载体二 ~/.claude/plugins/cache/…    —— 插件形态（本机即如此），技能体在 <市场>/<插件>/<版本>/
-# 首次验收时 SKIP_PLUGIN_MARKETPLACE=true 掐死了载体二；账户级安装后是否改观，正是要测的。
+# 载体二曾被 SKIP_PLUGIN_MARKETPLACE=true 掐死，现由 §1.6 主动装回（2026-07-30 实证可行）。
 # 注意 plugins/data/ 只是每插件运行时目录（本机为空），**不能**当作「插件已装」的判据。
 USER_CFG=""
 inspect_user_config() {
@@ -90,6 +91,53 @@ inspect_user_config() {
   # 两个载体任一到位即可；都空才是真不可用
   ((n_skill == 0 && n_plugin_skill == 0)) \
     && warn "账户级 skill 与插件均未到位（~/.claude/skills 与 plugins 都没有技能体）：superpowers 等流程技能不可用，SDD 需手工执行"
+}
+
+# ---------- 1.6 插件安装：绕开 SKIP_PLUGIN_MARKETPLACE ----------
+# 病根是两重失效叠加：①仓库级 .claude/settings.json 因项目未受信整体不被采纳，
+# 其 enabledPlugins/extraKnownMarketplaces 形同虚设；②环境级 SKIP_PLUGIN_MARKETPLACE=true
+# 在启动时短路 marketplace 解析，连取都不去取（anthropics/claude-code#68264）。
+# 解法：用**每命令前缀**覆盖它（设成环境变量不生效，cloud_default 会在运行时重置），
+# 把 marketplace 与插件装到**用户级** ~/.claude/ —— 那一层在云端是真正被采纳的配置面，
+# 安装会自动写出 ~/.claude/settings.json，内容与仓库那份等价但这份生效。
+# 三个坑（均为 2026-07-30 实测，见验收记录 §八）：
+#   * marketplace 必须按 **GitHub 源**加：claude 2.1.220 起 'claude-plugins-official' 是保留名，
+#     只接受 anthropics 组织的 GitHub 源，喂本地 clone 路径会被直接拒绝。
+#   * 安装是 **false green**：组件只在会话启动时挂载，云端无 /reload-plugins，
+#     故新装的插件对**当前**会话无效，下个会话才生效。
+#   * 因此本函数在 setup 模式下最有价值（早于会话挂载）；session 模式下则是自愈补装。
+PLUGIN_MARKETPLACE="anthropics/claude-plugins-official"
+PLUGIN_MARKETPLACE_NAME="claude-plugins-official"
+PLUGINS=(superpowers mattpocock-skills)   # 与仓库 .claude/settings.json 的声明保持一致
+
+ensure_plugins() {
+  local pd="${HOME:-/root}/.claude/plugins"
+  local missing=() installed=0 p
+  for p in "${PLUGINS[@]}"; do
+    [[ -d "$pd/cache/$PLUGIN_MARKETPLACE_NAME/$p" ]] || missing+=("$p")
+  done
+  if ((${#missing[@]} == 0)); then
+    log "插件已在位（${PLUGINS[*]}），跳过安装"
+    return
+  fi
+  command -v claude >/dev/null || { warn "claude CLI 不在 PATH，插件无法安装（仍缺：${missing[*]}）"; return; }
+
+  if [[ ! -f "$pd/known_marketplaces.json" ]]; then
+    if SKIP_PLUGIN_MARKETPLACE=false timeout 180 claude plugin marketplace add "$PLUGIN_MARKETPLACE" >/dev/null 2>&1; then
+      log "marketplace 已添加：$PLUGIN_MARKETPLACE"
+    else
+      warn "marketplace 添加失败（$PLUGIN_MARKETPLACE）：插件装不上，superpowers 等流程技能仍不可用，SDD 需手工执行"
+      return
+    fi
+  fi
+  for p in "${missing[@]}"; do
+    if SKIP_PLUGIN_MARKETPLACE=false timeout 240 claude plugin install "$p@$PLUGIN_MARKETPLACE_NAME" >/dev/null 2>&1; then
+      log "插件已安装：$p"; installed=$((installed + 1))
+    else
+      warn "插件安装失败：$p（$PLUGIN_MARKETPLACE_NAME）"
+    fi
+  done
+  ((installed > 0)) && warn "本次新装 $installed 个插件：组件只在会话启动时挂载，**当前会话仍不可用**，须开新会话才生效"
 }
 
 # ---------- 2. 机器级预热（无需仓库，成果进快照） ----------
@@ -188,6 +236,7 @@ PROBE="$(find_repo || true)"
 FOUND_BY="${PROBE%%|*}"
 REPO="${PROBE#*|}"
 prewarm_machine
+ensure_plugins        # 先补装，再体检 —— 否则报告拍到的是安装前的旧状态
 inspect_user_config
 if [[ -n "$REPO" ]]; then
   prepare_repo

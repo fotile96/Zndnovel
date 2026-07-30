@@ -53,11 +53,15 @@ def main(argv=None):
         zhk = {(r["card"], r.get("variant", "a")) for r in zh}
         if zhk != jpk:
             errs.append(f"zh/jp 不对应: 缺{sorted(jpk-zhk)} 多{sorted(zhk-jpk)}")
+        jpmap = {(r["card"], r.get("variant", "a")): r for r in jp}
         for r in zh:
-            if not r.get("title_zh") or not r.get("body_zh"):
-                errs.append(f"card {r['card']}: 译文字段为空")
+            jp_body = jpmap.get((r["card"], r.get("variant", "a")), {}).get("body_jp", "")
+            if not r.get("title_zh"):
+                errs.append(f"card {r['card']}: title_zh 为空")
             elif display_width(r["title_zh"]) > 28:
                 errs.append(f"card {r['card']}: title_zh 超 14 汉字宽")
+            if not r.get("body_zh") and jp_body:
+                errs.append(f"card {r['card']}: body_zh 为空（原文有正文）")
     print("\n".join(errs) if errs else "OK")
     return 1 if errs else 0
 

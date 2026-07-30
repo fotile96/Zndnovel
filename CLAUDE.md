@@ -1,0 +1,166 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 项目目标
+
+对 PSP 视觉小说《セカンドノベル 〜彼女の夏、15分の記憶〜》（2010，日本一ソフトウェア）做**中文本地化**。本仓库包含反编译后的全部游戏流程脚本（`lua_scripts/`，229 个 lua）与图片资源（`png/`，约 2100 张，由原 .gim 转换而来）。
+
+最终要开发的工具链：借助 1M 级长上下文 LLM（gemini、deepseek 等）翻译游戏文本。核心思路——**正确重建游戏剧情 DAG，对任意待翻译文本单元，把"从新游戏开局游玩到该位置"沿途出现的全部文本按出现顺序拼成长 prompt**（或对前缀做适当 compact），让 LLM 掌握人物关系与故事进程后再翻译。注意：本作游戏机制本身就是"给 15 分钟记忆的人讲故事 + 用『あらすじ』（梗概）压缩已讲内容"，与工具的 context/compact 思路同构，很多设计可以直接借鉴游戏内规则。
+
+当前仓库尚无构建/测试体系（纯数据 + 未来工具代码）。git 仅一个初始 commit。
+
+## 仓库文件构成
+
+```
+lua_scripts/                    229 个文件，共 3.6MB
+  config.lua                    引导配置：bootScript = snr_common.lua
+  snr_lib.lua                   调试启动菜单（SEC7F/PROLOGUE/STORY/DEBUG）
+  snr_common.lua                5113 行核心库：全局状态、195 卡片表、UI 对象、引擎封装
+  snr_mainmenu.lua              标题菜单（4 种形态，随进度解锁）
+  snr_story_main.lua            Story 模式中枢（记忆路线时间轴 UI）
+  snr_fragment_main.lua         Fragment 模式中枢（同一时间轴，选场景做卡）
+  snr_memory.lua                回想模式（重放各章 _f 剧本）
+  snr_novel.lua / snr_music.lua / snr_graphic.lua   文库/音乐/CG 画廊（纯图片 UI，无剧情文本）
+  snr_s{0..8}_10_{s,f,fa,fb,fc}.lua、snr_e{1,2}_10_{s,f}.lua   章节剧本，共 23 个（见下）
+  snr_crd_{0..195}.lua          196 个卡片（fragment 谜题）剧本
+png/
+  bg/81 card/197 cutin/73 effect/65 event/121 graphic/18 music/4
+  novel/993 plot/4 pose/212 scene/4 select/278 sysgim/103
+tools/                          分析提取脚本（可复跑，路径相对仓库）
+  extract_dag.py                章节调度器 → 场景 DAG 文本
+  extract_text.py               lua → 纯剧情文本摘要（vms 行）
+  extract_crd.py                卡片谜题结构一览
+analysis/                       上述脚本的产物归档（lua 变动后重跑，详见其 README.md）
+  dag_all.txt                   全 23 章调度器场景图快照（DAG 权威参照）
+  crd_summary.txt               196 个卡片谜题：前置卡/答案卡/触发章节/提示语
+  text_digest/*.txt             228 份纯文本摘要（17995 行，覆盖全部 16750 条 vms）
+pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；deps: pillow）
+```
+
+这些 lua 是反编译产物**且已被手工修改过**：变量名是 v0/p0 型，但（1）`snr_common.lua` 已把字体 0 换成中文字体 `pgf/LXGWWenKai-Regular.pgf`（原日文字体行被注释保留）；（2）162 个文件里有 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等）；（3）部分脚本的局部函数被改成可读名（如 `card_0_main`、`scene_s1s_20 = function(scene_id, scene_title)`）。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
+
+## 引擎与脚本体系（PSP）
+
+- 启动链：`config.lua` → `snr_common.lua` 的 `main()`（加载常驻图层/SE/双字体，播放 IPL 标志）→ `snr_mainmenu`。脚本间用 `run(cGetFileName("script", name)); quit()` 整体切换，每个脚本的入口都是 `main()`。
+- 资源寻径 `cGetFileName(type, name)`：bg/card/cutin/effect/event/plot/pose/scene/select/sysgim → `.gim` 图；bgm/loop/mus → `.at3`；se → `.vag`；script → `.lua`。语音 `playVoice("voice/<ID>.at3")`。OP 动画 `playMovie("movie/op.mp4")`。
+- 引擎原语（C 侧）：`msg(id, text)`、`fontPrint`、`layerLoad/Copy/Clip/Position/Move*/Alpha/Blend/Anime`、`switchScreen`、`pressButton("UP/DOWN/LEFT/RIGHT/CIRCLE/CROSS/TRIANGLE/SQUARE/L/R")`、`playBGM/SE/Voice`、`savedataTitle(标题, 章节名)`、`runListSave/Load`（手动存档）、`runAutoSave/Load`（系统数据）、`advPart`（ADV 窗口开关）、`logEnable`（backlog）、`functionButton("SQUARE", ...)`（呼出暂停菜单）。
+- 全局状态：
+  - `gameSave.storyRoute[1..99]`：{sceneId, ayanoTime 累计值}——**记忆路线**，Story 模式讲过的场景序列（本体存档核心）。
+  - `gameSave.myCard[1..195].hold`：卡片持有（-1 未持有 / 1 持有）。
+  - `gameSave.ayanoTime`：0–100 沙漏；`gameSave.sceneId/sceneName/sectionName`；`fragmentDoSceneId/fragmentDoCardId`（本次做卡目标）；`tutorial.*`；`startMenuState`（0 新开局→1 序章毕→2 全菜单）。
+  - `systemSave`：消息速度/已读染色/音量/各角色语音开关（Naoya/Ayano/Yuichi/Yukari/Chiaki/Sakura/Other）/`cgFlag`（event 图即 CG 收集）/`memoryFlag`（回想解锁）/`novelGetFlag`/`bookMark`/`storyLineSkip`。
+
+### 文本调用与标记（翻译工具的解析对象）
+
+对白/旁白统一走 `vms(消息ID, 语音ID, "文本")`（snr_common 定义：播语音 + `msg`）。**消息 ID 全局唯一**（1..17220，共 16750 个静态调用；另有 `oCard.show` 动态用 18000+卡号），用于已读标记，是翻译数据库的天然主键。语音 ID 为 `"NAO05930"` 这类（无语音 = `NONVOICE`，有语音不进 backlog = `NORECORD`）。
+
+文本内标记（必须原样保留/正确迁移）：
+- `【名字】「…」` 说话人前缀；旁白无前缀；`○` 开头 = 场景说明式旁白（幕间描述）；`■` = 系统通知（【■おしらせ】等）。
+- `_n` 换行、`_r` 另一种断行（两者混用，语义按引擎处理，勿删）。
+- `<漢字,かな>` = ruby 注音，如 `<前向性健忘,ぜんこうせいけんぼう>`。
+- `≪…≫`、`≦…≧` 强调/特殊语气括号；e2s 中 `【≦教師≧】` 这类说话人名也带 ≦≧。
+- `cHan2Zen()` 会把半角英数强制转全角后再 `fontPrint`——UI 层文字（卡片标题等）按全角渲染；中文化时注意此函数与字库覆盖。
+
+语音 ID 前缀 ↔ 角色：NAO=直哉、AYA=彩野/アヤノ、YUI=ユウイチ、YUK=由加里/ユカリ、CHI=千秋/（附身时说サクラ台词）、SAK=サクラ/雪乃、HAH=彩野母、MAS=酒吧マスター、OYA=大叔系男配（现任教师/雪乃生父等）、MOA=女配（护士/监视员等）。
+
+## 游戏系统（两种模式 + 卡片经济）
+
+**框架设定**：主角直哉在教室里听彩野讲『物語』。彩野的专注/记忆只能维持约 15 分钟 = `ayanoTime` 0→100 沙漏。每讲完一个场景 `comSectionStoryEnd(sceneId, sceneName, cost)`：把场景追加进 `storyRoute` 并加 cost（普通场景 20–25，重要场景 100，部分 0）。**若该场景的卡片已持有则 cost 不再计入**（`comSectionStoryChkAyanoTime` 只在未持卡时加时）。满 100 = Time over，彩野忘记一切，必须去 Fragment 模式做『あらすじ』卡。
+
+**Story 模式**（snr_story_main）：把 `storyRoute` 显示为横向缩略图时间轴（L/R 跳到最近的未持卡场景）。选中某点 → `ayanoTime` 回滚到该点、`cClearNumStoryRoute` 截断其后路线、`doScriptScene=场景ID` 进对应章节脚本重讲。持卡场景进入时 `comDlgStorylineSkip` 询问跳过（跳过即 0 耗时拿到结尾的关键词卡）。
+
+**Fragment 模式**（snr_fragment_main）：同一时间轴上选场景 → 运行 `snr_crd_<卡号>.lua`（卡号 = `sceneId2aCard[sceneId]`）。**顺序约束**：普通场景做卡前，其路线前缀上所有非 `_sel` 场景必须已持卡（`oCard.mesNotStoryLine`：「あらすじは物語の先頭から順番に作成する必要があります」）；`_sel` 选择卡不受此限。做卡成功后 `comAyanoTimeRefresh` 从路线中扣除该场景耗时，并提示「彩野に対して『あらすじ』で物語を説明できるようになりました」。
+
+**卡片谜题**（crd 脚本套路）：`comSectionCardStart` → 前置卡检查（缺卡 `mesNot`）→ 剧情引入（这里是**现实层框架剧情文本**，直哉与彩野在教室对话）→ `oCard.selectCardObj()` 让玩家从持有卡中递卡，比对目标卡号（错卡 `mesNG`，随机 3 种反应）→ resolve 剧情 → `myCard[fragmentDoCardId].hold = 1` + `oCard.show(卡面, "『…』のあらすじを作成しました。")`。
+
+**卡片分类**（`plotTitle[1..195]` 是卡名总表，`cardSort` 是图鉴排序）：
+- 场景卡/选择卡：对应 storyRoute 场景，fragment 做卡获得。选择卡做成后，Story 重讲该 `_sel` 场景才显示全部选项（未持卡时只有默认项）——**分支解锁机制**。
+- 关键词卡（95–97/105–107/109/114–117/119–132 等，如 コックリさん、ハンバーガー、黒板の上の時計）：Story 听完对应场景自动入手（场景结尾闭包 `myCard[N].hold=1`），做卡时当"素材/证据"用。crd 脚本为 9 行 stub（只显示「≪入手済みカード≫」）。
+- 章节梗概卡 133–144 + 145（いつかきみがみるお話。）：完成各章 `_f` 框架剧本时授予；持有后可整章跳过（如 s1s_40：持卡 133 直接 RUN s2）并解锁回想/文库/音乐。
+- 日记卡 178–191、93、195：crd_177（サクラさん）向彩野上交全部章节梗概后一次性解锁——重构佐倉雪乃的日记，开启第 5 章。
+- 特殊大谜题：crd_103『選択：ノート』需卡 133–139+145+146+192；crd_104『True Color』需全部 14 张日记卡；各章终卡（30/61/89/91/94/110/118/162/175/176/193）需多张本章卡并 `run` 对应 `_f` 章。
+
+**探索场景**（『探索：…』）：`comSelectMap` 学校地图选点（美術室/音楽室/保健室/職員室/中庭/校庭/教室/屋上/廊下/図書室），每点有 1–3 段小剧情（dispatcher 内局部函数），彩野有随机到场语音（comSectionMapmoveAyanoIn）。
+
+**其他模式**：memory=按章重放 `_f` 剧本（memoryFlag 门控）；novel=5 本页图小说（页数 112/159/119/119/452）；music/graphic=画廊。主菜单在 `startMenuState==2` 且持卡 140 后出现「セクション7」直达项。
+
+## 章节结构与剧情 DAG
+
+场景 ID 规则：`s1s_20`、`s3s_580_sel`（`_sel`=选择场景）、`s1f-10`、`s3fa-10`、`sof_10`、`e1s_10`。`comSectionUID2ScriptFileName`：前 2 字符=章，第 3 字符=模式 → 脚本文件 `snr_<章>_10_<模式>`。每个章节脚本尾部 `main()` 是 `doScriptScene` 状态机 = **DAG 的权威定义**：`scene_X(id, "标题")` 演出 → 赋值下一场景；`comDlgSelectItem` 分支（选项=png/select 图）；`comSectionStoryCheckRoute("X")` 按本轮是否讲过 X 分支；`myCard[N].hold` 门控跨章跳转。
+
+- `_s` 剧本（9 个）= **故事层**（彩野向直哉讲述的 5 年前的故事，主角是故事内人物）。
+- `_f` 剧本（14 个）= **现实层**（直哉视角的当下），由各章终卡 crd 触发一次，此后进回想。
+- 章节流与跨章跳转（默认通关顺序 1→2→3A/3B→4A/4B→5→6→7→8→EX1→EX2）：
+  - s0f 序章（现实层，PROLOGUE 菜单直入）→ 得卡 1。
+  - s1：s1s_35_sel 三选（约束/想不起/没约）；s1s_150 按是否讲过 s1s_110 分歧；s1s_260_sel 选「声の主」→ **RUN s5**（サクラ日记章，需先有日记卡）；正常线到 s1s_330 完结。有 2 个 GAMEOVER 支线。
+  - s2：s2s_10 持卡 31 跳过日常段；ナゾトキ 多层选择迷宫（答对/答错影响后续 s2s_260_sel 的选项集）；周末去处（プール/プラネタリウム）伏笔；s2s_390 检查 (s2s_170∧s2s_300∧s2s_350) 决定夜晚成立与否，否则 GAMEOVER。
+  - s3：楼梯怪谈线；s3s_50_sel 选「興味深いウワサ」→ **RUN s6**；s3s_300_sel 第 3 项（需卡 135）→ **RUN s4**；s3s_620 持卡 138 出现 s3s_641_sel（且选项 2 需本轮讲过 s4s_40）→ 3A 完（ユウイチとキス）或 3B 完（キスしない）。
+  - s4（ユウイチ视点开始）：s4s_30_sel 选「私じゃない」→ 回 **s3s_340**；s4s_70 持卡 142 → s4s_100_sel「先生を受け入れる」→ **RUN e1**（由加里章）；s4s_490_sel 持卡 141 出现第 3 项「彩野を元の姿に戻す」→ **RUN s8**；正常线 4A 完（消えたサクラ）/4B 完（サクラを待つ）。
+  - s5（サクラの日記，日期体：9/13→2/13 + アヤノの返信 9/25、10/30）：多处「发作」选择，选错 GAMEOVER；s5s_680 持卡 143 出现「もうしばらく待つ」→ **RUN e2**。
+  - s6：サクラからの手紙 → 図書室 → 『True Color』（s6s_150_sel 需卡 103 大谜题解锁）→ 中庭の雪完结。多 GAMEOVER。
+  - s7：**无 `_s`**，只有 s7f（主菜单直入）＝现实层高潮章（重演坠楼日）+ 第一次 staff roll。
+  - s8：s8s 仅 5 场（僕の言葉→フェンスの向こう側→誰も見たことのない夕焼け）；s8f=黎明结局 + 五年后 + 第二次 staff roll。
+  - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。
+  - e2s：千秋（多年后）的调查——**只有对方半边的电话/拜访独白**（老教师/筑紫(きくちゃん)/护士/雪乃生父/酒吧老板/彩野母）；e2f：雪乃弥留之际"编纂"的if 幸福线（标题回收章）。
+- GAMEOVER/COMPLETE/TIMEOVER 都进 `comStorySceneEnd` 三选单（回 Story/去 Fragment/回菜单）。
+- 强制事件：fragment_main 开头若持卡 136 且无卡 145 → 强制播 s3fc（彩野母入院 + 天台发现日记与绘本）。
+
+## 剧情核心（翻译前必读的世界观真相）
+
+**双层叙事**：现实层（现在，8 月盂兰盆）——23 岁的直哉回乡，陪护 17 岁起患重度**前向性健忘**（顺行性遗忘，海马体等受损，新记忆只保 15 分钟，手帐第一页：『私は17歳の頃から先の新しい記憶をすることができない→１５分で記憶は消える→重要な事はこの手帳に書いておくこと！』）的同级生彩野；她在旧教室里断续讲一个"夏天的学校故事"，直哉发明名片背面写『あらすじ』的卡片系统帮她跨越 15 分钟继续讲。故事层——她讲的『物語』即『True Color』：女生徒アヤノ与男子生徒ユウイチ的夏日校园故事（怪谈、占卜、コックリさん、绝对灵验的オマジナイ）。片假名【アヤノ】【ユカリ】=故事内角色，汉字【彩野】【由加里】=现实人物，**翻译必须保留这一区分**（建议中文同样用两套写法）。
+
+**5 年前的真相**（s7f 全盘揭示）：彩野幼时离家出走被困学校天台一夜，父亲清晨背她回家哼着『帰りの歌』（=《浜千鳥》，黄昏放送曲），她把朝阳当成"谁也没见过的夕焼け"——此即绘本『いつか きみが みる お話。』（全平假名童谣体，妖怪ナハメ的追逐故事，s3fc_90 内嵌全文；献词"给已故的父亲和你"）。高中时彩野与青梅竹马ユウイチ疏远、失眠住院，结识长期住院的佐倉雪乃（サクラ）；**探病的其实是直哉，雪乃却误认成ユウイチ**，于是两人合写的『True Color』里，以"探病少年"为原型的男主被命名为ユウイチ——**故事里的ユウイチ其实是直哉**。雪乃（疑似受问题处方药影响，医院以"病死"处理并赔偿封口）2 月死去，死前托妹妹千秋 9/13 寄出两封"来自死者"的信（给ユウイチ：天台可见夕焼け的秘密；给彩野：等待的指示），并让她在校庭按下录着自己歌声的播放器——想以"绝对灵验的魔法"促成故事的 happy end（ユウイチ天台告白）。但因原型错位，当日ユウイチ先去图书室与由加里相拥（e1 章：天台抽烟"不良教师"×装病翘课"不良少年"的秘密羁绊，ユウイチ曾向她告白），彩野目击后崩溃冲上天台，ユウイチ追去告白（『俺は、アヤノの事が好きだ』，且早有觉悟）坠楼身亡；服强效安眠药的彩野随后追随跳下，重伤失忆。彩野中途已察觉雪乃的误认，为不让直哉背负"扮演ユウイチ告白"的结局，把「不许告诉直哉真相」写进手帐（因失忆，该规则永不可破），并生成了否定 happy end 的 3B/4B 黑暗分支。
+**现实层结局**：直哉集齐全部梗概后重演那一天（由加里配合重现图书室相拥、千秋播放『お姉ちゃん.mp3』、直哉以ユウイチ身份在围栏外告白）；彩野坠落瞬间被他抓住手腕（呼应序章"这次要紧紧抓住她的手腕"）救回；黎明众人唱着浜千鳥送她回家——她的『物語』完结，从此不再游荡到学校（s8f）。五年后：直哉成为母校教师，高中生千秋在天台"变成"姐姐完成告别；直哉把写上逗号的『True Color，』笔记本交给千秋——**续写的故事=第二部小说=セカンドノベル**（三重题意：雪乃弥留编纂的 if 幸福线 e2f / 文化祭展位名 / 千秋要写的续篇）。e2s 里多年后的千秋独自查访当年真相（药害、封口、目击者筑紫），黑暗底流收束。
+
+人物速查：直哉（NAO，现实主角，暗恋彩野）；彩野（AYA，失忆者，爱的是ユウイチ→而故事里她写的"ユウイチ"原型是直哉）；ユウイチ（YUI，5 年前坠亡，生前在酒吧寄存威士忌托老板转交成年直哉）；由加里（YUK，国语/古文教师，至今仍在校）；佐倉雪乃=サクラ（SAK，千秋之姐，体弱住院，True Color 共作者）；千秋（CHI，雪乃之妹，序章校庭的神秘小女孩=5 年来遵守姐姐嘱托等待；渣生父监护）；きくちゃん=筑紫（田径部同学，坠楼目击者）；彩野母（HAH）；酒吧マスター（MAS，店 10 年后改回 BAR）；水尾澄等仅出现于 novel 页图小说。关键道具/母题：手帳、名片卡片、消しゴム（刻名オマジナイ）、黒板の上の時計（停在 0 时）、帰りの歌/浜千鳥、アラザン银珠巧克力与草莓甜甜圈（直哉↔雪乃↔千秋的暗号）、指輪、ネックレス、ドーナツ。
+
+## 文本载体清单（翻译工作量地图）
+
+1. **脚本内文本**（主体）：16750 条 `vms`（全局唯一 ID 1..17220）+ `savedataTitle`/`plotTitle[1..195]`/场景标题参数/`oCard.show` 提示语（tr_line 已标记一部分）。提取正则：`vms\((\d+), "([A-Z0-9]+|NONVOICE|NORECORD)", "(.*)"\)`；场景归属按所在 `scene_*` 函数 + 各章 main() 调度器。
+2. **图片烤字**（需图像重制）：
+   - `select/` 278 张：全部选项按钮文字（`sel_<场景>_<a/b/c>_{on,off}`）+ 地图点名。
+   - `card/` 197 张卡面：**含完整梗概正文段落**（标题+正文+セクション栏），是隐藏叙事语料，必须逐张翻译重排。
+   - `plot/` 4 张缩略图集（60 卡/张，82×48 格）与 `scene/` 4 张场景名条集（145×15 格，3 列）：标题烤字。
+   - `sysgim/` 103 张：标题 logo（title_01_a）、菜单项（title_02..13）、暂停菜单（sys_20_c）、各确认对话框（sys_5_*、sys_12/13_*）、卡片模式 UI（sys_11_*）、选项画面（sys_21..24_*）。
+   - `novel/` 993 张：5 本竖排小说整页渲染，**存储时顺时针旋转 90°**（PSP 横持阅读）；multimodal 读取前先旋转。novel05 长达 452 页。
+   - `music/` `graphic/` 画廊框文字；`bg/` 少量含字（黑板板书等）；`event/` CG 个别含字。
+3. **音频**（不在本仓库）：voice/*.at3 按 ID 对应 vms；无字幕外文本。
+
+## 剧情 DAG 组装规则（给翻译工具）
+
+把"新开局→当前文本"的上下文序列定义为玩家实际经历顺序，可按以下规则机械重建：
+1. 序：s0f 全部 → s1s_10 → s1s_20（首次 100 耗时演出）→ 教程 crd_0 → crd_2 → OP。
+2. 之后是 Story/Fragment 交替：Story 按各章 dispatcher 推进 `storyRoute`；Time over/主动切换后，Fragment 按**路线前缀顺序**为每个场景插入对应 `snr_crd_N` 文本（做卡剧情=现实层），再回 Story 从断点续讲。跨章跳转与分支解锁按上文门控条件展开。
+3. `_f` 章文本在各章终卡 crd 之后插入；s3fc 在得卡 136 后强制插入；s7f 在卡 140 后经主菜单进入；e1/e2 分别经 s4s_100_sel（需卡 142）与 s5s_680（需卡 143）进入——即 **EX 章的上下文前缀天然包含全部 1–8 章**。
+4. 同一场景重讲（换分支）时，之前的讲述也在"经历"里——工具可将已做卡场景以其**卡面梗概文本**替代全文（与游戏内『あらすじ』语义一致），实现前缀 compact。
+5. 探索场景各地点小节、ナゾトキ 选择迷宫等 dispatcher 内嵌段落，按局部函数调用顺序展开。
+6. e2s 的单边对话、s7f 的卡片逐张递交段，强依赖全局剧情知识，应放在上下文最完整时再翻。
+
+术语/名字一致性表（工具应内置 glossary 强约束）：あらすじ、物語/お話、カード、手帳、記憶ルート、フラグメント、セクション、帰りの歌（浜千鳥）、誰も見たことのない夕焼け、オマジナイ、ナゾトキ、ウワサ、コックリさん、お化け階段、ナハメ、True Color（保留英文）、いつか きみが みる お話。、セカンドノベル、前向性/逆向性健忘、エピソード記憶/手続き記憶、片假名角色名 vs 汉字角色名两套写法。
+
+## 开发规约
+
+- **环境**：uv 管理的项目 venv。新会话先 `uv sync`；跑脚本 `uv run python ...`；加依赖 `uv add <pkg>`。`pyproject.toml`/`uv.lock`/`.python-version`(3.14) 入库，`.venv/` 已 gitignore。`tools/extract_*.py` 保持纯 stdlib（系统 python3 也能直接跑）。LLM API key 走 `.env`（已 gitignore）或环境变量，绝不入库。
+- **原始资产只读**：`lua_scripts/`、`png/` 不就地修改。注入/回写类输出先落 `build/`（gitignore）；确需改原件时走分支，游戏内验证后再合并。
+- **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
+- **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。
+- **commit**：Claude 在每个自洽工作单元完成并自检通过后直接本地提交，无需逐次确认；一个逻辑变更一个 commit，工具代码与翻译数据分开提交。**push 仅在用户明示时执行**；如建远端必须 private（仓库含版权游戏素材，不得公开）。
+- **message 规范**：`type: 中文摘要`，type ∈ feat / fix / docs / data / analysis / chore / refactor。示例：`data: s1 章译文初稿入库`、`analysis: lua 变更后重跑提取产物`。
+
+## 常用操作（现阶段）
+
+- 三件套分析产物已归档在 `analysis/`（DAG 快照 / 卡片谜题表 / 全量文本摘要），lua 改动后用 `tools/extract_{dag,crd,text}.py` 重跑（前两个输出到 stdout，text 直接写 `analysis/text_digest/`）。查剧情/查结构**优先读 analysis/ 而不是原始 lua**。
+- 数场景/文本量：`grep -c '^scene_' lua_scripts/snr_s1_10_s.lua`；`grep -c 'vms(' lua_scripts/*.lua`。
+- 手工核对某章调度器：读文件末尾的 `main = function()`（`doScriptScene` 状态机）。
+- 读 novel 页图前先旋转：`python3 -c "from PIL import Image; Image.open(p).rotate(-90, expand=True).save(out)"`。
+- 图片均为 PSP 480×272 逻辑分辨率素材；改图后需回转 .gim 才能进游戏（转换工具不在本仓库）。
+
+## 已知坑与注意事项
+
+- `vms` 消息 ID 关联已读标记与语音，翻译只替换第三参数字符串；`_n/_r/<漢字,かな>/≪≫/≦≧/【】/○/■` 控制码原样保留。
+- 文本行宽：`cBrStr` 按 24 字符硬折行（卡名用）；消息窗排版由引擎处理，但过长中文行仍可能溢出，需实测。
+- s7f 引用的给彩野的信文（『放課後、校庭で待っていて』）与 s5f_80 实物信（『屋上で待っていて。サクラ』）字面不同——原作即如此，翻译时保持各自原样，不要"修复"。
+- sceneId2aCard 表中大量 `sceneId2aCard.keyword = N` 是反编译噪声（键重复覆盖），仅真实场景键有效。
+- 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。
+- 主线术语的既有官方英文（Prologue/Story/Fragment/library/memory 等菜单词）在图片里成对出现（英+日），中文化时可保英文大词+中文小注的原版式。

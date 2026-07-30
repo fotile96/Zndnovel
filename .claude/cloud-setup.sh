@@ -53,27 +53,43 @@ find_repo() {
   return 1
 }
 
-# ---------- 1.5 用户级配置与账户同步的 skills ----------
-# 云端唯一有效的 skill 载体：仓库级 .claude/settings.json 不被采纳、插件被
-# SKIP_PLUGIN_MARKETPLACE 掐死，而账户级 skill 经 CLAUDE_CODE_SYNC_SKILLS 同步进 ~/.claude/skills。
-# 故这里只查家目录实况，不再验证仓库级配置是否生效（结论见 docs/ops/cloud-acceptance-*.md）。
+# ---------- 1.5 用户级配置：技能的两个可能载体 ----------
+# 仓库级 .claude/settings.json 不被采纳（结论已定案，不再验证），故技能只可能来自家目录：
+#   载体一 ~/.claude/skills/            —— 账户级独立 skill，经 CLAUDE_CODE_SYNC_SKILLS 同步
+#   载体二 ~/.claude/plugins/cache/…    —— 插件形态（本机即如此），技能体在 <市场>/<插件>/<版本>/
+# 首次验收时 SKIP_PLUGIN_MARKETPLACE=true 掐死了载体二；账户级安装后是否改观，正是要测的。
+# 注意 plugins/data/ 只是每插件运行时目录（本机为空），**不能**当作「插件已装」的判据。
 USER_CFG=""
 inspect_user_config() {
-  local hc="${HOME:-/root}/.claude" n
+  local hc="${HOME:-/root}/.claude" pd="${HOME:-/root}/.claude/plugins"
+  local n_skill=0 n_plugin_skill=0
+  [[ -d "$hc/skills" ]] && n_skill=$(find "$hc/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+  [[ -d "$pd/cache" ]] && n_plugin_skill=$(find "$pd/cache" -name SKILL.md 2>/dev/null | wc -l)
   USER_CFG="$(
     echo "user_config_dir=$hc（$([[ -d "$hc" ]] && echo 存在 || echo 不存在)）"
     echo "user_settings.json=$([[ -f "$hc/settings.json" ]] && echo 有 || echo 无)"
     echo "user_launcher-settings.json=$([[ -f "$hc/launcher-settings.json" ]] && echo 有 || echo 无)"
+    # 载体一：账户同步的独立 skill（CLAUDE_CODE_SYNC_SKILLS）
     if [[ -d "$hc/skills" ]]; then
-      n=$(find "$hc/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-      echo "user_skills=$n 个：$(ls -1 "$hc/skills" 2>/dev/null | tr '\n' ' ')"
+      echo "user_skills=$n_skill 个：$(ls -1 "$hc/skills" 2>/dev/null | tr '\n' ' ')"
     else
       echo "user_skills=（$hc/skills 不存在）"
     fi
+    # 载体二：插件（本机形态；技能体在 cache/<市场>/<插件>/<版本>/，data/ 只是每插件运行时目录、
+    # 常为空，故不能拿它当「已装」判据）
+    if [[ -d "$pd" ]]; then
+      echo "user_plugins_installed=$(find "$pd/cache" -mindepth 3 -maxdepth 3 -type d 2>/dev/null | sed "s|$pd/cache/||" | tr '\n' ' ')"
+      echo "user_plugin_skills=$n_plugin_skill 份 SKILL.md"
+      echo "user_plugins_data=$(ls -1 "$pd/data" 2>/dev/null | tr '\n' ' ')"
+    else
+      echo "user_plugins=（$pd 不存在）"
+    fi
+    echo "SKIP_PLUGIN_MARKETPLACE=${SKIP_PLUGIN_MARKETPLACE:-（未设置）}  CLAUDE_CODE_SYNC_SKILLS=${CLAUDE_CODE_SYNC_SKILLS:-（未设置）}"
   )"
   while IFS= read -r line; do log "$line"; done <<< "$USER_CFG"
-  [[ "$USER_CFG" == *"skills 不存在"* || "$USER_CFG" == *"user_skills=0 个"* ]] \
-    && warn "账户级 skill 未同步到本环境：superpowers 等流程技能不可用，SDD 需手工执行"
+  # 两个载体任一到位即可；都空才是真不可用
+  ((n_skill == 0 && n_plugin_skill == 0)) \
+    && warn "账户级 skill 与插件均未到位（~/.claude/skills 与 plugins 都没有技能体）：superpowers 等流程技能不可用，SDD 需手工执行"
 }
 
 # ---------- 2. 机器级预热（无需仓库，成果进快照） ----------

@@ -16,6 +16,7 @@
 | 迭代模型 | D3 全套：append-only 正向线 + 补丁仓 + 尾部术语层 + 章界重铸阀门 + 试点实测 |
 | 基线对照 | 缩小版：第 1 章单发全章翻译作对照组（CC 后端天然承担） |
 | 执行后端 | **双后端**：Claude Code 代理执行（cc）与外部 API（gemini/deepseek）平级；分工在试点后定量决定；CC 独立完成全量在架构上可行 |
+| API-A 档 baseline 输入 | 采纳四档 `--baseline {none\|ref\|revise\|judge}`；baseline 仅注入尾部活动层（冻结前缀逐字节不变，缓存零代价）；主路径重定价为「CC 出 v1 → API revise 出 v2」，API 后端定位=第二遍校订引擎；5-10% 抽样盲翻校准欠标 |
 
 ## 1. 目录与工件总览
 
@@ -112,12 +113,14 @@ work/                     瞬态工作区（gitignore；ctx 包、draft、模拟
 ### 5.0 公共接口（数据层对后端无感知）
 
 ```
-build_context.py --batch N --profile {api-A | api-B | cc}
+build_context.py --batch N --profile {api-A | api-B | cc} --baseline {none|ref|revise|judge}
   → work/ctx/batch_N/{context.md, source.jsonl, manifest.json}
 <后端翻译> → work/out/batch_N.draft.jsonl
 check_batch.py batch_N     （见 §7 校验项）→ pass 才允许
 append_forward.py batch_N  （追加 forward.jsonl + commit：data: <章> 批次N 译文入线）
 ```
+
+- baseline 注入原则：`--baseline` 取 resolve() 当前生效译文，与本批 source 按 vms id 对齐并排，**只进尾部活动层**；冻结前缀与 none 档逐字节相同——该开关不产生任何缓存代价，可逐批切换（默认 none）。
 
 - 批次规划：`gen_batches.py` 输出三条车道——①主车道沿 timeline 贪心累积原文 token 至预算（初值 6-8k，可配置），遇 marker(分支)/章界强制断批；②ambient 池车道（上下文=骨架+术语表，全局语境翻译，可与主车道并行）；③ledger_extra 车道（场景标题/提示语等短文本，随其所属章的主车道批次搭车）。产物 batches.jsonl 开翻前人工过目一次后冻结。
 - prompt 公共结构 = `[冻结骨架][timeline 前缀（按档位）][尾部活动层：术语表当前版+style.md+本批 source]`。
@@ -128,7 +131,13 @@ append_forward.py batch_N  （追加 forward.jsonl + commit：data: <章> 批次
 - 档位：A 档=全文 append-only（40-60 万 token 封顶，纯吃 prefix cache）；B 档=章级 epoch 压缩（前缀=骨架+已完结章中文梗概链+当前章已译全文；压缩只发生在章边界，章内绝不改写前缀）。A→B 可在任意章边界无损降级。
 - **离线成本模拟器**先行（不调 API）：用 ledger 行长统计对 档位×批次大小×前缀形态×两家计费规则 全组合 dry-run，输出总费用/峰值前缀/命中率曲线，据此定档。
 - TTL 保温调度：兄弟批次排同一 TTL 窗口连跑；长停后先发预热请求；gemini 对骨架段注册显式 cache。
-- 启用与否、承担多大比例，待 CC 试点与模拟器数据出来后决定。
+- **定位（随 baseline 特性重定价）**：主路径=「CC 后端产出 v1 全文 → API-A 档以 revise 模式产出 v2」，即第二遍全上下文校订引擎（同时兑现原「终讲润色」职能）；是否另承担无 baseline 的盲翻平推，视试点数据决定。
+- baseline 四档（锚定递增、成本递减）：
+  - `none` 盲翻：全量输出照常 append forward；主要用于抽样校准（§6）。
+  - `ref` 参考：模型自译但可见 v1；有文体嵌合风险，保留实现、不作主力。
+  - `revise`（全量二遍默认档）：v1 为正文，逐行输出 keep/fix 判据，fix 附新译文与一句理由；merge 只把 fix 行追加进 forward（backend=api-*，自然 supersede v1），keep 行不新增条目；每批物化 diff 报告（可由 forward 历史重建，存 work/）。
+  - `judge` 仅评审：只输出可疑行标记与理由，不出译文；修复交回 CC 或人工。
+- 改动率遥测：按批统计 revise 改动率生成难点热力图，指导人工校对投放。
 
 ### 5.B Claude Code 后端（superpowers 风格：计划文档 + 子代理执行）
 
@@ -146,6 +155,7 @@ append_forward.py batch_N  （追加 forward.jsonl + commit：data: <章> 批次
 - 章界**梗概回译自检**：每章压缩前，令模型仅凭该章中文译文重写章梗概，与 cards.zh diff；人名/称谓/关键事件分歧 → 阻断压缩，先修复。
 - 全知纪律抽查：每章按 5% 抽行，检查剧透式措辞/提前消歧。
 - **基线对照**：第 1 章由 CC 单个子代理单发全章翻译，与流水线产出人工盲评，量化流水线复杂度的边际收益。
+- **抽样盲测校准（防 revise 欠标）**：每章抽 5-10% 批次以 none 档盲翻，输出不入线、仅作统计；令 D_blind=盲翻对 v1 的分歧率、D_rev=该章 revise 改动率，若 D_rev < 0.5×D_blind 判定修订在盖章放行，收紧 revisor 指令后重跑该章 revise；分歧样本的人工裁决同时给出 v1 错误率估计。
 - 灾难性早期错译的核选项：回放截断（作废后缀重排）——仅人工显式触发。
 
 ## 7. 校验器（check_batch）与测试
@@ -164,7 +174,7 @@ check_batch 逐批断言：
 - **P0** 骨架（CC，本/另 session）：cards.jp → cards.zh → 口调表 → anchors → tag skeleton-v1
 - **P1** 基建：build_ledger / 线性化器+校验器 / gen_batches / build_context / check_batch / append_forward / resolve / prompts 模板（DAG 提取器升级为 JSON 输出）
 - **P2** 试点：CC 翻第 1 章（顺带基线对照）→ 视结果决定是否开 API 试点（成本模拟器+实测 cache 系数）
-- **P3** 全量翻译 + QA 循环（双后端按试点结论分工）
+- **P3** 全量：CC 产 v1 → API revise 产 v2 + QA 循环（分工细节按试点结论）
 - **P4** 图片汉化（novel 993 页、select 278、card 197、sysgim 等）与 lua 回写/gim 转换——另立 spec
 
 ## 9. 已否决/后备方案存档
@@ -172,11 +182,11 @@ check_batch 逐批断言：
 - 支配树血统（互斥分支 fork + 汇流梗概接驳）：后备。触发条件=QA 发现跨分支语气/定译渗漏成系统性问题。
 - 看板动态排序：降级为顺序合法性校验器的实现思路。
 - 锚点(选择支)先翻、按返工风险排序、发现序开工、叙内知识屏障车道：否决（理由见 ADHD 收敛记录，会话 2026-07-30）。
-- 三轮讲述全量重译：仅保留「终讲润色」轻量变体，作为 P3 尾部可选 pass。
+- 三轮讲述全量重译：否决；其「终讲润色」职能由 API revise pass（§5.A）兑现，不再单设。
 
 ## 10. 留待试点数据裁决的开放项
 
 1. 前缀语言形态：中文单语 vs 日中对照（试点 A/B）。
-2. API 后端启用与否及分工比例。
+2. API 后端是否在 revise 之外另承担盲翻平推；欠标判定系数（初值 0.5）与抽样率的校准。
 3. 行宽阈值定值；`_n/_r` 移位规则是否收紧。
 4. cc 档批次预算（6-8k 初值）与章梗概链长度的最优点。

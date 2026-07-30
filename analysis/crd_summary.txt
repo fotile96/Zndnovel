@@ -1,0 +1,196 @@
+crd_0: 280L vms=177
+crd_1: 9L vms=1  STUB(既得カード表示のみ)
+crd_2: 205L vms=95  req=[1]  cardSelects=1  answersCmp=[0, 1]  gets=['gameSave.fragmentDoCardId']
+crd_3: 106L vms=36  req=[132]  cardSelects=1  answersCmp=[0, 1, 132]  gets=['gameSave.fragmentDoCardId']
+crd_4: 138L vms=73  req=[131]  cardSelects=1  answersCmp=[0, 1, 131]  gets=['gameSave.fragmentDoCardId']
+crd_5: 91L vms=32  req=[129]  cardSelects=1  answersCmp=[0, 1, 129]  gets=['gameSave.fragmentDoCardId']
+crd_6: 251L vms=103  req=[7]  cardSelects=1  answersCmp=[0, 1, 7]  gets=['gameSave.fragmentDoCardId']
+crd_7: 97L vms=31  req=[130]  cardSelects=1  answersCmp=[0, 1, 130]  gets=['gameSave.fragmentDoCardId']
+crd_8: 89L vms=30  req=[127]  cardSelects=1  answersCmp=[0, 1, 127]  gets=['gameSave.fragmentDoCardId']
+crd_9: 77L vms=18  req=[128]  cardSelects=1  answersCmp=[0, 1, 128]  gets=['gameSave.fragmentDoCardId']
+crd_10: 86L vms=21  req=[9]  cardSelects=1  answersCmp=[0, 1, 9]  gets=['126', 'gameSave.fragmentDoCardId']
+crd_11: 83L vms=22  req=[6]  cardSelects=1  answersCmp=[0, 1, 6]  gets=['gameSave.fragmentDoCardId']
+crd_12: 81L vms=17  req=[14]  cardSelects=1  answersCmp=[0, 1, 14]  gets=['gameSave.fragmentDoCardId']
+crd_13: 81L vms=21  req=[132]  cardSelects=1  answersCmp=[0, 1, 132]  gets=['gameSave.fragmentDoCardId']
+crd_14: 93L vms=27  req=[10]  cardSelects=1  answersCmp=[0, 1, 10]  gets=['gameSave.fragmentDoCardId']
+crd_15: 221L vms=138  req=[125]  cardSelects=1  answersCmp=[0, 1, 125]  gets=['gameSave.fragmentDoCardId']
+crd_16: 75L vms=15  req=[9]  cardSelects=1  answersCmp=[0, 1, 9]  gets=['gameSave.fragmentDoCardId']
+crd_17: 90L vms=24  req=[13]  cardSelects=1  answersCmp=[0, 1, 13]  gets=['gameSave.fragmentDoCardId']
+crd_18: 91L vms=25  req=[116]  cardSelects=1  answersCmp=[0, 1, 116]  gets=['gameSave.fragmentDoCardId']
+crd_19: 80L vms=16  req=[121]  cardSelects=1  answersCmp=[0, 1, 121]  gets=['gameSave.fragmentDoCardId']
+crd_20: 213L vms=99  req=[119]  cardSelects=1  answersCmp=[0, 1, 119]  gets=['gameSave.fragmentDoCardId']
+crd_21: 89L vms=24  req=[122]  cardSelects=1  answersCmp=[0, 1, 122]  gets=['gameSave.fragmentDoCardId']
+crd_22: 81L vms=22  req=[131]  cardSelects=1  answersCmp=[0, 1, 131]  gets=['gameSave.fragmentDoCardId']
+crd_23: 202L vms=82  req=[20, 120]  cardSelects=1  answersCmp=[0, 1, 120]  gets=['gameSave.fragmentDoCardId']
+crd_24: 77L vms=15  req=[117]  cardSelects=1  answersCmp=[0, 1, 117]  gets=['gameSave.fragmentDoCardId']
+crd_25: 104L vms=35  req=[145]  cardSelects=1  answersCmp=[0, 1, 145]  gets=['gameSave.fragmentDoCardId']
+crd_26: 48L vms=2  req=[143]  cardSelects=1  answersCmp=[143]  gets=['gameSave.fragmentDoCardId']
+crd_27: 99L vms=32  req=[124]  cardSelects=1  answersCmp=[0, 1, 124]  gets=['gameSave.fragmentDoCardId']
+crd_28: 89L vms=23  req=[124]  cardSelects=1  answersCmp=[0, 1, 124]  gets=['gameSave.fragmentDoCardId']
+crd_29: 189L vms=71  req=[123]  cardSelects=1  answersCmp=[0, 1, 123]  gets=['gameSave.fragmentDoCardId']
+crd_30: 389L vms=66  req=[1, 2, 10, 19, 21, 28, 29]  cardSelects=7  answersCmp=[0, 1, 2, 10, 19, 21, 28, 29]  runs=['snr_s1_10_f']
+crd_31: 110L vms=41  req=[19]  cardSelects=1  answersCmp=[0, 1, 19]  gets=['gameSave.fragmentDoCardId']
+crd_32: 51L vms=24  gets=['gameSave.fragmentDoCardId']
+crd_33: 85L vms=19  req=[31, 32]  cardSelects=1  answersCmp=[0, 1, 31]  gets=['gameSave.fragmentDoCardId']
+crd_34: 124L vms=23  req=[21, 27]  cardSelects=2  answersCmp=[0, 1, 21, 27]  gets=['gameSave.fragmentDoCardId']
+crd_35: 166L vms=58  req=[23, 63]  cardSelects=2  answersCmp=[0, 1, 23, 63]  gets=['gameSave.fragmentDoCardId']
+crd_36: 77L vms=16  req=[126]  cardSelects=1  answersCmp=[0, 1, 126]  gets=['gameSave.fragmentDoCardId']
+crd_37: 33L vms=9  gets=['gameSave.fragmentDoCardId']
+crd_38: 73L vms=12  req=[39]  cardSelects=1  answersCmp=[0, 1, 39]  gets=['gameSave.fragmentDoCardId']
+crd_39: 92L vms=24  req=[29]  cardSelects=1  answersCmp=[0, 1, 29]  gets=['gameSave.fragmentDoCardId']
+crd_40: 29L vms=7  gets=['gameSave.fragmentDoCardId']
+crd_41: 110L vms=12  req=[42, 62]  cardSelects=2  answersCmp=[0, 1, 42, 62]  gets=['gameSave.fragmentDoCardId']
+crd_42: 30L vms=7  gets=['gameSave.fragmentDoCardId']
+crd_43: 66L vms=7  req=[32]  cardSelects=1  answersCmp=[0, 1, 32]  gets=['gameSave.fragmentDoCardId']
+crd_44: 144L vms=33  req=[30, 59]  cardSelects=2  answersCmp=[0, 1, 30, 59]  gets=['gameSave.fragmentDoCardId']
+crd_45: 45L vms=20  gets=['gameSave.fragmentDoCardId']
+crd_46: 37L vms=11  gets=['gameSave.fragmentDoCardId']
+crd_47: 76L vms=15  req=[9]  cardSelects=1  answersCmp=[0, 1, 9]  gets=['gameSave.fragmentDoCardId']
+crd_48: 75L vms=16  req=[41]  cardSelects=1  answersCmp=[0, 1, 41]  gets=['gameSave.fragmentDoCardId']
+crd_49: 116L vms=16  req=[56, 57]  cardSelects=2  answersCmp=[0, 1, 56, 57]  gets=['gameSave.fragmentDoCardId']
+crd_50: 73L vms=14  req=[5]  cardSelects=1  answersCmp=[0, 1, 5]  gets=['gameSave.fragmentDoCardId']
+crd_51: 78L vms=15  req=[97]  cardSelects=1  answersCmp=[0, 1, 97]  gets=['gameSave.fragmentDoCardId', '115']
+crd_52: 30L vms=7  gets=['gameSave.fragmentDoCardId']
+crd_53: 27L vms=5  gets=['gameSave.fragmentDoCardId']
+crd_54: 67L vms=8  req=[53]  cardSelects=1  answersCmp=[0, 1, 53]  gets=['gameSave.fragmentDoCardId']
+crd_55: 24L vms=3  gets=['gameSave.fragmentDoCardId']
+crd_56: 92L vms=23  req=[57]  cardSelects=1  answersCmp=[0, 1, 57]  gets=['gameSave.fragmentDoCardId', '97']  MSG:crd_97_a
+crd_57: 86L vms=24  req=[95]  cardSelects=1  answersCmp=[0, 1, 95]  gets=['gameSave.fragmentDoCardId']
+crd_58: 283L vms=73  req=[50, 52, 62, 63]  cardSelects=4  answersCmp=[0, 1, 50, 52, 62, 63]  gets=['gameSave.fragmentDoCardId']
+crd_59: 41L vms=17  gets=['gameSave.fragmentDoCardId']
+crd_60: 38L vms=13  gets=['gameSave.fragmentDoCardId']
+crd_61: 165L vms=45  req=[49, 58, 60]  cardSelects=2  answersCmp=[0, 1, 58, 60]  runs=['snr_s2_10_f']
+crd_62: 25L vms=4  gets=['gameSave.fragmentDoCardId']
+crd_63: 69L vms=9  req=[31]  cardSelects=1  answersCmp=[0, 1, 31]  gets=['gameSave.fragmentDoCardId']
+crd_64: 73L vms=13  req=[34]  cardSelects=1  answersCmp=[0, 1, 34]  gets=['gameSave.fragmentDoCardId']
+crd_65: 39L vms=14  gets=['gameSave.fragmentDoCardId']
+crd_66: 111L vms=44  req=[139]  cardSelects=1  answersCmp=[0, 1, 139]  gets=['gameSave.fragmentDoCardId']
+crd_67: 106L vms=32  req=[20, 65]  cardSelects=1  answersCmp=[0, 1, 20]  gets=['gameSave.fragmentDoCardId']
+crd_68: 126L vms=22  req=[19, 31]  cardSelects=2  answersCmp=[0, 1, 19, 31]  gets=['gameSave.fragmentDoCardId']
+crd_69: 53L vms=22  req=[67]  gets=['gameSave.fragmentDoCardId']
+crd_70: 128L vms=25  req=[71, 72]  cardSelects=2  answersCmp=[0, 1, 71, 72]  gets=['gameSave.fragmentDoCardId']
+crd_71: 32L vms=9  gets=['gameSave.fragmentDoCardId']
+crd_72: 36L vms=7  req=[71]  gets=['gameSave.fragmentDoCardId']
+crd_73: 79L vms=15  req=[134]  cardSelects=1  answersCmp=[0, 1, 134]  gets=['gameSave.fragmentDoCardId']
+crd_74: 48L vms=16  req=[79]  gets=['gameSave.fragmentDoCardId']
+crd_75: 114L vms=41  req=[79, 80]  cardSelects=1  answersCmp=[0, 1, 79]  gets=['gameSave.fragmentDoCardId']
+crd_76: 85L vms=22  req=[57]  cardSelects=1  answersCmp=[0, 1, 57]  gets=['gameSave.fragmentDoCardId']
+crd_77: 121L vms=21  req=[6, 129]  cardSelects=2  answersCmp=[0, 1, 6, 129]  gets=['gameSave.fragmentDoCardId']
+crd_78: 78L vms=16  req=[107]  cardSelects=1  answersCmp=[0, 1, 107]  gets=['gameSave.fragmentDoCardId']
+crd_79: 75L vms=15  req=[58]  cardSelects=1  answersCmp=[0, 1, 58]  gets=['gameSave.fragmentDoCardId']
+crd_80: 36L vms=13  gets=['gameSave.fragmentDoCardId']
+crd_81: 36L vms=12  gets=['gameSave.fragmentDoCardId']
+crd_82: 96L vms=32  req=[24]  cardSelects=1  answersCmp=[0, 1, 24]  gets=['gameSave.fragmentDoCardId']
+crd_83: 69L vms=9  req=[123]  cardSelects=1  answersCmp=[0, 1, 123]  gets=['gameSave.fragmentDoCardId']
+crd_84: 78L vms=14  req=[80]  cardSelects=1  answersCmp=[0, 1, 80]  gets=['gameSave.fragmentDoCardId']
+crd_85: 128L vms=28  req=[27, 56]  cardSelects=2  answersCmp=[0, 1, 27, 56]  gets=['gameSave.fragmentDoCardId']
+crd_86: 89L vms=22  req=[77]  cardSelects=1  answersCmp=[0, 1, 77]  gets=['gameSave.fragmentDoCardId']
+crd_87: 93L vms=27  req=[92]  cardSelects=1  answersCmp=[0, 1, 92]  gets=['gameSave.fragmentDoCardId']
+crd_88: 35L vms=9  gets=['gameSave.fragmentDoCardId']
+crd_89: 403L vms=71  req=[64, 68, 69, 74, 76, 77, 84, 86, 88]  cardSelects=7  answersCmp=[0, 1, 64, 69, 74, 76, 77, 86, 88]  runs=['snr_s3_10_fa']
+crd_90: 142L vms=36  req=[135, 138]  cardSelects=2  answersCmp=[0, 1, 135, 138]  gets=['gameSave.fragmentDoCardId']
+crd_91: 53L vms=25  runs=['snr_s3_10_fb']
+crd_92: 74L vms=14  req=[80]  cardSelects=1  answersCmp=[0, 1, 80]  gets=['gameSave.fragmentDoCardId']
+crd_93: 10L vms=2  STUB(既得カード表示のみ)
+crd_94: 49L vms=2  req=[141]  cardSelects=1  answersCmp=[141]  runs=['snr_s8_10_f']
+crd_95: 9L vms=1  STUB(既得カード表示のみ)
+crd_96: 9L vms=1  STUB(既得カード表示のみ)
+crd_97: 9L vms=1  STUB(既得カード表示のみ)
+crd_98: 35L vms=6  gets=['gameSave.fragmentDoCardId']
+crd_99: 41L vms=11  req=[98]  gets=['gameSave.fragmentDoCardId']
+crd_100: 82L vms=16  req=[101]  cardSelects=1  answersCmp=[0, 1, 101]  gets=['gameSave.fragmentDoCardId']
+crd_101: 35L vms=11  gets=['gameSave.fragmentDoCardId']
+crd_102: 103L vms=40  gets=['gameSave.fragmentDoCardId']
+crd_103: 515L vms=74  req=[133, 134, 135, 136, 137, 138, 139, 145, 146, 192]  cardSelects=10  answersCmp=[0, 1, 133, 134, 135, 136, 137, 138, 139, 145, 146, 192]  gets=['gameSave.fragmentDoCardId']
+crd_104: 657L vms=67  req=[93, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191]  cardSelects=14  answersCmp=[0, 1, 93, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191]  gets=['gameSave.fragmentDoCardId']
+crd_105: 9L vms=1  STUB(既得カード表示のみ)
+crd_106: 9L vms=1  STUB(既得カード表示のみ)
+crd_107: 9L vms=1  STUB(既得カード表示のみ)
+crd_108: 92L vms=21  req=[1, 104]  cardSelects=1  answersCmp=[0, 1]  gets=['gameSave.fragmentDoCardId']
+crd_109: 9L vms=1  STUB(既得カード表示のみ)
+crd_110: 279L vms=69  req=[98, 102, 104, 124]  cardSelects=4  answersCmp=[0, 1, 98, 102, 104, 124]  runs=['snr_s6_10_f']
+crd_111: 9L vms=1  STUB(既得カード表示のみ)
+crd_112: 9L vms=1  STUB(既得カード表示のみ)
+crd_113: 9L vms=1  STUB(既得カード表示のみ)
+crd_114: 9L vms=1  STUB(既得カード表示のみ)
+crd_115: 9L vms=1  STUB(既得カード表示のみ)
+crd_116: 9L vms=1  STUB(既得カード表示のみ)
+crd_117: 9L vms=1  STUB(既得カード表示のみ)
+crd_118: 56L vms=2  req=[152]  cardSelects=1  answersCmp=[152]  runs=['snr_e1_10_f']
+crd_119: 9L vms=1  STUB(既得カード表示のみ)
+crd_120: 9L vms=1  STUB(既得カード表示のみ)
+crd_121: 9L vms=1  STUB(既得カード表示のみ)
+crd_122: 9L vms=1  STUB(既得カード表示のみ)
+crd_123: 9L vms=1  STUB(既得カード表示のみ)
+crd_124: 9L vms=1  STUB(既得カード表示のみ)
+crd_125: 9L vms=1  STUB(既得カード表示のみ)
+crd_126: 9L vms=1  STUB(既得カード表示のみ)
+crd_127: 9L vms=1  STUB(既得カード表示のみ)
+crd_128: 9L vms=1  STUB(既得カード表示のみ)
+crd_129: 9L vms=1  STUB(既得カード表示のみ)
+crd_130: 9L vms=1  STUB(既得カード表示のみ)
+crd_131: 9L vms=1  STUB(既得カード表示のみ)
+crd_132: 9L vms=1  STUB(既得カード表示のみ)
+crd_133: 9L vms=1  STUB(既得カード表示のみ)
+crd_134: 9L vms=1  STUB(既得カード表示のみ)
+crd_135: 9L vms=1  STUB(既得カード表示のみ)
+crd_136: 9L vms=1  STUB(既得カード表示のみ)
+crd_137: 9L vms=1  STUB(既得カード表示のみ)
+crd_138: 9L vms=1  STUB(既得カード表示のみ)
+crd_139: 9L vms=1  STUB(既得カード表示のみ)
+crd_140: 9L vms=1  STUB(既得カード表示のみ)
+crd_141: 9L vms=1  STUB(既得カード表示のみ)
+crd_142: 9L vms=1  STUB(既得カード表示のみ)
+crd_143: 9L vms=1  STUB(既得カード表示のみ)
+crd_144: 9L vms=1  STUB(既得カード表示のみ)
+crd_145: 9L vms=1  STUB(既得カード表示のみ)
+crd_146: 89L vms=17  req=[75]  cardSelects=1  answersCmp=[0, 1, 75]  gets=['gameSave.fragmentDoCardId']
+crd_147: 78L vms=14  req=[148]  cardSelects=1  answersCmp=[0, 1, 148]  gets=['gameSave.fragmentDoCardId']
+crd_148: 74L vms=13  req=[77]  cardSelects=1  answersCmp=[0, 1, 77]  gets=['gameSave.fragmentDoCardId']
+crd_149: 86L vms=20  req=[135]  cardSelects=1  answersCmp=[0, 1, 135]  gets=['gameSave.fragmentDoCardId']
+crd_150: 44L vms=14  req=[149]  gets=['gameSave.fragmentDoCardId']
+crd_151: 85L vms=21  req=[80]  cardSelects=1  answersCmp=[0, 1, 80]  gets=['gameSave.fragmentDoCardId']
+crd_152: 58L vms=4  req=[142]  cardSelects=1  answersCmp=[0, 1, 142]  gets=['gameSave.fragmentDoCardId']
+crd_153: 73L vms=12  req=[124]  cardSelects=1  answersCmp=[0, 1, 124]  gets=['gameSave.fragmentDoCardId']
+crd_154: 86L vms=21  req=[157]  cardSelects=1  answersCmp=[0, 1, 157]  gets=['gameSave.fragmentDoCardId']
+crd_155: 90L vms=24  req=[95]  cardSelects=1  answersCmp=[0, 1, 95]  gets=['gameSave.fragmentDoCardId']
+crd_156: 74L vms=12  req=[157]  cardSelects=1  answersCmp=[0, 1, 157]  gets=['gameSave.fragmentDoCardId']
+crd_157: 90L vms=24  req=[28]  cardSelects=1  answersCmp=[0, 1, 28]  gets=['gameSave.fragmentDoCardId']
+crd_158: 27L vms=0  gets=['gameSave.fragmentDoCardId']
+crd_159: 81L vms=17  req=[165]  cardSelects=1  answersCmp=[0, 1, 165]  gets=['gameSave.fragmentDoCardId']
+crd_160: 35L vms=11  gets=['gameSave.fragmentDoCardId']
+crd_161: 51L vms=23  gets=['gameSave.fragmentDoCardId']
+crd_162: 28L vms=0  runs=['snr_e2_10_f']
+crd_163: 85L vms=17  req=[155]  cardSelects=1  answersCmp=[0, 1, 155]  gets=['gameSave.fragmentDoCardId']
+crd_164: 91L vms=20  req=[159, 161]  cardSelects=1  answersCmp=[0, 1, 161]  gets=['gameSave.fragmentDoCardId']
+crd_165: 75L vms=12  req=[157]  cardSelects=1  answersCmp=[0, 1, 157]  gets=['gameSave.fragmentDoCardId']
+crd_166: 38L vms=14  gets=['gameSave.fragmentDoCardId']
+crd_167: 347L vms=81  req=[124, 149, 153, 154, 161, 166]  cardSelects=5  answersCmp=[0, 1, 124, 149, 154, 161, 166]  gets=['gameSave.fragmentDoCardId']
+crd_168: 131L vms=29  req=[23, 50]  cardSelects=2  answersCmp=[0, 1, 23, 50]  gets=['gameSave.fragmentDoCardId']
+crd_169: 69L vms=8  req=[170]  cardSelects=1  answersCmp=[0, 1, 170]  gets=['gameSave.fragmentDoCardId']
+crd_170: 103L vms=30  req=[171]  cardSelects=1  answersCmp=[0, 1, 171]  gets=['gameSave.fragmentDoCardId']
+crd_171: 88L vms=23  req=[57]  cardSelects=1  answersCmp=[0, 1, 57]  gets=['gameSave.fragmentDoCardId']
+crd_172: 81L vms=17  req=[29]  cardSelects=1  answersCmp=[0, 1, 29]  gets=['gameSave.fragmentDoCardId']
+crd_173: 95L vms=27  req=[137]  cardSelects=1  answersCmp=[0, 1, 137]  gets=['gameSave.fragmentDoCardId']
+crd_174: 37L vms=10  gets=['gameSave.fragmentDoCardId']
+crd_175: 82L vms=42  req=[176]  runs=['snr_s4_10_fb']
+crd_176: 255L vms=51  req=[30, 167, 168, 172]  cardSelects=4  answersCmp=[0, 1, 30, 167, 168, 172]  runs=['snr_s4_10_fa']
+crd_177: 465L vms=78  req=[25, 133, 134, 135, 136, 137, 138, 145]  cardSelects=7  answersCmp=[0, 1, 133, 134, 135, 136, 137, 138, 145]  gets=['gameSave.fragmentDoCardId', '178', '179', '180', '181', '182', '183', '184', '185', '186', '187', '188', '189', '190', '93', '191', '195']
+crd_178: 10L vms=2  STUB(既得カード表示のみ)
+crd_179: 10L vms=2  STUB(既得カード表示のみ)
+crd_180: 10L vms=2  STUB(既得カード表示のみ)
+crd_181: 10L vms=2  STUB(既得カード表示のみ)
+crd_182: 10L vms=2  STUB(既得カード表示のみ)
+crd_183: 10L vms=2  STUB(既得カード表示のみ)
+crd_184: 10L vms=2  STUB(既得カード表示のみ)
+crd_185: 10L vms=2  STUB(既得カード表示のみ)
+crd_186: 10L vms=2  STUB(既得カード表示のみ)
+crd_187: 10L vms=2  STUB(既得カード表示のみ)
+crd_188: 10L vms=2  STUB(既得カード表示のみ)
+crd_189: 10L vms=2  STUB(既得カード表示のみ)
+crd_190: 10L vms=2  STUB(既得カード表示のみ)
+crd_191: 10L vms=2  STUB(既得カード表示のみ)
+crd_192: 34L vms=9  gets=['gameSave.fragmentDoCardId']
+crd_193: 292L vms=80  req=[93, 179, 194]  cardSelects=3  answersCmp=[0, 1, 93, 179, 194]  runs=['snr_s5_10_f']
+crd_194: 138L vms=31  req=[179, 180]  cardSelects=2  answersCmp=[0, 1, 179, 180]  gets=['gameSave.fragmentDoCardId']
+crd_195: 10L vms=2  STUB(既得カード表示のみ)

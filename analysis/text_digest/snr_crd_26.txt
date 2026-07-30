@@ -1,0 +1,9 @@
+
+### card_26_e2s_10_intro
+○セクションＥＸ１のあらすじを選択してください。
+
+### card_26_e2s_10_resolve
+**CARD-GET: crd_" .. gameSave.fragmentDoCardId .. "_a"), "『誰も来ない』のあらすじを作成しました。
+
+### main
+○セクションＥＸ１のあらすじを選択してください。

@@ -1,0 +1,1797 @@
+
+================ snr_e1_10_f.lua ================
+[end]
+[e1f-10]
+    play scene_e1f_10 「由加里先生」
+    -> e1f-complete
+[e1f-complete]
+    RUN snr_memory
+    play scene_e1f_complete 「セクションＥＸ１読了」  // GET_CARD=118,143
+    -> end
+    RUN snr_mainmenu
+
+================ snr_e1_10_s.lua ================
+[end]
+[e1s_10]
+    play scene_e1s_10_11 「春」
+    END(cost=0)
+    -> e1s_comp
+    play scene_e1s_10_20 「セクションＥＸ１：ユカリ」
+    play scene_e1s_10_21 「春」
+    play scene_e1s_10_22 「屋上の男子生徒」
+    play scene_e1s_10_23 「屋上の男子生徒、再び」
+    play scene_e1s_10_24 「奇妙な交流」
+    play scene_e1s_10_25 「学校のカイダン」
+    play scene_e1s_10_26 「共犯者」
+    play scene_e1s_10 「花火大会」
+    play scene_e1s_10_2 「教師を続ける理由」
+    play scene_e1s_10_3 「ユウイチの事情」
+    play scene_e1s_10_4 「気分転換」
+    play scene_e1s_10_5 「私にできること」
+    play scene_e1s_10_6 「プール」
+    play scene_e1s_10_7 「君につく嘘」
+    play scene_e1s_10_8 「アヤノの家出」
+    play scene_e1s_10_9 「両親」
+    play scene_e1s_10_10 「あるいは埋め合わせ」
+    play scene_e1s_10_12 「そして、夏のあの日の図書室」
+    play scene_e1s_10_13 「三つの気になること」
+    play scene_e1s_10_14 「告白」
+    play scene_e1s_10_15 「二人の姿」
+    play scene_e1s_10_16 「幾度目の夏」
+    play scene_e1s_10_17 「再会の物語」
+    play scene_e1s_10_18 「そして、物語はエンドロールを迎えた」
+    play scene_e1s_10_19 「中庭の男子生徒」
+    END(cost=0)
+    -> e1s_comp
+[e1s_comp]
+    play scene_e1s_comp 「セクションＥＸ１完了」  // cost=0,0 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_e2_10_f.lua ================
+[end]
+[e2f-10]
+    play scene_e2f_10 「誰も来ない」
+    play scene_e2f_10_2 「雪乃」
+    -> e2f-30
+[e2f-30]
+    play scene_e2f_30 「誰も来ない」
+    -> e2f-40
+[e2f-40]
+    play scene_e2f_40 「暗転」
+    -> e2f-50
+[e2f-50]
+    play scene_e2f_50 「誰も来ない」
+    -> e2f-55
+[e2f-55]
+    play scene_e2f_55 「どこからか聞こえてくる声」  // showsCard=114
+    -> e2f-60
+[e2f-60]
+    play scene_e2f_60 「朝」
+    -> e2f-70
+[e2f-70]
+    play scene_e2f_70 「その後」
+    -> e2f-80
+[e2f-80]
+    play scene_e2f_80 「退院」
+    -> e2f-90
+[e2f-90]
+    play scene_e2f_90 「ありきたりなモノの組み合わせ」
+    -> e2f-100
+[e2f-100]
+    play scene_e2f_100 「ため息」
+    -> e2f-110
+[e2f-110]
+    play scene_e2f_110 「次に逢うときは」
+    -> e2f-120
+[e2f-120]
+    play scene_e2f_120 「唐突に」
+    -> e2f-130
+[e2f-130]
+    play scene_e2f_130 「その後」
+    -> e2f-140
+[e2f-140]
+    play scene_e2f_140 「暗転」
+    -> e2f-160
+[e2f-160]
+    play scene_e2f_160 「中庭の雪」
+    -> e2f-170
+[e2f-170]
+    play scene_e2f_170 「気がつくと病室」
+    -> e2f-180
+[e2f-180]
+    play scene_e2f_180 「チョコの味」
+    -> e2f-190
+[e2f-190]
+    play scene_e2f_190 「始業式」
+    -> e2f-200
+[e2f-200]
+    play scene_e2f_200 「２ｎｄＮｏｖｅｌ」
+    -> e2f-210
+[e2f-210]
+    play scene_e2f_210 「プール」
+    -> e2f-215
+[e2f-215]
+    play scene_e2f_215 「ファストフード」
+    -> e2f-220
+[e2f-220]
+    play scene_e2f_220 「プラネタリウム」
+    -> e2f-230
+[e2f-230]
+    play scene_e2f_230 「お祭り」
+    -> e2f-240
+[e2f-240]
+    play scene_e2f_240 「花火」
+    -> e2f-270
+[e2f-270]
+    play scene_e2f_270 「放課後の教室」
+    -> e2f-280
+[e2f-280]
+    play scene_e2f_280 「私たちの物語」
+    -> e2f-290
+[e2f-290]
+    play scene_e2f_290 「伝言ゲーム」
+    -> e2f-300
+[e2f-300]
+    play scene_e2f_300 「文化祭」
+    -> e2f-310
+[e2f-310]
+    play scene_e2f_310 「セクションコンプリート」
+    -> e2f-320
+[e2f-320]
+    play scene_e2f_320 「屋上」
+    -> e2f-330
+[e2f-330]
+    play scene_e2f_330 「授業の終わり」
+    -> e2f-340
+[e2f-340]
+    play scene_e2f_340 「受け継がれる物語」
+    -> e2f-350
+[e2f-350]
+    play scene_e2f_350 「セカンドノベル」
+    -> e2f-complete
+[e2f-complete]
+    RUN snr_memory
+    play scene_e2f_complete 「セクションＥＸ２読了」  // GET_CARD=162,144,114
+    -> end
+    RUN snr_mainmenu
+
+================ snr_e2_10_s.lua ================
+[end]
+[e2s_10]
+    play scene_e2s_10 「誰も来ない」  // cost=0
+    -> e2s_20
+[e2s_20]
+    play scene_e2s_20_2 「セクションＥＸ２：女子生徒」
+    play scene_e2s_20_3 「学校」
+    play scene_e2s_20_4 「電話」
+    play scene_e2s_20_5 「病院」
+    play scene_e2s_20_6 「父親」
+    play scene_e2s_20_7 「病院」
+    play scene_e2s_20_8 「居酒屋」
+    play scene_e2s_20 「リビングルーム」
+    END(cost=0)
+    -> e2s_155
+[e2s_155]
+    play scene_e2s_155 「セカンドノベル」
+    END(cost=0)
+    -> e2s_comp
+[e2s_comp]
+    play scene_e2s_comp 「セクションＥＸ２完了」  // cost=0,0 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s0_10_f.lua ================
+[end]
+[sof_10]
+    play scene_sof_10 「オープニング」
+    -> sof_20
+[sof_20]
+    play scene_sof_20 「忘れたい記憶」
+    -> sof_30
+[sof_30]
+    play scene_sof_30 「校内へ」
+    -> sof_40
+[sof_40]
+    play scene_sof_40 「廊下を歩く」
+    -> sof_50
+[sof_50]
+    play scene_sof_50 「彩野さんの記憶」
+    -> sof_60
+[sof_60]
+    play scene_sof_60 「僕たちの教室」
+    -> sof_complete
+[sof_complete]
+    RUN snr_memory
+    play scene_sof_complete 「オープニング読了」  // GET_CARD=1
+    -> end
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s1_10_f.lua ================
+[end]
+[s1f-10]
+    play scene_s1f_10 「彩野さんの家へ」
+    -> s1f-20
+[s1f-20]
+    play scene_s1f_20 「お母さん」
+    -> s1f-30
+[s1f-30]
+    play scene_s1f_30 「彩野さんの部屋へ」
+    -> s1f-40
+[s1f-40]
+    play scene_s1f_40 「電話の相手」
+    -> s1f-50
+[s1f-50]
+    play scene_s1f_50 「待ち合わせの場所へ」
+    -> s1f-60
+[s1f-60]
+    play scene_s1f_60 「『あらすじ』」
+    -> s1f-complete
+[s1f-complete]
+    RUN snr_memory
+    play scene_s1f_complete 「セクション１読了」  // GET_CARD=30,133
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s1_10_s.lua ================
+[end]
+[s1s_10]
+    play scene_s1s_10 「オープニング」
+    -> s1s_20
+[s1s_20]
+    play scene_s1s_20 「夏の朝、高校までの通学路」  // cost=100
+    -> s1s_30
+[s1s_30]
+    play scene_s1s_30 「放課後の約束」  // cost=25 showsCard=128,132 GET_CARD=132,128
+    -> s1s_35_sel
+[s1s_35_sel]
+    play scene_s1s_35_sel 「選択：放課後の約束」  // cost=25
+    ?noCardOf(s1s_35_sel)
+    CHOICE sel_s1s_35_sel_a=>1
+    CHOICE sel_s1s_35_sel_a=>1 sel_s1s_35_sel_b=>2 sel_s1s_35_sel_c=>3
+    on v49==1:
+    -> s1s_37
+    on v49==2:
+    -> s1s_36
+    on v49==3:
+    -> s1s_38
+[s1s_36]
+    play scene_s1s_36 「約束をしている」  // cost=25 showsCard=130 GET_CARD=130
+    -> s1s_70
+[s1s_37]
+    play scene_s1s_37 「約束を思い出せない」  // cost=25 showsCard=129 GET_CARD=129
+    -> s1s_60
+[s1s_38]
+    play scene_s1s_38 「約束をしていない」  // cost=25
+    -> s1s_40
+[s1s_40]
+    ?card133.hold==1
+    -> s2s_10
+    RUN snr_s2_10_s
+    -> s1s_60
+[s1s_60]
+    play scene_s1s_60 「約束を思い出す」  // cost=25 showsCard=131 GET_CARD=131
+    -> s1s_70
+[s1s_70]
+    play scene_s1s_70 「朝の教室」  // cost=25 showsCard=127 GET_CARD=127
+    -> s1s_80
+[s1s_80]
+    play scene_s1s_80 「セクション１：アヤノ」  // cost=25
+    -> s1s_90
+[s1s_90]
+    play scene_s1s_90 「昼休みの教室」  // cost=100 showsCard=125 GET_CARD=125
+    -> s1s_100_sel
+[s1s_100_sel]
+    play scene_s1s_100_sel 「選択：ユウイチの答案」  // cost=25
+    ?noCardOf(s1s_100_sel)
+    CHOICE sel_s1s_100_sel_b=>2
+    CHOICE sel_s1s_100_sel_a=>1 sel_s1s_100_sel_b=>2
+    on v49==1:
+    -> s1s_110
+    on v49==2:
+    -> s1s_120
+[s1s_110]
+    play scene_s1s_110 「答案を羨ましがる」  // cost=25
+    -> s1s_130
+[s1s_120]
+    play scene_s1s_120 「答案を受け流す」  // cost=25
+    -> s1s_130
+[s1s_130]
+    play scene_s1s_130 「授業が始まる」  // cost=25
+    -> s1s_140
+[s1s_140]
+    play scene_s1s_140 「放課後」  // cost=25
+    -> s1s_150
+[s1s_150]
+    ?routeHas(s1s_110)
+    -> s1s_160
+    -> s1s_200_sel
+[s1s_160]
+    play scene_s1s_160 「ユウイチとファストフード」  // cost=25 showsCard=123 GET_CARD=123
+    -> s1s_170_sel
+[s1s_170_sel]
+    play scene_s1s_170_sel 「選択：学校に戻る」  // cost=25
+    ?noCardOf(s1s_170_sel)
+    CHOICE sel_s1s_170_sel_a=>1
+    CHOICE sel_s1s_170_sel_a=>1 sel_s1s_170_sel_b=>2
+    on v49==1:
+    -> s1s_210
+    on v49==2:
+    -> s1s_180
+[s1s_180]
+    play scene_s1s_180 「いつもの生活」  // cost=25
+    -> s1s_190
+[s1s_190]
+    play scene_s1s_190 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s1s_200_sel]
+    play scene_s1s_200_sel 「探索：放課後の学校」  // showsCard=121
+    END(cost=25)
+    -> s1s_210
+    on v53==2:
+    call scene_s1s_dispatch_v29()
+    call scene_s1s_dispatch_v30()
+    call scene_s1s_dispatch_v31()
+    on v53==3:
+    call scene_s1s_dispatch_v20()
+    call scene_s1s_dispatch_v21()
+    call scene_s1s_dispatch_v22()
+    on v53==4:
+    call scene_s1s_dispatch_v23()
+    call scene_s1s_dispatch_v24()
+    call scene_s1s_dispatch_v25()
+    on v53==7:
+    call scene_s1s_dispatch_v26()
+    call scene_s1s_dispatch_v27()
+    call scene_s1s_dispatch_v28()
+    on v53==9:
+    call scene_s1s_dispatch_v32()
+    call scene_s1s_dispatch_v33()
+    call scene_s1s_dispatch_v34()
+    call scene_s1s_dispatch_v35()
+    END(cost=25)
+    -> s1s_210
+[s1s_210]
+    play scene_s1s_210 「放課後のコックリさん」  // cost=25 showsCard=122 GET_CARD=122
+    -> s1s_215
+[s1s_215]
+    play scene_s1s_215 「彼女との出会い」  // cost=25
+    -> s1s_220
+[s1s_220]
+    play scene_s1s_220 「良くない結果」  // cost=25 showsCard=120 GET_CARD=120
+    -> s1s_230
+[s1s_230]
+    play scene_s1s_230 「気がつくといる場所」  // cost=25 showsCard=117 GET_CARD=117
+    -> s1s_260_sel
+[s1s_260_sel]
+    play scene_s1s_260_sel 「選択：声の主」  // cost=25
+    ?noCardOf(s1s_260_sel)
+    CHOICE sel_s1s_260_sel_b=>2
+    CHOICE sel_s1s_260_sel_a=>1 sel_s1s_260_sel_b=>2
+    on v49==1:
+    -> s1s_270
+    on v49==2:
+    -> s1s_280
+[s1s_270]
+    -> s5s_10
+    RUN snr_s5_10_s
+[s1s_280]
+    play scene_s1s_280 「彼女の名前」  // cost=25 showsCard=124 GET_CARD=124
+    ?routeHas(s1s_110)
+    -> s1s_320
+    -> s1s_300
+[s1s_300]
+    play scene_s1s_300 「約束はまもらないと」  // cost=25 GET_CARD=116
+    -> s1s_310
+[s1s_310]
+    play scene_s1s_310 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s1s_320]
+    play scene_s1s_320 「ユウイチはアヤノを助ける」  // cost=25
+    -> s1s_330
+[s1s_330]
+    play scene_s1s_330 「誰かが呼んでた」  // cost=25
+    -> s1s_comp
+[s1s_comp]
+    play scene_s1s_comp 「セクション１完了」  // cost=25,25 COMPLETE GET_CARD=121,119
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s2_10_f.lua ================
+[end]
+[s2f-10]
+    play scene_s2f_10 「夕方の校庭」
+    -> s2f-20
+[s2f-20]
+    play scene_s2f_20 「当時の記憶」
+    -> s2f-30
+[s2f-30]
+    play scene_s2f_30 「まっすぐ家に帰る気になれない」
+    -> s2f-40
+[s2f-40]
+    play scene_s2f_40 「校庭の千秋」
+    -> s2f-50
+[s2f-50]
+    play scene_s2f_50 「千秋の家庭の事情」
+    -> s2f-60
+[s2f-60]
+    play scene_s2f_60 「あの子には優しくしてあげてね」
+    -> s2f-70
+[s2f-70]
+    play scene_s2f_70 「日暮れ」
+    -> s2f-complete
+[s2f-complete]
+    RUN snr_memory
+    play scene_s2f_complete 「セクション２読了」  // GET_CARD=61,134
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s2_10_s.lua ================
+[end]
+[s2s_10]
+    ?card31.hold==1
+    -> s2s_60
+    -> s2s_20
+[s2s_20]
+    ?card134.hold==1
+    -> s3s_10
+    RUN snr_s3_10_s
+    -> s2s_40
+[s2s_40]
+    play scene_s2s_40 「また、いつもの生活」  // cost=20
+    -> s2s_50
+[s2s_50]
+    play scene_s2s_50 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s2s_60]
+    play scene_s2s_60 「夏の予定」  // cost=100
+    -> s2s_80_sel
+[s2s_80_sel]
+    play scene_s2s_80_sel 「選択：週末の予定」  // cost=20
+    ?noCardOf(s2s_80_sel)
+    CHOICE sel_s2s_80_sel_b=>2
+    CHOICE sel_s2s_80_sel_a=>1 sel_s2s_80_sel_b=>2 sel_s2s_160_sel_b=>3
+    on v50==1:
+    -> s2s_90
+    on v50==2:
+    play scene_s2s_80_sel_2 「行かない」
+    -> s2s_20
+    on v50==3:
+    play scene_s2s_80_sel_3 「濁す」
+    -> s2s_40
+[s2s_90]
+    play scene_s2s_90 「休み時間」  // cost=20
+    -> s2s_120_sel
+[s2s_120_sel]
+    play scene_s2s_120_sel_2 「選択：オマジナイへの興味」  // cost=20
+    ?noCardOf(s2s_120_sel)
+    CHOICE sel_s2s_120_sel_a=>1 sel_s2s_120_sel_b=>2 sel_s2s_120_sel_c=>3
+    CHOICE sel_s2s_120_sel_a=>1 sel_s2s_120_sel_b=>2 sel_s2s_120_sel_c=>3 sel_s2s_120_sel_d=>4
+    on v50==1:
+    play scene_s2s_120_sel_3 「特にない」
+    -> s2s_124
+    on v50==2:
+    play scene_s2s_120_sel_4 「テストで満点取る」
+    -> s2s_124
+    on v50==3:
+    play scene_s2s_120_sel 「歌が上手くなる」
+    -> s2s_124
+    on v50==4:
+    -> s2s_140
+[s2s_124]
+    play scene_s2s_124 「サクラのため息」  // cost=20
+    -> s2s_20
+[s2s_140]
+    play scene_s2s_140 「セクション２：アヤノ」  // cost=100
+    -> s2s_150
+[s2s_150]
+    play scene_s2s_150 「ユウイチとの仲」  // cost=20
+    -> s2s_160_sel
+[s2s_160_sel]
+    play scene_s2s_160_sel 「選択：ユウイチへの想い」  // cost=20
+    ?noCardOf(s2s_160_sel)
+    CHOICE sel_s2s_160_sel_a=>1
+    CHOICE sel_s2s_160_sel_a=>1 sel_s2s_160_sel_b=>2
+    on v50==1:
+    -> s2s_170
+    on v50==2:
+    -> s2s_180
+[s2s_170]
+    play scene_s2s_170 「ユウイチのことが好き」  // cost=20
+    -> s2s_190_sel
+[s2s_180]
+    play scene_s2s_180 「ユウイチのことは……」  // cost=20
+    -> s2s_190_sel
+[s2s_190_sel]
+    play scene_s2s_190_sel 「選択：ナゾトキ」
+    CHOICE sel_s2s_190_sel_a=>1 sel_s2s_190_sel_b=>2 sel_s2s_190_sel_c=>3
+    on v50==1:
+    END(cost=20)
+    -> s2s_208
+    on v50==2:
+    END(cost=20)
+    -> s2s_209
+    play scene_s2s_190_sel_2 「ナゾトキ１」
+    play scene_s2s_190_sel_3 「ナゾトキ１」
+    CHOICE sel_s2s_192a_sel_a=>1 sel_s2s_192a_sel_b=>2 sel_s2s_192a_sel_c=>3
+    play scene_s2s_190_sel_4 「ナゾトキ１」
+    CHOICE sel_s2s_192b_sel_a=>1 sel_s2s_192b_sel_b=>2 sel_s2s_192b_sel_c=>3
+    play scene_s2s_190_sel_6 「ナゾトキ１」
+    CHOICE sel_s2s_192c_sel_a=>1 sel_s2s_192c_sel_b=>2 sel_s2s_192c_sel_c=>3
+    on v62==2:
+    play scene_s2s_190_sel_5 「ナゾトキ１」
+    play scene_s2s_190_sel_5 「ナゾトキ１」
+    play scene_s2s_190_sel_7 「ナゾトキ１」
+    play scene_s2s_190_sel_8 「ナゾトキ２」
+    play scene_s2s_190_sel_9 「ナゾトキ２」
+    CHOICE sel_s2s_193a_sel_a=>1 sel_s2s_193a_sel_b=>2 sel_s2s_193a_sel_c=>3 sel_s2s_193a_sel_d=>4
+    play scene_s2s_190_sel_10 「ナゾトキ２」
+    CHOICE sel_s2s_193b_sel_a=>1 sel_s2s_193b_sel_b=>2 sel_s2s_193b_sel_c=>3 sel_s2s_193b_sel_d=>4
+    play scene_s2s_190_sel_12 「ナゾトキ２」
+    CHOICE sel_s2s_193c_sel_a=>1 sel_s2s_193c_sel_b=>2 sel_s2s_193c_sel_c=>3
+    play scene_s2s_190_sel_11 「ナゾトキ２」
+    play scene_s2s_190_sel_11 「ナゾトキ２」
+    play scene_s2s_190_sel_13 「ナゾトキ２」
+    END(cost=20)
+    on v51==0:
+    -> s2s_208
+    -> s2s_209
+[s2s_208]
+    play scene_s2s_208 「ナゾトキの正解」  // cost=20 showsCard=96 GET_CARD=96
+    -> s2s_210
+[s2s_209]
+    play scene_s2s_209 「ナゾトキの間違い」  // cost=20
+    -> s2s_210
+[s2s_210]
+    play scene_s2s_210 「出かける場所」  // cost=20
+    -> s2s_220_sel
+[s2s_220_sel]
+    play scene_s2s_220_sel 「選択：出かける場所」  // cost=20
+    ?noCardOf(s2s_220_sel)
+    CHOICE sel_s2s_220_sel_a=>1
+    CHOICE sel_s2s_220_sel_a=>1 sel_s2s_220_sel_b=>2
+    on v50==1:
+    -> s2s_230
+    on v50==2:
+    -> s2s_240
+[s2s_230]
+    play scene_s2s_230 「プールの約束」  // cost=20
+    -> s2s_250
+[s2s_240]
+    play scene_s2s_240 「プラネタリウムの約束」  // cost=20
+    -> s2s_250
+[s2s_250]
+    play scene_s2s_250 「図書室」  // cost=20
+    -> s2s_260_sel
+[s2s_260_sel]
+    play scene_s2s_260_sel 「選択：放課後のオマジナイ」  // cost=100
+    ?routeHas(s2s_209)
+    CHOICE sel_s2s_260_sel_a=>1 sel_s2s_260_sel_b=>2
+    CHOICE sel_s2s_260_sel_a=>1 sel_s2s_260_sel_b=>2 sel_s2s_260_sel_c=>3
+    on v50==1:
+    play scene_s2s_260_sel_2 「夕日を見ながら歌を聞く」
+    -> s2s_293
+    on v50==2:
+    play scene_s2s_260_sel_3 「教科書の裏に名前」
+    -> s2s_293
+    on v50==3:
+    -> s2s_300
+[s2s_293]
+    play scene_s2s_293 「オマジナイ、成功……？」  // cost=20
+    -> s2s_310
+[s2s_300]
+    play scene_s2s_300 「消しゴムに名前」  // cost=20
+    -> s2s_310
+[s2s_310]
+    -> s2s_340_sel
+[s2s_340_sel]
+    play scene_s2s_340_sel 「選択：オマジナイの効果」  // cost=20
+    ?noCardOf(s2s_340_sel)
+    CHOICE sel_s2s_340_sel_b=>2 sel_s2s_340_sel_c=>3
+    CHOICE sel_s2s_340_sel_a=>1 sel_s2s_340_sel_b=>2 sel_s2s_340_sel_c=>3
+    on v50==1:
+    -> s2s_350
+    on v50==2:
+    -> s2s_360
+    on v50==3:
+    -> s2s_370
+[s2s_350]
+    play scene_s2s_350 「絶対に効くと思う」  // cost=20
+    -> s2s_380
+[s2s_360]
+    play scene_s2s_360 「たぶん効くと思う」  // cost=20
+    -> s2s_380
+[s2s_370]
+    play scene_s2s_370 「やってソンはないと思う」  // cost=20
+    -> s2s_380
+[s2s_380]
+    play scene_s2s_380 「オマジナイ完了」  // cost=20
+    -> s2s_390
+[s2s_390]
+    ?routeHas(s2s_170)
+    ?routeHas(s2s_300)
+    ?routeHas(s2s_350)
+    -> s2s_500
+    ?routeHas(s2s_170)
+    -> s2s_420
+    -> s2s_450
+[s2s_420]
+    play scene_s2s_420 「廊下に響く声」  // showsCard=95 GET_CARD=95
+    -> s2s_440
+[s2s_440]
+    play scene_s2s_440 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s2s_450]
+    play scene_s2s_450 「ユウイチの後ろ姿」  // cost=20
+    -> s2s_490
+[s2s_490]
+    play scene_s2s_490 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s2s_500]
+    play scene_s2s_500 「夜の廊下」  // cost=100
+    -> s2s_550
+[s2s_550]
+    ?routeHas(s2s_230)
+    -> s2s_570
+    -> s2s_590
+[s2s_570]
+    play scene_s2s_570 「プール」  // cost=20
+    -> s2s_610
+[s2s_590]
+    play scene_s2s_590 「プラネタリウム」  // cost=20
+    -> s2s_610
+[s2s_610]
+    play scene_s2s_610 「オマジナイの効果」  // cost=20
+    -> s2s_comp
+[s2s_comp]
+    play scene_s2s_comp 「セクション２完了」  // cost=20,20,20 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s3_10_fa.lua ================
+[end]
+[s3fa-10]
+    play scene_s3fa_10 「図書室の由加里先生」
+    -> s3fa-20
+[s3fa-20]
+    play scene_s3fa_20 「千秋と帰りの歌」
+    -> s3fa-30
+[s3fa-30]
+    play scene_s3fa_30 「コーヒー」
+    -> s3fa-40
+[s3fa-40]
+    play scene_s3fa_40 「神社でお祭り」
+    -> s3fa-50
+[s3fa-50]
+    play scene_s3fa_50 「近道」
+    -> s3fa-60
+[s3fa-60]
+    play scene_s3fa_60 「誰も見たことのない夕焼け」
+    -> s3fa-complete
+[s3fa-complete]
+    RUN snr_memory
+    play scene_s3fa_complete 「セクション３Ａ読了」  // GET_CARD=89,135
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s3_10_fb.lua ================
+[end]
+[s3fb-10]
+    play scene_s3fb_10 「彩野さんの家へ」
+    -> s3fb-20
+[s3fb-20]
+    play scene_s3fb_20 「居酒屋：羊道」
+    -> s3fb-30
+[s3fb-30]
+    play scene_s3fb_30 「言いたげな由加里」
+    -> s3fb-40
+[s3fb-40]
+    play scene_s3fb_40 「缶蹴り」
+    -> s3fb-complete
+[s3fb-complete]
+    RUN snr_memory
+    play scene_s3fb_complete 「セクション３Ｂ読了」  // GET_CARD=91,136
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s3_10_fc.lua ================
+[end]
+[s3fc-10]
+    play scene_s3fc_10 「連絡」
+    -> s3fc-20
+[s3fc-20]
+    play scene_s3fc_20 「病院１」
+    -> s3fc-30
+[s3fc-30]
+    play scene_s3fc_30 「病院２」
+    -> s3fc-40
+[s3fc-40]
+    play scene_s3fc_40 「病院３」
+    -> s3fc-50
+[s3fc-50]
+    play scene_s3fc_50 「中庭」
+    -> s3fc-60
+[s3fc-60]
+    play scene_s3fc_60 「彩野の家」
+    -> s3fc-70
+[s3fc-70]
+    play scene_s3fc_70 「今夜の予定」
+    -> s3fc-80
+[s3fc-80]
+    play scene_s3fc_80 「手帳のメモ」
+    -> s3fc-90
+[s3fc-90]
+    play scene_s3fc_90 「いつかきみがみるお話」  // GET_CARD=145
+    -> s3fc-complete
+[s3fc-complete]
+    RUN snr_memory
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s3_10_s.lua ================
+[end]
+[s3s_10]
+    play scene_s3s_10 「昼休みの廊下」  // cost=25
+    -> s3s_20_sel
+[s3s_20_sel]
+    play scene_s3s_20_sel 「選択：階段のウワサ」  // cost=100
+    ?noCardOf(s3s_20_sel)
+    CHOICE sel_s3s_20_sel_b=>2
+    CHOICE sel_s3s_20_sel_a=>1 sel_s3s_20_sel_b=>2
+    on v59==1:
+    -> s3s_65
+    on v59==2:
+    -> s3s_30
+[s3s_30]
+    -> s3s_50_sel
+[s3s_50_sel]
+    play scene_s3s_50_sel 「選択：興味深いウワサ」  // cost=25
+    ?noCardOf(s3s_50_sel)
+    CHOICE sel_s3s_50_sel_a=>1
+    CHOICE sel_s3s_50_sel_a=>1 sel_s3s_50_sel_b=>2
+    on v59==1:
+    -> s3s_65
+    on v59==2:
+    -> s3s_60
+[s3s_60]
+    -> s6s_10
+    RUN snr_s6_10_s
+[s3s_65]
+    -> s3s_90_sel
+[s3s_90_sel]
+    play scene_s3s_90_sel 「選択：ウワサとは」  // cost=100
+    ?noCardOf(s3s_90_sel)
+    CHOICE sel_s3s_90_sel_b=>2 sel_s3s_90_sel_c=>3
+    CHOICE sel_s3s_90_sel_a=>1 sel_s3s_90_sel_b=>2 sel_s3s_90_sel_c=>3
+    on v59==1:
+    -> s3s_120
+    on v59==2:
+    -> s3s_100
+    on v59==3:
+    -> s3s_100
+[s3s_100]
+    play scene_s3s_100 「ウワサに興味がない」  // cost=25
+    -> s3s_110
+[s3s_110]
+    play scene_s3s_110 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s3s_120]
+    play scene_s3s_120 「お化け階段」  // cost=25
+    -> s3s_170_sel
+[s3s_170_sel]
+    play scene_s3s_170_sel 「選択：ウワサ話を……」
+    ?routeHas(s3s_170_sel)
+    END(cost=25)
+    ?noCardOf(s3s_170_sel)
+    CHOICE sel_s3s_170_sel_b=>2 sel_s3s_170_sel_c=>3
+    CHOICE sel_s3s_170_sel_a=>1 sel_s3s_170_sel_b=>2 sel_s3s_170_sel_c=>3
+    on v61==1:
+    -> s3s_190
+    on v61==2:
+    -> s3s_171
+    on v61==3:
+    -> s3s_172
+[s3s_171]
+    play scene_s3s_171 「適当に聞く」
+    ?routeHas(s3s_171)
+    END(cost=25)
+    -> s3s_170_sel
+[s3s_172]
+    play scene_s3s_172 「とりあえず聞いてみる」
+    ?routeHas(s3s_172)
+    END(cost=25)
+    -> s3s_170_sel
+[s3s_190]
+    play scene_s3s_190 「真剣に聞く」  // cost=25
+    -> s3s_230_sel
+[s3s_230_sel]
+    play scene_s3s_230_sel 「探索：放課後の学校」
+    END(cost=25)
+    -> s3s_300_sel
+    on v64==1:
+    call scene_s3s_dispatch_v12()
+    call scene_s3s_dispatch_v13()
+    on v64==2:
+    call scene_s3s_dispatch_v14()
+    call scene_s3s_dispatch_v15()
+    CHOICE sel_s3s_230h_sel_a=>1 sel_s3s_230h_sel_b=>2 sel_s3s_230h_sel_c=>3
+    on v67==1:
+    call scene_s3s_dispatch_v18()
+    on v67==2:
+    call scene_s3s_dispatch_v16()
+    on v67==3:
+    call scene_s3s_dispatch_v17()
+    call scene_s3s_dispatch_v19()
+    on v64==3:
+    on v62==2:
+    call scene_s3s_dispatch_v22()
+    call scene_s3s_dispatch_v23()
+    CHOICE sel_s3s_230l_sel_a=>1 sel_s3s_230l_sel_b=>2
+    call scene_s3s_dispatch_v24()
+    call scene_s3s_dispatch_v25()
+    call scene_s3s_dispatch_v20()
+    call scene_s3s_dispatch_v21()
+    call scene_s3s_dispatch_v26()
+    on v64==4:
+    on v62==3:
+    call scene_s3s_dispatch_v29()
+    call scene_s3s_dispatch_v27()
+    call scene_s3s_dispatch_v28()
+    call scene_s3s_dispatch_v30()
+    on v64==5:
+    on v62==4:
+    call scene_s3s_dispatch_v32()
+    call scene_s3s_dispatch_v31()
+    call scene_s3s_dispatch_v33()
+    END(cost=25)
+    -> s3s_300_sel
+[s3s_300_sel]
+    play scene_s3s_300_sel 「選択：ユウイチの影」  // cost=25
+    ?card135.hold==-1
+    ?noCardOf(s3s_300_sel)
+    CHOICE sel_s3s_300_sel_a=>1
+    CHOICE sel_s3s_300_sel_a=>1 sel_s3s_300_sel_b=>2
+    CHOICE sel_s3s_300_sel_a=>1 sel_s3s_300_sel_b=>2 sel_s3s_300_sel_c=>3
+    on v59==1:
+    -> s3s_360
+    on v59==2:
+    -> s3s_301
+    on v59==3:
+    -> s3s_330
+[s3s_301]
+    play scene_s3s_301 「ほうっておく」  // cost=25
+    -> s3s_340
+[s3s_340]
+    play scene_s3s_340 「陸上部のウワサ」  // cost=25
+    -> s3s_350_sel
+[s3s_350_sel]
+    play scene_s3s_350_sel 「選択：向かう場所」  // cost=25
+    ?noCardOf(s3s_350_sel)
+    CHOICE sel_s3s_350_sel_a=>1
+    CHOICE sel_s3s_350_sel_a=>1 sel_s3s_350_sel_b=>2
+    on v59==1:
+    play scene_s3s_350_sel_2 「図書室へ」
+    -> s3s_360
+    on v59==2:
+    play scene_s3s_350_sel_3 「階段へ」
+    -> s3s_375
+[s3s_330]
+    -> s4s_10
+    RUN snr_s4_10_s
+[s3s_360]
+    play scene_s3s_360 「後をつける」  // cost=25
+    -> s3s_370
+[s3s_370]
+    play scene_s3s_370 「口づけ」  // showsCard=107 GET_CARD=107
+    -> s3s_375
+[s3s_375]
+    ?routeHas(s3s_375)
+    ?routeHas(s3s_370)
+    play scene_s3s_375_2 「セクション３：アヤノ」  // cost=100
+    play scene_s3s_375 「セクション３：アヤノ」  // cost=100
+    ?routeHas(s3s_370)
+    -> s3s_380
+    -> s3s_410
+[s3s_380]
+    play scene_s3s_380 「走り去るアヤノ」  // cost=25
+    -> s3s_410
+[s3s_410]
+    play scene_s3s_410 「階段へ」  // cost=25
+    -> s3s_425
+[s3s_425]
+    ?routeHas(s3s_380)
+    -> s3s_460
+    -> s3s_550
+[s3s_460]
+    play scene_s3s_460 「ユウイチの腕」  // cost=25
+    -> s3s_470
+[s3s_470]
+    play scene_s3s_470 「屋上」  // cost=25
+    -> s3s_540
+[s3s_540]
+    play scene_s3s_540 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s3s_550]
+    play scene_s3s_550 「ユウイチと階段へ」  // cost=25
+    -> s3s_580_sel
+[s3s_580_sel]
+    play scene_s3s_580_sel 「選択：ユウイチと……」  // cost=25
+    ?noCardOf(s3s_580_sel)
+    CHOICE sel_s3s_580_sel_b=>2
+    CHOICE sel_s3s_580_sel_a=>1 sel_s3s_580_sel_b=>2
+    on v59==1:
+    -> s3s_600
+    on v59==2:
+    -> s3s_590
+[s3s_590]
+    play scene_s3s_590 「でも、いつかは別れが」  // cost=25
+    -> s3s_370
+[s3s_600]
+    play scene_s3s_600 「ずっと一緒にいたい」  // cost=25
+    -> s3s_620
+[s3s_620]
+    ?card138.hold==-1
+    -> s3s_640
+    -> s3s_641_sel
+[s3s_640]
+    -> s3s_650
+[s3s_650]
+    play scene_s3s_650 「ユウイチとキス」  // cost=25
+    -> s3s_comp_a
+[s3s_comp_a]
+    play scene_s3s_comp_a 「セクション３Ａ完了」  // COMPLETE
+    -> end
+[s3s_641_sel]
+    play scene_s3s_641_sel 「選択：花火の中、ユウイチと」  // cost=25
+    ?noCardOf(s3s_641_sel)
+    CHOICE sel_s3s_641_sel_a=>1
+    ?routeHas(s4s_40)
+    CHOICE sel_s3s_641_sel_a=>1 sel_s3s_641_sel_b=>2
+    CHOICE sel_s3s_641_sel_a=>1
+    on v59==1:
+    -> s3s_650
+    on v59==2:
+    -> s3s_670
+[s3s_670]
+    play scene_s3s_670 「ユウイチとキスしない」  // cost=25
+    -> s3s_comp_b
+[s3s_comp_b]
+    play scene_s3s_comp_b 「セクション３Ｂ完了」  // cost=25,25,25,25,25 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s4_10_fa.lua ================
+[end]
+[s4fa-10]
+    play scene_s4fa_10 「彩野を家に帰す」
+    -> s4fa-20
+[s4fa-20]
+    play scene_s4fa_20 「通り雨」
+    -> s4fa-30
+[s4fa-30]
+    play scene_s4fa_30 「学校の千秋」
+    -> s4fa-60
+[s4fa-60]
+    play scene_s4fa_60 「自宅へ」
+    -> s4fa-70
+[s4fa-70]
+    play scene_s4fa_70 「夕ご飯」
+    -> s4fa-80
+[s4fa-80]
+    play scene_s4fa_80 「千秋の家に電話」
+    -> s4fa-110
+[s4fa-110]
+    play scene_s4fa_110 「雨脚」
+    -> s4fa-120
+[s4fa-120]
+    play scene_s4fa_120 「湯船」
+    -> s4fa-130
+[s4fa-130]
+    play scene_s4fa_130 「湯船」
+    -> s4fa-140
+[s4fa-140]
+    play scene_s4fa_140 「千秋の家庭の事情」
+    -> s4fa-150
+[s4fa-150]
+    play scene_s4fa_150 「風呂上がり」
+    -> s4fa-160
+[s4fa-160]
+    play scene_s4fa_160 「夜が更ける」
+    -> s4fa-170
+[s4fa-170]
+    play scene_s4fa_170 「眠れない」
+    -> s4fa-180
+[s4fa-180]
+    play scene_s4fa_180 「睡眠」
+    -> s4fa-190
+[s4fa-190]
+    play scene_s4fa_190 「朝」
+    -> s4fa-200
+[s4fa-200]
+    play scene_s4fa_200 「教室の千秋」
+    -> s4fa-complete
+[s4fa-complete]
+    RUN snr_memory
+    play scene_s4fa_complete 「セクション４Ａ読了」  // GET_CARD=176,137
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s4_10_fb.lua ================
+[end]
+[s4fb-10]
+    play scene_s4fb_10 「物語のすべて」
+    -> s4fb-15
+[s4fb-15]
+    play scene_s4fb_15 「日暮れ」
+    -> s4fb-20
+[s4fb-20]
+    play scene_s4fb_20 「しゃがみ込む彩野」
+    -> s4fb-30
+[s4fb-30]
+    play scene_s4fb_30 「選択：彩野さんを――」
+    CHOICE sel_s4fb_30_sel_a=>1
+    -> s4fb-40
+[s4fb-40]
+    play scene_s4fb_40 「彩野さんを抱きしめる」
+    -> s4fb-50
+[s4fb-50]
+    play scene_s4fb_50 「選択：彩野さん――」
+    CHOICE sel_s4fb_50_sel_a=>1
+    -> s4fb-60
+[s4fb-60]
+    play scene_s4fb_60 「僕は彩野さんにキスをする」
+    -> s4fb-65
+[s4fb-65]
+    play scene_s4fb_65 「てのひらを握り会う二人」
+    -> s4fb-70
+[s4fb-70]
+    play scene_s4fb_70 「花火の終わり」
+    -> s4fb-80
+[s4fb-80]
+    play scene_s4fb_80 「家に帰ろう」
+    -> s4fb-110
+[s4fb-110]
+    play scene_s4fb_110 「彼女の『物語』」
+    -> s4fb-120
+[s4fb-120]
+    play scene_s4fb_120 「難しそうな顔」
+    -> s4fb-130
+[s4fb-130]
+    play scene_s4fb_130 「彩野を家に帰す」
+    -> s4fb-140
+[s4fb-140]
+    play scene_s4fb_140 「バーへ」
+    -> s4fb-150
+[s4fb-150]
+    play scene_s4fb_150 「彩野さんからの電話」
+    -> s4fb-complete
+[s4fb-complete]
+    RUN snr_memory
+    play scene_s4fb_complete 「セクション４Ｂ読了」  // GET_CARD=175,138
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s4_10_s.lua ================
+[end]
+[s4s_10]
+    play scene_s4s_10 「ポケットの中のメモ」  // cost=25
+    -> s4s_30_sel
+[s4s_30_sel]
+    play scene_s4s_30_sel 「選択：屋上のウワサ」  // cost=25
+    ?noCardOf(s4s_30_sel)
+    CHOICE sel_s4s_30_sel_b=>2
+    CHOICE sel_s4s_30_sel_a=>1 sel_s4s_30_sel_b=>2
+    on v11==1:
+    -> s4s_51
+    on v11==2:
+    -> s4s_40
+[s4s_40]
+    play scene_s4s_40 「私じゃない」  // cost=25
+    -> s4s_41
+[s4s_41]
+    -> s3s_340
+    RUN snr_s3_10_s
+[s4s_51]
+    play scene_s4s_51 「気になるね」  // cost=100
+    -> s4s_60
+[s4s_60]
+    play scene_s4s_60 「セクション４：ユウイチ」  // cost=100
+    -> s4s_70
+[s4s_70]
+    play scene_s4s_70 「図書室の先生」  // cost=25
+    ?card142.hold==-1
+    -> s4s_130
+    -> s4s_100_sel
+[s4s_100_sel]
+    play scene_s4s_100_sel 「選択：ユカリ先生」  // cost=0
+    ?noCardOf(s4s_100_sel)
+    CHOICE sel_s4s_100_sel_b=>2
+    CHOICE sel_s4s_100_sel_a=>1 sel_s4s_100_sel_b=>2
+    on v11==1:
+    play scene_s4s_100_sel_2 「先生を受け入れる」
+    -> s4s_110
+    on v11==2:
+    -> s4s_130
+[s4s_110]
+    -> e1s_10
+    RUN snr_e1_10_s
+[s4s_130]
+    play scene_s4s_130 「どこかで見たことのある少女」  // cost=25
+    -> s4s_160_sel
+[s4s_160_sel]
+    play scene_s4s_160_sel 「選択：メモを見たとき」  // cost=25
+    ?noCardOf(s4s_160_sel)
+    CHOICE sel_s4s_170_sel_b=>2
+    CHOICE sel_s4s_170_sel_a=>1 sel_s4s_170_sel_b=>2
+    on v11==1:
+    -> s4s_280
+    on v11==2:
+    -> s4s_180
+[s4s_180]
+    play scene_s4s_180 「興味はない」  // cost=25
+    -> s4s_210_sel
+[s4s_210_sel]
+    play scene_s4s_210_sel 「探索：アヤノに何が？」
+    END(cost=25)
+    -> s4s_215
+    on v61==1:
+    call scene_s4s_dispatch_v14()
+    call scene_s4s_dispatch_v15()
+    on v61==2:
+    call scene_s4s_dispatch_v16()
+    call scene_s4s_dispatch_v17()
+    call scene_s4s_dispatch_v17()
+    call scene_s4s_dispatch_v17()
+    on v61==3:
+    call scene_s4s_dispatch_v18()
+    call scene_s4s_dispatch_v19()
+    on v61==4:
+    call scene_s4s_dispatch_v20()
+    call scene_s4s_dispatch_v21()
+    on v61==5:
+    call scene_s4s_dispatch_v22()
+    call scene_s4s_dispatch_v23()
+    on v61==6:
+    call scene_s4s_dispatch_v24()
+    call scene_s4s_dispatch_v25()
+    on v61==7:
+    call scene_s4s_dispatch_v26()
+    call scene_s4s_dispatch_v27()
+    call scene_s4s_dispatch_v28()
+    END(cost=25)
+    -> s4s_215
+[s4s_215]
+    play scene_s4s_215 「廊下のユウイチ」  // cost=25
+    -> s4s_250
+[s4s_250]
+    play scene_s4s_250 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s4s_280]
+    -> s4s_290_sel
+[s4s_290_sel]
+    play scene_s4s_290_sel 「選択：メモの内容」  // cost=25
+    ?noCardOf(s4s_290_sel)
+    CHOICE sel_s4s_290_sel_a=>1
+    CHOICE sel_s4s_290_sel_a=>1 sel_s4s_290_sel_b=>2
+    on v11==1:
+    -> s4s_300
+    on v11==2:
+    -> s4s_310
+[s4s_300]
+    play scene_s4s_300 「下らない、と思った」  // cost=25
+    -> s4s_330
+    play scene_s4s_dispatch_v34 「物音」
+    -> s4s_330
+[s4s_310]
+    play scene_s4s_310 「信じてみてもいい」  // cost=25
+    -> s4s_330
+    play scene_s4s_dispatch_v34 「物音」
+    -> s4s_330
+[s4s_330]
+    play scene_s4s_330 「ひっくり返った机」  // cost=25
+    ?routeHas(s4s_310)
+    -> s4s_360_sel
+    -> s4s_370
+[s4s_360_sel]
+    play scene_s4s_360_sel 「選択：アヤノの机」  // cost=25
+    ?noCardOf(s4s_360_sel)
+    CHOICE sel_s4s_360_sel_b=>2
+    CHOICE sel_s4s_360_sel_a=>1 sel_s4s_360_sel_b=>2
+    on v11==1:
+    -> s4s_390
+    on v11==2:
+    -> s4s_370
+[s4s_370]
+    play scene_s4s_370 「屋上の人影」  // cost=25
+    -> s4s_380
+[s4s_380]
+    play scene_s4s_380 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s4s_390]
+    play scene_s4s_390 「アヤノの机を調べる」  // cost=25
+    -> s4s_420_sel
+[s4s_420_sel]
+    play scene_s4s_420_sel 「選択：アヤノのノート」  // cost=25
+    ?noCardOf(s4s_420_sel)
+    CHOICE sel_s4s_420_sel_b=>2
+    CHOICE sel_s4s_420_sel_a=>1 sel_s4s_420_sel_b=>2
+    on v11==1:
+    -> s4s_430
+    on v11==2:
+    play scene_s4s_420_sel_2 「アヤノを捜す」
+    -> s4s_370
+[s4s_430]
+    play scene_s4s_430 「ノートに書かれた名前」  // cost=25
+    -> s4s_450_sel
+[s4s_450_sel]
+    play scene_s4s_450_sel 「探索：アヤノの居場所」
+    END(cost=25)
+    -> s4s_455
+    on v61==1:
+    call scene_s4s_dispatch_v14()
+    call scene_s4s_dispatch_v15()
+    on v61==2:
+    call scene_s4s_dispatch_v16()
+    call scene_s4s_dispatch_v17()
+    on v61==3:
+    call scene_s4s_dispatch_v18()
+    call scene_s4s_dispatch_v19()
+    call scene_s4s_dispatch_v19()
+    call scene_s4s_dispatch_v19()
+    on v61==4:
+    call scene_s4s_dispatch_v20()
+    call scene_s4s_dispatch_v21()
+    on v61==5:
+    call scene_s4s_dispatch_v22()
+    call scene_s4s_dispatch_v23()
+    on v61==6:
+    call scene_s4s_dispatch_v24()
+    call scene_s4s_dispatch_v25()
+    on v61==7:
+    call scene_s4s_dispatch_v26()
+    call scene_s4s_dispatch_v27()
+    on v61==8:
+    call scene_s4s_dispatch_v44()
+    call scene_s4s_dispatch_v45()
+    call scene_s4s_dispatch_v46()
+    END(cost=25)
+    -> s4s_455
+[s4s_455]
+    -> s4s_490_sel
+[s4s_490_sel]
+    play scene_s4s_490_sel 「選択：アヤノを――」  // cost=25
+    ?card141.hold==-1
+    ?noCardOf(s4s_490_sel)
+    CHOICE sel_s4s_490_sel_a=>1
+    CHOICE sel_s4s_490_sel_a=>1 sel_s4s_490_sel_b=>2
+    CHOICE sel_s4s_490_sel_a=>1 sel_s4s_490_sel_b=>2 sel_s4s_490_sel_c=>3
+    on v11==1:
+    -> s4s_560
+    on v11==2:
+    -> s4s_620
+    on v11==3:
+    play scene_s4s_490_sel_2 「彩野を元の姿に戻す」
+    -> s4s_580
+[s4s_560]
+    play scene_s4s_560 「腕をつかむ」  // cost=25
+    -> s4s_570
+[s4s_570]
+    play scene_s4s_570 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s4s_580]
+    -> s8s_10
+    RUN snr_s8_10_s
+[s4s_620]
+    play scene_s4s_620 「アヤノは意識を取り戻す」  // cost=25
+    -> s4s_670_sel
+[s4s_670_sel]
+    play scene_s4s_670_sel 「選択：放課後の学校」  // cost=25
+    ?noCardOf(s4s_670_sel)
+    CHOICE sel_s4s_670_sel_b=>2
+    CHOICE sel_s4s_670_sel_a=>1 sel_s4s_670_sel_b=>2
+    on v11==1:
+    -> s4s_710
+    on v11==2:
+    -> s4s_680
+[s4s_710]
+    play scene_s4s_710 「セクション４：アヤノ」  // cost=100
+    -> s4s_720
+[s4s_720]
+    play scene_s4s_720 「サクラを待つ」  // cost=25
+    -> s4s_comp_b
+[s4s_680]
+    play scene_s4s_680 「消えたサクラ」  // cost=25
+    -> s4s_comp_a
+[s4s_comp_a]
+    play scene_s4s_comp_a 「セクション４Ａ完了」  // COMPLETE
+    -> end
+[s4s_comp_b]
+    play scene_s4s_comp_b 「セクション４Ｂ完了」  // cost=25,25,25,25 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s5_10_f.lua ================
+[end]
+[s5f-10]
+    play scene_s5f_10 「夕方の教室」
+    -> s5f-20
+[s5f-20]
+    play scene_s5f_20 「彩野の家、晩ご飯」
+    -> s5f-30
+[s5f-30]
+    play scene_s5f_30 「トランプ」
+    -> s5f-40
+[s5f-40]
+    play scene_s5f_40 「マスターからのウイスキー」
+    -> s5f-70
+[s5f-70]
+    play scene_s5f_70 「彩野のノート」
+    -> s5f-80
+[s5f-80]
+    play scene_s5f_80 「９月の手紙」
+    -> s5f-complete
+[s5f-complete]
+    RUN snr_memory
+    play scene_s5f_complete 「セクション５読了」  // GET_CARD=193,139
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s5_10_s.lua ================
+[end]
+[s5s_10]
+    -> s5s_20
+[s5s_20]
+    play scene_s5s_20 「サクラさん」  // cost=100
+    -> s5s_30
+[s5s_30]
+    play scene_s5s_30 「セクション５：サクラ」  // cost=25
+    -> s5s_40
+[s5s_40]
+    play scene_s5s_40_2 「サクラの日記：９月１３日」
+    play scene_s5s_40_3 「選択：ウワサとは？」
+    CHOICE sel_s5s_80_sel_a=>1 sel_s5s_80_sel_b=>2 sel_s5s_80_sel_c=>3
+    on v46==1:
+    play scene_s5s_40_4 「花が咲き乱れる」
+    play scene_s5s_40_6 「違うウワサ」
+    on v46==2:
+    play scene_s5s_40_5 「人が落ちてくる」
+    play scene_s5s_40_7 「違うウワサ」
+    on v46==3:
+    play scene_s5s_40 「雪が降るって言うウワサ」
+    -> s5s_140
+[s5s_140]
+    play scene_s5s_140 「サクラの日記：７月（書きかけ）」
+    -> s5s_260
+    play scene_s5s_140_2 「選択：どこに行く？」
+    CHOICE sel_s5s_190_sel_a=>1 sel_s5s_190_sel_b=>2
+    END(cost=0)
+    -> s5s_200
+    play scene_s5s_140_3 「もしかしたらアヤノさんが」
+    -> s5s_260
+[s5s_200]
+    play scene_s5s_200 「中庭のアヤノさん」
+    ?card194.hold==-1
+    END(cost=100)
+    -> s5s_260
+[s5s_260]
+    play scene_s5s_260 「サクラの日記：９月１６日」
+    -> s5s_320
+[s5s_320]
+    play scene_s5s_320 「サクラの日記：９月１６日（夜）」
+    END(cost=0)
+    -> s5s_380
+    play scene_s5s_320_2 「選択：耐えられそうにない発作」
+    ?routeHas(s5s_200)
+    CHOICE sel_s5s_350_sel_a=>1 sel_s5s_350_sel_b=>2
+    CHOICE sel_s5s_350_sel_b=>2
+    on v1==1:
+    play scene_s5s_320_4 「ナースコールのボタン」
+    -> s5s_410
+    on v1==2:
+    play scene_s5s_320_3 「がんばってみる」
+    END(cost=0)
+    -> s5s_380
+[s5s_380]
+    play scene_s5s_380 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s5s_410]
+    play scene_s5s_410 「サクラの日記：９月２０日」
+    -> s5s_430
+[s5s_430]
+    play scene_s5s_430 「サクラの日記：９月２２日」
+    play scene_s5s_430_2 「選択：耐えられそうにない発作」
+    call scene_s5s_dispatch_v44()
+    END(cost=0)
+    -> s5s_520
+    play scene_s5s_430_3 「あきらめる」
+    END(cost=0)
+    -> s5s_510
+[s5s_510]
+    play scene_s5s_510 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s5s_520]
+    play scene_s5s_520 「サクラの日記：９月２３日」
+    -> s5s_550
+[s5s_550]
+    play scene_s5s_550 「サクラの日記：９月２９日」
+    -> s5s_580
+[s5s_580]
+    play scene_s5s_580 「サクラの日記：断片」  // showsCard=105,106,109
+    -> s5s_660
+[s5s_660]
+    play scene_s5s_660 「サクラの日記：１０月３日」
+    -> s5s_680
+[s5s_680]
+    play scene_s5s_680 「サクラの日記：１１月１２日」
+    -> s5s_740
+    ?card143.hold==-1
+    play scene_s5s_680_2 「選択：彼の姿」
+    CHOICE sel_s5s_710_sel_a=>1 sel_s5s_710_sel_b=>2
+    on v1==1:
+    play scene_s5s_680_3 「帰る」
+    -> s5s_740
+    on v1==2:
+    play scene_s5s_680_4 「もうしばらく待つ」
+    END(cost=0)
+    -> s5s_720
+[s5s_720]
+    -> e2s_10
+    RUN snr_e2_10_s
+[s5s_740]
+    play scene_s5s_740 「サクラの日記：２月１３日」
+    call scene_s5s_dispatch_v45()
+    END(cost=0)
+    -> s5s_805
+    play scene_s5s_740_2 「でも、楽しかった」
+    END(cost=0)
+    -> s5s_800
+[s5s_800]
+    play scene_s5s_800 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s5s_805]
+    play scene_s5s_805 「セクション５：アヤノ」  // cost=25
+    -> s5s_806
+[s5s_806]
+    play scene_s5s_806 「アヤノの返信：９月２５日」  // cost=25
+    -> s5s_820
+[s5s_820]
+    play scene_s5s_820 「アヤノの返信：１０月３０日」  // cost=25
+    -> s5s_870
+[s5s_870]
+    play scene_s5s_870 「２月、中庭」  // cost=25
+    -> s5s_comp
+[s5s_comp]
+    play scene_s5s_comp 「セクション５完了」  // COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s6_10_f.lua ================
+[end]
+[s6f-10]
+    play scene_s6f_10 「サクラの日記」
+    -> s6f-20
+[s6f-20]
+    play scene_s6f_20 「ユウイチの伝言」
+    -> s6f-30
+[s6f-30]
+    play scene_s6f_30 「眠っている二人」
+    -> s6f-40
+[s6f-40]
+    play scene_s6f_40 「ユウイチの遺書」
+    -> s6f-50
+[s6f-50]
+    play scene_s6f_50 「君の優しい所」
+    -> s6f-complete
+[s6f-complete]
+    RUN snr_memory
+    play scene_s6f_complete 「セクション６読了」  // GET_CARD=110,140
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s6_10_s.lua ================
+[end]
+[s6s_10]
+    play scene_s6s_10 「インパクトのあるウワサ」  // cost=25
+    -> s6s_20
+[s6s_20]
+    play scene_s6s_20 「セクション６：アヤノ」  // cost=25
+    -> s6s_60_sel
+[s6s_60_sel]
+    play scene_s6s_60_sel 「選択：どこで読む」  // cost=25
+    ?noCardOf(s6s_60_sel)
+    CHOICE sel_s6s_60_sel_a=>1
+    CHOICE sel_s6s_60_sel_a=>1 sel_s6s_60_sel_b=>2
+    on v5==1:
+    play scene_s6s_60_sel_2 「家で読む」
+    -> s6s_70
+    on v5==2:
+    -> s6s_110
+[s6s_70]
+    play scene_s6s_70 「サクラからの手紙」  // cost=25
+    -> s6s_100
+[s6s_100]
+    play scene_s6s_100 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s6s_110]
+    play scene_s6s_110 「図書室で読む」
+    END(cost=100)
+    -> s6s_150_sel
+    END(cost=100)
+    -> s6s_150_sel
+[s6s_150_sel]
+    play scene_s6s_150_sel 「選択：ノート」  // cost=25
+    ?noCardOf(s6s_150_sel)
+    CHOICE sel_s6s_150_sel_a=>1
+    CHOICE sel_s6s_150_sel_a=>1 sel_s6s_150_sel_b=>2
+    on v5==1:
+    -> s6s_151
+    on v5==2:
+    -> s6s_160
+[s6s_151]
+    play scene_s6s_151 「失われた夢の物語」  // cost=25
+    -> s6s_153
+[s6s_153]
+    play scene_s6s_153 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s6s_160]
+    play scene_s6s_160 「Ｔｒｕｅ Ｃｏｌｏｒ」  // cost=25
+    -> s6s_280_sel
+[s6s_280_sel]
+    play scene_s6s_280_sel 「選択：屋上の帰り道」  // cost=100
+    ?noCardOf(s6s_280_sel)
+    CHOICE sel_s6s_280_sel_a=>1
+    CHOICE sel_s6s_280_sel_a=>1 sel_s6s_280_sel_b=>2
+    on v5==1:
+    play scene_s6s_280_sel_2 「まだここにいる」
+    -> s6s_282
+    on v5==2:
+    -> s6s_290
+[s6s_282]
+    play scene_s6s_282 「ゲームオーバー」  // GAMEOVER
+    -> end
+[s6s_290]
+    play scene_s6s_290 「中庭の雪」  // cost=25
+    -> s6s_comp
+[s6s_comp]
+    play scene_s6s_comp 「セクション６完了」  // cost=100,100 COMPLETE
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s7_10_f.lua ================
+[end]
+    play scene_end 「１５分の記憶」
+    -> s7f-50
+[s7f-10]
+    play scene_s7f_10 「オープニング」
+    -> s7f-20
+[s7f-20]
+    play scene_s7f_20 「セクション７：直哉」
+    -> s7f-50
+[s7f-50]
+    play scene_s7f_50 「あの日の再現」
+    -> s7f-60
+[s7f-60]
+    -> s7f-70
+[s7f-70]
+    play scene_s7f_70 「ＴｒｕｅＣｏｌｏｒプロット」
+    -> s7f-80
+[s7f-80]
+    -> s7f-90
+[s7f-90]
+    play scene_s7f_90 「アヤノさんが好きな人」
+    -> s7f-95
+[s7f-95]
+    -> s7f-100
+[s7f-100]
+    play scene_s7f_100 「学校のウワサ話が好きな子」
+    -> s7f-110
+[s7f-110]
+    -> s7f-130
+[s7f-130]
+    play scene_s7f_130 「担任の教師」
+    -> s7f-135
+[s7f-135]
+    -> s7f-140
+[s7f-140]
+    play scene_s7f_140 「現実の登場人物」
+    -> s7f-160
+[s7f-160]
+    play scene_s7f_160 「ある種の日記」
+    -> s7f-170
+[s7f-170]
+    -> s7f-180
+[s7f-180]
+    play scene_s7f_180 「物語に欠けていたもの」
+    -> s7f-185
+[s7f-185]
+    -> s7f-186
+[s7f-186]
+    play scene_s7f_186 「未完の物語」
+    -> s7f-190
+[s7f-190]
+    play scene_s7f_190 「物語の結末」
+    -> s7f-200
+[s7f-200]
+    play scene_s7f_200 「導くためのオマジナイ」
+    -> s7f-210
+[s7f-210]
+    -> s7f-215
+[s7f-215]
+    play scene_s7f_215 「手紙の差出人」
+    -> s7f-240
+[s7f-240]
+    play scene_s7f_240 「サクラさんの暗示」
+    -> s7f-241
+[s7f-241]
+    -> s7f-260
+[s7f-260]
+    play scene_s7f_260 「とっておきのオマジナイ」
+    -> s7f-270
+[s7f-270]
+    play scene_s7f_270 「それが正しいのなら」
+    -> s7f-280
+[s7f-280]
+    play scene_s7f_280 「僕たちの番」
+    -> s7f-290
+[s7f-290]
+    play scene_s7f_290 「始まりの時間」
+    -> s7f-300
+[s7f-300]
+    play scene_s7f_300 「始まりの歌」
+    -> s7f-310
+[s7f-310]
+    play scene_s7f_310 「帰りの歌」
+    -> s7f-320
+[s7f-320]
+    play scene_s7f_320 「セレクト＋ラン」
+    -> s7f-340
+[s7f-340]
+    play scene_s7f_340 「中庭で」
+    -> s7f-350
+[s7f-350]
+    play scene_s7f_350 「彩野さんの席」
+    -> s7f-360
+[s7f-360]
+    play scene_s7f_360 「図書室の光景」
+    -> s7f-370
+[s7f-370]
+    play scene_s7f_370 「もう一度だけ」
+    -> s7f-380
+[s7f-380]
+    play scene_s7f_380 「教室の机」
+    -> s7f-410
+[s7f-410]
+    play scene_s7f_410 「彩野さんの後ろ姿」
+    -> s7f-420
+[s7f-420]
+    play scene_s7f_420 「お父さん」
+    -> s7f-430
+[s7f-430]
+    play scene_s7f_430 「あの日の思い出」
+    -> s7f-440
+[s7f-440]
+    play scene_s7f_440 「とっておきのオマジナイ」
+    -> s7f-450
+[s7f-450]
+    play scene_s7f_450 「夏の物語」
+    -> s7f-460
+[s7f-460]
+    play scene_s7f_460 「始まりの歌、帰りの歌」
+    -> s7f-470
+[s7f-470]
+    play scene_s7f_470 「図書室の光景」
+    -> s7f-480
+[s7f-480]
+    play scene_s7f_480 「混沌とした物語」
+    -> s7f-490
+[s7f-490]
+    play scene_s7f_490 「屋上の風」
+    -> s7f-500
+[s7f-500]
+    play scene_s7f_500 「この先に起きる事」
+    -> s7f-510
+[s7f-510]
+    play scene_s7f_510 「オマジナイの失敗」
+    -> s7f-520
+[s7f-520]
+    play scene_s7f_520 「シンプルで単純で明確な答え」
+    -> s7f-530
+[s7f-530]
+    play scene_s7f_530 「お見舞いの人物」
+    -> s7f-550
+[s7f-550]
+    play scene_s7f_550 「深呼吸」
+    -> s7f-560
+[s7f-560]
+    play scene_s7f_560 「夕焼けの真実」
+    -> s7f-570
+[s7f-570]
+    play scene_s7f_570 「こちら側へ」
+    -> s7f-590
+[s7f-590]
+    play scene_s7f_590 「物語を終わらせる事ができる人物」
+    -> s7f-600
+[s7f-600]
+    play scene_s7f_600 「夕暮れ」
+    -> s7f-610
+[s7f-610]
+    play scene_s7f_610 「スタッフロール」
+    -> s7f-620
+[s7f-620]
+    play scene_s7f_620 「物語の終わり」
+    -> s7f-comp
+[s7f-comp]
+    RUN snr_memory
+    play scene_s7f_comp 「セクション７完了」
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s8_10_f.lua ================
+[end]
+[s8f-10]
+    play scene_s8f_10 「晩酌」
+    -> s8f-20
+[s8f-20]
+    play scene_s8f_20 「そらのむこうにみえるひかり」
+    -> s8f-30
+[s8f-30]
+    play scene_s8f_30 「彩野さんが見た光」
+    -> s8f-40
+[s8f-40]
+    play scene_s8f_40 「家に帰ろう」
+    -> s8f-50
+[s8f-50]
+    play scene_s8f_50 「物語の終わり」
+    -> s8f-80
+[s8f-80]
+    play scene_s8f_80 「五年後」
+    -> s8f-90
+[s8f-90]
+    play scene_s8f_90 「制服に身を包んだ女生徒」
+    -> s8f-100
+[s8f-100]
+    play scene_s8f_100 「久しぶりだね」
+    -> s8f-120
+[s8f-120]
+    play scene_s8f_120 「次に逢うときは」
+    -> s8f-130
+[s8f-130]
+    play scene_s8f_130 「じゃあな、ユウイチ」
+    -> s8f-140
+[s8f-140]
+    play scene_s8f_140 「始業式終了」
+    -> s8f-150
+[s8f-150]
+    play scene_s8f_150 「受け継がれる物語」
+    -> s8f-160
+[s8f-160]
+    play scene_s8f_160 「セクション８の終わりに」
+    -> s8f-170
+[s8f-170]
+    play scene_s8f_170 「スタッフロール２」
+    -> s8f-complete
+[s8f-complete]
+    RUN snr_memory
+    play scene_s8f_complete 「セクション８読了」  // GET_CARD=94,142
+    -> end
+    RUN snr_mainmenu
+
+================ snr_s8_10_s.lua ================
+[end]
+[s8s_10]
+    play scene_s8s_10 「僕の言葉」  // cost=25
+    -> s8s_30
+[s8s_30]
+    play scene_s8s_30 「セクション８：ユウイチ、直哉」  // cost=25
+    -> s8s_40
+[s8s_40]
+    play scene_s8s_40 「フェンスの向こう側」  // cost=25
+    -> s8s_50
+[s8s_50]
+    play scene_s8s_50 「誰も見たことのない夕焼け」  // cost=0
+    -> s8s_comp
+[s8s_comp]
+    play scene_s8s_comp 「セクション８完了」  // COMPLETE
+    -> end
+    RUN snr_mainmenu

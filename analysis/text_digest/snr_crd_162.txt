@@ -1,0 +1,5 @@
+
+### card_162_e2s_155_main
+**CARD-GET: crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セカンドノベル』のあらすじを作成します。
+
+### main

@@ -1,0 +1,9 @@
+
+### card_94_s8s_50_intro
+○セクション７のあらすじを選択してください。
+
+### card_94_s8s_50_resolve
+**CARD-GET: crd_" .. gameSave.fragmentDoCardId .. "_a"), "『誰も見たことのない夕焼け』のあらすじを作成しました。
+
+### main
+○セクション７のあらすじを選択してください。

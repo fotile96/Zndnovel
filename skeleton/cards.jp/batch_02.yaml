@@ -1,0 +1,133 @@
+# skeleton/cards.jp/batch_02.yaml — 卡面日文转写 batch 02（card 40–59）
+# 来源：png/card/crd_<N>_a.png 逐字转写（规程 A）。
+# 字段：card(int) / variant("a"|"d") / title_jp / section_label / body_jp / note
+# 约定：
+#   - 卡面上的换行处以 \n 记录（双引号标量，\n 为换行转义）。
+#   - section_label 为右栏全部文字；右栏上下两个标签槽位之间以 \n 相连
+#     （如 "セクション2\nあらすじ"）。
+#   - 右栏标签「セクション2」的「2」在卡面上为半角字形；标题/正文中的
+#     「：」「？」「、」「。」「……」「「」」等标点均为全角字形。
+#   - 卡 56/57 末尾「（おわり）」右对齐至行末，其前空白按像素测量的全角格数
+#     以全角空格「　」记录（实际空白字符无法从卡面确证，见各卡 note）。
+#   - 卡 40 卡面标题末尾带「。」，与 plotTitle[40] 不一致；title_jp 依 plotTitle
+#     （权威）记录，卡面原貌记于该卡 note。
+- card: 40
+  variant: "a"
+  title_jp: "ユウイチのことは……"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノはユウイチの事が好\nきでも嫌いでもない、とサ\nクラに答える。"
+  note: "卡面标题实为「ユウイチのことは……。」（末尾带全角句号）；plotTitle[40] 为「ユウイチのことは……」（无句号，权威），title_jp 依 plotTitle 记录，句号差异记此。"
+- card: 41
+  variant: "a"
+  title_jp: "選択：ナゾトキ"
+  section_label: "セクション2\n選択肢"
+  body_jp: "正解は：\n「女の子」\n普通の家→両親→閉じ込め\n\n「絵画」\n問題ない→元の作品\n→ニセモノ"
+  note: "正文首行「正解は：」的「：」为全角；「閉じ込め」行与「絵画」段之间卡面留有一个空行，以空行记录；箭头为「→」。"
+- card: 42
+  variant: "a"
+  title_jp: "ナゾトキの間違い"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "ナゾトキに間違えた。オマ\nジナイに影響が無ければい\nいんだけど……。"
+  note: ""
+- card: 43
+  variant: "a"
+  title_jp: "出かける場所"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "ユウイチは週末どこに遊び\nに行くのか決めたのか？\nと質問してくる。オマジナ\nイの事もあってアヤノは少\nしユウイチを意識してしま\nう。"
+  note: "正文第 2 行在「？」后即换行，该行未排满（原版式如此）。"
+- card: 44
+  variant: "a"
+  title_jp: "選択：出かける場所"
+  section_label: "セクション2\n選択肢"
+  body_jp: "「プール」\n「プラネタリウム」\nの展開があり。"
+  note: ""
+- card: 45
+  variant: "a"
+  title_jp: "プールの約束"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "ユウイチとプールに遊びに\n行くことをアヤノは約束す\nる。"
+  note: ""
+- card: 46
+  variant: "a"
+  title_jp: "プラネタリウムの約束"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "ユウイチとプラネタリウム\nに遊びに行くことをアヤノ\nは約束する。少し懐かしい\n感じがする。"
+  note: ""
+- card: 47
+  variant: "a"
+  title_jp: "図書室"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "放課後。図書室に行き、ア\nヤノはサクラからオマジナ\nイを教えて貰う。"
+  note: ""
+- card: 48
+  variant: "a"
+  title_jp: "選択：放課後のオマジナイ"
+  section_label: "セクション2\n選択肢"
+  body_jp: "「夕日をみて歌を聞く」\n「教科書の裏に名前」\n「消しゴムに名前」\nの展開があり。"
+  note: ""
+- card: 49
+  variant: "a"
+  title_jp: "オマジナイ、成功……？"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "オマジナイをしてみるけれ\nど、なんとなくハズしてい\nるような気もする……。"
+  note: ""
+- card: 50
+  variant: "a"
+  title_jp: "消しゴムに名前"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノは願いを叶えるため\n「消しゴムをケースから外\nし、想い人の名前を書いて\n再び戻す」オマジナイをす\nる。"
+  note: ""
+- card: 51
+  variant: "a"
+  title_jp: "選択：オマジナイの効果"
+  section_label: "セクション2\n選択肢"
+  body_jp: "「絶対に効く」\n「たぶん……」\n「やってソンは無いか」\nの展開があり。"
+  note: "第 3 行为「やってソンは無いか」（「無」为汉字），与卡 54 标题「やってソンはないと思う」的假名写法不同（原文如此）。"
+- card: 52
+  variant: "a"
+  title_jp: "絶対に効くと思う"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノはオマジナイを「絶\n対に効く」と思う。"
+  note: ""
+- card: 53
+  variant: "a"
+  title_jp: "たぶん効くと思う"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノはオマジナイを「た\nぶん効く」と思う。"
+  note: ""
+- card: 54
+  variant: "a"
+  title_jp: "やってソンはないと思う"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "アヤノはオマジナイを「や\nってソンはない」と思う。"
+  note: ""
+- card: 55
+  variant: "a"
+  title_jp: "オマジナイ完了"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "オマジナイ、やれるだけの\n事はやってみた。うまく結\n果が出ればいいんだけど。"
+  note: ""
+- card: 56
+  variant: "a"
+  title_jp: "廊下に響く声"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "廊下に出るとどこからか叫\nび声が聞こえる。中庭の人\nだかり。なにか、嫌な予感\nが……　　　　（おわり）"
+  note: "末行「が……」与「（おわり）」之间为空白，按像素测量宽 4 个全角格，以 4 个全角空格「　」记录；「（おわり）」右端与行末对齐（与卡 19/57 同款版式），空白的实际字符无法从卡面确证。"
+- card: 57
+  variant: "a"
+  title_jp: "ユウイチの後ろ姿"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "オマジナイが終わり廊下に\n出ると、ユウイチが廊下を\n歩いているのを見かける。\nユウイチの後をつけると、\n屋上に。屋上から両腕を広\nげ、ユウイチは下に……\n　　　　　　　（おわり）"
+  note: "末行「（おわり）」单独成行且右对齐至行末，前导空白按像素测量宽 7 个全角格，以 7 个全角空格「　」记录；空白的实际字符无法从卡面确证。"
+- card: 58
+  variant: "a"
+  title_jp: "夜の廊下"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "オマジナイが終わり廊下に\n出ると、ユウイチが廊下を\n歩いているのを見かける。\nユウイチの後をつけると、\n屋上に。アヤノが頭を叩く\nと、ユウイチは意識を取り\n戻す。"
+  note: ""
+- card: 59
+  variant: "a"
+  title_jp: "プール"
+  section_label: "セクション2\nあらすじ"
+  body_jp: "週末アヤノとユウイチは、\nプールに行って遊んだ。途\n中、ユウイチは見かけたお\n店を不自然に避けた。"
+  note: ""

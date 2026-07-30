@@ -64,6 +64,43 @@ def test_parse_extra_four_kinds():
     byk = {r["kind"]: r for r in rows if r["kind"] != "savedata"}
     assert byk["plot_title"]["key"] == "plotTitle:1"
     assert byk["scene_title"]["jp"] == "夏の朝、高校までの通学路"
+    assert byk["card_msg"]["jp"] == "書きとめました：『ある子』"
     savedata = [r for r in rows if r["kind"] == "savedata"]
     assert [r["jp"] for r in savedata] == ["オープニング", "フラグメント"]
     assert savedata[0]["key"].endswith(":1") and savedata[1]["key"].endswith(":2")
+
+def test_parse_extra_card_msg_with_concat_first_arg():
+    # 主流形态：首参含 cGetFileName 逗号与 .. 拼接，可译文本是最后一个字符串参数
+    line = 'oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『約束をしている』のあらすじを作成しました。") -- tr_line:39'
+    rows = parse_extra("snr_crd_1", line)
+    assert [r["kind"] for r in rows] == ["card_msg"]
+    assert rows[0]["jp"] == "『約束をしている』のあらすじを作成しました。"
+
+import subprocess, sys
+from tools.pipelib import REPO, read_jsonl
+
+def test_real_repo_ledger_counts_and_uniqueness(tmp_path):
+    out = subprocess.run(
+        [sys.executable, "tools/build_ledger.py", "--out-dir", str(tmp_path)],
+        cwd=REPO, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    # 真实静态 vms 数 16749（grep 复核）：全仓库 vms( 共 16751 处，动态调用 2 处不入账
+    # （snr_common oCard.show 的 vms(v1,…) 与 snr_s5_10_s:1975 的 vms(v0,…)，均为 18000+ 动态 ID）。
+    # CLAUDE.md 所记 16750 只扣除了前者，系文档笔误。
+    rows = read_jsonl(tmp_path / "ledger.jsonl")
+    assert len(rows) == 16749
+    ids = [r["id"] for r in rows]
+    assert len(set(ids)) == 16749
+    assert rows == sorted(rows, key=lambda r: r["id"])
+    kinds = {r["kind"] for r in rows}
+    assert kinds == {"narrative", "ambient"}
+    extra = read_jsonl(tmp_path / "ledger_extra.jsonl")
+    assert sum(1 for r in extra if r["kind"] == "plot_title") == 195
+
+def test_double_run_is_byte_identical(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    for d in (a, b):
+        subprocess.run([sys.executable, "tools/build_ledger.py", "--out-dir", str(d)],
+                       cwd=REPO, check=True, capture_output=True)
+    assert (a / "ledger.jsonl").read_bytes() == (b / "ledger.jsonl").read_bytes()
+    assert (a / "ledger_extra.jsonl").read_bytes() == (b / "ledger_extra.jsonl").read_bytes()

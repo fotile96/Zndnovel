@@ -1,7 +1,7 @@
 # 由加里／ユカリ（YUK）口调表（双层）
 
 > 素材：snr_e1_10_s（故事层ユカリ＝她本人的第一人称回忆）、snr_s6_10_f、snr_s3_10_fc（现实层由加里）；另引 s1s 课堂段、s5f/s7f/s8f 佐证（vms id 见方括号）
-> 术语依据：glossary.v4.yaml（故事层【ユカリ】片假名原样；现实层【由加里】汉字）；风格依据：glossary/style.md
+> 术语依据：glossary.v6.yaml（故事层【ユカリ】片假名原样；现实层【由加里】汉字）；风格依据：glossary/style.md
 
 ## 1. 角色定位
 

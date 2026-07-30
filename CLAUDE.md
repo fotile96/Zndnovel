@@ -35,8 +35,14 @@ analysis/                       上述脚本的产物归档（lua 变动后重�
   dag_all.txt                   全 23 章调度器场景图快照（DAG 权威参照）
   crd_summary.txt               196 个卡片谜题：前置卡/答案卡/触发章节/提示语
   text_digest/*.txt             228 份纯文本摘要（17995 行，覆盖全部 16749 条 vms）
+skeleton/                       翻译骨架（git tag skeleton-v1 冻结）：cards.jp/（197 卡转写）+ cards.zh/（196 卡中文定稿）
+                                + 合并版 cards.{jp,zh}.yaml + anchors.yaml（120 条伏笔锚点定译）
+glossary/                       术语层：glossary.v1..v6.yaml（append-only，最高版为现行）+ active.json + speakers.json
+                                + style.md（风格与润色尺度）+ voices/ 7 份角色口调表
 pyproject.toml + uv.lock + .python-version    uv 项目定义（Python 3.14；deps: pillow）
 ```
+
+**翻译骨架已冻结**（`git tag skeleton-v1`，2026-07-30）：正文翻译轨的定译基准 = `skeleton/anchors.yaml`（锚点句一律逐字沿用其 zh）+ `skeleton/cards.zh/`（卡面梗概定稿，亦是前缀 compact 的『あらすじ』语料）；术语取 `glossary/` 最高版本号（现 v6）与 `active.json`，风格与润色尺度见 `glossary/style.md`。骨架文件此后视同只读，改动须走新 glossary 版本 + 召回令。
 
 这些 lua 是反编译产物**且已被手工修改过**：变量名是 v0/p0 型，但（1）`snr_common.lua` 已把字体 0 换成中文字体 `pgf/LXGWWenKai-Regular.pgf`（原日文字体行被注释保留）；（2）162 个文件里有 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等）；（3）部分脚本的局部函数被改成可读名（如 `card_0_main`、`scene_s1s_20 = function(scene_id, scene_title)`）。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
 

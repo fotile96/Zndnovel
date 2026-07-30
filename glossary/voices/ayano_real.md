@@ -1,7 +1,7 @@
 # 彩野（现实层，AYA）口调表
 
 > 素材：snr_s0_10_f、snr_s7_10_f、snr_s5_10_f、snr_crd_0（analysis/text_digest/；vms id 见方括号）
-> 术语依据：glossary.v4.yaml；风格依据：glossary/style.md
+> 术语依据：glossary.v6.yaml；风格依据：glossary/style.md
 > 与故事层アヤノ的区分见 ayano_story.md（**两份表必须配套使用**）。
 
 ## 1. 角色定位

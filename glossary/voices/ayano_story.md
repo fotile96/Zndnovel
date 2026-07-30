@@ -1,7 +1,7 @@
 # アヤノ（故事层）口调表
 
 > 素材：snr_s1_10_s、snr_s2_10_s、snr_s3_10_s（analysis/text_digest/；vms id 见方括号）
-> 术语依据：glossary.v4.yaml（**故事层人名一律保留片假名**）；风格依据：glossary/style.md
+> 术语依据：glossary.v6.yaml（**故事层人名一律保留片假名**）；风格依据：glossary/style.md
 > 与现实层彩野的区分见 ayano_real.md（两份表必须配套使用）。
 
 ## 1. 角色定位

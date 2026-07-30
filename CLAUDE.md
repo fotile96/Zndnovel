@@ -155,6 +155,15 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - **message 规范**：`type: 中文摘要`，type ∈ feat / fix / docs / data / analysis / chore / refactor。示例：`data: s1 章译文初稿入库`、`analysis: lua 变更后重跑提取产物`。
 - **SDD 工作台**：`.superpowers/sdd/<plan>/` 被插件自忽略（其脚本每次运行都会把该目录 .gitignore 重写为 `*`，改它无用）。其中 `*.md`（progress.md 台账、task-N-brief/report、hotfix 简报/报告）是不可再生的执行状态与证据，**入库携带**：新文件 `git add -f` 一次，已跟踪后随就近 commit 正常提交；`review-*.diff` 评审包可由 git 历史一键再生，保持忽略。
 
+## 云端环境（Claude Code web cloud environment）
+
+云端会话**不继承本机 `~/.claude`**（用户级 skills/agents/commands、用户级 enabledPlugins、用户级 CLAUDE.md 全都不载入），只吃仓库内的 `.claude/` 与 CLAUDE.md。初始化按两层设计：
+
+- `.claude/cloud-ui-setup.sh`——**粘贴到 claude.ai/code 环境设置的 “Setup script” 字段**（该字段不在仓库里，本文件只是版本化副本）。刻意写得极薄且稳定：改它会触发整机快照重建，而改下面那个不会。
+- `.claude/cloud-setup.sh`——真逻辑，幂等。首次建环境由 UI 脚本以 `--mode setup` 调用，之后每次会话由 SessionStart hook 以 `--mode session` 调用。做四件事：`uv sync --locked`（漂移则回退并告警）、建 `work/ctx work/out`、冒烟（`build_ledger`/`build_dag --check` + pytest）、写基线报告（HEAD、生成物行数、最新 `progress.md` 台账末尾）。另有一条 **SDD 证据保全**告警：`.superpowers/sdd/` 下未 `git add -f` 的 `*.md` 会随环境销毁而永久丢失。
+- **脚本永远 `exit 0`**：UI setup 脚本非零退出会让整个环境创建失败，而其日志位置无官方文档；故一切问题降级为告警写进报告，绝不由冒烟结果决定退出码（红测试恰恰可能正是云端会话要去修的东西）。
+- 约束速记（官方文档）：setup 以 root 跑、约 5 分钟预算、只在首次建环境时执行一次、其后整机文件系统被快照复用（装的包留存，进程不留存）；网络默认 Trusted（PyPI/GitHub 已放行）；环境变量在 UI 配置且**明文可见，不要放 API key**。setup 阶段的工作目录与仓库是否已 clone 均无文档，故脚本自行探测仓库、找不到就降级为只做机器级准备。
+
 ## 常用操作（现阶段）
 
 - 三件套分析产物已归档在 `analysis/`（DAG 快照 / 卡片谜题表 / 全量文本摘要），lua 改动后用 `tools/extract_{dag,crd,text}.py` 重跑（前两个输出到 stdout，text 直接写 `analysis/text_digest/`）。查剧情/查结构**优先读 analysis/ 而不是原始 lua**。

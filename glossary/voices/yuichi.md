@@ -1,7 +1,7 @@
 # ユウイチ（YUI）口调表
 
 > 素材：snr_s1_10_s、snr_e1_10_s（analysis/text_digest/；vms id 见方括号；另引 s7f 弥留段佐证）
-> 术语依据：glossary.v3.yaml（**ユウイチ全篇无汉字、两层统一保留片假名**——同名诡计载体）；风格依据：glossary/style.md
+> 术语依据：glossary.v4.yaml（**ユウイチ全篇无汉字、两层统一保留片假名**——同名诡计载体）；风格依据：glossary/style.md
 
 ## 1. 角色定位
 

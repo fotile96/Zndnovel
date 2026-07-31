@@ -96,3 +96,15 @@ Task 7: fix round 1 再评审 — 两条均 ADDRESSED（评审者独立把 339 �
 Task 7: minor (deferred，再评审注记): 「未知 id」异常路径有对称的两个漏查条件（int 不在 ledger / str 不在 extra），新用例只覆盖了 int 那一侧（另一侧经手工追踪确认结构相同且正确）
 Task 7: complete (commits ec874c0..59bb04d, review clean after 1 fix round)
 # BASE(T8 前)=59bb04d
+Task 8: implementer DONE (cc18365)，三份 prompt 共 202 行（translator 87 / api_system 62 / reviewer 53），pytest 90 passed 未受影响
+Task 8: 控制器抽查：硬规则（R1/R2a/R2b/R2c）与软规则（W1/W2/W3）分类与 tools/check_batch.py 一致；api_system.md 主动点出一处真实缺口——speakers.json 未被 build_context 嵌进 context.md（只嵌了 active.json 与 style.md），API 后端拿不到该映射表，靠 R2b 事后兜底
+Task 8: 实现者提出一处需确认：brief 的措辞把「`_n/_r` 总量差≤2」与 ruby/【】/≪≫≦≧○■ 并列称作「控制码硬规则」，但 tools/check_batch.py 实际把 _n/_r 实现为 W1（warn，不阻断 PASS），另三条才是硬门（R2a/R2b/R2c）。实现者按代码把 _n/_r 归为软规则并在报告里标出
+Task 8: 控制器裁决（用户离席）：**以 check_batch.py 为准**——它是入库的实际执行机构；把 W1 写成硬门会让译者误以为 warn 阻断入库。brief 那句是散文式并列，不构成契约。确认按软规则归类
+Task 8: review — spec ❌ / quality Needs fixes；Important×2（均为措辞与代码实际分支不符）：①三份文件都宣称「原文无【】、译文加了会被拦下」，但 check_batch.py 的 R2b 里那条结构对齐 `elif` 在 speakers.json 存在时**永远不可达**（main() 总是加载它 → `if speakers:` 恒真），该情形当前根本不检查、照样 PASS ②api_system.md 用「有 base: 行」判定 revise 档，但 build_context 里 `base:` 的出现条件是 `baseline != "none"`，对 revise/ref/judge 一视同仁；受众又被设定为无工具的纯文本模型，自己发现不了 → 进 fix round 1
+# **给用户的提请（超出 P1b 范围，记此备查）**：Finding 1 暴露的是 P1a 工具 tools/check_batch.py 自身的缺陷——R2b 的「结构对齐」分支因 speakers 恒非空而成为死代码，「jp 无【】而 zh 误加【某人】」这一类缺陷机器完全不拦。本计划不改 P1a 工具，故只在此记录，建议后续单开一个 fix
+Task 8: minor (deferred): reviewer_cc.md 的「四条硬约束」与 style.md 全知纪律的四条不是严格一一对应（拆了第 2 条、丢了第 1 条「译者全知」，实质未失真）；api_system 的 revise 输出 {id,verdict,zh} 与 reviewer 的 review.jsonl {id,verdict,zh,reason} 字段集不同却没说明缘由；translator_cc.md 未提 ledger_extra.jsonl 同样带 file 字段可查语境；W3 行宽未提 check_batch.py:56 的 max(10, jp_max*1.15) 下限保护
+Task 8: fix round 1/5 — 三份修正 R2b 说话人边界描述（只把 R2b 真正拦得住的那一类写成机器硬门，其余标「遵守但机器拦不到」）+ api_system 改用 build_context 总会渲染进第五节标题的字面 `baseline=X` 作为档位信号（而非「有 base: 行」），并给 ref/judge 明确的占位式回退（b0bb74e+43532f9）；pytest 90 passed 未变 → 再评审已派发
+Task 8: fix round 1 再评审 — 两条均 ADDRESSED（评审者独立核 check_batch.py 的分支可达性与 build_context.py:12,72-73/119 的 baseline 字面与 argparse choices，确认新判据「第五节标题里的 baseline=X」对四个取值唯一、穷尽、纯文本可读；三份口径一致、规则未被弱化）。无 Critical/Important 新增
+Task 8: minor (deferred，再评审注记): api_system.md:21 的段落标题仍写「硬规则（不满足会被 check_batch.py 拦下）」，与其下第 23 行「拦不到」的新文案在措辞上自相矛盾（未被本轮 diff 触碰）；reviewer_cc.md:28 与 api_system.md:23 把「说话人不在表里」也归因为「分支不可达」，实则只有 jp 无【】那条 elif 是死代码，「不在表里」是 want is None 使条件不成立、代码会执行到——translator_cc.md:41 的表述反而是准确的
+Task 8: complete (commits 79e5dbf..337fcf0, review clean after 1 fix round)
+# BASE(T9 前)=337fcf0

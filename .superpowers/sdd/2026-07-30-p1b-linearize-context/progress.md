@@ -108,3 +108,10 @@ Task 8: fix round 1 再评审 — 两条均 ADDRESSED（评审者独立核 check
 Task 8: minor (deferred，再评审注记): api_system.md:21 的段落标题仍写「硬规则（不满足会被 check_batch.py 拦下）」，与其下第 23 行「拦不到」的新文案在措辞上自相矛盾（未被本轮 diff 触碰）；reviewer_cc.md:28 与 api_system.md:23 把「说话人不在表里」也归因为「分支不可达」，实则只有 jp 无【】那条 elif 是死代码，「不在表里」是 want is None 使条件不成立、代码会执行到——translator_cc.md:41 的表述反而是准确的
 Task 8: complete (commits 79e5dbf..337fcf0, review clean after 1 fix round)
 # BASE(T9 前)=337fcf0
+Task 9: implementer DONE (0731f93)，92 passed（90+2）
+Task 9: 控制器独立冒烟：`--lane main --chapter s1s` → translate-s1s.md 530 行、17 个 "### Task"（真实数据里 main+s1s 共 14 批 → 14 批次任务 + 2 检查点 + 1 章末 = 17 ✓）；命令批号按 4/7/8/9/… 三条一组不串；CHECKPOINT ×3、梗概回译自检 ×2；生成物已删、工作树干净
+Task 9: 实现者自陈顾虑：GLOSSARY_V=6 是硬编码常量（因 render() 须保持纯函数不碰文件系统），升到 v7 时要手工改
+Task 9: review — spec ✅ / quality Approved，零 Critical/Important（评审者逐字 grep 三个下游 CLI 的 argparse 定义与模板命令比对全中；批号不串在两份独立真实数据上验过——控制器的 s1s 14 批与评审者自跑的 s2s 18 批；过滤严格、未复述 prompts 内容、生成物未误入库、零新增依赖、版式与既有实施计划结构一致）
+Task 9: minor (deferred): render() 多一个 baseline="none" 第五参数（brief 字面只有四个，向后兼容且两条用例都过）；main() 未暴露 --baseline，故该参数当前从 CLI 不可达；模板两处引用「CLAUDE.md 术语层节」但 CLAUDE.md 无此标题（只是文件树里的一个标签）；docs/superpowers/plans/translate-*.md 无 .gitignore 条目；零批次章别与 every<=0 两条边界经手工追踪正确但无用例
+Task 9: complete (commits b6ce759..0731f93, review clean)
+# BASE(T10 前)=8c5af8d

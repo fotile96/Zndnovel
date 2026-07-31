@@ -84,3 +84,15 @@ Task 6: fix round 2 再评审 — 三条全部 ADDRESSED（评审者独立重放
 Task 6: minor (deferred，再评审注记): gen_batches.py:72 的注释与报告都说「单组超预算时允许在组内切」，但代码从不拆组（整组放入、宁可超预算）——行为更安全，文字与实现不符
 Task 6: complete (commits a3693d1..678b9da, review clean after 2 fix rounds)
 # BASE(T7 前)=04e8462
+Task 7: implementer DONE (3ab66fc+a94d94d)，86 passed（83+3）
+Task 7: 控制器独立真实数据核验：`--batch 1 --profile cc --baseline none` exit 0，context.md 1128 行/105861 B、六个章节标题顺序正确、source.jsonl 339 行首行 {"id":6060,...} 无 base 字段、manifest glossary_v=6；**真实数据上 baseline 尾部不变量成立**（none 与 revise 在「## 五、本批任务」前逐字节相同、各 33851 B，尾部不同）；profile 差异生效（cc 对 batch 5 过滤别章前缀 → exit 0；api-A 同批 → exit 2 并报「前缀行 6060 未译」；加 --jp-fallback → exit 0、653 行「〔未译|…〕」）
+Task 7: 实现者自陈顾虑：api-B/cc 跨章跳过分支无落库回归测试（brief Step 1 自带缺口）；SYN_CARDS / env["timeline"] / missing 三处未用元素按「照抄」指示原样保留
+Task 7: review — spec ❌ / quality Needs fixes；Important×2 全部 plan-mandated（brief 的 Step 3 参考码缺口）：①extra 车道（真实数据 339 批里 165 批＝48.7%）的 str id 被 `isinstance(i,int)` 静默丢光，source.jsonl 写成裸 "\n"、任务段空、却 exit 0——按本任务自己测试里那种 `.splitlines()+json.loads()` 读法会直接崩；brief 通篇没提 ledger_extra.jsonl，但 Task 6 明确是按「下游按 lane 区分处理」设计的 ②SYN_CARDS 全文件无人引用＝死代码，接口点名的「已完结章的章梗概卡」机制未实现
+Task 7: 控制器裁决（用户离席）：①按接口总表实现 extra 车道（_load 增读 ledger_extra、按 id 类型分派、未知 id 抛异常而非静默丢、零行时写空串不写 "\n"）②**核实 skeleton/cards.zh.yaml 有 196 条且含全部卡 133-145、_render_skeleton 对任何 profile 都全渲染**，故「已完结章的章梗概卡」本就在骨架里——接口那句是在描述骨架内容而非要求额外挑选机制 → 删 SYN_CARDS 并加注释说明，同时清掉 missing 计数器与 env["timeline"] 两处死元素 → 进 fix round 1
+Task 7: minor (deferred): test_baseline_only_touches_tail 只测 cc×revise 一组（代码 baseline-blind，风险低）；glossary 版本号正则对非数字文件名会抛 AttributeError；无 --repo CLI 开关（接口表本就没列）；越界 --batch / 缺 cards.zh.yaml 时是裸 traceback 而非可操作错误
+Task 7: fix round 1/5 — extra 车道读取 + SYN_CARDS/missing/env["timeline"] 死代码清理（6fabe0c+4c4c995），90 passed（86+4）
+Task 7: 控制器独立复核：batch 174（extra 车道）exit 0、source.jsonl 195 行、逐行 json.loads 成功、id 全为 str、无 base 字段、context.md 任务段渲染正确；batch 1（main）仍 339 行未回归；真实数据上 baseline 尾部不变量仍成立；grep SYN_CARDS/missing → 0 → 再评审已派发
+Task 7: fix round 1 再评审 — 两条均 ADDRESSED（评审者独立把 339 批全部 id 与两张 ledger 交叉核对：0 条无法解析；batch 174 的 195 行独立重算与产物一致；baseline/前缀不泄漏被判结构性成立——extra 分派与尾部渲染都在 for 循环里只写 tail，而 SECTION5 之前的三段从不接触 baseline/ids/extra 表；env["timeline"] 删除无其他消费者）。无新增 C/I
+Task 7: minor (deferred，再评审注记): 「未知 id」异常路径有对称的两个漏查条件（int 不在 ledger / str 不在 extra），新用例只覆盖了 int 那一侧（另一侧经手工追踪确认结构相同且正确）
+Task 7: complete (commits ec874c0..59bb04d, review clean after 1 fix round)
+# BASE(T8 前)=59bb04d

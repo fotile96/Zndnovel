@@ -100,9 +100,24 @@ def record(lanes_root=None, repo=None, force=False) -> dict:
     mp = _manifest_path(lanes_root)
     doc = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {}
     existing = doc.get("lanes", {})
-    fresh = {p.name: freeze_hashes(p, repo)
-             for p in sorted(lanes_root.iterdir())
-             if p.is_dir() and (p / "lane.json").exists()}
+    fresh = {}
+    for p in sorted(lanes_root.iterdir()):
+        if not (p.is_dir() and (p / "lane.json").exists()):
+            continue
+        try:
+            fresh[p.name] = freeze_hashes(p, repo)
+        except FileNotFoundError as e:
+            # 纯克隆场景（云端拿到的内容）：pilot/lanes/ 下只有各车道入库的
+            # lane.json，data/ 符号链接与 skeleton/glossary 冻结拷贝要靠
+            # setup() 在本地重建。两条车道互为鸡生蛋——先建一条时另一条尚未
+            # 重建，freeze_hashes 会在这里触底。record() 是"记录本次搭建结果"
+            # 的入口，不是漂移安全网，但同样不该让一条车道的缺失拖垮整条命令：
+            # 跳过该车道、continue 处理其余车道。注意 merged 起点是
+            # dict(existing)（见下），跳过只是不更新——manifest 里该车道原有
+            # 记录原样保留，不会被这次跳过抹掉。
+            print(f"跳过 {p.name}：车道尚未搭建或冻结文件缺失（{e}）",
+                  file=sys.stderr)
+            continue
     merged = dict(existing)
     for lane, h in fresh.items():
         if lane in existing and existing[lane] != h and not force:

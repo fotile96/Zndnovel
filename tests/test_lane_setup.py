@@ -289,6 +289,50 @@ def test_freeze_hashes_picks_highest_glossary_version_not_lexicographic(tmp_path
     assert h["glossary_max"] == sha256_file(lane_dir / "glossary" / "glossary.v10.yaml")
 
 
+def test_record_skips_lane_with_missing_frozen_files_without_raising(tmp_path):
+    """纯克隆场景（云端拿到的内容）：opus 已经在本地完整 setup，fable 只有入库
+    的 lane.json（骨架/术语冻结拷贝尚未在本地重建，data/ 符号链接同样没有）。
+    record() 扫描 lanes_root 下全部含 lane.json 的目录时会碰到 fable，
+    freeze_hashes(fable) 必然因缺文件抛 FileNotFoundError——record() 不得让
+    这个异常整条命令崩溃：须跳过 fable、正常记下 opus，且 manifest 里 fable
+    若已有旧记录（此前某次成功 record() 留下的基准），不能被这次跳过抹掉。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    # 模拟入库的 pilot-manifest.json：fable 之前 record() 过，基准哈希已在案。
+    stale_fable_record = {"batches": "a" * 64, "cards_zh": "b" * 64,
+                           "anchors": "c" * 64, "active": "d" * 64,
+                           "glossary_max": "e" * 64}
+    (lanes / "pilot-manifest.json").write_text(
+        json.dumps({"lanes": {"fable": stale_fable_record}}, ensure_ascii=False),
+        encoding="utf-8")
+    # fable 只有 lane.json——纯克隆里入库的三个文件之一，skeleton/glossary 未重建。
+    (lanes / "fable").mkdir(parents=True, exist_ok=True)
+    (lanes / "fable" / "lane.json").write_text(
+        json.dumps({"lane": "fable"}, ensure_ascii=False), encoding="utf-8")
+
+    merged = record(lanes, repo)  # 关键断言：不抛异常
+
+    assert merged["opus"] == freeze_hashes(lanes / "opus", repo)
+    assert merged["fable"] == stale_fable_record, \
+        "跳过不得把车道从 manifest 里抹掉——既有记录须原样保留"
+
+
+def test_record_skip_prints_diagnostic_to_stderr(tmp_path, capsys):
+    """跳过车道时须向 stderr 打印可诊断提示，含车道名，方便云端会话定位。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    (lanes / "fable").mkdir(parents=True, exist_ok=True)
+    (lanes / "fable" / "lane.json").write_text(
+        json.dumps({"lane": "fable"}, ensure_ascii=False), encoding="utf-8")
+
+    record(lanes, repo)
+
+    err = capsys.readouterr().err
+    assert "fable" in err
+
+
 def test_verify_continues_checking_remaining_lanes_after_one_is_corrupted(tmp_path):
     """verify() 遇到一条损坏车道须继续查其余车道，不能提前收工——否则字典序
     靠后的车道即便有真实漂移也永远不会被报出。构造两条车道："fable"（字典序

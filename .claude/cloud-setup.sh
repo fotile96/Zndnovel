@@ -261,6 +261,29 @@ prepare_repo() {
   # 流水线预期目录（work/ 已 gitignore，不会污染工作树）
   mkdir -p work/ctx work/out
 
+  # P2 试点车道：只有 lane.json/forward.jsonl/patches.jsonl/notes 与 pilot-manifest
+  # 入库，data/ 符号链接与 skeleton|glossary 冻结拷贝都不入库（.gitignore §P2 段），
+  # 故新克隆里的车道是"半个"——开跑前必须用 lane_setup 重建，否则 build_context
+  # --repo 会读不到骨架。这里只探测并提示，不代跑（重建要带 model/effort 参数）。
+  local lane cfg
+  for lane in pilot/lanes/*/; do
+    [[ -f "$lane/lane.json" ]] || continue
+    if [[ -f "$lane/skeleton/cards.zh.yaml" && -f "$lane/glossary/active.json" ]]; then
+      log "车道 $(basename "$lane") 已搭建（冻结快照就位）"
+    else
+      cfg=$(python3 -c "import json;d=json.load(open('$lane/lane.json'));print(d['model'],d['effort'],d['append_model_id'])" 2>/dev/null) || cfg=""
+      if [[ -n "$cfg" ]]; then
+        # 用 read 而非 set -- $cfg：后者依赖 shell 的词分割语义（zsh 默认不分割），
+        # 本脚本虽是 bash，但避开这类"取决于哪个 shell"的写法更稳。
+        local m e a
+        read -r m e a <<< "$cfg"
+        warn "车道 $(basename "$lane") 尚未搭建（仅有 lane.json）：uv run python tools/lane_setup.py --lane $(basename "$lane") --model $m --effort $e --append-model-id $a"
+      else
+        warn "车道 $(basename "$lane") 尚未搭建且 lane.json 不可解析"
+      fi
+    fi
+  done
+
   # 冒烟：只诊断、不决定退出码
   local t0=$SECONDS
   local gen

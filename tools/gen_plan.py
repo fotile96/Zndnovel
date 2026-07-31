@@ -25,12 +25,13 @@ def _paths(lane_cfg):
     全部产出路径必须保持仓库相对形态，不出现 --repo/ZND_WORK 等车道专属前缀）。"""
     if lane_cfg is None:
         return {"ctx": "work/ctx", "out": "work/out", "forward": "data/forward.jsonl",
-                "notes": "data/notes", "repo_arg": "", "env": ""}
+                "notes": "data/notes", "repo_arg": "", "env": "", "lane_dir_arg": ""}
     d = lane_cfg["lane_dir"]
     return {"ctx": f"{d}/work/ctx", "out": f"{d}/work/out",
             "forward": f"{d}/data/forward.jsonl", "notes": f"{d}/data/notes",
             "repo_arg": f" --repo {d}",
-            "env": f"ZND_WORK={d}/work ZND_DATA={d}/data "}
+            "env": f"ZND_WORK={d}/work ZND_DATA={d}/data ",
+            "lane_dir_arg": f" --lane-dir {d}"}
 
 
 def _lane_block(lane_cfg):
@@ -111,7 +112,7 @@ Expected: 生成 `{p["ctx"]}/batch_{n}/context.md`、`source.jsonl`、`manifest.
 
 - [ ] **Step 3: 校验**
 
-Run: `{p["env"]}uv run python tools/check_batch.py --batch {n}`
+Run: `{p["env"]}uv run python tools/check_batch.py --batch {n}{p["lane_dir_arg"]}`
 Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `{p["out"]}/batch_{n}.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -145,14 +146,42 @@ def _checkpoint_task(tnum, first, last, chapters, p):
 从批次 {first}–{last} 已入库的译文里随机抽 2–3 条，对照对应 `{p["ctx"]}/batch_*/source.jsonl` 的原文与 `{p["forward"]}` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `{p["forward"]}`——它是 append-only 正向线）。"""
 
 
-def _final_task(tnum, chapter, lane, first, last, count, p):
+def _final_task(tnum, chapters, lane, first, last, count, p):
+    """chapters：本计划全部批次涉及的真实章别（去重、升序），与 `_checkpoint_task`
+    的 chapters 参数同规格——不能再用 label（`--batches` 连续段模式下 label
+    只是计划名，不是任何批次的真实章别；用它拼「skeleton/cards.zh/ 的 <label>
+    章梗概卡」会指向一个不存在的东西，见 hotfix-d-brief.md 缺陷 1）。
+    单章（含 --chapter 模式，chapters 恰好一个元素）时文案退化回原来的「本章」
+    表述，保持自然；跨章别连续段时改用「本段」，并显式提醒某些章可能只覆盖
+    了一部分，不要按整章完结的标准核对梗概。"""
+    ch_str = "、".join(chapters)
+    header = (f"{ch_str} 章 {lane} 车道全部 {count} 个批次（{first}–{last}）"
+              f"已入库 `{p['forward']}`。收尾前做两件事：")
+    if len(chapters) == 1:
+        step1 = (
+            f"对照本章对应的章节梗概卡（`skeleton/cards.zh/`，见 `CLAUDE.md`"
+            f"「卡片分类」节「章节梗概卡」条目）与本章刚入库的 `{p['forward']}` "
+            f"正文译文：核对人物称呼（双层人名——现实层汉字/故事层片假名，见 "
+            f"`CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否和 "
+            f"`skeleton/anchors.yaml` 一致，尤其检查有没有在本章尚不该点破的地方"
+            f"提前泄露后续真相（全知纪律，`glossary/style.md`）。")
+    else:
+        step1 = (
+            f"对照本段涉及的各章章节梗概卡（`skeleton/cards.zh/` 中 {ch_str} "
+            f"各章对应卡，见 `CLAUDE.md`「卡片分类」节「章节梗概卡」条目）与本车道"
+            f"刚入库的 `{p['forward']}`：核对人物称呼（双层人名——现实层汉字/"
+            f"故事层片假名，见 `CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否"
+            f"与 `skeleton/anchors.yaml` 一致，尤其检查有没有在本段尚不该点破的"
+            f"地方提前泄露后续真相（全知纪律，`glossary/style.md`）。**注意本段是"
+            f" timeline 连续段而非完整章，某些章可能只覆盖了一部分，不要按"
+            f"「整章完结」的标准要求梗概吻合。**")
     return f"""### Task {tnum}: 章末——梗概回译自检 + 人工评审 gate
 
-{chapter} 章 {lane} 车道全部 {count} 个批次（{first}–{last}）已入库 `{p["forward"]}`。收尾前做两件事：
+{header}
 
 - [ ] **Step 1: 梗概回译自检**
 
-对照本章对应的章节梗概卡（`skeleton/cards.zh/`，见 `CLAUDE.md`「卡片分类」节「章节梗概卡」条目）与本章刚入库的 `{p["forward"]}` 正文译文：核对人物称呼（双层人名——现实层汉字/故事层片假名，见 `CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否和 `skeleton/anchors.yaml` 一致，尤其检查有没有在本章尚不该点破的地方提前泄露后续真相（全知纪律，`glossary/style.md`）。
+{step1}
 
 - [ ] **Step 2: 人工评审 gate**
 
@@ -178,7 +207,8 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
                                           chapters, p))
             tnum += 1
             chunk = []
-    parts.append(_final_task(tnum, label, lane, sel[0]["batch"], sel[-1]["batch"],
+    chapters_all = sorted({b["chapter"] for b in sel})
+    parts.append(_final_task(tnum, chapters_all, lane, sel[0]["batch"], sel[-1]["batch"],
                              len(sel), p))
     return "\n\n".join(parts)
 

@@ -172,5 +172,55 @@ def test_checkpoint_and_final_stay_natural_in_single_chapter_mode():
     md = render(_sel(), label="s1s", lane="main", every=3)
     assert "到这里已完成 s1s 章批次 1–3 的翻译入库" in md
     assert "s1s 章 main 车道全部 7 个批次（1–7）已入库" in md
-    checkpoint = _find(_sections(md), "CHECKPOINT")
+    sections = _sections(md)
+    checkpoint = _find(sections, "CHECKPOINT")
     assert "s1s.md" in checkpoint
+    # Hotfix D 缺陷 1：单章模式下 Step 1 文案仍用「本章」表述，不引入连续段
+    # 才需要的「本段」/「timeline 连续段」措辞。
+    final = _find(sections, "梗概回译自检")
+    assert "对照本章对应的章节梗概卡" in final
+    assert "timeline 连续段" not in final
+
+
+# ---- Hotfix D 缺陷 1：`_final_task` 不再把 label 当章别用 ----
+
+MIXED_CHAPTERS = [
+    {"batch": 1, "lane": "main", "ids": [1], "jp_chars": 10, "chapter": "s0f", "cut_reason": "b"},
+    {"batch": 2, "lane": "main", "ids": [2], "jp_chars": 10, "chapter": "crd", "cut_reason": "b"},
+    {"batch": 3, "lane": "main", "ids": [3], "jp_chars": 10, "chapter": "s1s", "cut_reason": "b"},
+    {"batch": 4, "lane": "main", "ids": [4], "jp_chars": 10, "chapter": "sys", "cut_reason": "b"},
+]
+
+
+def test_final_task_lists_real_chapters_not_label():
+    """跨章别连续段：终任务 Step 1 文案必须列出全部真实章别，不能把
+    --batches 模式下的 label（计划名，不是任何批次的真实章别）当章别读。"""
+    sel = select(MIXED_CHAPTERS, lane="main", batch_range=(1, 4))
+    md = render(sel, label="pilot-opus", lane="main", every=10)
+    final = _find(_sections(md), "梗概回译自检")
+    for ch in ("s0f", "crd", "s1s", "sys"):
+        assert ch in final, f"终任务文案漏了真实章别 {ch}：\n{final}"
+    assert "pilot-opus" not in final, "终任务文案不能把 label 当章别读"
+
+
+def test_final_task_flags_partial_chapter_coverage_in_cross_chapter_mode():
+    """跨章别连续段必须明确提示「本段可能只覆盖某章的一部分」，避免执行者
+    误把未完结的章当成整章已完结来核对梗概卡。"""
+    sel = select(MIXED_CHAPTERS, lane="main", batch_range=(1, 4))
+    md = render(sel, label="pilot-opus", lane="main", every=10)
+    final = _find(_sections(md), "梗概回译自检")
+    assert "timeline 连续段" in final
+    assert "整章完结" in final
+
+
+# ---- Hotfix D 缺陷 2：check_batch 的 --lane-dir 车道化 ----
+
+def test_lane_cfg_check_batch_step_includes_lane_dir():
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    assert "check_batch.py --batch 1 --lane-dir work/lanes/opus" in md
+
+
+def test_no_lane_cfg_check_batch_step_has_no_lane_dir():
+    md = render(_sel(), label="s1s", lane="main", every=3)
+    assert "check_batch.py --batch 1" in md
+    assert "check_batch.py --batch 1 --lane-dir" not in md

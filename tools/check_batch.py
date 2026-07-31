@@ -81,13 +81,18 @@ def main(argv=None):
     from tools.pipelib import REPO
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", type=int, required=True)
+    ap.add_argument("--lane-dir", default=None,
+                    help="车道根（与 detect_collapse.py 同名同义）；指定时从 "
+                         "<lane-dir>/glossary/ 读 speakers.json 与 active.json，"
+                         "省略时读仓库根 glossary/（与之前行为一致）")
     args = ap.parse_args(argv)
     n = args.batch
     source = read_jsonl(WORK / "ctx" / f"batch_{n}" / "source.jsonl")
     draft_path = WORK / "out" / f"batch_{n}.draft.jsonl"
     draft = read_jsonl(draft_path)
     speakers = glossary = None
-    sp, gl = REPO / "glossary" / "speakers.json", REPO / "glossary" / "active.json"
+    groot = Path(args.lane_dir) if args.lane_dir else REPO
+    sp, gl = groot / "glossary" / "speakers.json", groot / "glossary" / "active.json"
     if sp.exists():
         speakers = json.loads(sp.read_text(encoding="utf-8"))
     if gl.exists():

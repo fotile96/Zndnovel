@@ -1,4 +1,7 @@
-from tools.check_batch import check
+import json
+
+from tools.check_batch import check, main as check_batch_main
+from tools.pipelib import write_jsonl
 
 SRC = [
     {"id": 1, "jp": "【彩野】「うん、<前向性健忘,ぜんこうせいけんぼう>だよ」"},
@@ -88,3 +91,59 @@ def test_decorated_speaker_lost_decoration_is_hard():
     bad = [{"id": 13, "zh": "【教师】「早上好」"}]
     r = check(src, bad, speakers={"教師": "教师"}, glossary=None)
     assert any(v["rule"] == "R2b" for v in r["hard"])
+
+
+# ---- Hotfix D 缺陷 2：main() 的 --lane-dir（车道术语快照，与
+# detect_collapse.py 的 --lane-dir 同名同义）----
+
+LANE_SRC = [{"id": 501, "jp": "【彩野】「＠车道试验术语＠だいじょうぶ」"}]
+LANE_DRAFT = [{"id": 501, "zh": "【彩野】「没关系」"}]
+
+ROOT_SRC = [{"id": 601, "jp": "コックリさんをやってみよう。"}]
+ROOT_DRAFT_MISS = [{"id": 601, "zh": "试试看那个仪式吧。"}]  # 未用仓库根定译「钱仙」
+
+
+def _write_batch(work_dir, batch, src_rows, draft_rows):
+    write_jsonl(work_dir / "ctx" / f"batch_{batch}" / "source.jsonl", src_rows)
+    write_jsonl(work_dir / "out" / f"batch_{batch}.draft.jsonl", draft_rows)
+
+
+def test_lane_dir_glossary_drives_w2(tmp_path, monkeypatch):
+    """--lane-dir 指向的目录里有一个仓库根词表压根没有的术语定译：W2 必须按
+    车道词表判定（触发），证明真的在读 <lane-dir>/glossary/active.json。"""
+    work = tmp_path / "work"
+    _write_batch(work, 1, LANE_SRC, LANE_DRAFT)
+    monkeypatch.setattr("tools.check_batch.WORK", work)
+    lane = tmp_path / "lane"
+    (lane / "glossary").mkdir(parents=True)
+    (lane / "glossary" / "active.json").write_text(
+        json.dumps({"＠车道试验术语＠": "车道定译"}, ensure_ascii=False),
+        encoding="utf-8")
+    check_batch_main(["--batch", "1", "--lane-dir", str(lane)])
+    result = json.loads((work / "out" / "batch_1.check.json").read_text(encoding="utf-8"))
+    assert any(v["rule"] == "W2" for v in result["warn"]), result
+
+
+def test_no_lane_dir_reads_repo_root_glossary(tmp_path, monkeypatch):
+    """回归闸：不给 --lane-dir 时行为与改动前逐字一致——仍读仓库根
+    glossary/active.json（用仓库根真实词表里确有的「コックリさん→钱仙」条目
+    造判别力：草稿没按这个定译，必须触发 W2）。"""
+    work = tmp_path / "work"
+    _write_batch(work, 1, ROOT_SRC, ROOT_DRAFT_MISS)
+    monkeypatch.setattr("tools.check_batch.WORK", work)
+    check_batch_main(["--batch", "1"])
+    result = json.loads((work / "out" / "batch_1.check.json").read_text(encoding="utf-8"))
+    assert any(v["rule"] == "W2" for v in result["warn"]), result
+
+
+def test_lane_dir_does_not_fall_back_to_repo_root(tmp_path, monkeypatch):
+    """给了 --lane-dir 时不应再混用仓库根词表：车道目录没有 glossary/ 时，
+    speakers/glossary 都应为 None（读不到就是读不到，不静默退回仓库根）。"""
+    work = tmp_path / "work"
+    _write_batch(work, 1, ROOT_SRC, ROOT_DRAFT_MISS)
+    monkeypatch.setattr("tools.check_batch.WORK", work)
+    empty_lane = tmp_path / "empty-lane"
+    empty_lane.mkdir()
+    check_batch_main(["--batch", "1", "--lane-dir", str(empty_lane)])
+    result = json.loads((work / "out" / "batch_1.check.json").read_text(encoding="utf-8"))
+    assert not any(v["rule"] == "W2" for v in result["warn"]), result

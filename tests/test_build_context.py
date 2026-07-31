@@ -414,3 +414,71 @@ def test_cli_without_repo_keeps_default_behaviour(tmp_path, monkeypatch):
                "--jp-fallback"])
     assert rc == 0
     assert (tmp_path / "w" / "ctx" / "batch_1" / "context.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Task 2: 第三节压缩锚点 + 第四节内嵌角色口调表
+# ---------------------------------------------------------------------------
+
+def _env_with_voices(tmp_path):
+    """在既有 _env 夹具上补出 anchors.yaml（含 recall）与 voices/ 两份口调表。"""
+    d = _env(tmp_path)
+    (d / "glossary" / "glossary.v6.yaml").write_text("version: 6", encoding="utf-8")
+    (d / "skeleton" / "anchors.yaml").write_text(
+        "- chapter: global\n"
+        "  items:\n"
+        "    - {id: 1, jp: 第一句, zh: 定译第一句, recall: 这是给骨架维护者的复现说明}\n",
+        encoding="utf-8")
+    (d / "glossary" / "voices").mkdir()
+    (d / "glossary" / "voices" / "naoya.md").write_text(
+        "# 直哉口调表\n自称：僕→我", encoding="utf-8")
+    (d / "glossary" / "voices" / "sakura.md").write_text(
+        "# サクラ口调表\n句尾：ですね体", encoding="utf-8")
+    return d
+
+
+def test_anchor_section_is_compact_and_drops_recall(tmp_path):
+    """第三节只给 id/jp/zh：recall 是骨架维护者的元信息，对译者不改变行动，
+    却占该节 35% 体量。保留整文件内嵌本测试必红。"""
+    from tools.build_context import build
+    d = _env_with_voices(tmp_path)
+    assert build(1, "cc", "none", repo=d, jp_fallback=True) == 0
+    ctx = (d / "work" / "ctx" / "batch_1" / "context.md").read_text(encoding="utf-8")
+    assert "定译第一句" in ctx, "锚点 zh 必须仍在"
+    assert "[1] 第一句" in ctx, "锚点 jp 必须仍在，且为紧凑行形态"
+    assert "这是给骨架维护者的复现说明" not in ctx, "recall 注释不应进入译者上下文"
+
+
+def test_voice_sheets_are_embedded_in_section_four(tmp_path):
+    """译者必须拿到评审据以打分的那 7 份口调表。"""
+    from tools.build_context import build
+    d = _env_with_voices(tmp_path)
+    assert build(1, "cc", "none", repo=d, jp_fallback=True) == 0
+    ctx = (d / "work" / "ctx" / "batch_1" / "context.md").read_text(encoding="utf-8")
+    assert "## 四、术语、风格与角色口调" in ctx
+    assert "口调表：naoya" in ctx and "自称：僕→我" in ctx
+    assert "口调表：sakura" in ctx and "句尾：ですね体" in ctx
+    # 口调表须排在第四节内、第五节之前
+    assert ctx.index("自称：僕→我") < ctx.index("## 五、本批任务")
+
+
+def test_manifest_records_voices_hash_and_it_tracks_changes(tmp_path):
+    from tools.build_context import build
+    import json as _json
+    d = _env_with_voices(tmp_path)
+    build(1, "cc", "none", repo=d, jp_fallback=True)
+    h1 = _json.loads((d / "work" / "ctx" / "batch_1" / "manifest.json").read_text(
+        encoding="utf-8"))["voices"]
+    (d / "glossary" / "voices" / "naoya.md").write_text("# 直哉口调表\n改了", encoding="utf-8")
+    build(1, "cc", "none", repo=d, jp_fallback=True)
+    h2 = _json.loads((d / "work" / "ctx" / "batch_1" / "manifest.json").read_text(
+        encoding="utf-8"))["voices"]
+    assert len(h1) == 64 and h1 != h2, "口调表改动必须反映到 manifest 哈希"
+
+
+def test_missing_voices_dir_degrades_gracefully(tmp_path):
+    """既有夹具（无 voices/ 目录）必须照常构建——不得因缺目录而崩。"""
+    from tools.build_context import build
+    d = _env(tmp_path)
+    (d / "glossary" / "glossary.v6.yaml").write_text("version: 6", encoding="utf-8")
+    assert build(1, "cc", "none", repo=d, jp_fallback=True) == 0

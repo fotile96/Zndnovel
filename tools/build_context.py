@@ -1,4 +1,5 @@
 """批次上下文组装：context.md / source.jsonl / manifest.json。"""
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -45,6 +46,33 @@ def _render_skeleton(cards):
     for c in cards:
         out.append(f"【卡{c['card']}】{c['title_zh']}：{c.get('body_zh','').replace(chr(10),'')}")
     return "\n".join(out)
+
+
+def _render_anchors(anchors_path) -> str:
+    """第三节：锚点行紧凑日中对照。只给 id/jp/zh——recall 记录的是复现位置、
+    裁决史与定译源指针，服务于骨架维护者；对译者不改变行动（命中锚点的行无论
+    如何都要逐字沿用给定 zh），却占该节 35% 体量。省下的空间用于内嵌口调表。"""
+    p = Path(anchors_path)
+    if not p.exists():
+        return "\n## 三、锚点行（暂缺）"
+    groups = yaml.safe_load(p.read_text(encoding="utf-8")) or []
+    out = ["\n## 三、锚点行（日中对照；本批 source 命中的 id 必须逐字沿用 zh）"]
+    for g in groups:
+        out.append(f"### {g['chapter']}")
+        for it in g["items"]:
+            out.append(f"[{it['id']}] {it['jp']}")
+            out.append(f"    → {it['zh']}")
+    return "\n".join(out)
+
+
+def _render_voices(voices_dir) -> str:
+    """第四节尾部：角色口调表全文。reviewer_cc.md 按这些表判「口调表偏离」，
+    译者此前拿不到它们——同一份标准必须两边都有（spec §4.4）。"""
+    d = Path(voices_dir)
+    if not d.is_dir():
+        return ""
+    return "".join(f"\n### 口调表：{p.stem}\n{p.read_text(encoding='utf-8')}\n"
+                   for p in sorted(d.glob("*.md")))
 
 
 def _unit_heading(unit) -> str:
@@ -177,11 +205,12 @@ def build(batch, profile, baseline, repo=None, jp_fallback=False):
         print(f"前缀行 {blocked} 未译（--jp-fallback 可放行）", file=sys.stderr)
         return 2
     anchors_p = repo / "skeleton" / "anchors.yaml"
-    anchors = ("\n## 三、锚点行（日中对照）\n" +
-               anchors_p.read_text(encoding="utf-8")) if anchors_p.exists() else \
-              "\n## 三、锚点行（暂缺）"
-    tail = ["\n## 四、术语与风格", json.dumps(env["active"], ensure_ascii=False),
-            env["style"], f"\n{SECTION5}（baseline={baseline}）"]
+    anchors = _render_anchors(anchors_p)
+    voices = _render_voices(repo / "glossary" / "voices")
+    tail = ["\n## 四、术语、风格与角色口调",
+            json.dumps(env["active"], ensure_ascii=False),
+            env["style"], voices,
+            f"\n{SECTION5}（baseline={baseline}）"]
     src_rows = []
     for i in b["ids"]:
         # main/ambient 车道 ids 为 int（查 ledger，可带 base）；extra 车道 ids 为 str
@@ -213,6 +242,7 @@ def build(batch, profile, baseline, repo=None, jp_fallback=False):
                 "glossary_v": gv,
                 "skeleton": sha256_file(repo / "skeleton" / "cards.zh.yaml"),
                 "anchors": sha256_file(anchors_p) if anchors_p.exists() else "absent",
+                "voices": hashlib.sha256(voices.encode("utf-8")).hexdigest(),
                 "ctx_sha": sha256_file(ctx_dir / "context.md")}
     (ctx_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")

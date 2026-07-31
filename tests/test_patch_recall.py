@@ -91,3 +91,38 @@ def test_recall_hit_zh_is_effective_translation_not_forward(tmp_path):
     hits = find(term="手帳", glossary_v=2, data=d / "data")
     assert [h["id"] for h in hits] == [1]
     assert hits[0]["zh"] == "新译"
+
+
+# ---- P1c 硬化：recall --emit-batch 的 term 路径净化 ----
+
+def test_recall_emit_batch_sanitizes_term_path(tmp_path, monkeypatch):
+    """term 含路径分隔符/上跳段时，产物必须留在 work/recall/ 内。"""
+    import tools.recall as recall
+    work = tmp_path / "work"
+    monkeypatch.setattr(recall, "WORK", work)
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "ledger.jsonl").write_text("", encoding="utf-8")
+    (data / "forward.jsonl").write_text("", encoding="utf-8")
+    recall.main(["--glossary-v", "9", "--term", "../../etc/passwd",
+                 "--data-dir", str(data), "--emit-batch"])
+    escaped = [p for p in tmp_path.rglob("*passwd*")
+               if work / "recall" not in p.parents]
+    assert not escaped, f"产物逃出 work/recall/: {escaped}"
+    produced = list((work / "recall").glob("*.jsonl"))
+    assert len(produced) == 1
+    assert "/" not in produced[0].name and ".." not in produced[0].name
+
+
+def test_recall_emit_batch_keeps_plain_term_filename(tmp_path, monkeypatch):
+    """常规术语（含日文/中文）文件名保持原样，不被净化改写。"""
+    import tools.recall as recall
+    work = tmp_path / "work"
+    monkeypatch.setattr(recall, "WORK", work)
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "ledger.jsonl").write_text("", encoding="utf-8")
+    (data / "forward.jsonl").write_text("", encoding="utf-8")
+    recall.main(["--glossary-v", "9", "--term", "帰りの歌",
+                 "--data-dir", str(data), "--emit-batch"])
+    assert (work / "recall" / "帰りの歌.jsonl").exists()

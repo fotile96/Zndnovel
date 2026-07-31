@@ -1,9 +1,19 @@
 """召回查询工具：术语升版后，找旧版本的相关行做补丁。"""
+import hashlib
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import DATA, WORK, read_jsonl, write_jsonl
+
+
+def safe_name(term: str) -> str:
+    """术语名 → 安全文件名：非词字符折成 _，防止 term 里的 / 或 .. 把产物
+    写到 work/recall/ 之外（write_jsonl 会自建父目录，不净化则可越界落盘）。
+    常规术语（日文/中文/英数）全是词字符，文件名保持原样。"""
+    name = re.sub(r"\W+", "_", term).strip("_")
+    return name or hashlib.sha256(term.encode("utf-8")).hexdigest()[:16]
 
 
 def find(term, glossary_v, data=None):
@@ -86,7 +96,7 @@ def main(argv=None):
         work = Path(WORK)
         recall_dir = work / "recall"
         recall_dir.mkdir(parents=True, exist_ok=True)
-        write_jsonl(recall_dir / f"{args.term}.jsonl", hits)
+        write_jsonl(recall_dir / f"{safe_name(args.term)}.jsonl", hits)
 
     # 列出命中（简单格式）
     for hit in hits:

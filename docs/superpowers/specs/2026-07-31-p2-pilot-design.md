@@ -111,7 +111,7 @@ ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/append_forward.py \
 
 ---
 
-## 4. 工具改动（试点前置，三项）
+## 4. 工具改动（试点前置，四项）
 
 ### 4.1 `tools/build_context.py`：暴露 `--repo`
 
@@ -144,6 +144,19 @@ build(args.batch, args.profile, args.baseline, repo=args.repo, jp_fallback=args.
 在模板开头新增一节：声明所有产出/译文线路径以派发方注入的**车道根**为基准（未注入时即仓库根，保持现有行为不变），并明确哪些路径**不**随车道走（`CLAUDE.md`、`prompts/`、`analysis/text_digest/`、`png/` 恒为仓库根）。派发 prompt 只需给出车道根一个值。
 
 同时把 §3.4 的隔离纪律写进模板的「不要做的事」节。
+
+### 4.4 `tools/build_context.py`：第四节内嵌角色口调表，第三节压缩锚点
+
+**缺陷**：`prompts/reviewer_cc.md` 把「口调表偏离」列为四类必查发现之一并点名 `glossary/voices/` 全部 7 份表，而 `prompts/translator_cc.md` 零提及、`build_context` 也从不把它们的正文嵌进 context（只嵌 `active.json` + `style.md`）。译者被按一份从未拿到的标准打分；而口调一致性正是 §6.5 三栏 rubric 之一。两条车道同时缺失该资产，会压低整体质量并引入与模型能力无关的噪声。
+
+**修法**（两项配套，净体量 +6,329 字符）：
+
+1. 第四节改名「术语、风格与角色口调」，尾部内嵌 `glossary/voices/*.md` 全部 7 份全文（+21,084 字符）。
+2. 第三节由**整文件内嵌** `anchors.yaml`（23,285 字符）改为 **id/jp/zh 紧凑对照**（约 8,530 字符，−14,755）。`recall` 字段（占该节 35%）记录的是复现位置、裁决史与定译源指针，服务于骨架维护者；对译者不改变行动——命中锚点的行无论如何都要逐字沿用给定 zh。
+
+体量影响：batch 1 从 45,577 → 51,906 字符；batch 32 从 170,783 → 177,112 字符（与现状基本持平，仍留有子代理上限余量）。`manifest.json` 增记 `voices` 哈希以便漂移检测。
+
+**已知备选（若试点数据显示不理想）**：改为不内嵌、在 `translator_cc.md` 指令译者按需 `Read` 相关角色的口调表。代价是两条车道的曝光量由模型自行决定而不一致——这恰是对照实验最不该引入的变量，故不作首选；若改用，须在试点报告中标注该轮次的曝光差异不可控。
 
 ## 5. 执行流程
 

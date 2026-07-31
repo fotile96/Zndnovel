@@ -1,0 +1,8 @@
+- {unit_state: s2s_10,  requires_cards: [133]}   # 进入 s2 前需 Section1 梗概
+- {unit_state: s3s_10,  requires_cards: [134]}
+- {unit_state: s5s_20,  requires_cards: [177]}   # 日记章入口
+- {unit_state: s7f-10,  requires_cards: [140]}   # 主菜单 Section7
+- {unit_state: s8s_10,  requires_cards: [141]}
+- {unit_state: e1s_10,  requires_cards: [142]}
+- {unit_state: e2s_10,  requires_cards: [143]}
+- {unit_state: s3fc-10, requires_cards: [136]}   # 强制段：持 136 未持 145

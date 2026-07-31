@@ -566,3 +566,4 @@
 {"id":6629,"zh":"开场部分结束了。","batch":2,"backend":"cc","model":"claude-opus-5","ctx":"cd01f02ff78546cd070ada14977d7c9c3c9674821dee92cac6f4addff6af9760","glossary_v":6,"ts":"2026-07-31T16:44:53+00:00"}
 {"id":6630,"zh":"【■通知】游戏菜单中追加了『Ｓｔｏｒｙ』。","batch":2,"backend":"cc","model":"claude-opus-5","ctx":"cd01f02ff78546cd070ada14977d7c9c3c9674821dee92cac6f4addff6af9760","glossary_v":6,"ts":"2026-07-31T16:44:53+00:00"}
 {"id":6631,"zh":"【■通知】请接着选择这个菜单，浏览故事的后续。","batch":2,"backend":"cc","model":"claude-opus-5","ctx":"cd01f02ff78546cd070ada14977d7c9c3c9674821dee92cac6f4addff6af9760","glossary_v":6,"ts":"2026-07-31T16:44:53+00:00"}
+{"id":282,"zh":"≪已获得的卡片≫","batch":3,"backend":"cc","model":"claude-opus-5","ctx":"b765f7ed0ef3f7339043bd2f15aa54449249dbc449c276526955570344d44915","glossary_v":6,"ts":"2026-07-31T16:51:12+00:00"}

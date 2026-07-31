@@ -18,10 +18,10 @@ def _env(tmp_path):
     (d / "data" / "ledger.jsonl").write_text(
         "\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
     (d / "data" / "timeline.jsonl").write_text(json.dumps(
-        {"type": "unit", "unit_kind": "scene", "src": "f", "state": "a_10",
+        {"seq": 1, "type": "unit", "unit_kind": "scene", "src": "f", "state": "a_10",
          "title": "一", "ids": [1, 2]}, ensure_ascii=False), encoding="utf-8")
     (d / "data" / "batches.jsonl").write_text(json.dumps(
-        {"batch": 1, "lane": "main", "ids": [1, 2], "jp_chars": 6,
+        {"batch": 1, "lane": "main", "ids": [1, 2], "seqs": [1], "jp_chars": 6,
          "chapter": "a", "cut_reason": "tail"}, ensure_ascii=False), encoding="utf-8")
     (d / "data" / "forward.jsonl").write_text(
         json.dumps({"id": 1, "zh": "已译一", "batch": 0, "backend": "cc", "model": "m",
@@ -67,10 +67,10 @@ def _multi_unit_env(tmp_path):
     (d / "data" / "timeline.jsonl").write_text(
         "\n".join(json.dumps(r, ensure_ascii=False) for r in timeline_rows), encoding="utf-8")
     batches_rows = [
-        {"batch": 1, "lane": "main", "ids": [1], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
-        {"batch": 2, "lane": "main", "ids": [2], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
-        {"batch": 3, "lane": "main", "ids": [3], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
-        {"batch": 4, "lane": "main", "ids": [4], "jp_chars": 3, "chapter": "a", "cut_reason": "tail"},
+        {"batch": 1, "lane": "main", "ids": [1], "seqs": [1], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
+        {"batch": 2, "lane": "main", "ids": [2], "seqs": [3], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
+        {"batch": 3, "lane": "main", "ids": [3], "seqs": [5], "jp_chars": 2, "chapter": "a", "cut_reason": "x"},
+        {"batch": 4, "lane": "main", "ids": [4], "seqs": [7], "jp_chars": 3, "chapter": "a", "cut_reason": "tail"},
     ]
     (d / "data" / "batches.jsonl").write_text(
         "\n".join(json.dumps(r, ensure_ascii=False) for r in batches_rows), encoding="utf-8")
@@ -190,7 +190,7 @@ def test_extra_lane_produces_readable_source(tmp_path):
                     ensure_ascii=False),
     ]), encoding="utf-8")
     (d / "data" / "batches.jsonl").write_text(json.dumps(
-        {"batch": 1, "lane": "extra", "ids": ["snr_x:1", "snr_x:2"], "jp_chars": 4,
+        {"batch": 1, "lane": "extra", "ids": ["snr_x:1", "snr_x:2"], "seqs": [], "jp_chars": 4,
          "chapter": "snr_x", "cut_reason": "extra"}, ensure_ascii=False), encoding="utf-8")
     assert build(batch=1, profile="cc", baseline="revise", repo=d) == 0
     lines = (d / "work/ctx/batch_1/source.jsonl").read_text(encoding="utf-8").splitlines()
@@ -202,7 +202,7 @@ def test_zero_row_batch_yields_empty_source(tmp_path):
     """0 行批次的 source.jsonl 应为空串，.splitlines() 得 []，而不是 "\\n" → ['']。"""
     d = _env(tmp_path)
     (d / "data" / "batches.jsonl").write_text(json.dumps(
-        {"batch": 1, "lane": "main", "ids": [], "jp_chars": 0,
+        {"batch": 1, "lane": "main", "ids": [], "seqs": [], "jp_chars": 0,
          "chapter": "a", "cut_reason": "tail"}, ensure_ascii=False), encoding="utf-8")
     assert build(batch=1, profile="cc", baseline="none", repo=d) == 0
     text = (d / "work/ctx/batch_1/source.jsonl").read_text(encoding="utf-8")
@@ -212,33 +212,172 @@ def test_unknown_id_raises_with_context(tmp_path):
     """ledger 与 ledger_extra 都查不到的 id 必须报错（带批号与该 id），不许静默丢行。"""
     d = _env(tmp_path)
     (d / "data" / "batches.jsonl").write_text(json.dumps(
-        {"batch": 7, "lane": "main", "ids": [999], "jp_chars": 3,
+        {"batch": 7, "lane": "main", "ids": [999], "seqs": [], "jp_chars": 3,
          "chapter": "a", "cut_reason": "tail"}, ensure_ascii=False), encoding="utf-8")
     with pytest.raises(ValueError) as exc_info:
         build(batch=7, profile="cc", baseline="none", repo=d)
     msg = str(exc_info.value)
     assert "7" in msg and "999" in msg
 
-def test_apiB_and_cc_skip_other_chapter_prefix(tmp_path):
-    """api-B/cc 应跳过前缀里非当前章的行（已完结章走骨架里的章梗概卡），
-    api-A 则保留全部已译前缀（含跨章）。"""
-    d = _env(tmp_path)
-    rows = [
-        {"id": 1, "jp": "第一句", "chapter": "a", "kind": "narrative", "file": "f", "func": "g"},
-        {"id": 2, "jp": "章b第一句", "chapter": "b", "kind": "narrative", "file": "f2", "func": "g2"},
-    ]
-    (d / "data" / "ledger.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
-    (d / "data" / "batches.jsonl").write_text("\n".join([
-        json.dumps({"batch": 1, "lane": "main", "ids": [1], "jp_chars": 3,
-                    "chapter": "a", "cut_reason": "chapter"}, ensure_ascii=False),
-        json.dumps({"batch": 2, "lane": "main", "ids": [2], "jp_chars": 5,
-                    "chapter": "b", "cut_reason": "tail"}, ensure_ascii=False)]),
+# ---------------------------------------------------------------------------
+# Park 项 A：api-B/cc 前缀窗口（自「上一个章梗概卡」起，不再用 chapter 相等）
+# 下面 4 个 _xxx_row 是纯样板构造器，供 4 条窗口判别性用例共用，避免每条用例
+# 重复 _env() 那套四文件模板；chapter 字段仍写入（其他工具仍用它），但
+# build_context 的窗口逻辑本身不再读它。
+# ---------------------------------------------------------------------------
+
+def _mk_env(tmp_path, ledger_rows, timeline_rows, batches_rows, forward_rows=(), extra_rows=()):
+    d = tmp_path
+    (d / "data").mkdir(); (d / "glossary").mkdir(); (d / "skeleton").mkdir()
+    (d / "skeleton" / "cards.zh.yaml").write_text(
+        "- {card: 1, variant: a, title_zh: 测试卡, body_zh: 骨架正文, tr_note: ''}\n",
         encoding="utf-8")
-    # _env 默认 forward.jsonl 已含 id=1 → "已译一"，批次 2 的前缀会引用批次 1（章 a）
-    assert build(batch=2, profile="api-A", baseline="none", repo=d) == 0
-    ctx_a = (d / "work/ctx/batch_2/context.md").read_text(encoding="utf-8")
-    assert build(batch=2, profile="api-B", baseline="none", repo=d) == 0
-    ctx_b = (d / "work/ctx/batch_2/context.md").read_text(encoding="utf-8")
-    assert "已译一" in ctx_a
-    assert "已译一" not in ctx_b
+    (d / "glossary" / "active.json").write_text('{}', encoding="utf-8")
+    (d / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (d / "data" / "ledger.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in ledger_rows), encoding="utf-8")
+    (d / "data" / "timeline.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in timeline_rows), encoding="utf-8")
+    (d / "data" / "batches.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in batches_rows), encoding="utf-8")
+    (d / "data" / "forward.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in forward_rows), encoding="utf-8")
+    if extra_rows:
+        (d / "data" / "ledger_extra.jsonl").write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in extra_rows), encoding="utf-8")
+    return d
+
+def _ledger_row(id_, jp, chapter="x"):
+    return {"id": id_, "jp": jp, "chapter": chapter, "kind": "narrative", "file": "f", "func": "g"}
+
+def _unit_row(seq, ids, title, src="f"):
+    return {"seq": seq, "type": "unit", "unit_kind": "scene", "src": src,
+            "state": f"st{seq}", "title": title, "ids": ids}
+
+def _batch_row(batch, ids, seqs, chapter="x", lane="main", cut_reason="x"):
+    return {"batch": batch, "lane": lane, "ids": ids, "seqs": seqs,
+            "jp_chars": 1, "chapter": chapter, "cut_reason": cut_reason}
+
+def _fwd_row(id_, zh, v=4):
+    return {"id": id_, "zh": zh, "batch": 0, "backend": "cc", "model": "m",
+            "ctx": "c", "glossary_v": v, "ts": "t"}
+
+def test_window_prefix_keeps_only_content_after_last_chapter_card(tmp_path):
+    """Park 项 A 判别性用例 1+5（brief 测试列表第 1、5 条）：cc/api-B 的前缀窗口
+    ＝自「本批第一个时间轴位置之前、最近一个章梗概卡单元（script 单元 src ∈
+    CHAPTER_CARD_SRCS）」起；边界单元自身的正文（现实层框架剧情，不是骨架卡组
+    承载的卡面梗概）仍在窗口内——真实数据核实 batch 81/173 的窗口行数分别为
+    1073/1255，比"排除边界自身"的算法多 1，与"该 unit 恰好 1 个 id"吻合。
+
+    本用例是旧 test_apiB_and_cc_skip_other_chapter_prefix（断言已废弃的
+    chapter 相等语义）的改写：继续守住"api-B/cc 前缀比 api-A 短"这条性质，但
+    边界改用窗口。id1/3/5/6 与目标批次 6 同 chapter="x"，crd 边界卡 id2/4 才是
+    chapter="crd"——刻意让"旧 chapter 语义"与"新窗口语义"在这份夹具上给出不同
+    答案（旧语义下 id1/3/5 因同 chapter 而入选、id2/4 因 chapter=crd 被排除，
+    恰与新语义相反），使本用例对二者都有判别力：去掉窗口过滤（或整个改回旧
+    chapter 比较），本测试必红。"""
+    ledger_rows = [
+        _ledger_row(1, "内容零"), _ledger_row(2, "边界一正文", "crd"),
+        _ledger_row(3, "内容一"), _ledger_row(4, "边界二正文", "crd"),
+        _ledger_row(5, "内容二"), _ledger_row(6, "本批内容"),
+    ]
+    timeline_rows = [
+        _unit_row(1, [1], "标题零"),
+        _unit_row(2, [2], "边界一", src="snr_crd_133"),
+        _unit_row(3, [3], "标题一"),
+        _unit_row(4, [4], "边界二", src="snr_crd_134"),
+        _unit_row(5, [5], "标题二"),
+        _unit_row(6, [6], "本批标题"),
+    ]
+    batches_rows = [
+        _batch_row(1, [1], [1]), _batch_row(2, [2], [2], "crd"),
+        _batch_row(3, [3], [3]), _batch_row(4, [4], [4], "crd"),
+        _batch_row(5, [5], [5]),
+        _batch_row(6, [6], [6], cut_reason="tail"),
+    ]
+    forward_rows = [_fwd_row(1, "译零"), _fwd_row(2, "译边界一"),
+                     _fwd_row(3, "译一"), _fwd_row(4, "译边界二"),
+                     _fwd_row(5, "译二")]
+    d = _mk_env(tmp_path, ledger_rows, timeline_rows, batches_rows, forward_rows)
+    assert build(batch=6, profile="cc", baseline="none", repo=d) == 0
+    cc_prefix = _prefix_of((d / "work/ctx/batch_6/context.md").read_text(encoding="utf-8"))
+    assert build(batch=6, profile="api-A", baseline="none", repo=d) == 0
+    a_prefix = _prefix_of((d / "work/ctx/batch_6/context.md").read_text(encoding="utf-8"))
+    # 窗口内（最后一个边界卡「边界二」及其后）：cc 应保留
+    assert "译边界二" in cc_prefix and "译二" in cc_prefix
+    # 窗口外（边界二之前，含边界一自身）：cc 下不得出现
+    assert "译零" not in cc_prefix
+    assert "译边界一" not in cc_prefix
+    assert "译一" not in cc_prefix
+    # api-A 不做窗口过滤，全部 5 段已译前序都在
+    for s in ("译零", "译边界一", "译一", "译边界二", "译二"):
+        assert s in a_prefix
+    assert len(cc_prefix) < len(a_prefix)
+
+def test_window_start_is_zero_when_no_chapter_card_precedes_batch(tmp_path):
+    """Park 项 A 判别性用例 2（brief 测试列表第 2 条）：本批之前的 timeline 里
+    一个章梗概卡单元都没有时，窗口起点为 0，即窗口＝全部前序——cc 与 api-A
+    结果相同。id1（chapter=x）与批次 2（chapter=y）故意不同 chapter：旧的
+    chapter 相等语义会把 id1 判为"非当前章"而排除，新窗口语义（无边界→0）则
+    保留它——这份夹具因此同时验证了"起点为 0"且对旧语义有判别力：去掉这条
+    分支（例如把"无边界"误当"无时间轴位置"处理成空窗口），本测试必红。"""
+    ledger_rows = [_ledger_row(1, "内容甲", "x"), _ledger_row(2, "内容乙", "y")]
+    timeline_rows = [_unit_row(1, [1], "标题甲"), _unit_row(2, [2], "标题乙")]
+    batches_rows = [_batch_row(1, [1], [1], "x"),
+                     _batch_row(2, [2], [2], "y", cut_reason="tail")]
+    forward_rows = [_fwd_row(1, "译甲")]
+    d = _mk_env(tmp_path, ledger_rows, timeline_rows, batches_rows, forward_rows)
+    assert build(batch=2, profile="cc", baseline="none", repo=d) == 0
+    cc_prefix = _prefix_of((d / "work/ctx/batch_2/context.md").read_text(encoding="utf-8"))
+    assert "译甲" in cc_prefix
+
+def test_empty_seqs_batch_cc_prefix_is_skeleton_only(tmp_path):
+    """Park 项 A 判别性用例 3（brief 测试列表第 3 条）：本批 seqs 为空（extra
+    车道形态，无时间轴位置）时，cc 下前缀不取任何正文（只留骨架），且不报错、
+    不因窗口外的未译前序行触发退出码 2。id1（chapter=snr_x，与本批 chapter
+    相同）故意不入 forward.jsonl 且未被 jp_fallback：若把"无时间轴位置"误判为
+    "无边界→起点 0"（等同全部前序），id1 会被收进窗口、因未译触发退出码 2；
+    旧 chapter 语义下 id1 与本批同 chapter 也不会被排除，同样会触发退出码 2——
+    对新旧语义都有判别力。"""
+    ledger_rows = [_ledger_row(1, "内容甲", "snr_x")]
+    extra_rows = [{"key": "snr_x:1", "jp": "额外标题", "kind": "scene_title", "file": "snr_x"}]
+    timeline_rows = [_unit_row(1, [1], "标题甲")]
+    batches_rows = [
+        _batch_row(1, [1], [1], "snr_x"),
+        {"batch": 2, "lane": "extra", "ids": ["snr_x:1"], "seqs": [], "jp_chars": 4,
+         "chapter": "snr_x", "cut_reason": "extra"},
+    ]
+    d = _mk_env(tmp_path, ledger_rows, timeline_rows, batches_rows, forward_rows=(),
+                extra_rows=extra_rows)
+    assert build(batch=2, profile="cc", baseline="none", repo=d) == 0
+    prefix = _prefix_of((d / "work/ctx/batch_2/context.md").read_text(encoding="utf-8"))
+    assert prefix.strip() == ""
+    assert "内容甲" not in prefix and "未译" not in prefix
+
+def test_untranslated_id_outside_window_does_not_trigger_exit_2(tmp_path):
+    """Park 项 A 判别性用例 4（brief 测试列表第 4 条，"最容易写错"的一条）：
+    窗口外的未译 id 不得触发退出码 2——_render_prefix 必须先按窗口收窄
+    prior_ids，再检查是否已译；顺序反了（先对全部 prior_ids 做已译检查、事后
+    才按窗口筛 resolved）会让 cc 档在 id1（窗口外、未译、且与本批同 chapter=x）
+    上误报 2。id2/3 在窗口内且已译，证明窗口内容依然正常渲染；末尾对照
+    api-A（不做窗口过滤）在同一份数据上确实因 id1 未译而报 2，证明 cc 下不报
+    2 是窗口把它挡在外面，不是夹具本身凑巧没有未译行。"""
+    ledger_rows = [_ledger_row(1, "内容零"), _ledger_row(2, "边界正文", "crd"),
+                    _ledger_row(3, "内容一"), _ledger_row(4, "本批内容")]
+    timeline_rows = [
+        _unit_row(1, [1], "标题零"),
+        _unit_row(2, [2], "边界", src="snr_crd_133"),
+        _unit_row(3, [3], "标题一"),
+        _unit_row(4, [4], "本批标题"),
+    ]
+    batches_rows = [
+        _batch_row(1, [1], [1]), _batch_row(2, [2], [2], "crd"),
+        _batch_row(3, [3], [3]), _batch_row(4, [4], [4], cut_reason="tail"),
+    ]
+    forward_rows = [_fwd_row(2, "译边界"), _fwd_row(3, "译一")]
+    d = _mk_env(tmp_path, ledger_rows, timeline_rows, batches_rows, forward_rows)
+    assert build(batch=4, profile="cc", baseline="none", repo=d) == 0
+    prefix = _prefix_of((d / "work/ctx/batch_4/context.md").read_text(encoding="utf-8"))
+    assert "译边界" in prefix and "译一" in prefix
+    assert "内容零" not in prefix and "未译" not in prefix
+    assert build(batch=4, profile="api-A", baseline="none", repo=d) == 2

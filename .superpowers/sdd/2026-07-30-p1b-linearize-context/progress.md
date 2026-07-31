@@ -143,3 +143,27 @@ Final fix wave: 4 个 commit（629614a pipelib ZND_DATA/ZND_WORK + e2e hermetic 
 Final fix wave 控制器独立核验：①清空 work/ → build_context batch 1 → 记 sha256 → 跑 pytest → 再记 → 指纹完全相同，pytest 不再动真实 work/ ✓ ②batch 30 的前缀现有 ### 【场景】… 标题与 12 处「讲述指针」marker，标题层级统一 ✓ ③baseline 尾部不变量仍逐字节成立 ✓ ④resolve 混合 id 不抛且 sorted 带 key ✓ ⑤两处注释已订正 ✓ → 再评审已派发
 Final fix wave 补修：实现者顺带发现 gates.yaml:3-4 有与已订正处同一类的说反，未擅自处理而是上报；控制器核 dag.json 确认属实（s2s_10 seq = [{card_gate:31,held:true},{goto:s2s_60},{goto:s2s_20}]，card_gate 判真时不 skip → 持卡才跳过日常段）→ 指示一并修（5e242ca），105 passed 不变
 Final fix wave 实现者顾虑与控制器判断：①_render_prefix 给 marker 加了「至少已渲染过一个 unit」的门槛（批次 70 不加会堆出 34 条孤立 marker 墙）——判为合理的设计收紧，保留，交再评审独立判 ②build_context 的 work_root 分支超出 brief 逐字枚举——Critical 1 的必要延伸，保留 ③会话中途 work/ 旧文件消失系控制器自身核验时清空，与改动无关
+Final fix wave 再评审 — **All findings addressed, no new Critical/Important breakage**。评审者自建证据而非采信报告：①对 pipelib 的 env 覆盖、build_context 的 work_root 分支、resolve 的排序 key 三处做了**隔离 git worktree 里的 revert-and-run 突变测试**，逐条复现出预期的红（FileNotFoundError / TypeError / AssertionError）②对真实 work/ 做 sha256+mtime 前后快照，跑完 105 passed 后逐字节 mtime 完全相同 ③把新的 _render_prefix 在**全语料 173 个 main 批 × 3 个 profile = 519 组**上直跑，零异常、零空标题 ④用 yaml.safe_load 做结构相等比对，确认两个 config 的**取值**逐条未动、只改了注释 ⑤grep 扫全部 tools/ 确认没有残留的硬编码 work 路径旁路 ⑥确认两项被 park 的议题未被越界改动
+Final fix wave 再评审 — Out-of-scope 注记（非阻塞）：_render_prefix 的代码注释里「34 条、58 行」把两个计数混了（34 是批次 70 全量 marker 数，孤立墙实际是 29 条/58 行）；结构性脆弱提示——新渲染路径只在某 id 能在 timeline 里找到归属 unit 时才输出其正文，若将来 batches 与 timeline 失同步会静默丢行（当前被 Task 5/6 的不变量锁死，非现存缺陷）
+# ==== P1b（Task 4–11）全部完成：11 个任务 + Hotfix A/B/C + 最终修复轮，全部评审 clean ====
+# 收尾决定：**不删除本 SDD 工作台**——superpowers 流程说最终评审 clean 后可 rm -rf（git 历史即记录），但本仓库 CLAUDE.md 明确规定 .superpowers/sdd/ 下的 *.md 是「不可再生的执行状态与证据」必须入库携带；项目规约优先于技能默认，故原样保留
+# 收尾决定：**不建 PR、不合并**——用户未要求；分支 claude/cloud-setup-session-a32ocv 已全部推远端，由用户决定如何并
+
+# ==== 用户裁决（2026-07-31，看过检查点与台账后）====
+# 用户确认 park 的两项「提得都有道理」，且明确「patch 内的文本条目退出召回列表比较有道理」→ 两项都做
+# A: build_context 的 api-B/cc 前缀改用「时间轴位置窗口」（自上一个章梗概卡边界起），不再用 chapter 相等
+#    控制器先核实真实数据：全书有 13 个章梗概卡 script 单元作边界（seq 100/193/344/345/354/355/366/407/439/488/499/507/517）；
+#    173 个 main 批的 seqs 全非空、extra/ambient 全空（天然可判别）；窗口把 batch 81 的前序 7350 id 压到 1073、batch 173 的 16659 压到 1255
+#    —— 与计划接口表「骨架 + 已完结章的章梗概卡 + 当前章已译 zh」及 CLAUDE.md「DAG 组装规则」第 4 条（已做卡场景以卡面梗概替代全文）同义
+# B: recall.py 按「生效译文的术语表版本」判断陈旧（与 resolve 的覆盖语义一致：forward 先铺、patches 后写覆盖、同 id 取最后一条），返回的旧译也取生效译文
+# brief=parked-fix-brief.md，已派发
+Park 项落地: A（0793e98 前缀时间轴窗口）+ B（1ab5a74 recall 按生效译文版本），111 passed（105+6）
+Park 项控制器独立核验：A ①batch 81 前缀段 cc 1141 行 vs api-A 7637 行（压到约 1/7）②batch 174（extra、seqs 空）cc → exit 0 且前缀段为空（只给骨架）③batch 1（窗口起点 0）exit 0 ④**最易写错的那条已复算**：batch 81 的 min(seqs)=248、窗口起点=193（＝snr_crd_134 的 script 单元），不加 --jp-fallback 时报的「前缀行 690 未译」经独立查证其 unit seq=193 ≥ 起点 → 确在窗口内，退出码 2 是正确行为而非误报；窗口外 6277 个 id 已正确排除
+Park 项控制器独立核验：B 在 mktemp 夹具上（forward id1@v1/id2@v1；patches id1@v2「中间稿」→ id1@v2「新译一」）：find(glossary_v=2) → 只剩 id2（id1 已 patch 到 v2 正确退出召回）；find(glossary_v=3) → 两条都回且 id1 的旧译是**最后一条** patch 的「新译一」（append-only 覆盖语义正确）
+Park 项卫生核验：跑完 pytest 后真实 work/ 全树 sha256 前后一致；check_timeline OK；三个生成器重跑后工作树仍干净 → 再评审已派发
+Park 项再评审 — ✅ spec compliant / Approved，零 Critical/Important。评审者自建证据：①从零独立重算窗口起点，与真实数据的 173 个 main 批 **173/173 精确吻合**，窗口起点直方图复现 brief 的锚点表 ②自己发现 brief 未列的平局边界（批 117 的 min(seqs)=344 恰等于 snr_crd_137 的边界 seq → 严格 < 使其回落到前一个边界 193，保守方向、与「之前」语义一致）③对「窗口过滤先于未译检查」这条最易写错的做了两路验证：真实批 81 报的未译 id 是 690（窗口内首个）而非 6060（时序上真正的首个前序 id），另在隔离副本里造了「顺序反转」的突变体、确认新用例能抓住 ④造 4 个突变体验证 6 条新用例全部有判别力 ⑤对 339 批 × 3 profile 共 1017 次 build() 全量扫，零异常；真实 work/ 树在 pytest 前后哈希一致
+Park 项再评审 minor (deferred): recall 在本地重建 forward/patches 叠加而非复用 resolve_map（注释已说明理由：resolve_map 只返回 zh，而 glossary_v 必须取自同一行），两处叠加实现存在漂移风险；_id_to_seq 与 _window_start_seq 各自全扫一遍 timeline；id2seq.get(i,-1) 对不在 timeline 里的 id 静默排除而非报错（当前被 Task 6 的不变量锁死不可达）
+# ==== P1b 全部完成（含用户裁决的两项 park 落地），全部评审 clean ====
+# 注：本台账中引用的 commit 短 SHA 均指**收口前**的历史。收尾时按用户要求相对 origin/main 把 72 个 commit 收口成 13 个
+#     （手法：从 origin/main 起逐个边界 git read-tree -u --reset 后重新提交，并校验新旧 HEAD 的树对象完全相同），
+#     故那些 SHA 在收口后的历史里不再存在；对应关系按台账里的时间顺序与 commit 标题即可还原。

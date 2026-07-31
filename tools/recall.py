@@ -7,7 +7,15 @@ from tools.pipelib import DATA, WORK, read_jsonl, write_jsonl
 
 
 def find(term, glossary_v, data=None):
-    """找 forward 中 glossary_v < K 且原文含 term 的行（id、旧译、章别）"""
+    """找**生效译文**的术语表版本 < K 且原文含 term 的行（id、生效译文 zh、
+    章别）。
+
+    "生效版本/生效译文"与 tools.resolve 的覆盖语义一致：forward 先铺、patches
+    （若存在）后写覆盖，同 id 多条 patch 取最后一条（append-only）。一个 id
+    只要被更高版本术语表 patch 过，就按 patch 的 glossary_v/zh 判断陈旧——不
+    会因为首译版本旧而对更高的 K 反复召回；返回的 zh 同样是这份生效译文（有
+    patch 取 patch 的，没有则取 forward 的），因为那才是拿来对照重译的对象。
+    """
     data = Path(data or DATA)
 
     # 优雅处理缺失的 forward.jsonl
@@ -24,15 +32,28 @@ def find(term, glossary_v, data=None):
     for row in read_jsonl(ledger_path):
         ledger_by_id[row["id"]] = row
 
+    # 生效译文：forward 先铺，patches（若存在）后写覆盖，同 id 多条取最后一条
+    # ——与 resolve.resolve_map 同一份覆盖语义，这里各自维护一份（而非直接调用
+    # resolve_map）是因为 resolve_map 只保留 zh，这里还需要与之配对的
+    # glossary_v 一起覆盖，两者必须来自同一条（forward 或 patch）行，不能
+    # 分别取「最新版本号」与「最新 zh」错配。
+    effective = {}
+    for row in read_jsonl(fwd_path):
+        effective[row["id"]] = {"zh": row["zh"], "glossary_v": row["glossary_v"]}
+    patches_path = data / "patches.jsonl"
+    if patches_path.exists():
+        for row in read_jsonl(patches_path):
+            effective[row["id"]] = {"zh": row["zh"], "glossary_v": row["glossary_v"]}
+
     # 查询
     hits = []
-    for row in read_jsonl(fwd_path):
+    for id_, eff in effective.items():
         # glossary_v 旧版本（小于指定的 K）
-        if row["glossary_v"] >= glossary_v:
+        if eff["glossary_v"] >= glossary_v:
             continue
 
         # 对应的原文行
-        ledger_row = ledger_by_id.get(row["id"])
+        ledger_row = ledger_by_id.get(id_)
         if not ledger_row:
             continue
 
@@ -42,8 +63,8 @@ def find(term, glossary_v, data=None):
 
         # 命中
         hits.append({
-            "id": row["id"],
-            "zh": row["zh"],
+            "id": id_,
+            "zh": eff["zh"],
             "chapter": ledger_row["chapter"]
         })
 

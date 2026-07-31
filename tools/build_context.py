@@ -11,6 +11,12 @@ from tools.resolve import resolve_map
 
 SECTION5 = "## 五、本批任务"
 
+# 章节梗概卡的 script 单元 src 集合（crd_133..145，见 CLAUDE.md「章节梗概卡
+# 133–144 + 145」）：游戏机制里「这一章已被压成一张あらすじ卡」的边界，专供
+# api-B/cc 前缀窗口识别使用。与 Task 7 删掉的 SYN_CARDS（chapter→卡号 映射）
+# 是两回事，不要复活后者——这里锚定的是 script 单元的 src，不是 chapter 字段。
+CHAPTER_CARD_SRCS = {f"snr_crd_{n}" for n in range(133, 146)}
+
 
 def _load(repo):
     data = repo / "data"
@@ -32,7 +38,9 @@ def _load(repo):
 def _render_skeleton(cards):
     # 接口所述 api-B/cc「已完结章的章梗概卡」（cards.zh 卡 133-145 对应章）不需要额外的
     # 挑选/映射逻辑：骨架卡组对任何 profile、任何批次都完整渲染全部卡（含 133-145），
-    # 已经把这层压缩信息带进上下文；profile 差异只体现在 _render_prefix 对别章细文的丢弃。
+    # 已经把这层压缩信息带进上下文；profile 差异只体现在 _render_prefix 对窗口外细文的丢弃
+    # （见 _window_start_seq：窗口边界＝上一个章梗概卡单元，窗口外的内容正是这里已经
+    # 承载的卡面梗概，省略细文不丢信息）。
     out = ["## 一、冻结骨架（中文卡组）"]
     for c in cards:
         out.append(f"【卡{c['card']}】{c['title_zh']}：{c.get('body_zh','').replace(chr(10),'')}")
@@ -45,16 +53,64 @@ def _unit_heading(unit) -> str:
     return unit.get("title") or unit.get("state") or unit.get("src") or ""
 
 
+def _id_to_seq(timeline) -> dict:
+    """timeline 里每个 unit id 到其所属 unit seq 的映射（marker 行没有 ids，
+    不参与）。cc/api-B 前缀窗口靠它判断某 id 是否落在窗口内。"""
+    m = {}
+    for row in timeline:
+        if row["type"] == "unit":
+            for i in row["ids"]:
+                m[i] = row["seq"]
+    return m
+
+
+def _window_start_seq(env, batch_no):
+    """cc/api-B 前缀窗口的起点 seq。
+
+    窗口边界＝「本批第一个时间轴位置（min(本批 seqs)）之前，最近的一个章梗概卡
+    单元」（章梗概卡＝script 单元 src ∈ CHAPTER_CARD_SRCS，对应游戏机制里「这
+    一章已被压成一张あらすじ卡」，见 CLAUDE.md「剧情 DAG 组装规则」第 4 条）。
+    起点取该边界单元自身的 seq——窗口按 >= 起点收窄，即含边界自身：它是该章
+    收尾的现实层框架剧情文本，不是骨架卡组已经承载的卡面梗概正文，仍需留在
+    窗口内。已用真实数据核实：batch 81 窗口内 1073 行、batch 173 窗口内 1255
+    行——都比"排除边界自身"的算法多 1，与"每个边界 unit 恰好 1 个 id"吻合。
+
+    一个边界都找不到时起点为 0（＝全书开头，序章批次的情形）——窗口退化为
+    「全部前序」，与 api-A 语义一致。
+
+    本批 seqs 为空（extra/ambient 车道，没有时间轴位置）时返回 None，调用方
+    应把窗口当作空处理——这是刻意选择，不是 chapter 比较失配的副产物：extra
+    车道装的是卡面/UI 文本，正文由骨架卡组本身承载，术语一致性靠尾部术语表
+    保证（见 _render_skeleton 顶部注释）。
+    """
+    seqs = env["batches"][batch_no]["seqs"]
+    if not seqs:
+        return None
+    min_seq = min(seqs)
+    boundary_seqs = [u["seq"] for u in env["timeline"]
+                      if u["type"] == "unit" and u.get("src") in CHAPTER_CARD_SRCS
+                      and u["seq"] < min_seq]
+    return max(boundary_seqs) if boundary_seqs else 0
+
+
 def _render_prefix(env, batch_no, profile, jp_fallback):
     led, zh = env["ledger"], env["zh"]
     prior_ids = [i for b, r in sorted(env["batches"].items())
                  if r["lane"] == "main" and b < batch_no for i in r["ids"]]
-    cur_ch = env["batches"][batch_no]["chapter"]
+    if profile in ("api-B", "cc"):
+        # 窗口过滤必须在下面的「未译则报错」循环之前完成：窗口外的 id 根本不该
+        # 进前缀，因此也不该因未译触发退出码 2（它们由骨架卡组承载）。先在这里
+        # 把 prior_ids 收窄成窗口内的子集，翻译检查循环就只会看到窗口内的 id——
+        # 顺序反过来（对全部 prior_ids 先做翻译检查、事后再筛 resolved）会让
+        # 窗口外的未译行错误地触发退出码 2。
+        window_start = _window_start_seq(env, batch_no)
+        if window_start is None:
+            prior_ids = []          # 无时间轴位置（extra/ambient）：前缀只留骨架
+        else:
+            id2seq = _id_to_seq(env["timeline"])
+            prior_ids = [i for i in prior_ids if id2seq.get(i, -1) >= window_start]
     resolved = {}
     for i in prior_ids:
-        ch = led[i]["chapter"]
-        if profile in ("api-B", "cc") and ch != cur_ch:
-            continue                       # 已完结章走章梗概（骨架卡已含），细文省略
         if i in zh:
             resolved[i] = zh[i]
         elif jp_fallback:
@@ -65,17 +121,17 @@ def _render_prefix(env, batch_no, profile, jp_fallback):
     # 唯一标记非线性的信号）与各 unit 的小标题夹进前缀正文，不再把 resolved 的
     # 译文拼成一长串连续文本首尾相接——否则同一个 _sel 节点互斥分支的续写会被
     # 模型读成先后发生的事件（CLAUDE.md：全部文本须「按出现顺序」拼接）。
-    # 只渲染其 id 真落进 resolved 的 unit（被 profile 章别过滤掉的 unit 不留空
-    # 标题）；resolved 里的 id 一旦被消耗完就立即停止扫描——否则 batch 1
-    # （resolved 为空）会把全书 76 条 marker 都当结构信号倒进空前缀，chapter
-    # 过滤后的批次也会带出不属于本次前缀的后续章节 marker。
+    # 只渲染其 id 真落进 resolved 的 unit（被窗口筛掉的 unit 不留空标题）；
+    # resolved 里的 id 一旦被消耗完就立即停止扫描——否则 batch 1（resolved 为
+    # 空）会把全书 76 条 marker 都当结构信号倒进空前缀，窗口收窄后的批次也会
+    # 带出不属于本次前缀的后续内容的 marker。
     # marker 只在「已经渲染过至少一个 unit」之后才输出，即只渲染真正夹在两个
     # unit 之间的 marker（贴合措辞本身——「夹在相邻 unit 之间」）：cc/api-B 下
-    # 实测（批次 70）显示，若不加这条门槛，被章别过滤掉的更早章节会在前缀最前面
-    # 堆出一堵 34 条、58 行、前后都没有正文的 marker 墙（那些章节的细文本就是被
-    # profile 过滤掉的，marker 脱离了它原本要消歧的正文，沦为噪音）；史上没有
-    # unit 先出现过，说明这些 marker 全部来自与本批章别不同的更早章节——它们的
-    # 消歧价值已经由骨架卡组的章梗概覆盖，不必在这里重复。
+    # 实测（批次 70）显示，若不加这条门槛，被窗口排除在外的更早内容会在前缀
+    # 最前面堆出一堵前后都没有正文的 marker 墙（那些内容的细文本本来就被窗口
+    # 筛掉了，marker 脱离了它原本要消歧的正文，沦为噪音）；史上没有 unit 先
+    # 出现过，说明这些 marker 全部来自窗口之外的更早内容——它们的消歧价值
+    # 已经由骨架卡组的章梗概覆盖，不必在这里重复。
     out = ["\n## 二、前缀正文"]
     remaining = set(resolved)
     started = False

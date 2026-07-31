@@ -99,9 +99,19 @@ ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/append_forward.py \
 
 **隔离验收（batch 1 完成后立即执行，不通过则停止试点）**：两条车道的 `data/forward.jsonl` 内容必须不同；两条车道 batch 2 的 `context.md` 第二节前缀正文必须各自含本车道 batch 1 的译文。
 
+### 3.4 子代理隔离纪律（指令层，机制挡不住）
+
+目录隔离只保证工具默认读写不串台，**挡不住子代理主动去看**——译者子代理有完整的文件系统读取权限，一次 `ls work/lanes/` 就能看到另一条车道的译文，而"看到对方译法"对本次对照的破坏远大于译错一句。因此每份派发 prompt 必须包含明令：
+
+- 禁止读取、列出或以任何方式窥探 `work/lanes/` 下除本车道外的任何目录；
+- 禁止读取仓库根的 `data/forward.jsonl`（试点期该文件不参与，读它只会造成混淆）；
+- 查既有译法一律走本车道的 `<lane>/data/forward.jsonl`。
+
+违反即该批次作废重跑（换一个子代理）。此项与 §5.1 的车道配置锁同属"靠纪律而非机制"的约束，需在试点报告中如实记录是否发生过。
+
 ---
 
-## 4. 工具改动（试点前置，两项）
+## 4. 工具改动（试点前置，三项）
 
 ### 4.1 `tools/build_context.py`：暴露 `--repo`
 
@@ -126,6 +136,14 @@ build(args.batch, args.profile, args.baseline, repo=args.repo, jp_fallback=args.
 测试：断言 `--batches 1-35` 选出的批次编号恰为 1..35；断言原 `--chapter` 行为逐字不变（回归）。
 
 ---
+
+### 4.3 `prompts/translator_cc.md`：新增「路径基准」节
+
+模板现有全部路径均为仓库相对（`work/ctx/batch_N/`、`work/out/batch_N.draft.jsonl`、`data/forward.jsonl`、`data/notes/<chapter>.md`），车道模式下这些都在 `<lane>/` 下。**不改模板则每份派发 prompt 都要贴一张路径覆盖表，重复且易漏。**
+
+在模板开头新增一节：声明所有产出/译文线路径以派发方注入的**车道根**为基准（未注入时即仓库根，保持现有行为不变），并明确哪些路径**不**随车道走（`CLAUDE.md`、`prompts/`、`analysis/text_digest/`、`png/` 恒为仓库根）。派发 prompt 只需给出车道根一个值。
+
+同时把 §3.4 的隔离纪律写进模板的「不要做的事」节。
 
 ## 5. 执行流程
 

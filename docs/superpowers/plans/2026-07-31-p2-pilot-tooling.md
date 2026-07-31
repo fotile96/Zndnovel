@@ -1235,7 +1235,7 @@ git commit -m "feat: 语义崩溃探测（残留假名/长度比离群/复读循
 **Interfaces:**
 - Consumes: 两条车道的 `data/forward.jsonl`；仓库 `data/ledger.jsonl`、`data/timeline.jsonl`、`skeleton/anchors.yaml`、`skeleton/cards.zh.yaml`。
 - Produces：
-  - `anchor_ids(anchors_path) -> set[int]`
+  - `anchor_ids(anchors_path) -> dict[int, str]`——锚点表 → `{id: zh}`（`anchor_compliance` 要 zh 比对逐字沿用；`divergence` 的 exclude_ids 取其键集）
   - `anchor_compliance(forward_rows, anchors) -> dict`——`{"total", "verbatim", "rate", "violations": [id…]}`，`anchors` 为 `{id: zh}`。
   - `divergence(zh_a, zh_b, exclude_ids) -> dict`——`{"compared", "differing", "rate", "ids": [...]}`；`zh_a/zh_b` 为 `{id: zh}`。
   - `blind_pairs(ids, zh_a, zh_b, ledger, lane_a, lane_b) -> (list[dict], dict)`——返回并排材料与揭示用的 key；每项 `{"id","jp","甲","乙"}`，甲/乙 与车道的对应**按 id 奇偶交替**（消除位置锚定），key 为 `{"odd_id_甲": lane_a, "even_id_甲": lane_b}`。

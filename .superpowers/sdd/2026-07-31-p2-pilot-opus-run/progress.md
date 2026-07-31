@@ -18,11 +18,15 @@
 - **F2｜Workflow 的 `args` 以 JSON 字符串形态到达脚本，批号静默变 `undefined`**：batch 1 派发时 `args.batch` 取到 `undefined`，prompt 被模板成「批次编号 N = undefined」、路径变 `work/ctx/batch_undefined/`。子代理**没有报错**，而是自行 `ls` ctx/ 发现只有 `batch_1` 一个目录、读其 manifest 反推出批号与章别，最终产出正确（339 id 集合精确匹配、check PASS、notes 正确落 `s0f.md`）。**但这个自愈只在 ctx/ 下恰好只有一个批次目录时成立**——batch 2 起目录变多，猜测必然出错且无声。已修派发脚本：`args` 兼容字符串/对象两种形态，并加硬断言（批号/章别/条数任一缺失即抛错，宁可整个 workflow 失败也不派出坏 prompt）。同时修掉 prompt 里硬编码的「opus 车道」字样（改按车道根推导），否则派 fable 时会自称 opus。
 - **F1｜`lane.json` 存绝对路径，跨环境必然抖动**：`lane_setup.setup()` 把 `lane_dir` 写成绝对路径（本地 `/home/fotile96/claude/2ndnovel-translation/...`，云端 `/home/user/Zndnovel/...`），而该文件入库。每次换环境重建车道都产生一条无意义 diff，且两环境来回翻。实测**无任何生产代码读取该字段**（`record()` 只用 lane.json 的存在性判定车道，其余全是测试引用），即纯文档字段。修法：改存仓库相对路径（`pilot/lanes/<lane>`）。记为 P3 输入，本次不修（试点期不动工装）。
 
+## 环境噪声（不是缺陷，记下来免得反复排查）
+
+- **云端 stop hook 报「commits Unverified」是假阳性**：本环境 `commit.gpgsign=true`、`gpg.format=ssh`，`git cat-file commit <sha>` 里确实有完整的 `gpgsig -----BEGIN SSH SIGNATURE-----` 头，**签名是有的**。但 `gpg.ssh.allowedSignersFile` 未配置，本地 `git log %G?` 因而永远返回 `N`、并打印 `needs to be configured` 错误——hook 用的正是这个本地判据，故在本容器里必然误报。author/committer 已是 `Claude <noreply@anthropic.com>`。**结论：无需为此反复 `--amend --reset-author`**（reset-author 只会换掉 commit sha，不改变签名状况）。副作用：amend 会让台账里记的 sha 失效，故 sha 一律**推送后**再回填。
+
 ## 逐批记录
 
 | batch | chapter | ids | check | collapse (C1/C2/C3) | commit |
 |---|---|---|---|---|---|
-| 1 | s0f | 339 | PASS hard=0 warn=1 | 4 (0/0/4)，**全部误报** | 34e32db |
+| 1 | s0f | 339 | PASS hard=0 warn=1 | 4 (0/0/4)，**全部误报** | 8b41790 |
 
 ### batch 1 细节
 

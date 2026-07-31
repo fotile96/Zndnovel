@@ -16,7 +16,7 @@
 - 试点期间**不裁决任何术语提案**、不新增 `glossary.vN.yaml`：提案照收进车道的 `data/notes/<chapter>.md`，裁决全部推迟到试点结束。
 - 现行术语表版本为 **v6**（`glossary/glossary.v6.yaml`）；工具里凡需版本号一律调 `tools.build_context.glossary_version(repo)` 动态推导，禁止硬编码。
 - 车道根固定为 `work/lanes/<lane>/`（`work/` 已在 `.gitignore` 内，两条车道的译文与产物不进主库历史）。
-- 新工具一律纯标准库 + 既有 `tools/pipelib.py` 助手（`REPO/DATA/WORK`、`read_jsonl`/`write_jsonl`/`append_jsonl`、`dumps`、`sha256_file`、`display_width`）。
+- 新工具**不得新增第三方依赖**：可用标准库、既有项目依赖 `pyyaml`（读 `anchors.yaml`/`cards.zh.yaml`/`glossary.vN.yaml` 一律用 `yaml.safe_load`，禁止手写 YAML 解析），以及既有 `tools/pipelib.py` 助手（`REPO/DATA/WORK`、`read_jsonl`/`write_jsonl`/`append_jsonl`、`dumps`、`sha256_file`、`display_width`）。
 
 ## 文件结构
 

@@ -226,8 +226,11 @@ def main(argv=None):
     ap.add_argument("--profile", choices=["api-A", "api-B", "cc"], required=True)
     ap.add_argument("--baseline", choices=["none", "ref", "revise", "judge"], default="none")
     ap.add_argument("--jp-fallback", action="store_true")
+    ap.add_argument("--repo", default=None,
+                    help="车道根目录（内含 data/skeleton/glossary，产物落其 work/ 下）；"
+                         "省略时读仓库根、产物落 pipelib.WORK")
     a = ap.parse_args(argv)
-    return build(a.batch, a.profile, a.baseline, jp_fallback=a.jp_fallback)
+    return build(a.batch, a.profile, a.baseline, repo=a.repo, jp_fallback=a.jp_fallback)
 
 
 if __name__ == "__main__":

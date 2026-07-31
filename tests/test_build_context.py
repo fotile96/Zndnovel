@@ -381,3 +381,36 @@ def test_untranslated_id_outside_window_does_not_trigger_exit_2(tmp_path):
     assert "译边界" in prefix and "译一" in prefix
     assert "内容零" not in prefix and "未译" not in prefix
     assert build(batch=4, profile="api-A", baseline="none", repo=d) == 2
+
+
+def test_cli_repo_flag_routes_reads_and_writes_to_that_dir(tmp_path, monkeypatch):
+    """--repo 必须把数据读取与产物落点一起切到该目录：既有 build(repo=…) 已实现，
+    此前只是没有 CLI 入口。去掉 main() 里的 --repo 透传本测试必红。"""
+    from tools.build_context import main
+    env = _env(tmp_path)
+    (env / "data" / "forward.jsonl").write_text(
+        json.dumps({"id": 1, "zh": "车道标记译文", "batch": 0, "backend": "cc",
+                    "model": "m", "ctx": "c", "glossary_v": 4, "ts": "t"},
+                   ensure_ascii=False), encoding="utf-8")
+    (env / "glossary" / "glossary.v6.yaml").write_text("version: 6", encoding="utf-8")
+    rc = main(["--batch", "1", "--profile", "cc", "--baseline", "none",
+               "--repo", str(env)])
+    assert rc == 0
+    ctx = env / "work" / "ctx" / "batch_1" / "context.md"
+    assert ctx.exists(), "产物必须落在 --repo 指定的目录下"
+    assert (env / "work" / "ctx" / "batch_1" / "source.jsonl").exists()
+    assert (env / "work" / "ctx" / "batch_1" / "manifest.json").exists()
+
+
+def test_cli_without_repo_keeps_default_behaviour(tmp_path, monkeypatch):
+    """不给 --repo 时行为不变（仍读仓库 data/、写 pipelib.WORK）——用 ZND_WORK
+    把落点引到 tmp_path，断言真实仓库 work/ 不被本测试写入。"""
+    from tools.build_context import main
+    import tools.pipelib as pipelib
+    monkeypatch.setattr(pipelib, "WORK", tmp_path / "w")
+    import tools.build_context as bc
+    monkeypatch.setattr(bc, "_WORK", tmp_path / "w")
+    rc = main(["--batch", "1", "--profile", "cc", "--baseline", "none",
+               "--jp-fallback"])
+    assert rc == 0
+    assert (tmp_path / "w" / "ctx" / "batch_1" / "context.md").exists()

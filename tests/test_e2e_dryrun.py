@@ -1,12 +1,13 @@
 """端到端 dry-run：build_context → 假草稿 → check_batch，在真实 data/ 上跑通整条回路。
 
-注意：本测试会写真实的 work/ctx/batch_1/ 与 work/out/batch_1.draft.jsonl（不是
-tmp_path 隔离的临时文件）——这是 build_context.py / check_batch.py 的既有行为
-（两者都固定写 REPO/work/ 下的路径，不接受输出目录参数）。work/ 已在 .gitignore，
-产物不入库；tmp_path fixture 参数保留只是未被使用。
+Critical 1 修复轮：work/ 产物通过 ZND_WORK 环境变量重定向到 tmp_path（见
+tools/pipelib.py 的 DATA/WORK 环境变量覆盖 + tools/build_context.py 消费
+pipelib.WORK 而非固定的 repo/"work"），本测试因此完全 hermetic，不再写真实
+work/ 树。ZND_DATA 刻意不设置——两个子进程仍读真实 data/ledger.jsonl、
+data/batches.jsonl 等，这条测试的价值就在于跑真实数据，不是构造的小样本。
 """
-import json, re, subprocess, sys
-from tools.pipelib import REPO, WORK, read_jsonl
+import json, os, re, subprocess, sys
+from tools.pipelib import REPO, read_jsonl
 
 SPEAKERS = json.loads((REPO / "glossary" / "speakers.json").read_text(encoding="utf-8"))
 SPEAKER = re.compile(r"^【([^】]*)】")
@@ -25,17 +26,19 @@ def _placeholder(jp: str) -> str:
     return f"【{name}】〔占位〕{jp[m.end():]}"
 
 def test_batch1_context_and_fake_roundtrip(tmp_path):
+    # env= 会整体替换子进程环境，务必基于 os.environ 展开，不能只传 ZND_WORK 一项。
+    env = {**os.environ, "ZND_WORK": str(tmp_path)}
     r = subprocess.run([sys.executable, "tools/build_context.py",
                         "--batch", "1", "--profile", "cc", "--jp-fallback"],
-                       cwd=REPO, capture_output=True, text=True)
+                       cwd=REPO, capture_output=True, text=True, env=env)
     assert r.returncode == 0, r.stderr
-    src = read_jsonl(WORK / "ctx" / "batch_1" / "source.jsonl")
+    src = read_jsonl(tmp_path / "ctx" / "batch_1" / "source.jsonl")
     draft = [{"id": row["id"], "zh": _placeholder(row["jp"])} for row in src]
-    (WORK / "out").mkdir(parents=True, exist_ok=True)
-    (WORK / "out" / "batch_1.draft.jsonl").write_text(
+    (tmp_path / "out").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "out" / "batch_1.draft.jsonl").write_text(
         "\n".join(json.dumps(x, ensure_ascii=False) for x in draft) + "\n",
         encoding="utf-8")
     r2 = subprocess.run([sys.executable, "tools/check_batch.py", "--batch", "1"],
-                        cwd=REPO, capture_output=True, text=True)
+                        cwd=REPO, capture_output=True, text=True, env=env)
     # 占位译文可能触发软警但硬规则应可通过（【】/符号照抄自 jp）
     assert r2.returncode == 0, r2.stdout + r2.stderr

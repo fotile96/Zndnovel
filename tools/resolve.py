@@ -25,7 +25,11 @@ def main(argv=None):
     m = resolve_map(fwd, pat)
     ledger_ids = [r["id"] for r in read_jsonl(DATA / "ledger.jsonl")]
     missing = [i for i in ledger_ids if i not in m]
-    write_jsonl(DATA / "final.jsonl", [{"id": i, "zh": m[i]} for i in sorted(m)])
+    # extra 车道 id 是 str（如 "snr_x:5"），main/ambient 车道 id 是 int；混合后裸
+    # sorted(m) 在 Python 3 下跨类型比较必抛 TypeError。key 按 (是否 str, 值本身)
+    # 排：int 全部排在 str 之前，各自内部再按值排序，两边互不比较。
+    write_jsonl(DATA / "final.jsonl",
+                [{"id": i, "zh": m[i]} for i in sorted(m, key=lambda k: (isinstance(k, str), k))])
     print(f"final={len(m)}  missing={len(missing)}", file=sys.stderr)
     return 1 if (args.require_complete and missing) else 0
 

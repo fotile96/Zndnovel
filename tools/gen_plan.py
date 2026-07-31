@@ -9,14 +9,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import REPO, DATA, read_jsonl
+from tools.build_context import glossary_version
 
-# 当前 glossary 最高版本号（glossary/ 下 v1..v6，append-only）。gen_plan 的产物是
-# P2 开翻时按需重跑的临时文件，glossary 升版时随手把这个数改掉即可，不必做成动态扫描
-# （render() 要求是不触碰文件系统的纯字符串模板函数，见模块 docstring）。
+# render() 的 glossary_v 参数默认值/测试兜底。真实运行由 main() 通过
+# build_context.glossary_version() 动态扫描 glossary/ 目录求得，不再消费这个
+# 常量——曾经两处各自维护一个真相源，计划文本会把这里的硬编码盖进 append-only
+# 的 forward 行（Minor 修复）。
 GLOSSARY_V = 6
 
 
-def _header(chapter, lane, every, count):
+def _header(chapter, lane, every, count, glossary_v):
     return f"""# {chapter} 章（{lane} 车道）翻译执行计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -32,13 +34,13 @@ def _header(chapter, lane, every, count):
 - 运行 `uv run python tools/<x>.py`；commit 规范 `type: 中文摘要`（type ∈ feat/fix/docs/data/analysis/chore/refactor），本计划的批次提交固定用 `data: {chapter} 批次N 译文入线`，main 分支直提交。
 - `skeleton/`、`glossary/` 只读引用，本计划不修改它们；发现术语缺口按 `prompts/translator_cc.md`「术语提案」节追加到 `data/notes/{chapter}.md`，不要直接改 `glossary/active.json`（版本化流程见 `CLAUDE.md`「术语层」节）。
 - `build_context.py` 的 `--profile` 固定 `cc`（本计划专属 CC 后端，即本工具名里的「CC」）；`--baseline` 试点期固定 `none`。
-- `append_forward.py` 的 `--backend/--model/--ctx/--glossary-v` 均为必填：`--backend cc`、`--glossary-v {GLOSSARY_V}`（当前最高 glossary 版本）固定；`--ctx` 取本批 `manifest.json` 里的 `ctx_sha`；`--model` 填实际执行本批翻译子代理所用的模型 ID。
+- `append_forward.py` 的 `--backend/--model/--ctx/--glossary-v` 均为必填：`--backend cc`、`--glossary-v {glossary_v}`（当前最高 glossary 版本）固定；`--ctx` 取本批 `manifest.json` 里的 `ctx_sha`；`--model` 填实际执行本批翻译子代理所用的模型 ID。
 - 派子代理（Step 2）与执行 git 操作（Step 4）都由执行本计划的 agent 亲自完成——`prompts/translator_cc.md`/`reviewer_cc.md` 都明确子代理不得碰 git。
 
 ---"""
 
 
-def _batch_task(tnum, batch, baseline):
+def _batch_task(tnum, batch, baseline, glossary_v):
     n, ch, ids = batch["batch"], batch["chapter"], batch["ids"]
     return f"""### Task {tnum}: {ch} 批次 {n} 译文入库（{len(ids)} 条，约 {batch["jp_chars"]} 日文字）
 
@@ -67,7 +69,7 @@ Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。
 
 Run（`<model>` 换成 Step 2 实际执行翻译子代理所用的模型 ID；`<ctx_sha>` 取自 Step 1 产出的 `manifest.json`）：
 
-`uv run python tools/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {GLOSSARY_V}`
+`uv run python tools/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {glossary_v}`
 
 ```bash
 git add data/forward.jsonl
@@ -103,17 +105,17 @@ def _final_task(tnum, chapter, lane, first, last, count):
 把本章相关的 `data:` commit（`git log --oneline` 过滤 `{chapter}`）交给人工复核。**不要自动放行**——人工确认无误后本章翻译才算完成，之后才能对下一章跑 `tools/gen_plan.py` 生成新计划。"""
 
 
-def render(batches, chapter, lane, every=5, baseline="none") -> str:
+def render(batches, chapter, lane, every=5, baseline="none", glossary_v=GLOSSARY_V) -> str:
     sel = sorted((b for b in batches if b["chapter"] == chapter and b["lane"] == lane),
                  key=lambda b: b["batch"])
-    parts = [_header(chapter, lane, every, len(sel))]
+    parts = [_header(chapter, lane, every, len(sel), glossary_v)]
     if not sel:
         parts.append(f"（`data/batches.jsonl` 中没有 lane={lane} chapter={chapter} 的批次，无事可做。）")
         return "\n\n".join(parts)
     tnum = 1
     chunk = []
     for b in sel:
-        parts.append(_batch_task(tnum, b, baseline))
+        parts.append(_batch_task(tnum, b, baseline, glossary_v))
         tnum += 1
         chunk.append(b["batch"])
         if len(chunk) == every:
@@ -132,7 +134,8 @@ def main(argv=None):
     ap.add_argument("--checkpoint-every", type=int, default=5)
     args = ap.parse_args(argv)
     batches = read_jsonl(DATA / "batches.jsonl")
-    md = render(batches, chapter=args.chapter, lane=args.lane, every=args.checkpoint_every)
+    md = render(batches, chapter=args.chapter, lane=args.lane, every=args.checkpoint_every,
+                glossary_v=glossary_version(REPO))
     out_path = REPO / "docs" / "superpowers" / "plans" / f"translate-{args.chapter}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")

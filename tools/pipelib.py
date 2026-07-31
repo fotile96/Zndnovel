@@ -2,11 +2,16 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import unicodedata
 
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "data"
-WORK = REPO / "work"
+# ZND_DATA/ZND_WORK：测试专用的环境变量覆盖（Critical 1）。名字、类型、默认值都不变，
+# 纯属加一层可覆盖——不设置时行为与之前完全一致。存在的唯一理由：让子进程形式跑
+# tools/*.py 的 hermetic 测试（如 test_e2e_dryrun.py）能把输出目录重定向到 tmp_path，
+# 不写真实 work/ 树，同时不动 DATA（多数测试仍要读真实 data/）。
+DATA = Path(os.environ.get("ZND_DATA", REPO / "data"))
+WORK = Path(os.environ.get("ZND_WORK", REPO / "work"))
 
 
 def dumps(obj) -> str:

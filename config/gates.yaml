@@ -1,12 +1,19 @@
 # 锚在 s2s_40 而非 s2s_10——s2s_10 自身只有 card_gate/goto，无 play/subcall，dag 里
 # 不产生 unit，门控会因 first_pos 恒为 None 而落空（Task 5 评审 Finding 2）。s2s_40
-# 「また、いつもの生活」是本路线第 1 个真正产生 unit 的 s2 场景（s2s_10 首讲无卡31 →
-# 跳过日常段 → s2s_20 同样无 play → s2s_40 → s2s_50 GAMEOVER，见 route_plan.yaml）。
+# 「また、いつもの生活」是本路线第 1 个真正产生 unit 的 s2 场景（持卡31 → 跳过日常段
+# 直奔 s2s_60；无卡31 → s2s_20 → s2s_40「また、いつもの生活」→ s2s_50 GAMEOVER，
+# 见 route_plan.yaml）。
 - {unit_state: s2s_40,  requires_cards: [133]}   # 进入 s2 前需 Section1 梗概
 - {unit_state: s3s_10,  requires_cards: [134]}
 # 日记章入口：原计划写 requires_cards: [177]，但 sceneId2aCard.s5s_20 = 177——
 # 177 正是 s5s_20 自身的场景卡，按构造不可能在该场景首次出现前持有（门控恒不满足）。
-# 改用 crd_177 的前置卡集合＝全部章节梗概卡，语义即「向彩野上交全部梗概后开启第 5 章」。
+# 改用 crd_177 的答案卡集合（crds["177"].answers，非 .req——.req 是 [25,133..138,145]，
+# 多一张卡 25；这里列的 133..138,145 是 answers）＝全部章节梗概卡，语义即「向彩野上交
+# 全部梗概后开启第 5 章」。另注：门控只能锚在某状态第一个 unit 上（check_timeline.py
+# 的 first_pos 只记首次出现），所以当卡片单元与场景单元共享同一个 state（如 s5s_20
+# 既是场景又是卡）时，锚在该 state 上的门控测的是"首次出现时"的 held，不是"做完卡后"
+# 的 held——这正是当初必须把 [177] 改写成上面这组 answers 的根本原因，写清楚免得后人
+# 「还原」成 [177]。
 - {unit_state: s5s_20,  requires_cards: [133, 134, 135, 136, 137, 138, 145]}
 - {unit_state: s7f-10,  requires_cards: [140]}   # 主菜单 Section7
 - {unit_state: s8s_10,  requires_cards: [141]}

@@ -40,8 +40,11 @@ def _grant(held, unit, dag, scene2card, file_funcs, id_func):
                 held.update(dag["scene_meta"].get(ev["subcall"], {}).get("gets", []))
     elif kind == "card":
         cid = scene2card.get(state)
-        held.add(cid)
-        held.update(dag["crds"].get(str(cid), {}).get("gets", []))
+        # state 若不在 scene2card 里（当前从展开器不可达），cid 是 None——_grant
+        # 是刻意独立于展开器的重放，不该被这种畸形输入毒化自己的 held 状态。
+        if cid is not None:
+            held.add(cid)
+            held.update(dag["crds"].get(str(cid), {}).get("gets", []))
     elif kind in ("fscene", "script"):
         for fn in file_funcs.get(unit.get("src"), ()):
             held.update(dag["scene_meta"].get(fn, {}).get("gets", []))

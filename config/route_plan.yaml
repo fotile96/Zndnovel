@@ -80,7 +80,7 @@
 - script: {file: snr_crd_132}
 - script: {file: snr_crd_133}          # 第 1 章梗概卡（s1f 完成时授予）
 # ---- 第 2 章 ----
-- story:  {enter: s2s_10,   until: s2s_50}       # 无卡31 → 日常段跳过 → GAMEOVER
+- story:  {enter: s2s_10,   until: s2s_50}       # 持卡31 → 跳过日常段直奔 s2s_60；无卡31 → s2s_20→s2s_40「また、いつもの生活」→ s2s_50 GAMEOVER
 - fragment_sweep: {}
 - replay: {at: s2s_60,      pick: 1, until: s2s_60}
 - replay: {at: s2s_80_sel,  pick: 1, until: s2s_90}

@@ -130,3 +130,16 @@ Task 11: review — spec ✅ / quality Approved，零 Critical/Important。评�
 Task 11: minor (deferred): 测试未断言 len(src)>0（若 batch 1 的 ids 退化为空，build_context 仍 exit 0、check_batch 对空 id 集合平凡通过 → 测试会在空输入上变绿）；〔〕vs【】的选择理由未写进最终 docstring（后来者可能"简化"回【占位】而重新依赖那个盲区）；commit type `test:` 不在 CLAUDE.md 的 enum 里（brief Step 3 原文如此，属计划层的不一致）；tmp_path 参数未用（brief 原文如此，已在模块 docstring 自述）
 Task 11: complete (commits c58f4d1..2776d67, review clean after 3 rounds)
 # ==== P1b Task 4–11 全部完成；全分支最终评审（opus，裁剪包 162KB）已派发 ====
+
+# ==== 全分支最终评审（opus）====
+Final review: **Ready to merge = With fixes**。评审者独立重建了四个生成物（在 scratchpad 的隔离副本里跑 build_dag/gen_timeline/gen_batches）→ 与已入库产物**逐字节一致**；独立重算覆盖（16693/16693、0 重复 0 缺失）、seqs 不变量（173 个 main 批 0 违例）、编号连续；并对展开器插桩确认**全部 89 条 story/replay 移动都精确停在其声明的 until**（无静默越界）；59 条 script 插入的 crd 里 58 条是空 req 的 stub、第 59 条是计划点名的 crd_0；12 个空 ids unit 全部是合法的无文本函数
+Final review — Critical×1: tests/test_e2e_dryrun.py 写**生产** work/ 树，而 .claude/cloud-setup.sh:274 把 pytest 作为冒烟、CLAUDE.md 规定每次云端会话第一件事就跑它，work/ 又在快照复用的容器里留存 → 存在「译者做完批次1 → 下次开机 pytest 覆盖 draft 与 pass 标记 → 操作者走 append_forward」把占位文本带着通过的哈希守卫写进 append-only forward.jsonl 的具体路径；批次 1 恰是 P2 第一个要翻的批
+Final review — Important×4: ②timeline 的结构信息（76 条 marker 的 text/recap、457 个 unit 的 title/kind/state、173 个批的 seqs）全是「只写不读」，build_context 一条不渲染 → 前缀把同一 _sel 的互斥分支首尾相接（实测批次 30 前缀 3713 行无任何分隔），且 Task 7 修复轮删 env["timeline"] 把「缺功能」变成了「看不见的缺功能」 ③chapter 是 lua 文件家族码而非叙事章节：23% 语料压成一个 "crd" 伪章、main 车道 173 批里有 121 段章别切换 → cc/api-B 的「当前章已译 zh」规则实际把 crd 批的前缀变成「全书 crd、零故事」、故事批则丢掉全部现实层 ④extra 批的 chapter 是文件名、永不等于任何 ledger chapter → cc/api-B 下前缀恒空（实测批次 174） ⑤resolve.py:28 的 sorted(m) 在混合 int/str id 上抛 TypeError → 任何 extra 批入 forward 后 --require-complete 即死
+Final review — 裁决复核：gates.yaml 的 s5s_20 改法**站得住**（且 s2s_10→s2s_40 重锚 + 门控落空报错「strictly better than the plan」）；「按散文/接口总表而非 Step 3 参考码」对 Task 6/7 **站得住**（含 SYN_CARDS 删除）；Task 8 的 _n/_r 改判软规则**站得住且是正确的**；Task 11 假草稿三轮改形**技术上站得住**——但**有一处异议**：Task 7 修复轮把 env["timeline"] 当死元素删掉**不站得住**，它之所以死是因为 marker 渲染从没实现
+Final review — 系统性问题：A 时间轴→上下文的链接只剩 id，所有结构字段（marker/title/seqs）都是只写不读，因为没有哪个任务「拥有」把结构渲染进 prompt 这件事；B 一个 chapter 字段被三个消费者赋予三种含义；C id 类型多态跨五个工具、只有三个处理了
+# 控制器分诊：Critical 1 + Important 2 + Important 5 + 两处必须合并前修的注释 + 三处便宜 Minor → 进最后一轮修复（brief=final-fix-brief.md，已派发）
+# **park 给用户裁决（不在修复轮）**：Important 3/4 的 chapter 语义——修它要改前缀窗口策略（评审建议改用 timeline 位置窗口，即 seqs 的用武之地），属会改变 P2 试点测量对象的设计分叉；以及 recall.py 是否该参照 patches.jsonl（等于给 recall 加新语义）
+Final fix wave: 4 个 commit（629614a pipelib ZND_DATA/ZND_WORK + e2e hermetic / 10c6f02 前缀渲染 timeline 结构 / 303d146 resolve 混合 id 排序 / 85541c3 两处注释订正 + check_timeline None 守卫），105 passed（95+10）
+Final fix wave 控制器独立核验：①清空 work/ → build_context batch 1 → 记 sha256 → 跑 pytest → 再记 → 指纹完全相同，pytest 不再动真实 work/ ✓ ②batch 30 的前缀现有 ### 【场景】… 标题与 12 处「讲述指针」marker，标题层级统一 ✓ ③baseline 尾部不变量仍逐字节成立 ✓ ④resolve 混合 id 不抛且 sorted 带 key ✓ ⑤两处注释已订正 ✓ → 再评审已派发
+Final fix wave 补修：实现者顺带发现 gates.yaml:3-4 有与已订正处同一类的说反，未擅自处理而是上报；控制器核 dag.json 确认属实（s2s_10 seq = [{card_gate:31,held:true},{goto:s2s_60},{goto:s2s_20}]，card_gate 判真时不 skip → 持卡才跳过日常段）→ 指示一并修（5e242ca），105 passed 不变
+Final fix wave 实现者顾虑与控制器判断：①_render_prefix 给 marker 加了「至少已渲染过一个 unit」的门槛（批次 70 不加会堆出 34 条孤立 marker 墙）——判为合理的设计收紧，保留，交再评审独立判 ②build_context 的 work_root 分支超出 brief 逐字枚举——Critical 1 的必要延伸，保留 ③会话中途 work/ 旧文件消失系控制器自身核验时清空，与改动无关

@@ -1,4 +1,4 @@
-from tools.check_timeline import check
+from tools.check_timeline import check, _grant
 from tests.test_gen_timeline import DAG2, LEDGER2, S2C
 from tools.gen_timeline import Expander
 
@@ -147,3 +147,15 @@ def test_check_accepts_req_satisfied_by_unit_funcs_attached_orphan_via_id_lookup
     永远缺 141，card unit w_20 的 req 检查报错。"""
     errs = check(_c3_timeline(), LEDGER_C3, DAG_C3, S2C_C3, gates=[])
     assert errs == []
+
+
+def test_grant_ignores_card_unit_with_no_scene2card_mapping():
+    """Minor：card unit 的 state 若不在 scene2card 里（当前从展开器不可达），
+    scene2card.get(state) 恒为 None——_grant 不该把 None 塞进 held（它是刻意
+    独立于展开器的重放，不该被这种畸形输入毒化自己的状态）。去掉
+    `if cid is not None:` 守卫，本测试必红（held == {None}）。"""
+    held = set()
+    unit = {"unit_kind": "card", "state": "no_such_state", "ids": []}
+    _grant(held, unit, {"crds": {}}, {}, {}, {})
+    assert None not in held
+    assert held == set()

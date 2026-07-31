@@ -1,0 +1,19 @@
+# 全书正典路线（route_plan DSL）。
+#
+# 这是 Task 5 Step 1 留下的起步骨架：仅含 task-5-brief.md 里给出的示例 10 条移动，
+# 覆盖第 1 章开局的一小段（首讲撞墙 → 教程做卡 → 首过默认路线段 → 探索 → 一次
+# replay 回溯）。全书正典路线由主会话在 Step 2 依 analysis/dag_all.txt + CLAUDE.md
+# 章节流逐章续写；每写一章跑一次 gen_timeline.py && check_timeline.py 校验。
+#
+# DSL：顶层是一个 list，每项恰好一个键，键 ∈ {story, pool, script, fragment_sweep,
+# replay}，值是该 Expander 方法的参数 dict（详见 tools/gen_timeline.py 的 run_plan）。
+- story:          {enter: s1s_10, until: s1s_20}          # 首讲撞墙（cost100 设计节奏）
+- pool:           {func: "snr_common:comSectionStoryEndAyanoTime"}   # Time over 演出首次播出
+- script:         {file: snr_crd_0}                        # 教程做卡剧情
+- fragment_sweep: {only: [2]}                              # 制成卡2 → OP
+- story:          {enter: s1s_30, choices: {}, until: s1s_140}       # 首过默认路线段
+- story:          {enter: s1s_150, choices: {}, until: s1s_200_sel}  # 探索场景
+- pool:           {func: "snr_common:comSectionMapmoveAyanoIn"}      # 首个探索场景后放置
+- story:          {enter: s1s_210, choices: {}, until: s1s_260_sel}
+- fragment_sweep: {}
+- replay:         {at: s1s_35_sel, pick: 2, until: s1s_70}

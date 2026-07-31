@@ -1,4 +1,6 @@
-from tools.gen_timeline import Expander
+import pytest
+
+from tools.gen_timeline import Expander, parse_scene2card, run_plan
 
 DAG = {"states": {
     "a_10": {"file": "snr_a_10_s", "scene": "scene_a_10", "title": "开场",
@@ -244,3 +246,67 @@ def test_replay_route_single_write():
 
     expected_route = ["b_10", "b_20_sel", "b_30", "b_20_sel", "b_40"]
     assert ex.route == expected_route, f"route should be {expected_route}, got {ex.route}"
+
+
+# Task 5: parse_scene2card / run_plan
+def test_parse_scene2card_skips_keyword_and_keeps_real_entries():
+    """跳过 name == "keyword" 的反编译噪声行（键重复覆盖）；保留真实场景→卡号条目，
+    容忍行内前导空白与无关邻近行。"""
+    lua_text = '''\
+sceneId2aCard = {}
+sceneId2aCard.sof_10 = 1
+sceneId2aCard.s1s_20 = 2
+sceneId2aCard.keyword = 95
+sceneId2aCard.keyword = 96
+sceneId2aCard.keyword = 97
+    sceneId2aCard.s1s_30 = 3
+cHan2Zen = function(p0)
+    local v0
+end
+'''
+    result = parse_scene2card(lua_text)
+    assert result == {"sof_10": 1, "s1s_20": 2, "s1s_30": 3}
+    assert "keyword" not in result
+
+
+def test_run_plan_dispatches_all_move_kinds_in_order():
+    """run_plan 按声明顺序把每条移动分派到 Expander 对应方法：
+    story/fragment_sweep/replay 的 DSL 键名与方法形参一致，直接 **展开；
+    pool 的 "func"、script 的 "file" 换名为方法的位置参数（file_func/file_stem）。
+    用 DAG2/LEDGER2/S2C 夹具跑一遍完整的 5 种移动，核对 timeline 形状与 held。"""
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    moves = [
+        {"story": {"enter": "b_10", "until": None}},
+        {"fragment_sweep": {}},
+        {"pool": {"func": "snr_common:poolFn"}},
+        {"script": {"file": "snr_crd_11"}},
+        {"replay": {"at": "b_20_sel", "pick": 2, "until": None}},
+    ]
+    run_plan(ex, moves)
+
+    shape = [(u["type"], u.get("unit_kind"), u.get("state"), u.get("ids")) for u in ex.timeline]
+    assert shape == [
+        ("unit", "scene", "b_10", [10]),
+        ("unit", "scene", "b_20_sel", [20]),
+        ("unit", "scene", "b_30", [30]),
+        ("unit", "card", "b_10", [51]),
+        ("unit", "card", "b_20_sel", [52]),
+        ("unit", "fscene", None, [60]),
+        ("unit", "pool", None, [70]),
+        ("unit", "script", None, [51]),
+        ("marker", None, None, None),
+        ("unit", "scene", "b_40", [40]),
+    ]
+    assert ex.held == {11, 12}
+
+
+def test_run_plan_rejects_unknown_move_key():
+    """未知的顶层移动键必须明确报错（route_plan 是人工手写资产，typo 须当场暴露），
+    异常信息须指明是第几条移动，便于定位。"""
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    moves = [
+        {"story": {"enter": "b_10", "until": None}},
+        {"teleport": {"to": "nowhere"}},
+    ]
+    with pytest.raises(ValueError, match=r"第 2 条"):
+        run_plan(ex, moves)

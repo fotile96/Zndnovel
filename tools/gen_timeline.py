@@ -1,5 +1,7 @@
 """route_plan DSL → data/timeline.jsonl 展开器。"""
 import fnmatch
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -154,3 +156,85 @@ class Expander:
         """该函数全部 narrative ids 为一个 unit，用于 comSectionMapmoveAyanoIn 等函数级别复用。"""
         f, fn = file_func.split(":")
         self.emit_unit("pool", f, None, file_func, [fn])
+
+
+SCENE2CARD_RE = re.compile(r'^sceneId2aCard\.(\w+) = (-?\d+)')
+
+
+def parse_scene2card(lua_text: str) -> dict:
+    """从 snr_common.lua 文本中解析 sceneId2aCard.<scene> = N 行为场景→卡号映射。
+    跳过 name == "keyword" 的行（反编译噪声，同一键被重复赋值覆盖，全文共 38 处，
+    无场景语义）；真实条目（每个场景/选择场景各一张卡）应为 157 条。"""
+    result = {}
+    for line in lua_text.splitlines():
+        m = SCENE2CARD_RE.match(line.strip())
+        if not m:
+            continue
+        name = m.group(1)
+        if name == "keyword":
+            continue
+        result[name] = int(m.group(2))
+    return result
+
+
+MOVE_KEYS = ("story", "pool", "script", "fragment_sweep", "replay")
+
+
+def run_plan(ex, moves):
+    """按 route_plan.yaml 顶层 list 的顺序执行移动。每项须为恰好一个键的 dict，
+    键 ∈ MOVE_KEYS，值是该 Expander 方法的参数 dict。
+    story/fragment_sweep/replay 的 DSL 参数名与方法形参一一对应，直接以 **kwargs 展开；
+    pool/script 的 DSL 参数名（func/file）对应方法的单个位置参数（file_func/file_stem），
+    在此显式换名。未知的移动键立即抛异常，异常信息指明是第几条移动（1-based，与
+    route_plan.yaml 里从上到下数的条目序号一致，便于定位 typo）。"""
+    for i, move in enumerate(moves, start=1):
+        if not isinstance(move, dict) or len(move) != 1:
+            raise ValueError(f"route_plan 第 {i} 条移动应为恰好一个键的 dict，得到 {move!r}")
+        (kind, params), = move.items()
+        params = params or {}
+        if kind == "story":
+            ex.story(**params)
+        elif kind == "fragment_sweep":
+            ex.fragment_sweep(**params)
+        elif kind == "replay":
+            ex.replay(**params)
+        elif kind == "script":
+            ex.script(params["file"])
+        elif kind == "pool":
+            ex.pool(params["func"])
+        else:
+            raise ValueError(f"route_plan 第 {i} 条移动使用未知键 {kind!r}，"
+                              f"合法键：{MOVE_KEYS}")
+
+
+def main():
+    import yaml
+    route_plan = yaml.safe_load((REPO / "config" / "route_plan.yaml").read_text(encoding="utf-8")) or []
+    unit_funcs = yaml.safe_load((REPO / "config" / "unit_funcs.yaml").read_text(encoding="utf-8")) or {}
+    dag = json.loads((DATA / "dag.json").read_text(encoding="utf-8"))
+    ledger_rows = read_jsonl(DATA / "ledger.jsonl")
+
+    lua_text = (REPO / "lua_scripts" / "snr_common.lua").read_text(encoding="utf-8")
+    scene2card = parse_scene2card(lua_text)
+    s2c_path = DATA / "scene2card.json"
+    s2c_path.parent.mkdir(parents=True, exist_ok=True)
+    s2c_path.write_text(
+        json.dumps(scene2card, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
+        encoding="utf-8")
+
+    ex = Expander(dag, ledger_rows, unit_funcs, scene2card=scene2card)
+    run_plan(ex, route_plan)
+
+    timeline = [{"seq": i, **row} for i, row in enumerate(ex.timeline, start=1)]
+    write_jsonl(DATA / "timeline.jsonl", timeline)
+
+    n_unit = sum(1 for r in timeline if r["type"] == "unit")
+    n_marker = sum(1 for r in timeline if r["type"] == "marker")
+    covered = {i for r in timeline if r["type"] == "unit" for i in r["ids"]}
+    print(f"scene2card={len(scene2card)} moves={len(route_plan)} "
+          f"unit={n_unit} marker={n_marker} covered_ids={len(covered)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

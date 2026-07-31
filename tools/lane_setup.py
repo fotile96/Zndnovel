@@ -90,10 +90,20 @@ def verify(lanes_root=None, repo=None) -> list:
     recorded = json.loads(mp.read_text(encoding="utf-8"))["lanes"]
     drift = []
     for lane, want in recorded.items():
-        got = freeze_hashes(lanes_root / lane, repo)
+        try:
+            got = freeze_hashes(lanes_root / lane, repo)
+        except FileNotFoundError as e:
+            # 车道整个被删、或车道内某个冻结文件被误删/改名——freeze_hashes 触底时
+            # 抛的就是 FileNotFoundError（sha256_file 读不到文件，或
+            # _glossary_max_path 找不到 glossary.v*.yaml）。verify 是漂移安全网，
+            # 一条车道损坏不该让整次校验栈回溯，记一条可诊断描述、继续查其余车道。
+            drift.append(f"{lane}: 冻结文件缺失或车道损坏（{e}）")
+            continue
         for k, v in want.items():
-            if got.get(k) != v:
-                drift.append(f"{lane}: {k} 漂移（记录 {v[:12]}… 实际 {got.get(k, '缺失')[:12]}…）")
+            # got 此刻要么完整覆盖 want 的键集（freeze_hashes 正常返回），要么已在
+            # 上面 except 分支被拦下——不存在"部分键缺失"的中间态，故直接 got[k]。
+            if got[k] != v:
+                drift.append(f"{lane}: {k} 漂移（记录 {v[:12]}… 实际 {got[k][:12]}…）")
     return drift
 
 

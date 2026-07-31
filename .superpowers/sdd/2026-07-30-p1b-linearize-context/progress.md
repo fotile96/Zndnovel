@@ -54,3 +54,20 @@ Task 5 Step1: implementer DONE (6e7b953+fbbb5ca)，62 passed（59+3），scene2c
 #   跨章顺序：序→s1→s2→s3 主体→s4→回补 s3 终局(需卡138)→s3fc 强制段→s5→s6→s7f→s8→回补 s4s_100_sel(需卡142)→EX1→EX2→收尾 sweep
 # 干跑暴露两条尚未落地的产码规则 → 开 Hotfix C（brief=hotfix-c-brief.md）：C1 emit_unit 对实际命中的全部函数（含 unit_funcs 附挂）生效发卡（卡141 链）；C2 全局 id 去重（s4 两个探索场景共用 dispatch 函数、物音被双 play，约 180 行重复）；C3 check_timeline 的 held 改为「由 timeline 自身可导出」的超集（签名无 unit_funcs，不能照抄展开器口径）
 # 控制器裁决（gates.yaml）：计划给的初值 `{unit_state: s5s_20, requires_cards: [177]}` **按构造不可满足**——sceneId2aCard.s5s_20 = 177，即 177 正是 s5s_20 自己的场景卡，永远不可能在该场景首次出现前持有。改为 crd_177 的前置卡集合 [133,134,135,136,137,138,145]，语义即 CLAUDE.md 的「向彩野上交全部章节梗概后开启第 5 章」。计划原文允许「Task 5 编路线时可增补」gates.yaml，故按 Task 5 内容工作处理；已在检查点材料里单列请用户复核。
+Hotfix B: implementer DONE (47716ec+3c7c609)，66 passed（62+4，逐条 RED→GREEN 且验证隔离），dag.json 重生成双跑字节一致（仅新增 gets 字段，4 条 crd 非空）
+Hotfix B: 实现者注记——测试 1 按函数归属放进 test_build_dag.py（与简报字面的两文件表述有出入，条目内容无歧义）；B2 的 fscene _apply_meta 循环将被 Hotfix C 的统一规则取代（未抢跑）
+# 控制器实测（B 落地后跑真实管线）：仍有 重复 92 / 缺失 1160 / 门控缺卡 141,142,143 —— 与预期一致，正是 Hotfix C 要解的三条
+Hotfix C: implementer DONE (f640067+7bd3f27)，69 passed（66+3）
+Hotfix C 后控制器验收：gen_timeline → unit=457 marker=76 covered_ids=16693（=全部 narrative 行数）；check_timeline → OK 退出码 0；双跑字节一致；seq 1..533 连续
+Task 5 Step4: data/timeline.jsonl + data/scene2card.json 入库
+Task 5: review（020896c..3c3d884，opus，裁剪评审包）— spec ✅ / quality Approved，零 Critical。评审者独立复核了三条承重结论：①发卡统一到 emit_unit 后无任何路径少发卡（含 replay 折叠路径；end-state held == {1..195} 佐证）②check_timeline 的 _grant 可证是展开器口径的超集（路 1 在最早携带该 id 的 unit 处发卡，held 单调）③去重实际只影响 2 个单元（s4s_300→s4s_310、s4s_450_sel→s4s_210_sel，均为章内共用 dispatcher）；另独立核验 196 个 crd 脚本恰好各出现一次（137 card + 59 script，零重叠零遗漏）
+Task 5: Important×3 → fix round 1：①replay 无条件发「回溯/上一轮走了默认分支」，实测 30 条 marker 的 at 状态当时从未讲过，而 marker.recap 是要拼进翻译上下文的 → 按是否已讲发两种文案 ②gates.yaml 的 s2s_10 恒不触发（该状态无 play 不产 unit）＝假保险丝 → 重锚到 s2s_40 + 让「门控状态从未作为 unit 出现」变成错误 ③检查点表格数字陈旧（460/140/12 条，实为 457/137/11 条）——控制器自己的文档，由控制器直接从已入库 timeline 重生成（非产码，不入修复轮）
+Task 5: minor (deferred): route_plan:83 注释把卡31 的分支说反了（持卡31 才跳过日常段）；gates.yaml:5 注释说「crd_177 的前置卡集合」但实际略去了卡25（已验证卡25 在 s5s_20 之前做成，含不含都过）；_matched_funcs 每个 unit 算两遍；run_plan 的零键/多键守卫无测试；unit_funcs 把全库无调用点的 scene_s3s_helper_v35 挂进活单元（A 段覆盖逼的，下游宜有不可达标记）
+Task 5: ⚠️ 评审提醒（控制器待办，Task 6 落地时查）：timeline 有 12 个 ids 为空的 unit，以及一个 847 id 的巨型 unit（e1s_10，EX1 的 25 連場在 DAG 里就是一个状态）——gen_batches 必须能容忍这两种形态
+Task 5: fix round 1/5 — Finding1 replay marker 分首访/重讲两型（4f730be，含 timeline 重生成入库）+ Finding2 门控落空报错、s2s_10 重锚 s2s_40（a072f42）；71 passed（69+2 判别性用例），check_timeline 仍 OK 退出码 0；控制器独立重放 timeline 核对 marker 归类：重讲型 46 / 首访型 30、错分 0 条；再评审已派发（sonnet，裁剪包）
+Task 5: fix round 1 再评审 — Finding1/2 均 ADDRESSED（评审者独立重放 timeline：两型归类 0 错分、「默认分支」字样全库归零；门控落空分支与 s2s_40 重锚均核实，check_timeline 仍 OK）。**但 fix diff 自身引入新 Important**：重讲型 marker 无条件写「本次选第 N 项」，而 s2s_380/s3s_375/s3s_410/s3s_600/s4s_70 在 dag 里没有任何 choice 事件——46 条重讲 marker 里有 7 条（seq 157/229/252/254/262/346/500）在捏造玩家选项，与 Finding1 同类。两边都没抓到的原因：新用例的重讲夹具恰是真选择节点，控制器那次「错分 0」只核了归类没核 pick 声明 → 进 fix round 2
+Task 5: fix round 2/5 — 重讲 marker 仅在 at 真有 choice 事件时才声称「选第 N 项」（2ef6e0e，含 timeline 重生成入库）；73 passed（71+2 判别性用例）；控制器独立全量核对（只读 timeline+dag 自写脚本）：归类违例 0、pick 声明违例 0、76 marker = 首访 30 + 重讲 46（其中 39 条有 choice 才带选项声明、7 条无 choice 已去掉）；再评审已派发
+Task 5: fix round 2 再评审 — ADDRESSED（评审者独立重放 dag+timeline：76 marker = 首访 30 + 重讲 46，其中 39 条带选项声明且每个 pick 都对得上 dag 里真实存在的 choice 值、7 条无 choice 已去声明；另实测 at 不在 dag 时 marker 构造不抛、随后由 story() 抛清晰 KeyError）。无新增 C/I
+Task 5: minor (deferred，再评审注记): 「已讲过+有 choice」分支只校验 choice 事件存在、不校验 pick 本身是否在该状态的真实选项集合里（当前 39 条全部有效，未来 route_plan 写错 pick 会重现同类假陈述）；「at 不在 dag['states'] 时 marker 构造不抛」这条行为无专用用例
+Task 5: complete (commits 020896c..5ba829f, review clean after 2 fix rounds)
+# BASE(T6 前)=5ba829f

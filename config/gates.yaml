@@ -1,4 +1,8 @@
-- {unit_state: s2s_10,  requires_cards: [133]}   # 进入 s2 前需 Section1 梗概
+# 锚在 s2s_40 而非 s2s_10——s2s_10 自身只有 card_gate/goto，无 play/subcall，dag 里
+# 不产生 unit，门控会因 first_pos 恒为 None 而落空（Task 5 评审 Finding 2）。s2s_40
+# 「また、いつもの生活」是本路线第 1 个真正产生 unit 的 s2 场景（s2s_10 首讲无卡31 →
+# 跳过日常段 → s2s_20 同样无 play → s2s_40 → s2s_50 GAMEOVER，见 route_plan.yaml）。
+- {unit_state: s2s_40,  requires_cards: [133]}   # 进入 s2 前需 Section1 梗概
 - {unit_state: s3s_10,  requires_cards: [134]}
 # 日记章入口：原计划写 requires_cards: [177]，但 sceneId2aCard.s5s_20 = 177——
 # 177 正是 s5s_20 自身的场景卡，按构造不可能在该场景首次出现前持有（门控恒不满足）。

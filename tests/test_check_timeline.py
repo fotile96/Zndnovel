@@ -27,6 +27,17 @@ def test_gate_violation_detected():
                  gates=[{"unit_state": "b_10", "requires_cards": [99]}])
     assert any("门控" in e and "99" in e for e in errs)
 
+def test_gate_reports_error_when_unit_state_never_appears():
+    """Task 5 评审 Finding 2：门控的 unit_state 若从未作为 unit 出现（如该状态本身
+    无 play/subcall，dag 里不产生 unit，真实数据里的 s2s_10 即是一例），
+    first_pos.get() 恒为 None——过去静默 continue，这条门控恒过、形同虚设；
+    现在必须报错，错误串仍含"门控"关键词（契约的一部分）。
+    去掉 check_timeline 里 `if pos is None: errs.append(...)`（改回纯 continue），
+    此测试必红。"""
+    errs = check(_full_timeline(), LEDGER2, DAG2, S2C,
+                 gates=[{"unit_state": "nonexistent_state", "requires_cards": [1]}])
+    assert any("门控" in e and "nonexistent_state" in e for e in errs)
+
 def test_crd_req_violation_detected():
     tl = _full_timeline()
     card_units = [u for u in tl if u.get("unit_kind") == "card"]

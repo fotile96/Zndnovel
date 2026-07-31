@@ -101,6 +101,10 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
     for g in gates:
         pos = first_pos.get(g["unit_state"])
         if pos is None:
+            # 门控状态从未作为 unit 出现（如状态本身无 play/subcall，dag 里不产生
+            # unit）：静默跳过会让这条门控恒过，形同虚设（Task 5 评审 Finding 2）；
+            # 显式报错，让作者把门控改锚到真的会出现的状态。
+            errs.append(f"门控: {g['unit_state']} 从未作为 unit 出现（门控落空）")
             continue
         held2 = set()
         for u in timeline[:pos]:

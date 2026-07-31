@@ -159,9 +159,31 @@ class Expander:
                 self.emit_unit("fscene", runf, None, runf, fs)
 
     def replay(self, at, pick, until=None):
-        """emit 回溯标记，然后沿状态图重讲，已 emit 过的状态折叠（不发 unit，只推进状态与 route）。"""
-        self.emit_marker(f"【讲述指针回溯至 {at}，本次选 {pick}】",
-                         recap=f"重讲：上一轮在 {at} 走了默认分支。")
+        """emit 讲述指针标记，然后沿状态图续讲，已 emit 过的状态折叠（不发 unit，只推进状态与
+        route）。config/route_plan.yaml 把 replay 当通用的「在状态 X 续讲」原语用（编写规约
+        第 1 条：每章首讲用 story，其后一律 replay）——at 未必讲过，marker 文案须按 at 此刻
+        是否已经讲过、以及 at 在 dag 里是否真有 choice 事件分三种，字面陈述与实际讲述历史
+        相符（Task 5 评审 Finding 1 + 修复轮 2）：
+        - at 已讲过 且 at 的 seq 里有 choice 事件（真选择节点的真·重讲）：保留"回溯"语义，
+          且可以声称"选第 N 项"——这是玩家在游戏里真实能做的选择；
+        - at 已讲过 但 at 的 seq 里没有 choice 事件（只有线性 goto，或 card_gate/
+          route_has 这类由引擎而非玩家解的条件分支）：同样是"回溯"，但不能编造"选了第 N
+          项"——游戏脚本里根本没有对应的分支，pick 对这类状态没有玩家可见的选项语义；
+        - at 未讲过（首次讲到）：发首访 marker，不用"回溯"/"上一轮"这类词——这一刻并不存在
+          "上一轮"，pick 同样没有意义。
+        at 若不在 dag["states"] 里，这里不抛异常（用 .get(at, {})），留给随后的 story()
+        抛出更清楚的 KeyError。"""
+        seq = self.dag["states"].get(at, {}).get("seq", [])
+        has_choice = any("choice" in ev for ev in seq)
+        if at in self.emitted_states and has_choice:
+            self.emit_marker(f"【讲述指针回溯至 {at}，本次选第 {pick} 项】",
+                             recap=f"重讲：指针回到 {at}，本次改选第 {pick} 项。")
+        elif at in self.emitted_states:
+            self.emit_marker(f"【讲述指针回溯至 {at}】",
+                             recap=f"重讲：指针回到 {at}，从这里再讲一遍。")
+        else:
+            self.emit_marker(f"【讲述指针移至 {at}】",
+                             recap=f"讲述从 {at} 继续。")
         before = set(self.emitted_states)
         saved_emit = self.emit_unit
         def dedup_emit(kind, src, state, title, funcs):

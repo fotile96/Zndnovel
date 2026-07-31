@@ -440,3 +440,89 @@ def test_emit_unit_dedups_ids_globally_across_units_sharing_a_func():
     assert units[1]["ids"] == [602]               # 第二个 unit 里共享的 601 被滤空
     assert units[1]["title"] == "乙"               # unit 本身仍完好：state/title 不受影响
     assert units[1]["unit_kind"] == "scene"
+
+
+# Task 5 评审 Finding 1：replay 在 route_plan.yaml 里被当成通用的「在状态 X 续讲」
+# 原语用（编写规约第 1 条：每章首讲用 story，其后一律 replay），at 未必讲过。
+# marker 文案必须与该时刻的实际讲述历史相符：at 已讲过才能说"回溯"/"上一轮"。
+def test_replay_marker_text_matches_actual_narration_history():
+    """同一套 DAG2/LEDGER2/S2C 上验证两种情形：
+    - 对已讲过的状态 replay（真·重讲）：marker 应含"回溯"字样，且不预设上一轮
+      选了哪一支；
+    - 对未讲过的状态 replay（route_plan 常见用法：首次讲到）：marker 应是首访型，
+      不含"回溯"/"上一轮"这类预设了"已经讲过"的字样。
+    去掉 replay() 里 `if at in self.emitted_states` 的分支判断（比如让它总走
+    "回溯"分支），此测试必红——未讲过的状态也会被打上"回溯"/"上一轮"字样，
+    与实际讲述历史不符。"""
+    # 情形一：b_20_sel 已经讲过，对它 replay 是真·重讲
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)          # 讲过 b_10, b_20_sel, b_30（默认支）
+    assert "b_20_sel" in ex.emitted_states
+    ex.replay(at="b_20_sel", pick=2, until=None)
+    markers = [e for e in ex.timeline if e["type"] == "marker"]
+    assert len(markers) == 1
+    assert markers[0]["text"] == "【讲述指针回溯至 b_20_sel，本次选第 2 项】"
+    assert markers[0]["recap"] == "重讲：指针回到 b_20_sel，本次改选第 2 项。"
+
+    # 情形二：b_40 从未讲过，对它 replay 只是"续讲"，不是"回溯"
+    ex2 = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex2.story("b_10", {}, until="b_20_sel")   # 只讲到 b_20_sel；b_30/b_40 都未讲过
+    assert "b_40" not in ex2.emitted_states
+    ex2.replay(at="b_40", pick=1, until=None)
+    markers2 = [e for e in ex2.timeline if e["type"] == "marker"]
+    assert len(markers2) == 1
+    assert markers2[0]["text"] == "【讲述指针移至 b_40】"
+    assert markers2[0]["recap"] == "讲述从 b_40 继续。"
+    assert "回溯" not in markers2[0]["text"] and "回溯" not in markers2[0]["recap"]
+    assert "上一轮" not in markers2[0]["text"] and "上一轮" not in markers2[0]["recap"]
+    # 首访型 unit 仍正常 emit（b_40 本身照常出现在 timeline 里）
+    assert "b_40" in [u["state"] for u in ex2.timeline if u["type"] == "unit"]
+
+
+def test_replay_marker_omits_pick_claim_for_state_without_choice_event():
+    """Task 5 评审修复轮 2：重讲型 marker 不能对没有 choice 事件的状态编造"本次选
+    第 N 项"。真实数据反例：data/dag.json 里 s2s_380/s3s_375/s3s_410/s3s_600/
+    s4s_70 这几个状态的 seq 只有线性 goto，或 card_gate/route_has 这类由引擎而非
+    玩家解的条件分支——完全没有 choice 事件，却在已入库的 timeline 里被打上
+    "本次选第 1 项"，是凭空捏造的玩家选择（游戏脚本里根本没有对应分支）。
+
+    用 DAG2 的 b_10 复现最小场景：b_10 的 seq 只有 play+goto，无 choice；先讲过
+    一遍（讲过 b_10/b_20_sel/b_30），再对 b_10 replay——它是"已讲过"（真·重讲），
+    但因为没有 choice 事件，marker 不能声称"选第 N 项"，只能说"回溯"到这里
+    "从这里再讲一遍"。
+
+    对比：已讲过的真选择节点（b_20_sel，见上一条测试的情形一）文案里仍要有
+    "选第 N 项"——两条测试合起来才是完整的判别：有 choice 才提 pick，没有就不提。
+
+    去掉 replay() 里 `has_choice` 这层判断（即让"已讲过"分支无条件走"选第 N 项"
+    文案），此测试必红——b_10 会被套用 b_20_sel 那种"选第 N 项"文案，与它根本
+    没有 choice 事件的事实不符。"""
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)          # 讲过 b_10（无 choice）、b_20_sel（有 choice）、b_30
+    assert "b_10" in ex.emitted_states
+    assert not any("choice" in ev for ev in DAG2["states"]["b_10"]["seq"])   # 前提核实
+
+    ex.replay(at="b_10", pick=1, until=None)   # 对无 choice 的已讲状态重讲
+    markers = [e for e in ex.timeline if e["type"] == "marker"]
+    assert len(markers) == 1
+    assert markers[0]["text"] == "【讲述指针回溯至 b_10】"
+    assert markers[0]["recap"] == "重讲：指针回到 b_10，从这里再讲一遍。"
+    assert "选" not in markers[0]["text"] and "选" not in markers[0]["recap"]
+    assert "回溯" in markers[0]["text"]        # 仍然是"回溯"语义，只是不编造选项
+
+
+def test_replay_marker_keeps_pick_claim_for_true_choice_state():
+    """对照测试：已讲过的真选择节点（b_20_sel 的 seq 里确有 choice 事件）重讲时，
+    文案里仍要保留"选第 N 项"——这是玩家在游戏里真实能做的选择，不是凭空捏造。
+    与上一条合起来覆盖 has_choice 的两个分支。"""
+    ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
+    ex.story("b_10", {}, until=None)
+    assert "b_20_sel" in ex.emitted_states
+    assert any("choice" in ev for ev in DAG2["states"]["b_20_sel"]["seq"])   # 前提核实
+
+    ex.replay(at="b_20_sel", pick=2, until=None)
+    markers = [e for e in ex.timeline if e["type"] == "marker"]
+    assert len(markers) == 1
+    assert markers[0]["text"] == "【讲述指针回溯至 b_20_sel，本次选第 2 项】"
+    assert markers[0]["recap"] == "重讲：指针回到 b_20_sel，本次改选第 2 项。"
+    assert "选" in markers[0]["text"]

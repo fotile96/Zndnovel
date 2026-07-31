@@ -151,3 +151,25 @@ def test_freeze_hashes_picks_highest_glossary_version_not_lexicographic(tmp_path
                      lanes_root=tmp_path / "lanes")
     h = freeze_hashes(lane_dir, repo)
     assert h["glossary_max"] == sha256_file(lane_dir / "glossary" / "glossary.v10.yaml")
+
+
+def test_verify_continues_checking_remaining_lanes_after_one_is_corrupted(tmp_path):
+    """verify() 遇到一条损坏车道须继续查其余车道，不能提前收工——否则字典序
+    靠后的车道即便有真实漂移也永远不会被报出。构造两条车道："fable"（字典序
+    靠前，整个被删——命中 verify() 的 except FileNotFoundError 分支）与
+    "opus"（字典序靠后，仅内容漂移——命中正常的 got[k] != v 比对分支）。
+    manifest 按 record() 的 sorted(iterdir()) 顺序写入，故 fable 先于 opus
+    被遍历：若 verify() 在 except 分支里误从 continue 退化成 return，只会报出
+    fable、opus 永远查不到——正是本用例要钉住的回归。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    shutil.rmtree(lanes / "fable")
+    (lanes / "opus" / "glossary" / "active.json").write_text('{"a":"改了"}',
+                                                             encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert any("fable" in d for d in drift), "损坏车道自身须报出"
+    assert any("opus" in d for d in drift), \
+        "损坏车道之后的车道也须被继续检查——若此断言失败，说明 verify() 遇坏车道就提前退出了"

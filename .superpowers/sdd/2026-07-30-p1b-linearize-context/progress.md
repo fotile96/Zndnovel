@@ -121,3 +121,12 @@ Task 10: review — **收到两份互相矛盾的评审结论**（同一 agent �
 Task 10: minor (deferred): --term 直接拼文件名未净化（含 / 或 .. 时会在 work/ 下建嵌套目录甚至解析到仓库外，落点在 gitignore 的 work/ 内、不碰翻译轨，风险低）；--emit-batch 的落点固定用 pipelib.WORK、不随 --data-dir 改变；0 命中时 stdout 全空无提示；库函数 add() 本身不校验 reason（约束只在 argparse 层）；测试只断言 id、未断言 zh/chapter（照抄 brief Step 1 原样）；find() 不参照 patches.jsonl，已被 add_patch 修订过的 id 仍会重复召回；recall.py:65 的 Path(WORK) 冗余
 Task 10: complete (commits 81c5790..27fb118, review clean)
 # BASE(T11 前)=d7f9ad0
+Task 11: implementer BLOCKED（如实上报，未为变绿放宽断言或改上游）——brief Step 1 的假草稿 `zh = "【占位】" + jp` 在真实数据上让 check_batch 判 FAIL hard=151（全部 R2b）/warn=225（207 W3 + 18 W2）。根因属类 (b)：339 行里有 151 行 jp 本就以【说话人】开头，前置【占位】造出双层【】，SPEAKER_RE 只读最外层 → 读成说话人「占位」→ R2b 必然硬失败。brief 注释「硬规则应可通过」的假设有误，不是上游缺陷
+Task 11: 控制器裁决（用户离席）：假草稿改为「占位标记插在行首【说话人】之后、且用〔〕不用【】」——①R2b 要求说话人标签原样留在行首 ②R2a/R2c 靠 jp 正文原样照抄在标记之后保住 ③〔〕不在 MARKS、也不被 SPEAKER_RE 认，既不会被误判成说话人也不会触发符号丢失 ④旁白行若沿用【占位】前缀会造出 R2b 恰好拦不到的假说话人标签（即台账已记的 check_batch 死分支缺陷），测试夹具不该主动制造这种脏数据。端到端语义（两个子进程、真实 data/、断言不放宽）一律保持
+Task 11: 第 2 轮 — 标记后置后 hard 151 → 19（仍全是 R2b），根因是 speakers.json 的非恒等映射（私→我 1 条 id 6067、教師→教师 18 条 id 6174-6218）：R2b 要求 zh 行首用**译名**，任何不动说话人内容的占位方案都过不去。实现者按指令停在第二轮未擅自试第三种写法
+Task 11: 控制器裁决（第 3 轮）：假草稿补上唯一一个真实翻译动作——行首说话人按 speakers.json 映射一次（SPEAKERS.get(x, x) 兜底，表里没有的说话人 R2b 恰好不比对），正文仍原样照抄保住 R2a/R2c
+Task 11: 第 3 轮 — 转绿。check_batch 对占位草稿 PASS、hard=0、warn=225（207 W3 + 18 W2，三轮不变）；全套 95 passed
+Task 11: review — spec ✅ / quality Approved，零 Critical/Important。评审者从零独立重放全部数字（hard/warn、5 个抽样 id 的 jp/zh、152 带说话人行 / 1 未登记 / 19 非恒等映射的分解），并**直接调用 check_batch.check() 做了两处结构性验证**：①以 speakers 非空调用时，旁白行被误加【占位】确实零硬失败（证实 R2b 的 elif 是死分支、有可利用的盲区）②SPEAKER_RE 锚定位置 0，标记放在标签之前必失败、放在之后则用〔〕或【】都能过——即「后置」是硬技术要求，「用〔〕」是**主动不去利用那个盲区**的保守选择。另确认真实 ruby <彩野,あやの> 与 ≪≫ 确实出现在批次 1 并原样穿过，R2a/R2c 被真实内容而非空内容检验
+Task 11: minor (deferred): 测试未断言 len(src)>0（若 batch 1 的 ids 退化为空，build_context 仍 exit 0、check_batch 对空 id 集合平凡通过 → 测试会在空输入上变绿）；〔〕vs【】的选择理由未写进最终 docstring（后来者可能"简化"回【占位】而重新依赖那个盲区）；commit type `test:` 不在 CLAUDE.md 的 enum 里（brief Step 3 原文如此，属计划层的不一致）；tmp_path 参数未用（brief 原文如此，已在模块 docstring 自述）
+Task 11: complete (commits c58f4d1..2776d67, review clean after 3 rounds)
+# ==== P1b Task 4–11 全部完成；全分支最终评审（opus，裁剪包 162KB）已派发 ====

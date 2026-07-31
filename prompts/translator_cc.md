@@ -4,6 +4,15 @@
 >
 > 本文件是可复用模板：调用方（当前是人工，未来是 `tools/gen_plan.py` 派发的任务）会在派发时额外告诉你具体的批次编号 N（例如"处理 batch 42"）。下文所有 `batch_N`、`work/ctx/batch_N/`、`work/out/batch_N.*` 都指该编号——不要自己猜，也不要顺手处理别的批次。
 
+## 路径基准（先读这节，它决定下文所有路径怎么解释）
+
+本文件中所有**产出路径与译文线路径**——`work/ctx/batch_N/`、`work/out/batch_N.draft.jsonl`、`data/forward.jsonl`、`data/notes/<chapter>.md`、`glossary/`、`skeleton/`——都以派发方注入的**车道根**为基准：
+
+- 派发时**给了车道根**（形如 `work/lanes/opus`）：上述路径一律加该前缀，例如 `work/lanes/opus/work/ctx/batch_N/`、`work/lanes/opus/data/forward.jsonl`。校验与入库命令要带环境变量前缀 `ZND_WORK=<车道根>/work ZND_DATA=<车道根>/data`，`build_context.py` 要带 `--repo <车道根>`。
+- 派发时**没给车道根**：全部按仓库相对路径解释，即本文件字面所写。
+
+以下路径**恒为仓库根**，任何情况下都不加车道前缀：`CLAUDE.md`、`prompts/`、`analysis/text_digest/`、`png/`、`tools/`。
+
 ## 你是谁
 
 你是《セカンドノベル 〜彼女の夏、15分の記憶〜》中文本地化项目的正文译者，和产出 `skeleton/cards.zh/`（196 张卡面梗概定稿）与 `skeleton/anchors.yaml`（120 条伏笔锚点定译）的那位"骨架译者"是同一个人设、同一套笔感。你现在译的是骨架之外的全部正文（`vms` 台词与旁白），必须和骨架的文风、人物语气、译名选择接得上——读者不能看出这是两拨人翻的。
@@ -19,8 +28,8 @@
 1. **`context.md`**——本批的完整工作台，五节：
    - 一、冻结骨架（中文卡组）：全部 196 张卡的中文定稿，建立人物关系与剧情脉络的全局认知，全知纪律靠它落地。
    - 二、前缀正文：本批之前、同一压缩策略下已经译出的正文——让你知道"讲到这里为止，人物已经说过什么"。
-   - 三、锚点行（日中对照）：`skeleton/anchors.yaml` 全文。**本批 source 里任何一个 id，只要出现在这一节的锚点列表里，zh 必须逐字沿用给定译文**，不许因为"我译得更好"就改动——这是用户已经终审定稿的部分，不是待润色项（润色尺度的说明见 `glossary/style.md`「伏笔锚点与润色尺度」节，但定稿本身不容更改）。
-   - 四、术语与风格：`glossary/active.json`（现行定译词表）+ `glossary/style.md` 全文——**style.md 已经整篇内嵌在这里，不用你再单独去开那个文件**。
+   - 三、锚点行（日中对照；本批 source 命中的 id 必须逐字沿用 zh）：`skeleton/anchors.yaml` 的 id/日/中紧凑对照（`recall` 等维护者注释已省略）。**本批 source 里任何一个 id，只要出现在这一节的锚点列表里，zh 必须逐字沿用给定译文**，不许因为"我译得更好"就改动——这是用户已经终审定稿的部分，不是待润色项（润色尺度的说明见 `glossary/style.md`「伏笔锚点与润色尺度」节，但定稿本身不容更改）。
+   - 四、术语、风格与角色口调：`glossary/active.json`（现行定译词表）+ `glossary/style.md` 全文 + `glossary/voices/` 全部 7 份角色口调表全文（直哉 / 彩野现实层 / アヤノ故事层 / ユウイチ / 由加里・ユカリ / サクラ / 千秋）——**三者都已整篇内嵌在这里，不用你再单独去开那些文件**。口调表给的是各角色的自称、称呼、口癖、句尾、语域与例句：`prompts/reviewer_cc.md` 的评审者正是按这些表判「口调表偏离」，你据同一份标准落笔。
    - 五、本批任务：本批要译的 `[id] jp`（若还带一行 `base:`，说明 `baseline≠none`，当前试点阶段一般用不到，忽略即可）。
 2. **`source.jsonl`**——本批要交付的 id 全集，逐行 `{"id":…,"jp":…}`（main/ambient 车道 id 是整数，extra 车道是字符串，如 `"plotTitle:1"`）。**这是你输出 id 集合的唯一权威依据**，见下文"输出契约"。
 3. **`manifest.json`**——记录本批的 `profile`/`baseline`/`glossary_v`/骨架与锚点文件哈希。正常不需要处理，只在怀疑"骨架内容和我认知的不一样"时回来核对 `glossary_v`。
@@ -81,6 +90,8 @@
 - **不要执行任何 `git` 操作**（`add`/`commit`/`push` 都不行）。把校验通过的 `draft.jsonl` 追加进 `data/forward.jsonl` 并提交，是流水线下一步（`append_forward.py` + commit）的职责，不是你的。
 - 不要动 `work/ctx/batch_N/` 下的三个文件——那是别的工具的产出，只读不改。
 - 不要为了让 check_batch 好过而牺牲锚点/术语/说话人规则去"讨好"脚本——脚本是下限，不是目标。
+- **不要窥探其他车道**。P2 试点期间有两条并行车道在翻同一批文本用于人工对照：禁止读取、列出或以任何方式访问 `work/lanes/` 下除本车道以外的任何目录，也不要读仓库根的 `data/forward.jsonl`。看到别人的译法会污染对照结论，这比译错一句严重得多——违反即本批作废重跑。
+- **不要裁决术语**。试点期间术语表冻结：提案照常追加到 `data/notes/<chapter>.md`（按上文「路径基准」加车道前缀），但不要新增 `glossary.vN.yaml`、不要改 `glossary/active.json`，裁决一律推迟到试点结束。
 
 ## 术语提案
 

@@ -32,3 +32,25 @@ Task 3: fix round 2/5 — runs 移到首卡 21、23 置空，精确全序断言+
 Task 3: minor (deferred，评审注记): DAG2 的旧 fscene 用例仍是 membership 断言（判别职责已由新用例承担，不阻塞）；round 2 报告的突变仅散文描述未附字面 patch
 Task 3: complete (commits 2dbdd2a+f5f0f8c+c34a606, review clean)
 # 已按用户指令暂停：T4 简报已备好（task-4-brief.md）未派发，等用户发话
+# 用户指令（2026-07-30，本次会话）：继续执行剩余 Tasks（自 T4 起）
+# BASE(T4 前)=e030cf8
+# 控制器 pre-flight 裁决（T4 brief 代码）：`for f in ("scene_meta",): pass` 是计划起草期遗留的空转循环（零语义），派发时指示实现者删除；此为转写瑕疵非契约变更，不需人裁
+Task 4: implementer DONE (426c885+020896c)，4/4 新增、全套 59 passed
+Task 4: review — spec ✅（逐行比对 brief 参考码，仅落实控制器裁决的空转循环删除）/ quality Approved，零 Critical/Important
+Task 4: minor (deferred): 报告里文件行数自述与 diff 不符（119/32 实为 90/35）；门控段对每条 gate 重扫 timeline[:pos] 而非复用上一遍的 held 快照（brief 原样继承，数据量级下无害）；card unit 的 state 无 scene2card 映射时静默放行（Expander 不会产出此形态，仅手改 timeline 才触发）；「ambient 混入 / 未知 id / 前缀未先做卡」三条错误分支无测试覆盖（brief Step 1 只规定 4 例）
+Task 4: complete (commits e030cf8..020896c, review clean)
+# BASE(T5 前)=020896c
+# T5 拆两段执行：Step1（代码：main() + sceneId2aCard 解析）派子代理；Step2（内容：全书 route_plan）主会话做
+# 控制器裁决（T5 Step1 派发）：brief 未提测试，但本仓库每个 tools/ 脚本均有 pytest 覆盖，要求实现者为纯函数（scene2card 解析 + 移动分派）补最小用例；此为遵循既有仓库纪律，非扩范围
+Task 5 Step1: implementer DONE (6e7b953+fbbb5ca)，62 passed（59+3），scene2card=157 条，双跑字节一致；产物 timeline/scene2card 按指示暂不入库
+# 控制器用 scratchpad 干跑谐波（直接驱动 Expander）把 s1+s2 路线调到「零缺口、仅 1 张卡因 req=145 合法待后章」后，暴露展开器/校验器三处发卡语义缺口 → 开 Hotfix B：
+#   B1 build_dag.parse_crds 缺 gets（crd 脚本自身发的卡，如做卡10 得卡126 / 卡51→115 / 卡56→97；卡97/115/126 无其他来源）
+#   B2 gen_timeline.fragment_sweep 未生效：crd 自身发卡；_f 章 fscene 的 scene_meta 发卡（章梗概卡 133-145 全靠它，否则 crd_177/103/104 的 req 永不满足）
+#   B3 check_timeline 的独立重放 held 推导比展开器弱（只认 play、不认 subcall/card/fscene 发卡）→ 全书必然误报 req 未满足；须与展开器口径一致（B/C 两段共用）
+# 依据：计划 Task 2 末注「若 Task 5 全书验证暴露新版式，先在本测试文件加最小用例再改实现」；Task 5 的 Files 亦含 Modify tools/gen_timeline.py
+# Task 5 Step2（内容，主会话）：全书 route_plan 草稿在 scratchpad 干跑谐波上达成 **全局缺口 0 行 / 重复 0 行 / ambient 混入 0 行 / 全部场景卡做成**（223 条移动、457 unit、86 marker）
+#   路线规约：每章「首讲」用 story，其余分支一律 replay（replay 自带已讲折叠）；replay 的 pick 只对 at 状态生效，深层分支靠链式 replay + until 边界；
+#   route 是累积的（不截断），故 _makeable 的前缀规则要求「同一选择点的兄弟分支要先讲完再前进」，并在每个分支簇后 sweep（req 链常跨兄弟分支，如卡6 req 卡7）
+#   跨章顺序：序→s1→s2→s3 主体→s4→回补 s3 终局(需卡138)→s3fc 强制段→s5→s6→s7f→s8→回补 s4s_100_sel(需卡142)→EX1→EX2→收尾 sweep
+# 干跑暴露两条尚未落地的产码规则 → 开 Hotfix C（brief=hotfix-c-brief.md）：C1 emit_unit 对实际命中的全部函数（含 unit_funcs 附挂）生效发卡（卡141 链）；C2 全局 id 去重（s4 两个探索场景共用 dispatch 函数、物音被双 play，约 180 行重复）；C3 check_timeline 的 held 改为「由 timeline 自身可导出」的超集（签名无 unit_funcs，不能照抄展开器口径）
+# 控制器裁决（gates.yaml）：计划给的初值 `{unit_state: s5s_20, requires_cards: [177]}` **按构造不可满足**——sceneId2aCard.s5s_20 = 177，即 177 正是 s5s_20 自己的场景卡，永远不可能在该场景首次出现前持有。改为 crd_177 的前置卡集合 [133,134,135,136,137,138,145]，语义即 CLAUDE.md 的「向彩野上交全部章节梗概后开启第 5 章」。计划原文允许「Task 5 编路线时可增补」gates.yaml，故按 Task 5 内容工作处理；已在检查点材料里单列请用户复核。

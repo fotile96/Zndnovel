@@ -1,19 +1,269 @@
-# 全书正典路线（route_plan DSL）。
+# 全书正典路线（人工资产）——route_plan DSL，gen_timeline.main() 按序执行
 #
-# 这是 Task 5 Step 1 留下的起步骨架：仅含 task-5-brief.md 里给出的示例 10 条移动，
-# 覆盖第 1 章开局的一小段（首讲撞墙 → 教程做卡 → 首过默认路线段 → 探索 → 一次
-# replay 回溯）。全书正典路线由主会话在 Step 2 依 analysis/dag_all.txt + CLAUDE.md
-# 章节流逐章续写；每写一章跑一次 gen_timeline.py && check_timeline.py 校验。
+# 目标：把「从新游戏开局玩到通关，沿途出现过的每一条文本」排成一条线性体验序，
+#       且每条 vms 恰好出现一次（check_timeline A 段断言）。
 #
-# DSL：顶层是一个 list，每项恰好一个键，键 ∈ {story, pool, script, fragment_sweep,
-# replay}，值是该 Expander 方法的参数 dict（详见 tools/gen_timeline.py 的 run_plan）。
-- story:          {enter: s1s_10, until: s1s_20}          # 首讲撞墙（cost100 设计节奏）
-- pool:           {func: "snr_common:comSectionStoryEndAyanoTime"}   # Time over 演出首次播出
-- script:         {file: snr_crd_0}                        # 教程做卡剧情
-- fragment_sweep: {only: [2]}                              # 制成卡2 → OP
-- story:          {enter: s1s_30, choices: {}, until: s1s_140}       # 首过默认路线段
-- story:          {enter: s1s_150, choices: {}, until: s1s_200_sel}  # 探索场景
-- pool:           {func: "snr_common:comSectionMapmoveAyanoIn"}      # 首个探索场景后放置
-- story:          {enter: s1s_210, choices: {}, until: s1s_260_sel}
+# 移动指令
+#   story:          {enter, choices, until}  首讲：沿状态图行进，逐场景 emit
+#   replay:         {at, pick, until}        重讲：发回溯标记，已讲过的状态折叠（不重复发文本）
+#   fragment_sweep: {only}                   做卡：按路线前缀序把「可做」的场景卡逐张做成
+#   script:         {file}                   整脚本：无状态脚本（教程 crd_0、各类 stub 卡面）
+#   pool:           {func}                   文本池：随机/复用演出（Time over、探索到场）
+#
+# 编写规约（照着这几条改，才不会把覆盖率改塌）
+#   1. 每章「首讲」用 story，其后一律 replay —— story 不去重，replay 才折叠已讲状态。
+#   2. replay 的 pick 只对 at 那个状态生效；要在更深的选择点选支，就再发一条 replay，
+#      并用 until 卡住边界，免得默认支把指针带进别的章（如 s1s_260_sel 默认支直接 RUN s5）。
+#   3. route 是累积的（不随重讲截断），因此 _makeable 的「路线前缀全部已做卡」规则要求：
+#      **同一个选择点的兄弟分支要先讲完、做完卡，再往前推进**（req 链常跨兄弟分支，
+#      例：卡6「約束を思い出せない」的 req 是卡7「約束をしていない」）。
+#   4. 每个分支簇之后 sweep 一次；有 req 跨簇的场合连发两条 sweep（一遍做不完）。
+#   5. route_has（本轮讲过）只增不减：需要「没讲过 X」那条支的场景，必须排在讲 X 之前
+#      （如 s1s_150 的探索支、s2s_390 的三段分歧、s2s_550 的プール/プラネタリウム）。
+#   6. 自动入手的卡（关键词卡、章梗概卡、crd_177 一次性解锁的日记卡）不进 sweep，
+#      用 script 覆盖其 stub 卡面文本。
+#
+# 章序：序→s1→s2→s3 主体→s4→回补 s3 终局(需卡138)→s3fc 强制段→s5→s6→s7f→s8
+#       →回补 s4s_100_sel(需卡142)→EX1→EX2→收尾 sweep
+# ---- 序章 + 第 1 章 ----
+- story: {enter: sof_10}
+- script: {file: snr_crd_1}
+- story: {enter: s1s_10, until: s1s_20}
+- pool:  {func: "snr_common:comSectionStoryEndAyanoTime"}
+- script: {file: snr_crd_0}
+- fragment_sweep: {only: [2]}
+- story:  {enter: s1s_30, choices: {s1s_35_sel: 3}, until: s1s_38}
+- replay: {at: s1s_35_sel, pick: 1, until: s1s_37}
+- replay: {at: s1s_35_sel, pick: 2, until: s1s_36}
 - fragment_sweep: {}
-- replay:         {at: s1s_35_sel, pick: 2, until: s1s_70}
+- fragment_sweep: {}
+- replay: {at: s1s_60, pick: 1, until: s1s_90}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- replay: {at: s1s_100_sel, pick: 2, until: s1s_120}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- replay: {at: s1s_130, pick: 1, until: s1s_140}
+- fragment_sweep: {}
+- replay: {at: s1s_150, pick: 1, until: s1s_200_sel}
+- pool:  {func: "snr_common:comSectionMapmoveAyanoIn"}
+- fragment_sweep: {}
+- replay: {at: s1s_210, pick: 1, until: s1s_260_sel}
+- fragment_sweep: {}
+- replay: {at: s1s_260_sel, pick: 2, until: s1s_310}
+- fragment_sweep: {}
+- replay: {at: s1s_100_sel, pick: 1, until: s1s_110}
+- fragment_sweep: {}
+- replay: {at: s1s_160, pick: 1, until: s1s_170_sel}
+- fragment_sweep: {}
+- replay: {at: s1s_180, pick: 1, until: s1s_190}
+- fragment_sweep: {}
+- replay: {at: s1s_320, pick: 1, until: s1s_comp}
+- fragment_sweep: {}
+- fragment_sweep: {}
+# 第 1 章沿途自动入手的关键词卡（stub 卡面，仅显示「≪入手済みカード≫」）
+- script: {file: snr_crd_116}
+- script: {file: snr_crd_117}
+- script: {file: snr_crd_119}
+- script: {file: snr_crd_120}
+- script: {file: snr_crd_121}
+- script: {file: snr_crd_122}
+- script: {file: snr_crd_123}
+- script: {file: snr_crd_124}
+- script: {file: snr_crd_125}
+- script: {file: snr_crd_126}
+- script: {file: snr_crd_127}
+- script: {file: snr_crd_128}
+- script: {file: snr_crd_129}
+- script: {file: snr_crd_130}
+- script: {file: snr_crd_131}
+- script: {file: snr_crd_132}
+- script: {file: snr_crd_133}          # 第 1 章梗概卡（s1f 完成时授予）
+# ---- 第 2 章 ----
+- story:  {enter: s2s_10,   until: s2s_50}       # 无卡31 → 日常段跳过 → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s2s_60,      pick: 1, until: s2s_60}
+- replay: {at: s2s_80_sel,  pick: 1, until: s2s_90}
+- replay: {at: s2s_120_sel, pick: 1, until: s2s_124}      # オマジナイ興味 3 択之一 → 124
+- fragment_sweep: {}
+- replay: {at: s2s_120_sel, pick: 4, until: s2s_160_sel}
+- replay: {at: s2s_160_sel, pick: 2, until: s2s_190_sel}
+- replay: {at: s2s_190_sel, pick: 1, until: s2s_210}      # ナゾトキ正解
+- fragment_sweep: {}
+- replay: {at: s2s_190_sel, pick: 2, until: s2s_209}      # ナゾトキ誤答
+- fragment_sweep: {}
+- replay: {at: s2s_220_sel, pick: 2, until: s2s_250}      # プラネタリウム
+- replay: {at: s2s_260_sel, pick: 3, until: s2s_340_sel}  # 消しゴムに名前
+- replay: {at: s2s_340_sel, pick: 2, until: s2s_490}      # 三条件全否 → 450/490 GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s2s_160_sel, pick: 1, until: s2s_170}
+- replay: {at: s2s_380,     pick: 1, until: s2s_440}      # 讲过170、未讲350 → 420/440 GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s2s_260_sel, pick: 1, until: s2s_293}
+- fragment_sweep: {}
+- replay: {at: s2s_340_sel, pick: 3, until: s2s_370}
+- fragment_sweep: {}
+- replay: {at: s2s_340_sel, pick: 1, until: s2s_comp}     # 三条件成立 → 500→550(未讲230)→590→610→完结
+- fragment_sweep: {}
+- replay: {at: s2s_220_sel, pick: 1, until: s2s_230}      # プール
+- replay: {at: s2s_550,     pick: 1, until: s2s_570}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_95}
+- script: {file: snr_crd_97}   # 做卡56 时附带入手
+- script: {file: snr_crd_115}  # 做卡51 时附带入手
+- script: {file: snr_crd_96}
+- script: {file: snr_crd_134}
+# ---- 第 3 章（主体；3A/3B 终局待卡138，放在第 4 章之后）----
+- story:  {enter: s3s_10,   until: s3s_10}
+- replay: {at: s3s_20_sel,  pick: 2, until: s3s_50_sel}
+- replay: {at: s3s_50_sel,  pick: 1, until: s3s_90_sel}
+- replay: {at: s3s_90_sel,  pick: 2, until: s3s_110}       # ウワサに興味がない → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s3s_90_sel,  pick: 1, until: s3s_170_sel}
+- replay: {at: s3s_170_sel, pick: 2, until: s3s_171}       # 適当に聞く（回 170_sel 的循环支）
+- replay: {at: s3s_170_sel, pick: 3, until: s3s_172}       # とりあえず聞いてみる
+- fragment_sweep: {}
+- replay: {at: s3s_170_sel, pick: 1, until: s3s_230_sel}   # 真剣に聞く → 探索
+- fragment_sweep: {}
+- replay: {at: s3s_300_sel, pick: 2, until: s3s_350_sel}   # ほうっておく → 陸上部のウワサ
+- replay: {at: s3s_350_sel, pick: 2, until: s3s_375}       # 階段へ（未讲370 → 375）
+- replay: {at: s3s_375,     pick: 1, until: s3s_580_sel}   # 410 →425(未讲380)→550→580_sel
+- fragment_sweep: {}
+- replay: {at: s3s_580_sel, pick: 1, until: s3s_600}       # ずっと一緒にいたい
+- fragment_sweep: {}
+- replay: {at: s3s_350_sel, pick: 1, until: s3s_370}       # 図書室へ → 口づけ（卡80，590 的 req）
+- fragment_sweep: {}
+- replay: {at: s3s_580_sel, pick: 2, until: s3s_590}       # でも、いつかは別れが
+- fragment_sweep: {}
+- replay: {at: s3s_375,     pick: 1, until: s3s_380}       # 讲过370 → 走り去るアヤノ
+- replay: {at: s3s_410,     pick: 1, until: s3s_540}       # 425(讲过380)→460→470→GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s3s_600,     pick: 1, until: s3s_comp_a}    # 620(无卡138)→640→650→3A 完（卡89 → s3fa → 卡135）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_107}
+# ---- 第 4 章（ユウイチ視点）----
+- story:  {enter: s4s_10,   until: s4s_10}
+- replay: {at: s4s_30_sel,  pick: 2, until: s4s_40}        # 私じゃない（其后 41 跳回 s3s_340，用 until 卡住）
+- fragment_sweep: {}
+- replay: {at: s4s_30_sel,  pick: 1, until: s4s_70}        # 気になるね → セクション４ → 図書室の先生
+- replay: {at: s4s_130,     pick: 1, until: s4s_160_sel}
+- replay: {at: s4s_160_sel, pick: 2, until: s4s_250}       # 興味はない → 探索 → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s4s_290_sel, pick: 2, until: s4s_310}       # 信じてみてもいい
+- replay: {at: s4s_290_sel, pick: 1, until: s4s_300}       # 下らない、と思った
+- fragment_sweep: {}
+- replay: {at: s4s_330,     pick: 1, until: s4s_360_sel}   # 讲过310 → アヤノの机
+- replay: {at: s4s_360_sel, pick: 2, until: s4s_380}       # 屋上の人影 → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s4s_360_sel, pick: 1, until: s4s_450_sel}   # 机を調べる → ノート → 探索
+- fragment_sweep: {}
+- replay: {at: s4s_490_sel, pick: 1, until: s4s_570}       # 腕をつかむ → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s4s_490_sel, pick: 2, until: s4s_670_sel}   # アヤノは意識を取り戻す
+- replay: {at: s4s_670_sel, pick: 2, until: s4s_comp_a}    # 消えたサクラ → 4A 完（卡176 → s4fa → 卡137）
+- fragment_sweep: {}
+- replay: {at: s4s_670_sel, pick: 1, until: s4s_comp_b}    # サクラを待つ → 4B 完（卡175 → s4fb → 卡138）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_137}
+- script: {file: snr_crd_138}
+# ---- 回补第 3 章终局（此时已持卡138）----
+- replay: {at: s3s_600,     pick: 1, until: s3s_641_sel}   # 620(持卡138) → 641_sel
+- replay: {at: s3s_641_sel, pick: 2, until: s3s_comp_b}    # キスしない → 3B 完（卡91 → s3fb → 卡136）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_135}
+- script: {file: snr_crd_136}
+# ---- s3fc 强制段（持卡136 未持145）----
+- story:  {enter: s3fc-10,  until: s3fc-complete}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_145}
+# ---- 第 5 章（サクラの日記）----
+- story:  {enter: s5s_10,   until: s5s_140}
+- replay: {at: s5s_200,     pick: 1, until: s5s_200}       # 中庭のアヤノさん（140 的 goto 恒取 260，需显式进入）
+- fragment_sweep: {}
+- replay: {at: s5s_260,     pick: 1, until: s5s_320}
+- replay: {at: s5s_380,     pick: 1, until: s5s_380}       # 発作 GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s5s_410,     pick: 1, until: s5s_430}
+- replay: {at: s5s_510,     pick: 1, until: s5s_510}       # あきらめる GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s5s_520,     pick: 1, until: s5s_680}
+- replay: {at: s5s_800,     pick: 1, until: s5s_800}       # でも、楽しかった GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s5s_740,     pick: 1, until: s5s_740}
+- replay: {at: s5s_805,     pick: 1, until: s5s_comp}      # アヤノの返信 → ２月、中庭 →（卡193 → s5f → 卡139）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_105}
+- script: {file: snr_crd_106}
+- script: {file: snr_crd_109}
+- script: {file: snr_crd_139}
+# ---- 第 6 章 ----
+- story:  {enter: s6s_10,   until: s6s_60_sel}
+- replay: {at: s6s_60_sel,  pick: 1, until: s6s_100}       # 家で読む → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s6s_60_sel,  pick: 2, until: s6s_150_sel}   # 図書室で読む
+- replay: {at: s6s_150_sel, pick: 1, until: s6s_153}       # 失われた夢の物語 → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s6s_150_sel, pick: 2, until: s6s_280_sel}   # True Color
+- replay: {at: s6s_280_sel, pick: 1, until: s6s_282}       # まだここにいる → GAMEOVER
+- fragment_sweep: {}
+- replay: {at: s6s_280_sel, pick: 2, until: s6s_comp}      # 中庭の雪 →（卡110 → s6f → 卡140）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_140}
+# ---- 第 7 章（现实层高潮；主菜单直入，无 _s）----
+- story:  {enter: s7f-10,   until: s7f-comp}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_141}
+- script: {file: snr_crd_111}
+- script: {file: snr_crd_112}
+- script: {file: snr_crd_113}
+# ---- 第 8 章 ----
+- story:  {enter: s8s_10,   until: s8s_comp}      # （卡94 需卡141；runs s8f → 卡142）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_142}
+# ---- 回补第 4 章 ユカリ 分歧（此时已持卡142）----
+- replay: {at: s4s_70,      pick: 1, until: s4s_100_sel}
+- fragment_sweep: {}
+# ---- EX1（ユカリ）----
+- story:  {enter: e1s_10,   until: e1s_comp}      # （卡118 → e1f → 卡143）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_143}
+# ---- EX2（千秋）----
+- story:  {enter: e2s_10,   until: e2s_comp}      # （卡162 → e2f → 卡114/144）
+- fragment_sweep: {}
+- fragment_sweep: {}
+- script: {file: snr_crd_114}
+- script: {file: snr_crd_144}
+# ---- 收尾：反复 sweep 把后置解锁的卡全部做成；日记卡由 crd_177 一次性解锁 ----
+- fragment_sweep: {}
+- fragment_sweep: {}
+- fragment_sweep: {}
+- fragment_sweep: {}
+# サクラの日記（crd_177 上交全部章节梗概后解锁的日记卡，stub 卡面）
+- script: {file: snr_crd_93}
+- script: {file: snr_crd_178}
+- script: {file: snr_crd_179}
+- script: {file: snr_crd_180}
+- script: {file: snr_crd_181}
+- script: {file: snr_crd_182}
+- script: {file: snr_crd_183}
+- script: {file: snr_crd_184}
+- script: {file: snr_crd_185}
+- script: {file: snr_crd_186}
+- script: {file: snr_crd_187}
+- script: {file: snr_crd_188}
+- script: {file: snr_crd_189}
+- script: {file: snr_crd_190}
+- script: {file: snr_crd_191}
+- script: {file: snr_crd_195}
+- fragment_sweep: {}
+- fragment_sweep: {}

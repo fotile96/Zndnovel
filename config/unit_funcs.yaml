@@ -1,3 +1,17 @@
-# unit 附挂函数表：file → {pattern: 目标函数或"*"}
-# Task 5 填充；暂时留空
-{}
+snr_s2_10_s:
+  scene_s2s_shared_v*: scene_s2s_450       # 450/500 共用四段；首讲在 450
+snr_s3_10_s:
+  scene_s3s_helper_v35: scene_s3s_300_sel  # 全库无调用点（反编译残留），按源码位置归属相邻的 300_sel
+snr_s4_10_s:
+  scene_s4s_shared_v10: scene_s4s_290_sel  # 由 290_sel/455 段共用，首讲在 290_sel
+  scene_s4s_shared_v11: scene_s4s_330
+snr_s5_10_s:
+  scene_s5s_shared_v0:     scene_s5s_40_2  # 40_2/140/320/580 共用，首讲在 40
+  scene_s5s_shared_v1:     scene_s5s_430_3 # 430_3/740_2 共用，首讲在 430
+  scene_s5s_dispatch_v42:  scene_s5s_40_2  # dispatcher 内带参调用（40/260/320/410/520/550/580/660/680），首讲在 40
+  scene_s5s_dispatch_v43:  scene_s5s_140   # dispatcher 内带参调用（140/200），首讲在 140
+snr_s6_10_s:
+  scene_s6s_shared_v*:  scene_s6s_70       # 70/151 共用（サクラからの手紙正文），首讲在 70
+snr_s7_10_f:
+  scene_end:               scene_s7f_comp  # 只在 doScriptScene=="end" 分支调用，归章末单元
+  scene_s7f_dispatch_v52:  scene_s7f_50    # dispatcher 内带参调用（s7f-60/80/95/…，那些状态自身无 play），归相邻的 s7f-50

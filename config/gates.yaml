@@ -1,6 +1,9 @@
 - {unit_state: s2s_10,  requires_cards: [133]}   # 进入 s2 前需 Section1 梗概
 - {unit_state: s3s_10,  requires_cards: [134]}
-- {unit_state: s5s_20,  requires_cards: [177]}   # 日记章入口
+# 日记章入口：原计划写 requires_cards: [177]，但 sceneId2aCard.s5s_20 = 177——
+# 177 正是 s5s_20 自身的场景卡，按构造不可能在该场景首次出现前持有（门控恒不满足）。
+# 改用 crd_177 的前置卡集合＝全部章节梗概卡，语义即「向彩野上交全部梗概后开启第 5 章」。
+- {unit_state: s5s_20,  requires_cards: [133, 134, 135, 136, 137, 138, 145]}
 - {unit_state: s7f-10,  requires_cards: [140]}   # 主菜单 Section7
 - {unit_state: s8s_10,  requires_cards: [141]}
 - {unit_state: e1s_10,  requires_cards: [142]}

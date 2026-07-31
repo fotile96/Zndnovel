@@ -180,7 +180,7 @@ append_model_id: claude-opus-5    append_model_id: claude-fable-5   # append_for
 
 ## 6. 评分与对照
 
-### 6.1 id 三层分层（机器侧，先做）
+### 6.1 分层（机器侧，先做）
 
 行级分两层（互斥，用于统计）：
 

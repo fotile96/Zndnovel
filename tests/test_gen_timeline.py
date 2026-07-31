@@ -248,6 +248,64 @@ def test_replay_route_single_write():
     assert ex.route == expected_route, f"route should be {expected_route}, got {ex.route}"
 
 
+# Hotfix B2: fragment_sweep 生效两类发卡（crd 自身 gets / _f 章 fscene 的 scene_meta.gets）
+DAG4 = {"states": {
+    "x_10": {"file": "snr_x_10_s", "scene": "scene_x_10", "title": "甲",
+             "seq": [{"play": "scene_x_10", "title": "甲"}, {"goto": "x_20"}]},
+    "x_20": {"file": "snr_x_10_s", "scene": "scene_x_20", "title": "乙",
+             "seq": [{"play": "scene_x_20", "title": "乙"}, {"goto": "end"}]},
+}, "scene_meta": {}, "crds": {
+    "30": {"stub": False, "req": [], "answers": [], "runs": [], "gets": [99]},
+    "40": {"stub": False, "req": [99], "answers": [], "runs": []},
+}}
+LEDGER4 = [
+    {"id": 200, "file": "snr_x_10_s", "func": "scene_x_10", "kind": "narrative"},
+    {"id": 201, "file": "snr_x_10_s", "func": "scene_x_20", "kind": "narrative"},
+    {"id": 210, "file": "snr_crd_30", "func": "card_30_main", "kind": "narrative"},
+    {"id": 211, "file": "snr_crd_40", "func": "card_40_main", "kind": "narrative"},
+]
+S4C = {"x_10": 30, "x_20": 40}
+
+def test_fragment_sweep_crd_gets_unblocks_dependent_card_in_same_sweep():
+    """crd 30 的 gets=[99] 是 crd 40 的 req；两张卡在同一条 route 上，只跑一次
+    fragment_sweep()。若「crd 自身发卡」延后到 sweep 循环结束才生效，卡 40
+    （req=[99]）这次会因 held 缺 99 被 _makeable 挡下；正确实现下二者同批做成
+    ——这样才测到"循环内、紧随该卡 emit 之后即时生效"。"""
+    ex = Expander(DAG4, LEDGER4, {}, scene2card=S4C)
+    ex.story("x_10", {}, until=None)
+    ex.fragment_sweep()
+    card_states = [u["state"] for u in ex.timeline if u.get("unit_kind") == "card"]
+    assert card_states == ["x_10", "x_20"], f"两张卡都应同批做成，得 {card_states}"
+    assert {30, 40, 99} <= ex.held
+
+
+DAG5 = {"states": {
+    "y_10": {"file": "snr_y_10_s", "scene": "scene_y_10", "title": "开场",
+             "seq": [{"play": "scene_y_10", "title": "开场"}, {"goto": "end"}]},
+}, "scene_meta": {
+    "scene_yf_10": {"gets": [], "cost": [], "shows": [], "gameover": False, "complete": False},
+    "scene_yf_complete": {"gets": [133], "cost": [], "shows": [], "gameover": False, "complete": True},
+}, "crds": {
+    "50": {"stub": False, "req": [], "answers": [], "runs": ["snr_y_10_f"]},
+}}
+LEDGER5 = [
+    {"id": 300, "file": "snr_y_10_s", "func": "scene_y_10", "kind": "narrative"},
+    {"id": 301, "file": "snr_crd_50", "func": "card_50_main", "kind": "narrative"},
+    {"id": 302, "file": "snr_y_10_f", "func": "scene_yf_10", "kind": "narrative"},
+    {"id": 303, "file": "snr_y_10_f", "func": "scene_yf_complete", "kind": "narrative"},
+]
+S5C = {"y_10": 50}
+
+def test_fragment_sweep_fscene_applies_f_chapter_scene_meta_gets():
+    """crd 50 的 runs=["snr_y_10_f"]；该 _f 文件的 scene_meta（scene_yf_complete）
+    gets=[133] 是章梗概卡 133-145 的唯一入手途径，必须在 fscene unit emit 后对
+    held 生效（否则 crd_177/crd_103/crd_104 等下游 req 永远满足不了）。"""
+    ex = Expander(DAG5, LEDGER5, {}, scene2card=S5C)
+    ex.story("y_10", {}, until=None)
+    ex.fragment_sweep()
+    assert 133 in ex.held
+
+
 # Task 5: parse_scene2card / run_plan
 def test_parse_scene2card_skips_keyword_and_keeps_real_entries():
     """跳过 name == "keyword" 的反编译噪声行（键重复覆盖）；保留真实场景→卡号条目，
@@ -273,7 +331,11 @@ def test_run_plan_dispatches_all_move_kinds_in_order():
     """run_plan 按声明顺序把每条移动分派到 Expander 对应方法：
     story/fragment_sweep/replay 的 DSL 键名与方法形参一致，直接 **展开；
     pool 的 "func"、script 的 "file" 换名为方法的位置参数（file_func/file_stem）。
-    用 DAG2/LEDGER2/S2C 夹具跑一遍完整的 5 种移动，核对 timeline 形状与 held。"""
+    用 DAG2/LEDGER2/S2C 夹具跑一遍完整的 5 种移动，核对 timeline 形状与 held。
+    第 4 条 script("snr_crd_11") 与第 2 条 fragment_sweep() 里的 card b_10 命中同一个
+    (file, func)（都是 snr_crd_11:card_11_main），id 51 已被 card 单元先登记——
+    Hotfix C2 全局去重下 script 单元的 ids 应为空（但 unit 本身仍照常 emit，
+    state/title/unit_kind 完好），这一断言同时覆盖了 C2 的行为。"""
     ex = Expander(DAG2, LEDGER2, {}, scene2card=S2C)
     moves = [
         {"story": {"enter": "b_10", "until": None}},
@@ -293,7 +355,7 @@ def test_run_plan_dispatches_all_move_kinds_in_order():
         ("unit", "card", "b_20_sel", [52]),
         ("unit", "fscene", None, [60]),
         ("unit", "pool", None, [70]),
-        ("unit", "script", None, [51]),
+        ("unit", "script", None, []),   # id 51 已被上面的 card b_10 单元领走（全局去重）
         ("marker", None, None, None),
         ("unit", "scene", "b_40", [40]),
     ]
@@ -310,3 +372,71 @@ def test_run_plan_rejects_unknown_move_key():
     ]
     with pytest.raises(ValueError, match=r"第 2 条"):
         run_plan(ex, moves)
+
+
+# Hotfix C1: emit_unit 对该 unit 实际匹配到的全部 (file, func)（含 unit_funcs 附挂
+# 的孤儿函数）生效 scene_meta 发卡。真实数据反例的最小复现：snr_s7_10_f 里
+# scene_s7f_dispatch_v52 是带参 dispatcher 调用，PLAY_RE/SUBCALL_RE 抓不到，只出现在
+# dag["states"]["s7f-50"]["seq"] 之外，只能靠 config/unit_funcs.yaml 附挂到 s7f-50；
+# 它自己的 scene_meta.gets=[111,112,113,141] 必须在 s7f-50 这个 unit 里生效。
+DAG6 = {"states": {
+    "d_10": {"file": "snr_d_10_s", "scene": "scene_d_10", "title": "调度",
+             "seq": [{"play": "scene_d_10", "title": "调度"}, {"goto": "end"}]},
+}, "scene_meta": {
+    "scene_d_10": {"gets": [], "cost": [], "shows": [], "gameover": False, "complete": False},
+    # scene_d_dispatch_v9 不出现在 d_10 的 seq 里（模拟带参调用被 PLAY_RE/SUBCALL_RE
+    # 漏抓），只能靠 unit_funcs 附挂；它自己的 gets 才是本测试要判别的目标。
+    "scene_d_dispatch_v9": {"gets": [141], "cost": [], "shows": [], "gameover": False, "complete": False},
+}, "crds": {}}
+LEDGER6 = [
+    {"id": 500, "file": "snr_d_10_s", "func": "scene_d_10", "kind": "narrative"},
+    {"id": 501, "file": "snr_d_10_s", "func": "scene_d_dispatch_v9", "kind": "narrative"},
+]
+UNIT_FUNCS6 = {"snr_d_10_s": {"scene_d_dispatch_v9": "scene_d_10"}}
+
+
+def test_emit_unit_applies_scene_meta_gets_for_unit_funcs_attached_orphan():
+    """去掉 emit_unit 里 `for fn in matched: self._apply_meta(fn)` 循环，此测试必红
+    （141 不会进 held，即便 501 已经正确出现在 unit 的 ids 里——ids 侧的正确性
+    不是本次修的东西，_ids_for 一直如此；本测试判别的是发卡侧的缺口）。"""
+    ex = Expander(DAG6, LEDGER6, UNIT_FUNCS6)
+    ex.story("d_10", {}, until=None)
+    unit = next(u for u in ex.timeline if u["type"] == "unit")
+    assert unit["ids"] == [500, 501]   # 孤儿函数的 id 本就该在（_ids_for 既有行为）
+    assert 141 in ex.held              # Hotfix C1 要补的发卡缺口
+
+
+# Hotfix C2：emit_unit 对 ids 做全局去重。真实数据反例：s4s_210_sel/s4s_450_sel
+# 共用 scene_s4s_dispatch_v14..v27；s4s_300/s4s_310 双方 play scene_s4s_dispatch_v34。
+# 最小复现：两个状态都直接 subcall 同一个共享函数。
+DAG7 = {"states": {
+    "e_10": {"file": "snr_e_10_s", "scene": "scene_e_10", "title": "甲",
+             "seq": [{"play": "scene_e_10", "title": "甲"},
+                     {"subcall": "scene_e_shared"},
+                     {"goto": "e_20"}]},
+    "e_20": {"file": "snr_e_10_s", "scene": "scene_e_20", "title": "乙",
+             "seq": [{"play": "scene_e_20", "title": "乙"},
+                     {"subcall": "scene_e_shared"},
+                     {"goto": "end"}]},
+}, "scene_meta": {}, "crds": {}}
+LEDGER7 = [
+    {"id": 600, "file": "snr_e_10_s", "func": "scene_e_10", "kind": "narrative"},
+    {"id": 601, "file": "snr_e_10_s", "func": "scene_e_shared", "kind": "narrative"},
+    {"id": 602, "file": "snr_e_10_s", "func": "scene_e_20", "kind": "narrative"},
+]
+
+
+def test_emit_unit_dedups_ids_globally_across_units_sharing_a_func():
+    """两个状态共用同一函数 scene_e_shared 时，第二个 unit（e_20）的 ids 里不应
+    重复出现 601（已被第一个 unit e_10 领走），但 e_20 这个 unit 本身仍要照常
+    出现在 timeline 里、state/title 完好——它是叙事节拍，不能因为 ids 被滤空而丢。
+    去掉 emit_unit 里 `self._emitted_ids` 的过滤/登记，此测试必红（e_20 会重复
+    拿到 601，ids 变成 [601, 602]）。"""
+    ex = Expander(DAG7, LEDGER7, {})
+    ex.story("e_10", {}, until=None)
+    units = [u for u in ex.timeline if u["type"] == "unit"]
+    assert [u["state"] for u in units] == ["e_10", "e_20"]
+    assert units[0]["ids"] == [600, 601]          # 第一个 unit 拿到共享函数的全部 ids
+    assert units[1]["ids"] == [602]               # 第二个 unit 里共享的 601 被滤空
+    assert units[1]["title"] == "乙"               # unit 本身仍完好：state/title 不受影响
+    assert units[1]["unit_kind"] == "scene"

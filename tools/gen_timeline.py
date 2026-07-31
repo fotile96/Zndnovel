@@ -20,22 +20,44 @@ class Expander:
                 self.by_filefunc.setdefault((r["file"], r["func"]), []).append(r["id"])
         self.timeline, self.held, self.route = [], set(), []
         self.emitted_states = set()
+        self._emitted_ids = set()
+
+    def _matched_funcs(self, file, funcs):
+        """该 unit 实际命中的全部真实函数名：nominal funcs 本身，加上
+        config/unit_funcs.yaml 里附挂到其中任一 nominal func 的孤儿函数
+        （dispatcher 内带参调用、PLAY_RE/SUBCALL_RE 抓不到的那批，如
+        scene_s7f_dispatch_v52）。按 fnmatch 模式匹配 by_filefunc 的真实函数名——
+        _ids_for（收 id）与 emit_unit（发 scene_meta 卡）共用这一份口径，避免
+        fnmatch 逻辑抄两份。"""
+        extra = self.unit_funcs.get(file, {})
+        pats = list(funcs) + [p for p, tgt in extra.items() if tgt in funcs or tgt == "*"]
+        return {fn for (f, fn) in self.by_filefunc
+                if f == file and any(fnmatch.fnmatch(fn, p) for p in pats)}
 
     def _ids_for(self, file, funcs):
         ids = []
-        extra = self.unit_funcs.get(file, {})
-        pats = list(funcs) + [p for p, tgt in extra.items() if tgt in funcs or tgt == "*"]
-        for (f, fn), v in self.by_filefunc.items():
-            if f == file and any(fnmatch.fnmatch(fn, p) for p in pats):
-                ids += v
+        for fn in self._matched_funcs(file, funcs):
+            ids += self.by_filefunc.get((file, fn), [])
         return sorted(set(ids))
 
     def emit_unit(self, kind, src_file, state, title, funcs):
+        """emit 一个 unit：
+        - 发卡：对该 unit 实际匹配到的全部 (file, func)（即 _matched_funcs，含
+          unit_funcs 附挂的孤儿函数）逐个 _apply_meta，统一覆盖 story()/
+          fragment_sweep() 原先两处各自遗漏 unit_funcs 附挂函数的特例；
+        - 去重：ids 里已在此前任意 unit 出现过的全局滤掉再登记（同一条 vms 只能
+          属于一个 unit）；unit 本身照常 emit，即便 ids 被滤空——它承载
+          state/title/unit_kind，是叙事节拍，不能丢。"""
+        matched = self._matched_funcs(src_file, funcs)
+        ids = [i for i in self._ids_for(src_file, funcs) if i not in self._emitted_ids]
+        self._emitted_ids.update(ids)
         self.timeline.append({
             "type": "unit", "unit_kind": kind, "src": src_file,
             "state": state, "title": title,
-            "ids": self._ids_for(src_file, funcs),
+            "ids": ids,
         })
+        for fn in matched:
+            self._apply_meta(fn)
 
     def emit_marker(self, text, recap=""):
         self.timeline.append({"type": "marker", "text": text, "recap": recap})
@@ -82,8 +104,6 @@ class Expander:
                 self.emit_unit("scene", st["file"], state, title, funcs)
                 self.emitted_states.add(state)
                 self.route.append(state)
-                for f in funcs:
-                    self._apply_meta(f)
             if until and state == until:
                 return
             state = nxt
@@ -114,7 +134,13 @@ class Expander:
 
     def fragment_sweep(self, only=None):
         """按 route 前缀序找可做的卡片，逐张 emit card unit 并持有，
-        然后发出 runs 中的 _f 章脚本作 fscene unit。"""
+        然后发出 runs 中的 _f 章脚本作 fscene unit。
+        crd 自身附带发出的别的卡（crds[cid]["gets"]，见 build_dag B1）在循环内、
+        紧随该卡 emit 之后立即生效（好让同一次 sweep 里 route 序靠后的卡立刻能
+        用上刚发的卡）——这不是 scene_meta，emit_unit 覆盖不到，须单独处理。
+        runs 里 _f 章脚本（fscene unit）的 scene_meta.gets 改由 emit_unit 内部
+        对其实际匹配到的全部函数统一施加（章梗概卡 133-145 由其 *_complete
+        场景授予），此处不再重复申请。"""
         for state in list(self.route):
             cid = self.scene2card.get(state)
             if cid is None or (only and cid not in only):
@@ -122,11 +148,13 @@ class Expander:
             if not self._makeable(state):
                 continue
             stem = f"snr_crd_{cid}"
+            crd = self.dag["crds"].get(str(cid), {})
             funcs = sorted({fn for (f, fn) in self.by_filefunc if f == stem})
             self.emit_unit("card", stem, state,
                            self.dag["states"].get(state, {}).get("title"), funcs)
             self.held.add(cid)
-            for runf in self.dag["crds"].get(str(cid), {}).get("runs", []):
+            self.held.update(crd.get("gets", []))
+            for runf in crd.get("runs", []):
                 fs = sorted({fn for (f, fn) in self.by_filefunc if f == runf})
                 self.emit_unit("fscene", runf, None, runf, fs)
 

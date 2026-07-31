@@ -8,6 +8,45 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import DATA, REPO, read_jsonl
 
 
+def _grant(held, unit, dag, scene2card, file_funcs, id_func):
+    """对单个 timeline unit 施加它带来的发卡，原地更新 held。
+    check() 的签名里没有 unit_funcs，无法照抄展开器（gen_timeline.Expander）的
+    内部口径；改用一条只依赖入参、且不严于展开器（不会误报）的推导——对每个
+    unit 取以下四路发卡的并集，B 段（按 timeline 顺序累积）与 C 段（重扫
+    timeline[:pos]）共用这一份实现，避免两边口径漂移：
+    1. 由 ids 反查：unit["ids"] 每个 id 对应的 func（id_func）的 scene_meta.gets——
+       这一路自动覆盖 unit_funcs 附挂进来的孤儿函数（它们的 id 已经在这个 unit
+       里，如 scene_s7f_dispatch_v52 挂在 s7f-50 状态的 unit 上）；
+    2. scene unit：dag["states"][state]["seq"] 里 play 与 subcall 两类事件的
+       scene_meta.gets；
+    3. card unit：scene2card[state] 那张卡本身，外加 crds[cid]["gets"]（crd 自身
+       附带发出的别的卡，见 build_dag 的 parse_crds）；
+    4. fscene / script unit：该文件（unit["src"]）在 ledger_rows 里出现过的全部
+       函数的 scene_meta.gets（_f 章现实层/无状态脚本被整文件经历，章梗概卡
+       133-145 由其 *_complete 场景授予）。
+    file_funcs：file→{func,…} 反查表；id_func：id→func 反查表；两者均由调用方从
+    ledger_rows 建一次。"""
+    kind = unit.get("unit_kind")
+    state = unit.get("state")
+    for i in unit.get("ids", []):
+        fn = id_func.get(i)
+        if fn:
+            held.update(dag["scene_meta"].get(fn, {}).get("gets", []))
+    if kind == "scene":
+        for ev in dag["states"].get(state or "", {}).get("seq", []):
+            if "play" in ev:
+                held.update(dag["scene_meta"].get(ev["play"], {}).get("gets", []))
+            elif "subcall" in ev:
+                held.update(dag["scene_meta"].get(ev["subcall"], {}).get("gets", []))
+    elif kind == "card":
+        cid = scene2card.get(state)
+        held.add(cid)
+        held.update(dag["crds"].get(str(cid), {}).get("gets", []))
+    elif kind in ("fscene", "script"):
+        for fn in file_funcs.get(unit.get("src"), ()):
+            held.update(dag["scene_meta"].get(fn, {}).get("gets", []))
+
+
 def check(timeline, ledger_rows, dag, scene2card, gates):
     errs = []
     narrative = {r["id"] for r in ledger_rows if r["kind"] == "narrative"}
@@ -26,6 +65,12 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
     if stray: errs.append(f"ambient 混入: {stray[:10]}")
     if unknown: errs.append(f"未知 id: {unknown[:10]}")
 
+    file_funcs = {}
+    for r in ledger_rows:
+        if r.get("kind") == "narrative":
+            file_funcs.setdefault(r["file"], set()).add(r["func"])
+    id_func = {r["id"]: r["func"] for r in ledger_rows}
+
     held, route = set(), []
     first_pos = {}
     for pos, u in enumerate(timeline):
@@ -36,9 +81,6 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
             first_pos[st] = pos
         if u["unit_kind"] == "scene":
             route.append(st)
-            for ev in dag["states"].get(st, {}).get("seq", []):
-                if "play" in ev:
-                    held.update(dag["scene_meta"].get(ev["play"], {}).get("gets", []))
         elif u["unit_kind"] == "card":
             cid = scene2card.get(st)
             crd = dag["crds"].get(str(cid), {})
@@ -55,7 +97,7 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
                     if pc is not None and pc not in held:
                         errs.append(f"card unit {st}: 前缀 {prev}（卡{pc}）未先做卡")
                         break
-            held.add(cid)
+        _grant(held, u, dag, scene2card, file_funcs, id_func)
     for g in gates:
         pos = first_pos.get(g["unit_state"])
         if pos is None:
@@ -63,11 +105,7 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
         held2 = set()
         for u in timeline[:pos]:
             if u.get("type") == "unit":
-                if u.get("unit_kind") == "card":
-                    held2.add(scene2card.get(u.get("state")))
-                for ev in dag["states"].get(u.get("state") or "", {}).get("seq", []):
-                    if "play" in ev:
-                        held2.update(dag["scene_meta"].get(ev["play"], {}).get("gets", []))
+                _grant(held2, u, dag, scene2card, file_funcs, id_func)
         lack = [c for c in g["requires_cards"] if c not in held2]
         if lack:
             errs.append(f"门控: {g['unit_state']} 出现前缺卡 {lack}")

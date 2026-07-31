@@ -121,6 +121,9 @@ def parse_crds(script_dir) -> dict:
             "req": sorted({int(x) for x in re.findall(r'myCard\[(\d+)\]\.hold == -1', t)}),
             "answers": sorted({int(x) for x in re.findall(r'if v\d+ == (\d+) then', t)} - {0, 1}),
             "runs": sorted(set(RUN_RE.findall(t)) - {"snr_fragment_main", "snr_mainmenu"}),
+            # 该卡自身的授予写作 gameSave.myCard[fragmentDoCardId].hold = 1（变量下标，
+            # 不会被这条字面量正则命中）；gets 只收「做这张卡时附带发出的别的卡」。
+            "gets": sorted({int(x) for x in GET_RE.findall(t)}),
         }
     return crds
 

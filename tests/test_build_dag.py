@@ -1,4 +1,4 @@
-from tools.build_dag import parse_states, parse_scene_meta
+from tools.build_dag import parse_states, parse_scene_meta, parse_crds
 import json
 
 FIX = '''\
@@ -52,6 +52,31 @@ def test_scene_meta_costs_and_gets():
     m = parse_scene_meta("snr_x_10_s", FIX)
     assert m["scene_x_20"]["cost"] == [25]
     assert m["scene_x_20"]["gets"] == [128]
+
+
+# Hotfix B1: crd 脚本自身发出的「别的卡」（字面量下标）要收进 gets；
+# 自身授予用变量下标 gameSave.myCard[fragmentDoCardId] 不应被算作 gets。
+CRD_FIX = '''\
+main = function()
+    local v2
+    comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
+    if gameSave.myCard[9].hold == -1 then
+        oCard.mesNot()
+    end
+    if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
+        gameSave.myCard[126].hold = 1
+        gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
+        comAyanoTimeRefresh()
+    end
+end
+'''
+
+
+def test_parse_crds_captures_literal_gets_but_not_self_grant_variable(tmp_path):
+    (tmp_path / "snr_crd_10.lua").write_text(CRD_FIX, encoding="utf-8")
+    crds = parse_crds(tmp_path)
+    assert crds["10"]["gets"] == [126]
+    assert crds["10"]["req"] == [9]              # 既有字段不受影响
 
 
 # Test fixture for choice variable tracking

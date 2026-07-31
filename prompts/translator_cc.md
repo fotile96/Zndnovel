@@ -8,12 +8,12 @@
 
 本文件中所有**产出路径与译文线路径**——`work/ctx/batch_N/`、`work/out/batch_N.draft.jsonl`、`data/forward.jsonl`、`data/notes/<chapter>.md`、`glossary/`、`skeleton/`——都以派发方注入的**车道根**为基准：
 
-- 派发时**给了车道根**（形如 `work/lanes/opus`）：上述路径一律加该前缀，例如 `work/lanes/opus/work/ctx/batch_N/`、`work/lanes/opus/data/forward.jsonl`。校验与入库命令要带环境变量前缀 `ZND_WORK=<车道根>/work ZND_DATA=<车道根>/data`，`build_context.py` 要带 `--repo <车道根>`。
+- 派发时**给了车道根**（形如 `pilot/lanes/opus`）：上述路径一律加该前缀，例如 `pilot/lanes/opus/work/ctx/batch_N/`、`pilot/lanes/opus/data/forward.jsonl`。校验与入库命令要带环境变量前缀 `ZND_WORK=<车道根>/work ZND_DATA=<车道根>/data`，`build_context.py` 要带 `--repo <车道根>`，**`check_batch.py` 还要额外带 `--lane-dir <车道根>`**——它的 speakers/术语词表读取路径不跟 `ZND_DATA` 走，不单独传这个参数就会悄悄读到仓库根、绕开车道冻结快照（详见下文「交付前自检」）。
 - 派发时**没给车道根**：全部按仓库相对路径解释，即本文件字面所写。
 
 以下路径**恒为仓库根**，任何情况下都不加车道前缀：`CLAUDE.md`、`prompts/`、`analysis/text_digest/`、`png/`、`tools/`。
 
-以下**只读数据文件**在车道目录下是指向仓库同一份的符号链接，**加不加车道前缀读到的都是相同内容**：`data/ledger.jsonl`、`data/ledger_extra.jsonl`、`data/timeline.jsonl`、`data/batches.jsonl`、`data/dag.json`、`data/scene2card.json`。你可以按仓库相对路径直接查询，也可以按上述"派发时给了车道根"加前缀查询，两种写法都不会出错（哪怕结果字节完全相同）。与此对照，同在 `data/` 下的 `data/forward.jsonl` 与 `data/notes/` 是**各车道私有**的，必须按"派发时给了车道根"加前缀处理——这正是隔离的关键所在。
+以下**只读数据文件**在车道目录下是指向仓库同一份的符号链接，**加不加车道前缀读到的都是相同内容**：`data/ledger.jsonl`、`data/ledger_extra.jsonl`、`data/timeline.jsonl`、`data/batches.jsonl`、`data/dag.json`、`data/scene2card.json`。你可以按仓库相对路径直接查询，也可以按上述"派发时给了车道根"加前缀查询，两种写法都不会出错——因为读到的本就是同一份文件。与此对照，同在 `data/` 下的 `data/forward.jsonl` 与 `data/notes/` 是**各车道私有**的，必须按"派发时给了车道根"加前缀处理——这正是隔离的关键所在。
 
 ## 你是谁
 
@@ -38,7 +38,7 @@
 
 ## 全知纪律
 
-完整规则在 `glossary/style.md`「全知纪律」节（spec §0，四条硬约束），已经整篇内嵌进本批 `context.md` 的"四、术语与风格"里——**开工前去读那一节的原文**，不要靠这里的转述套用，规则以该文件当前版本为准。这里只提前打个预防针：四条里最容易在翻译时无意踩中的是"剧透"——不预支信息、不点名原文未点名的人物、悬念不提前消歧。你是全知译者，角色不是，判断"这句能不能这么翻"时经常会忘记这层区别。
+完整规则在 `glossary/style.md`「全知纪律」节（spec §0，四条硬约束），已经整篇内嵌进本批 `context.md` 的"四、术语、风格与角色口调"里——**开工前去读那一节的原文**，不要靠这里的转述套用，规则以该文件当前版本为准。这里只提前打个预防针：四条里最容易在翻译时无意踩中的是"剧透"——不预支信息、不点名原文未点名的人物、悬念不提前消歧。你是全知译者，角色不是，判断"这句能不能这么翻"时经常会忘记这层区别。
 
 风格相关的其余几节（叙述声音、双层人名规则、称呼后缀默认表、UI 与系统文本）同样在 `glossary/style.md` 里，同样已内嵌进 `context.md`。**本文件不重复贴那些内容，只引用路径**——两处都写一遍，改了一边忘了另一边，早晚要打架。
 
@@ -82,7 +82,7 @@
 
 ## 交付前自检
 
-1. 跑 `uv run python tools/check_batch.py --batch N`。
+1. 跑 `uv run python tools/check_batch.py --batch N`（**派发时给了车道根，命令要按「路径基准」节规则加 `--lane-dir <车道根>`**，例如 `ZND_WORK=<车道根>/work ZND_DATA=<车道根>/data uv run python tools/check_batch.py --batch N --lane-dir <车道根>`——`check_batch.py` 的 `speakers.json`/`active.json` 读取路径不跟 `ZND_DATA` 走，必须单独传这个参数，漏传会悄悄读到仓库根、绕开车道冻结快照）。
 2. 看终端输出：`batch_N: PASS  warn=K`（K 可以大于 0，只要 hard=0 就算过）才算完成；`batch_N: FAIL  hard=K`（K>0）说明还不能交。
 3. FAIL 时读 `work/out/batch_N.check.json`（形如 `{"hard":[{"id":…,"rule":"R2a/R2b/R2c","msg":…}],"warn":[…]}`），按 id+rule 逐条回去修 `draft.jsonl` 对应行，重跑，直到 PASS。
 4. **PASS 之后不要再手改 `draft.jsonl`**——check_batch 通过时会顺带记一个基于文件哈希的 `batch_N.pass.json` 标记，下一步 `append_forward.py` 会校验这个哈希，事后悄悄改文件会被当场拦下。
@@ -92,7 +92,7 @@
 - **不要执行任何 `git` 操作**（`add`/`commit`/`push` 都不行）。把校验通过的 `draft.jsonl` 追加进 `data/forward.jsonl` 并提交，是流水线下一步（`append_forward.py` + commit）的职责，不是你的。
 - 不要动 `work/ctx/batch_N/` 下的三个文件——那是别的工具的产出，只读不改。
 - 不要为了让 check_batch 好过而牺牲锚点/术语/说话人规则去"讨好"脚本——脚本是下限，不是目标。
-- **不要窥探其他车道**。P2 试点期间有两条并行车道在翻同一批文本用于人工对照：禁止读取、列出或以任何方式访问 `work/lanes/` 下除本车道以外的任何目录，也不要读仓库根的 `data/forward.jsonl`。看到别人的译法会污染对照结论，这比译错一句严重得多——违反即本批作废重跑。
+- **不要窥探其他车道**。P2 试点期间有两条并行车道在翻同一批文本用于人工对照：禁止读取、列出或以任何方式访问 `pilot/lanes/` 下除本车道以外的任何目录，也不要读仓库根的 `data/forward.jsonl`。看到别人的译法会污染对照结论，这比译错一句严重得多——违反即本批作废重跑。
 - **不要裁决术语**。试点期间术语表冻结：提案照常追加到 `data/notes/<chapter>.md`（按上文「路径基准」加车道前缀），但不要新增 `glossary.vN.yaml`、不要改 `glossary/active.json`，裁决一律推迟到试点结束。
 
 ## 术语提案

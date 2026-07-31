@@ -63,7 +63,7 @@
 
 ### 3.1 目录结构
 
-每条车道一个目录（建议置于仓库外或 gitignore 的 `work/lanes/` 下）：
+每条车道一个目录，位于仓库内 `pilot/lanes/`（**用户裁决 2026-07-31**：译文线须入库——spec §8 把「逐批 commit 历史」列为产出物，且 8564 行译文约合 6.6M token 成本，放 gitignore 的 `work/` 下一次环境重建即全灭）。`.gitignore` 只挡车道内的中间产物与冻结拷贝，放行 `lane.json`、`data/forward.jsonl`、`data/patches.jsonl` 与 `pilot/lanes/pilot-manifest.json`：
 
 ```
 <lane>/
@@ -82,7 +82,7 @@
 ### 3.2 调用形态
 
 ```bash
-LANE=work/lanes/opus            # 或 work/lanes/fable
+LANE=pilot/lanes/opus            # 或 pilot/lanes/fable
 uv run python tools/build_context.py --batch N --profile cc --baseline none --repo $LANE
 ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/check_batch.py --batch N
 ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/append_forward.py \
@@ -95,15 +95,15 @@ ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/append_forward.py \
 
 ### 3.3 冻结哈希与开跑前验收
 
-试点启动时记录并写入 `work/lanes/pilot-manifest.json`：`batches.jsonl`、两车道 `skeleton/cards.zh.yaml`、`glossary/active.json`、`glossary/glossary.v6.yaml` 的 sha256。任一批次派发前校验未漂移，漂移则拒绝派发。
+试点启动时记录并写入 `pilot/lanes/pilot-manifest.json`：`batches.jsonl`、两车道 `skeleton/cards.zh.yaml`、`glossary/active.json`、`glossary/glossary.v6.yaml` 的 sha256。任一批次派发前校验未漂移，漂移则拒绝派发。
 
 **隔离验收（batch 1 完成后立即执行，不通过则停止试点）**：两条车道的 `data/forward.jsonl` 内容必须不同；两条车道 batch 2 的 `context.md` 第二节前缀正文必须各自含本车道 batch 1 的译文。
 
 ### 3.4 子代理隔离纪律（指令层，机制挡不住）
 
-目录隔离只保证工具默认读写不串台，**挡不住子代理主动去看**——译者子代理有完整的文件系统读取权限，一次 `ls work/lanes/` 就能看到另一条车道的译文，而"看到对方译法"对本次对照的破坏远大于译错一句。因此每份派发 prompt 必须包含明令：
+目录隔离只保证工具默认读写不串台，**挡不住子代理主动去看**——译者子代理有完整的文件系统读取权限，一次 `ls pilot/lanes/` 就能看到另一条车道的译文，而"看到对方译法"对本次对照的破坏远大于译错一句。因此每份派发 prompt 必须包含明令：
 
-- 禁止读取、列出或以任何方式窥探 `work/lanes/` 下除本车道外的任何目录；
+- 禁止读取、列出或以任何方式窥探 `pilot/lanes/` 下除本车道外的任何目录；
 - 禁止读取仓库根的 `data/forward.jsonl`（试点期该文件不参与，读它只会造成混淆）；
 - 查既有译法一律走本车道的 `<lane>/data/forward.jsonl`。
 
@@ -167,7 +167,7 @@ build(args.batch, args.profile, args.baseline, repo=args.repo, jp_fallback=args.
 ```yaml
 # 车道 A                          # 车道 B
 lane:      opus                   lane:      fable
-lane_dir:  work/lanes/opus        lane_dir:  work/lanes/fable
+lane_dir:  pilot/lanes/opus        lane_dir:  pilot/lanes/fable
 model:     opus                   model:     fable      # Workflow agent() 的 model 实参
 effort:    max                    effort:    high       # Workflow agent() 的 effort 实参
 append_model_id: claude-opus-5    append_model_id: claude-fable-5   # append_forward --model 实参
@@ -253,7 +253,7 @@ append_model_id: claude-opus-5    append_model_id: claude-fable-5   # append_for
 
 **产出物：**
 1. 两条车道的 `data/forward.jsonl`（各 4282 行译文）与逐批 commit 历史。
-2. `work/lanes/pilot-manifest.json`：冻结哈希、车道配置、逐批机器指标。
+2. `pilot/lanes/pilot-manifest.json`：冻结哈希、车道配置、逐批机器指标。
 3. 两份 `data/notes/*.md` 术语提案清单（未裁决）。
 4. 人工对照评分记录（三栏 rubric × 分层抽样）+ 窗口对撞比对结论。
 5. 试点报告：v1 译者选型结论、流水线缺陷清单、P3 输入（批量下限、探针设计）。

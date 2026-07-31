@@ -36,10 +36,26 @@ def test_normal_ratio_is_not_flagged():
 
 
 def test_repeated_substring_loop_is_flagged():
-    src = [{"id": 6, "jp": "彼は歩いた。"}]
-    drf = [{"id": 6, "zh": "他走着走走着走走着走走着走"}]
+    """真实的 LLM 退化复读通常是整句/长短语级循环（4 字单元起，非 3 字
+    以下的中文合法叠字/情绪重复，见下方 test_short_emotive_repetition_is_not_flagged）。"""
+    src = [{"id": 6, "jp": "分からない、分からない、分からない。"}]
+    drf = [{"id": 6, "zh": "我不知道我不知道我不知道"}]
     hits = scan(src, drf)
     assert any(h["rule"] == "C3" and h["id"] == 6 for h in hits)
+
+
+def test_short_emotive_repetition_is_not_flagged():
+    """视觉小说里 3 字及以下的重复多是合法情绪表达（笑声、省略号、致歉/
+    诘问台词的连喊），不是模型退化，C3 不该对其告警——这是本工具唯一价值
+    「命中值得一看」的判别点，必须钉住。"""
+    src = [{"id": 11, "jp": "ごめん、ごめん、ごめん……"},
+           {"id": 12, "jp": "あはははは"},
+           {"id": 13, "jp": "……………………"}]
+    drf = [{"id": 11, "zh": "对不起对不起对不起"},
+           {"id": 12, "zh": "哈哈哈哈哈哈"},
+           {"id": 13, "zh": "……………………"}]
+    hits = scan(src, drf)
+    assert not [h for h in hits if h["rule"] == "C3"]
 
 
 def test_duplicated_lines_across_batch_are_flagged():

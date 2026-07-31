@@ -207,3 +207,107 @@ cards.jp/zh 语料告警数：25
 - cards.jp/zh 硬折行导致人名切分误报的现象，若未来有新工具要扫描
   `skeleton/cards.*.yaml`，需要注意这个坑（本报告已记录成因与规避思路，
   但未在代码里做任何处理，因为不在本任务范围内）。
+
+---
+
+## Fix Round 1（评审 Needs fixes → 修复）
+
+评审确认了报告里所有可核对数字（Step5 0 告警、6 名白名单、长度降序替换、
+除零保护、158 全绿），也认可"简报的 `{6,}` 与其自带 C3 用例数学上不可能
+同时成立"这一发现属实。唯一 Important 项：我选的修法 `{2,}` 是三个可行
+取值里最不精确的一个——控制器实测量化对比后确认 `{2,}` 会把视觉小说里
+大量合法的情绪表达（笑声"哈哈哈哈哈哈"、省略号"……………………"、致歉/诘问
+类台词的连喊"对不起对不起对不起"）当作退化告警，误报率高到让顾问工具
+的"命中值得一看"价值失效；评审建议的 `{3,}` 虽不用改测试用例，但控制器
+补测本作大量的三字情绪重复台词（"对不起对不起对不起"「为什么为什么
+为什么」「别走啊别走啊别走啊」）后发现 `{3,}` 同样全军覆没（6/6 误报）。
+裁定采用 `{4,}`——唯一在退化样本、视觉小说常见叠字表达、本作三字情绪
+重复台词、120+194 条已定稿语料四类样本上都零误报、且仍 4/4 抓住全部退化
+样本的取值。
+
+### 改动
+
+1. `tools/detect_collapse.py`：`LOOP_RE` 由 `(.{2,}?)\1{2,}` 改为
+   `(.{4,}?)\1{2,}`（4 字符单元×3 次＝总跨度≥12 字符起才算复读循环），
+   注释写清取值依据（三类语料实测对比，见上文表格）。
+2. `tools/detect_collapse.py`：`retained_names` 补一句作用域边界注释——
+   只扫 `characters` 段、不扫 `terms` 段；`terms` 当前无含假名的 `zh`
+   （已核实），但若未来某版故意在 `terms` 保留片假名术语（如 コックリ
+   さん）会被 C1 误报，届时需扩展扫描范围。
+3. `tests/test_detect_collapse.py`：
+   - 改写 `test_repeated_substring_loop_is_flagged`（本轮唯一允许改动的
+     测试用例）：原用例 `"他走着走走着走走着走走着走"` 的重复单元只有
+     3 字符，不具生产代表性（真实 LLM 退化通常是整句/长短语级复读）；
+     换成 `"我不知道我不知道我不知道"`（4 字单元×3 次），对应日文源改
+     为 `"分からない、分からない、分からない。"`。其余 8 条 brief 给定
+     测试**未改动**。
+   - 新增 `test_short_emotive_repetition_is_not_flagged`：断言
+     `"对不起对不起对不起"`（3 字单元×3）、`"哈哈哈哈哈哈"`（2 字单元×3）、
+     `"……………………"`（1 字单元×10）均不触发 C3。这是本轮问题的判别点，
+     钉住后可防止未来再退化回 `{2,}`/`{3,}` 那种大面积误报。
+
+### 验证
+
+全量套件：
+
+```
+$ uv run pytest -q
+........................................................................ [ 45%]
+........................................................................ [ 90%]
+...............                                                          [100%]
+159 passed in 2.55s
+```
+
+（159 = fix 前 158 + 新增 1 条反向用例；改写的用例不增加计数。）
+
+Step 5 重跑（`{4,}` 定值下，120 条已定稿锚点）：
+
+```
+保留人名 6 个；120 条已定稿锚点的告警数：0
+```
+
+**双侧突变验证**（验证 `{4,}` 确实被两侧夹住，不是偶然通过；均为临时改动，
+未提交）：
+
+突变 1——临时改回 `{2,}`，确认新增的反向用例转红（其余测试不受影响，证明
+`{2,}` 对合法叠字/情绪表达误报）：
+
+```
+$ sed -i 's/LOOP_RE = re.compile(r"(.{4,}?)\\1{2,}")/LOOP_RE = re.compile(r"(.{2,}?)\\1{2,}")/' tools/detect_collapse.py
+$ uv run pytest tests/test_detect_collapse.py -v
+...
+tests/test_detect_collapse.py::test_repeated_substring_loop_is_flagged PASSED
+tests/test_detect_collapse.py::test_short_emotive_repetition_is_not_flagged FAILED
+...
+E   AssertionError: assert not [{'id': 11, 'rule': 'C3', ...}, {'id': 12, 'rule': 'C3', ...}, {'id': 13, 'rule': 'C3', ...}]
+========================= 1 failed, 9 passed in 0.06s ==========================
+```
+
+突变 2——临时改为 `{6,}`（brief 原始下限），确认改写后的正向用例转红
+（证明 `{6,}` 会漏检 4 字单元级退化）：
+
+```
+$ sed -i 's/LOOP_RE = re.compile(r"(.{2,}?)\\1{2,}")/LOOP_RE = re.compile(r"(.{6,}?)\\1{2,}")/' tools/detect_collapse.py
+$ uv run pytest tests/test_detect_collapse.py -v
+...
+tests/test_detect_collapse.py::test_repeated_substring_loop_is_flagged FAILED
+tests/test_detect_collapse.py::test_short_emotive_repetition_is_not_flagged PASSED
+...
+E   assert False
+E    +  where False = any(<generator object ...>)
+========================= 1 failed, 9 passed in 0.05s ==========================
+```
+
+还原为 `{4,}` 后复跑全量套件，159 passed，`git status` 干净（除本轮改动
+的两个文件与本报告外，无残留改动）。
+
+### 修复后 Self-Review 补充
+
+- **Completeness**：10 条测试全部存在且通过（brief 给定 9 条 + 本轮新增
+  反向用例 1 条）；`LOOP_RE` 定值有据可查（三类语料实测表格）、有双侧
+  突变验证钉住边界。
+- **Discipline**：仍未新增依赖；`RATIO_LO`/`RATIO_HI`/`KANA_MAX` 三个阈值
+  常量全程未动；只改了 brief 允许范围内的那一条 C3 测试用例，其余 8 条
+  逐字保留。
+- **Testing**：GREEN 证据、Step 5 复验、双侧突变验证三项证据均完整记录
+  在案。

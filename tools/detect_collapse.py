@@ -19,11 +19,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import REPO, WORK, dumps, read_jsonl
 
 KANA_RE = re.compile(r"[぀-ゟ゠-ヿ]")
-# 行内连续重复：长度≥2 的子串连续出现≥3 次（即总重复跨度≥6 字符）。
-# 单字符起点（如省略号"……"、语气词叠字）在正常文本中常见，不适合作为
-# 循环判据；下限收在 2 是为了既能抓住 brief 用例中的 3 字循环单元
-# （"走着走"重复 4 次），又不误伤单字重复 2 次的自然语言现象。
-LOOP_RE = re.compile(r"(.{2,}?)\1{2,}")
+# 行内连续重复：长度≥4 的子串连续出现≥3 次（即总重复跨度≥12 字符）。
+# 定值依据（控制器+评审实测三类语料对比，见 task-6-report.md 修复记录）：
+# {2,}/{3,} 都会把视觉小说里合法的情绪表达（"哈哈哈哈哈哈""……………………"、
+# 本作大量的"对不起对不起对不起""为什么为什么为什么"式三字/双字复读台词）
+# 当作退化告警——顾问工具一旦大面积误报就等于被无视。{4,} 是唯一在退化
+# 样本（LLM 复读循环，通常整句/长短语级）、视觉小说常见叠字表达、本作三字
+# 情绪重复台词、120+194 条已定稿语料四类样本上都零误报、且仍 4/4 抓住退化
+# 样本的取值。
+LOOP_RE = re.compile(r"(.{4,}?)\1{2,}")
 
 # 实测依据（skeleton/anchors.yaml 120 对 + cards.jp/zh 194 对已定稿语料）：
 # zh/jp 字符比锚点 0.48–1.20（中位 0.85）、卡面 p5 0.62–p95 1.00 → 阈值取更宽的
@@ -39,7 +43,10 @@ DUP_MIN_COUNT = 3
 
 def retained_names(glossary_path) -> set:
     """术语表 characters 中「原样保留」（zh == jp）且含假名的条目——这些假名
-    是合法的，计算残留假名比前必须先剔除。"""
+    是合法的，计算残留假名比前必须先剔除。
+    作用域边界：只扫 characters 段，不扫 terms 段（当前 terms 里没有含假名
+    的 zh，已核实）；若未来某版故意在 terms 保留片假名术语（如 コックリ
+    さん），C1 会对它误报，届时需扩展本函数的扫描范围。"""
     import yaml
     doc = yaml.safe_load(Path(glossary_path).read_text(encoding="utf-8")) or {}
     return {c["jp"] for c in (doc.get("characters") or [])

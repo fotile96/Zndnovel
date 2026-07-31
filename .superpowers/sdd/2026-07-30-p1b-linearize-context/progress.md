@@ -71,3 +71,16 @@ Task 5: fix round 2 再评审 — ADDRESSED（评审者独立重放 dag+timeline
 Task 5: minor (deferred，再评审注记): 「已讲过+有 choice」分支只校验 choice 事件存在、不校验 pick 本身是否在该状态的真实选项集合里（当前 39 条全部有效，未来 route_plan 写错 pick 会重现同类假陈述）；「at 不在 dag['states'] 时 marker 构造不抛」这条行为无专用用例
 Task 5: complete (commits 020896c..5ba829f, review clean after 2 fix rounds)
 # BASE(T6 前)=5ba829f
+# 订正：BASE(T6) 实为 a3693d1（前一行写的 5ba829f 是取 HEAD 时点早于那条记账 commit）
+Task 6: implementer DONE (b4048ea)，76 passed（73+3），双跑 sha256 一致
+Task 6: 控制器独立核验（自写脚本读产物）：batches 339 = main 173 + extra 165 + ambient 1；main ids 16693 且与 timeline unit ids 集合相等；ambient 56/56、extra 829/829 全覆盖；batch 编号连续 1..339；cut_reason {budget 14, chapter 83, branch 75, tail 2, extra 165}；main 批均 2490 字、最大 9000（=预算上限）
+# 控制器 pre-flight 交给评审者判的一处计划内部不一致：接口表的 batches 行 schema 列了 "seqs" 字段，brief 的 Step 3 参考实现没产出它
+Task 6: review — spec ❌ / quality Needs fixes；Important×3 全部 plan-mandated（brief 的 Step 3 参考码与 brief 自身散文/接口总表相矛盾）：①339 行全缺 `seqs`（接口总表要求，且是接回 timeline 的唯一干净 join key——评审者找到真实反例：s3s_375 附近 timeline seq 227–229 是 marker→空ids unit→marker，靠「最近的前一条事件」还原会认错 marker）②ambient 车道未按 (file,func) 分组（brief 散文明写；现在看不出来是因为总量 1363 字全落一批、且 ledger 里恰好本来就连续）③extra 车道 jp_chars 写死 0（实为 829 行合计 9019 字、单文件最多 1603）
+Task 6: 控制器裁决（用户离席，按其指示自行裁决并留痕）：三条**按 brief 的散文与接口总表实现**——brief 第 8 行已把 schema 权威让渡给接口总表，故这是补齐计划的规范表述、不是推翻计划；与本计划早前 Task 2「ran 死变量」的处理同类（计划内部契约表述缺陷，修复=恢复 plan 语义）→ 进 fix round 1
+Task 6: minor (deferred): 报告自述行数 118/42 实为 76/37；报告声称测了空 ids 与「换章+超预算同时」但夹具里没有；报告「已知顾虑: 无」未反映三条 Important；main/ambient 两处贪心装批逻辑近似重复未抽公共;cur_ids/cur_ch 耦合不变式无注释无专用用例;chapter 字段跨车道语义重载（main/ambient 是章别码、extra 是 lua 文件名——受 ledger_extra schema 所限，观察项非缺陷）
+Task 6: fix round 1/5 — 三 Findings（seqs / ambient 分组 / extra 字数）实现（a1c431f），81 passed（76+5）。控制器独立核验：Finding2 ✓（ambient 1 批 56/56、分组落地）、Finding3 ✓（extra jp_chars 合计 9019 == ledger_extra 实际字数）、**Finding1 ✗**——unit 被预算切开时续批拿不到该 unit 的 seq：main 中 9 个批次 seqs 为空（30/31/59/89/112/116/162/171/172），14 个批次违反「本批 ids ⊆ 其 seqs 对应 unit 的 ids」（如 batch 2 seqs=[6,7] 实际 ids 来自 unit 5/6/7；872-id 巨型 unit seq 515 横跨 170/171/172 只有第一批带 seq）→ 进 fix round 2（把 seq 登记从「按 unit 一次性」改成「跟着 id 走、flush 后重新登记」，并立不变量：任意批次 set(ids) ⊆ ⋃{timeline[s].ids : s ∈ seqs}）
+Task 6: fix round 2/5 — seq 登记改为跟着 id 走（678b9da），83 passed（81+2）；控制器复核：seqs 为空的批次 []、不变量违例 []、extra jp_chars 9019、main ids 与 timeline 集合相等、编号连续、双跑字节一致 → 再评审已派发
+Task 6: fix round 2 再评审 — 三条全部 ADDRESSED（评审者独立重放 339 批 + 533 行 timeline：main seqs 无空、不变量违例 0、多余 seq 0、反向漏登记 0；ambient 分组是结构性保证——整组 extend 从不拆组，另用超预算单组的构造性用例验过；extra jp_chars 165 批逐批与 ledger_extra 真值相等、总计 9019）。无新增 C/I
+Task 6: minor (deferred，再评审注记): gen_batches.py:72 的注释与报告都说「单组超预算时允许在组内切」，但代码从不拆组（整组放入、宁可超预算）——行为更安全，文字与实现不符
+Task 6: complete (commits a3693d1..678b9da, review clean after 2 fix rounds)
+# BASE(T7 前)=04e8462

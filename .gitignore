@@ -13,3 +13,15 @@ __pycache__/
 build/
 scratch/
 work/
+
+# P2 试点车道（pilot/lanes/<lane>/）：车道根本身入库——data/forward.jsonl 与
+# data/patches.jsonl 是逐批 commit 的译文正向线（spec §8 产出物），lane.json
+# 与 pilot-manifest.json 是冻结基准，都不能被忽略。只忽略车道内的中间产物：
+# work/ 子目录、skeleton/+glossary/ 冻结拷贝（体量大，可由 manifest 哈希追溯）、
+# data/ 下指向仓库同一份文件的符号链接。
+pilot/lanes/*/work/
+pilot/lanes/*/skeleton/
+pilot/lanes/*/glossary/
+pilot/lanes/*/data/*
+!pilot/lanes/*/data/forward.jsonl
+!pilot/lanes/*/data/patches.jsonl

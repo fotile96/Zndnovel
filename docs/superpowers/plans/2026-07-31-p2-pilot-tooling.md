@@ -945,7 +945,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest tests/test_lane_setup.py -v`
-Expected: 8 passed。
+Expected: 7 passed。
 
 - [ ] **Step 5: Commit**
 

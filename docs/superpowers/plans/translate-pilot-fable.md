@@ -53,7 +53,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_1/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 1`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 1 --lane-dir work/lanes/fable`
 Expected: `batch_1: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_1.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -87,7 +87,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_2/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 2`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 2 --lane-dir work/lanes/fable`
 Expected: `batch_2: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_2.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -121,7 +121,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_3/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 3`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 3 --lane-dir work/lanes/fable`
 Expected: `batch_3: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_3.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -155,7 +155,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_4/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 4`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 4 --lane-dir work/lanes/fable`
 Expected: `batch_4: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_4.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -189,7 +189,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_5/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 5`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 5 --lane-dir work/lanes/fable`
 Expected: `batch_5: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_5.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -235,7 +235,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_6/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 6`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 6 --lane-dir work/lanes/fable`
 Expected: `batch_6: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_6.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -269,7 +269,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_7/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 7`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 7 --lane-dir work/lanes/fable`
 Expected: `batch_7: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_7.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -303,7 +303,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_8/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 8`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 8 --lane-dir work/lanes/fable`
 Expected: `batch_8: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_8.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -337,7 +337,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_9/context.md`、`source.jsonl`
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 9`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 9 --lane-dir work/lanes/fable`
 Expected: `batch_9: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_9.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -371,7 +371,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_10/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 10`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 10 --lane-dir work/lanes/fable`
 Expected: `batch_10: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_10.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -417,7 +417,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_11/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 11`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 11 --lane-dir work/lanes/fable`
 Expected: `batch_11: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_11.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -451,7 +451,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_12/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 12`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 12 --lane-dir work/lanes/fable`
 Expected: `batch_12: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_12.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -485,7 +485,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_13/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 13`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 13 --lane-dir work/lanes/fable`
 Expected: `batch_13: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_13.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -519,7 +519,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_14/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 14`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 14 --lane-dir work/lanes/fable`
 Expected: `batch_14: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_14.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -553,7 +553,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_15/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 15`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 15 --lane-dir work/lanes/fable`
 Expected: `batch_15: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_15.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -599,7 +599,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_16/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 16`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 16 --lane-dir work/lanes/fable`
 Expected: `batch_16: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_16.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -633,7 +633,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_17/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 17`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 17 --lane-dir work/lanes/fable`
 Expected: `batch_17: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_17.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -667,7 +667,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_18/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 18`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 18 --lane-dir work/lanes/fable`
 Expected: `batch_18: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_18.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -701,7 +701,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_19/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 19`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 19 --lane-dir work/lanes/fable`
 Expected: `batch_19: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_19.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -735,7 +735,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_20/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 20`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 20 --lane-dir work/lanes/fable`
 Expected: `batch_20: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_20.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -781,7 +781,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_21/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 21`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 21 --lane-dir work/lanes/fable`
 Expected: `batch_21: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_21.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -815,7 +815,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_22/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 22`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 22 --lane-dir work/lanes/fable`
 Expected: `batch_22: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_22.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -849,7 +849,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_23/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 23`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 23 --lane-dir work/lanes/fable`
 Expected: `batch_23: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_23.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -883,7 +883,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_24/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 24`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 24 --lane-dir work/lanes/fable`
 Expected: `batch_24: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_24.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -917,7 +917,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_25/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 25`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 25 --lane-dir work/lanes/fable`
 Expected: `batch_25: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_25.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -963,7 +963,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_26/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 26`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 26 --lane-dir work/lanes/fable`
 Expected: `batch_26: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_26.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -997,7 +997,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_27/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 27`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 27 --lane-dir work/lanes/fable`
 Expected: `batch_27: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_27.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1031,7 +1031,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_28/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 28`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 28 --lane-dir work/lanes/fable`
 Expected: `batch_28: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_28.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1065,7 +1065,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_29/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 29`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 29 --lane-dir work/lanes/fable`
 Expected: `batch_29: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_29.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1099,7 +1099,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_30/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 30`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 30 --lane-dir work/lanes/fable`
 Expected: `batch_30: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_30.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1145,7 +1145,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_31/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 31`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 31 --lane-dir work/lanes/fable`
 Expected: `batch_31: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_31.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1179,7 +1179,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_32/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 32`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 32 --lane-dir work/lanes/fable`
 Expected: `batch_32: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_32.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1213,7 +1213,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_33/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 33`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 33 --lane-dir work/lanes/fable`
 Expected: `batch_33: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_33.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1247,7 +1247,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_34/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 34`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 34 --lane-dir work/lanes/fable`
 Expected: `batch_34: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_34.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1281,7 +1281,7 @@ Expected: 生成 `work/lanes/fable/work/ctx/batch_35/context.md`、`source.jsonl
 
 - [ ] **Step 3: 校验**
 
-Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 35`
+Run: `ZND_WORK=work/lanes/fable/work ZND_DATA=work/lanes/fable/data uv run python tools/check_batch.py --batch 35 --lane-dir work/lanes/fable`
 Expected: `batch_35: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `work/lanes/fable/work/out/batch_35.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
 - [ ] **Step 4: 入库并提交**
@@ -1309,11 +1309,11 @@ git commit -m "data: s2s 批次35 译文入线"
 
 ### Task 43: 章末——梗概回译自检 + 人工评审 gate
 
-pilot-fable 章 main 车道全部 35 个批次（1–35）已入库 `work/lanes/fable/data/forward.jsonl`。收尾前做两件事：
+crd、s0f、s1f、s1s、s2s、sys 章 main 车道全部 35 个批次（1–35）已入库 `work/lanes/fable/data/forward.jsonl`。收尾前做两件事：
 
 - [ ] **Step 1: 梗概回译自检**
 
-对照本章对应的章节梗概卡（`skeleton/cards.zh/`，见 `CLAUDE.md`「卡片分类」节「章节梗概卡」条目）与本章刚入库的 `work/lanes/fable/data/forward.jsonl` 正文译文：核对人物称呼（双层人名——现实层汉字/故事层片假名，见 `CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否和 `skeleton/anchors.yaml` 一致，尤其检查有没有在本章尚不该点破的地方提前泄露后续真相（全知纪律，`glossary/style.md`）。
+对照本段涉及的各章章节梗概卡（`skeleton/cards.zh/` 中 crd、s0f、s1f、s1s、s2s、sys 各章对应卡，见 `CLAUDE.md`「卡片分类」节「章节梗概卡」条目）与本车道刚入库的 `work/lanes/fable/data/forward.jsonl`：核对人物称呼（双层人名——现实层汉字/故事层片假名，见 `CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否与 `skeleton/anchors.yaml` 一致，尤其检查有没有在本段尚不该点破的地方提前泄露后续真相（全知纪律，`glossary/style.md`）。**注意本段是 timeline 连续段而非完整章，某些章可能只覆盖了一部分，不要按「整章完结」的标准要求梗概吻合。**
 
 - [ ] **Step 2: 人工评审 gate**
 

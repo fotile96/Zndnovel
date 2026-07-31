@@ -86,7 +86,9 @@ LANE=work/lanes/opus            # 或 work/lanes/fable
 uv run python tools/build_context.py --batch N --profile cc --baseline none --repo $LANE
 ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/check_batch.py --batch N
 ZND_WORK=$LANE/work ZND_DATA=$LANE/data uv run python tools/append_forward.py \
-    --batch N --backend cc --model <lane_model_id> --ctx <ctx_sha> --glossary-v 6
+    --batch N --backend cc --model $APPEND_MODEL_ID --ctx <ctx_sha> --glossary-v 6
+# $APPEND_MODEL_ID 取车道配置的 append_model_id（§5.1）：claude-opus-5 或 claude-fable-5
+# <ctx_sha> 取本批 work/ctx/batch_N/manifest.json 的 ctx_sha 字段
 ```
 
 依据（已实测）：`build_context.build()` 的 `repo` 参数同时决定 `data/`、`skeleton/`、`glossary/` 三处读取路径与 `work/` 落点，指向车道目录即完整隔离；`check_batch`/`append_forward` 走 `pipelib` 的 `ZND_*` 覆盖。

@@ -115,3 +115,9 @@ Task 9: review — spec ✅ / quality Approved，零 Critical/Important（评审
 Task 9: minor (deferred): render() 多一个 baseline="none" 第五参数（brief 字面只有四个，向后兼容且两条用例都过）；main() 未暴露 --baseline，故该参数当前从 CLI 不可达；模板两处引用「CLAUDE.md 术语层节」但 CLAUDE.md 无此标题（只是文件树里的一个标签）；docs/superpowers/plans/translate-*.md 无 .gitignore 条目；零批次章别与 every<=0 两条边界经手工追踪正确但无用例
 Task 9: complete (commits b6ce759..0731f93, review clean)
 # BASE(T10 前)=8c5af8d
+Task 10: implementer DONE (27fb118)，94 passed（92+2）；patches.jsonl 行 schema 定为 {"id","zh","reason","glossary_v","ts"}
+Task 10: 控制器独立核验：recall 在 data/forward.jsonl 缺失时退出 0（但 stdout 为空，无「0 条命中」提示，留给评审判断）；在 mktemp 目录里两次 add_patch 同一 id → patches.jsonl 两行（append-only 未覆盖），resolve_map([], rows) == {5: "再改"}（后写覆盖语义正确）；真实 data/patches.jsonl 未被创建
+Task 10: review — **收到两份互相矛盾的评审结论**（同一 agent 两次通知；第一份的消息体在传输中被截断/损坏，且其引用的行号与实际文件对不上，如称 recall.py 47 行、无 --emit-batch、zh 取自 ledger）。控制器自行 grep 当前代码核实：recall.py 实为 78 行，第 46 行 `"zh": row["zh"]` 取自 **forward** 行（非 ledger）、第 47 行 chapter 取自 ledger、第 59/64 行有 --emit-batch 与 mkdir、add_patch.py:23 有 choices=["review","recall","polish"] —— 与**第二份**评审逐条吻合。据此采信第二份：spec ✅ / quality Approved，零 Critical/Important
+Task 10: minor (deferred): --term 直接拼文件名未净化（含 / 或 .. 时会在 work/ 下建嵌套目录甚至解析到仓库外，落点在 gitignore 的 work/ 内、不碰翻译轨，风险低）；--emit-batch 的落点固定用 pipelib.WORK、不随 --data-dir 改变；0 命中时 stdout 全空无提示；库函数 add() 本身不校验 reason（约束只在 argparse 层）；测试只断言 id、未断言 zh/chapter（照抄 brief Step 1 原样）；find() 不参照 patches.jsonl，已被 add_patch 修订过的 id 仍会重复召回；recall.py:65 的 Path(WORK) 冗余
+Task 10: complete (commits 81c5790..27fb118, review clean)
+# BASE(T11 前)=d7f9ad0

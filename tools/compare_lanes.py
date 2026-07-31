@@ -49,9 +49,15 @@ def blind_pairs(ids, zh_a, zh_b, ledger, lane_a, lane_b):
 
 
 def stratified_sample(ids, timeline, per_kind=20):
-    """按 timeline 单元类型分层，每类按 id 升序取前 per_kind 个。
-    段内单元构成极不均衡（场景/卡面/整脚本…），不分层会过采样机械性最强、
-    模型差异最小的那一类。"""
+    """按 timeline 单元类型分层，每类取 per_kind 个样本。
+
+    每层内**等距取样并强制含端点**（id 最小与最大都各自入选），而不是旧版
+    "按 id 升序取前 N 个"——旧版会让样本系统性地只覆盖段内靠前的少数批次，
+    压缩窗口触发瞬间（段内最晚批次）永远进不了盲评材料，而"压缩触发瞬间是否
+    丢信息"正是试点要回答的问题之一（终审 I1）。id 在本仓库里按脚本/时间轴
+    出现顺序单调递增分配，故"该层内 id 最小/最大"即约等于"该层内最早/最晚
+    批次"，等距+端点覆盖足以解决位置退化，不需要额外传入 batch 信息。
+    """
     id_kind = {}
     for row in timeline:
         if row.get("type") != "unit":
@@ -63,7 +69,14 @@ def stratified_sample(ids, timeline, per_kind=20):
         buckets.setdefault(id_kind.get(i, "unknown"), []).append(i)
     out = []
     for kind in sorted(buckets):
-        out.extend(buckets[kind][:per_kind])
+        bucket = buckets[kind]
+        n = len(bucket)
+        if n <= per_kind or per_kind <= 1:
+            out.extend(bucket[:per_kind] if per_kind >= 1 else [])
+            continue
+        step = (n - 1) / (per_kind - 1)
+        idxs = sorted({round(i * step) for i in range(per_kind)})
+        out.extend(bucket[i] for i in idxs)
     return sorted(out)
 
 
@@ -96,7 +109,19 @@ def main(argv=None):
     fb = read_jsonl(lb / "data" / "forward.jsonl")
     zh_a = {r["id"]: r["zh"] for r in fa}
     zh_b = {r["id"]: r["zh"] for r in fb}
-    anchors = anchor_ids(repo / "skeleton" / "anchors.yaml")
+    # 锚点必须按车道自己的冻结快照读，不是仓库当前状态：遵从率考的是"译者当时
+    # 看到的锚点表，是否被逐字沿用"，仓库锚点若在试点期间被修订，用仓库当前
+    # 值判会文不对题（终审 I4）。两条车道的冻结快照理应彼此相同（lane_setup
+    # 的 verify() 有跨车道一致性检查）——这里独立复核一次：不同就直接拒绝
+    # 出对照材料，因为分母不同、遵从率不可比。
+    anchors_a = anchor_ids(la / "skeleton" / "anchors.yaml")
+    anchors_b = anchor_ids(lb / "skeleton" / "anchors.yaml")
+    if anchors_a != anchors_b:
+        raise SystemExit(
+            f"{la.name} 与 {lb.name} 两条车道的锚点冻结快照不同——遵从率对两"
+            f"车道不是同一把尺子，不可比。拒绝生成对照材料，请先用 "
+            f"tools/lane_setup.py --verify 排查漂移。")
+    anchors = anchors_a
     ledger = {r["id"]: r["jp"] for r in read_jsonl(repo / "data" / "ledger.jsonl")}
     timeline = read_jsonl(repo / "data" / "timeline.jsonl")
 

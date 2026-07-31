@@ -133,6 +133,22 @@ def test_main_verify_returns_1_on_corrupted_lane(tmp_path, monkeypatch):
     assert main(["--verify"]) == 1
 
 
+def test_main_refuses_rerun_without_force_when_forward_exists(tmp_path, monkeypatch):
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    monkeypatch.setattr("tools.lane_setup.REPO", repo)
+    monkeypatch.setattr("tools.lane_setup.LANES_ROOT", lanes)
+    assert main(["--lane", "opus", "--model", "opus", "--effort", "max",
+                 "--append-model-id", "claude-opus-5"]) == 0
+    (lanes / "opus" / "data" / "forward.jsonl").write_text(
+        '{"id":1,"zh":"x"}\n', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        main(["--lane", "opus", "--model", "opus", "--effort", "max",
+              "--append-model-id", "claude-opus-5"])
+    assert main(["--lane", "opus", "--model", "opus", "--effort", "max",
+                 "--append-model-id", "claude-opus-5", "--force"]) == 0
+
+
 def test_verify_without_record_reports_and_does_not_raise(tmp_path):
     """setup 之后没跑 record 就直接 verify——manifest 不存在，须给出可诊断提示
     而非漂移误报为"无漂移"或抛异常。"""
@@ -141,6 +157,126 @@ def test_verify_without_record_reports_and_does_not_raise(tmp_path):
     setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
     drift = verify(lanes, repo)
     assert drift == ["pilot-manifest.json 不存在——尚未记录冻结哈希"]
+
+
+def test_setup_refuses_rerun_when_forward_exists(tmp_path):
+    """试点中途重跑建车道命令必须被拦下——forward.jsonl 已存在说明该车道已经
+    有真实译文进度，无条件 setup() 会用当前仓库状态重冻结 skeleton/glossary，
+    抹掉原始基准且事后无法证明是否漂移过。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=lanes)
+    (lane_dir / "data" / "forward.jsonl").write_text(
+        '{"id":1,"zh":"x"}\n', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+
+
+def test_setup_force_allows_rerun_when_forward_exists(tmp_path):
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=lanes)
+    (lane_dir / "data" / "forward.jsonl").write_text(
+        '{"id":1,"zh":"x"}\n', encoding="utf-8")
+    lane_dir2 = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                      lanes_root=lanes, force=True)
+    assert lane_dir2 == lane_dir
+    # force 重跑不得动 forward.jsonl 本身（那是真实译文，不是 setup() 的管辖范围）
+    assert (lane_dir / "data" / "forward.jsonl").read_text(encoding="utf-8") == \
+        '{"id":1,"zh":"x"}\n'
+
+
+def test_record_refuses_to_overwrite_when_frozen_hash_changed_without_force(tmp_path):
+    """record() 重跑：若某条车道已记录过、且当前实际哈希与记录不同，必须拒绝
+    覆盖（没有 --force）——否则原始基准被静默重写，事后无法证明是否漂移过。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (lanes / "opus" / "glossary" / "active.json").write_text(
+        '{"a":"改了"}', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        record(lanes, repo)
+
+
+def test_record_force_overwrites_changed_hash(tmp_path):
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (lanes / "opus" / "glossary" / "active.json").write_text(
+        '{"a":"改了"}', encoding="utf-8")
+    merged = record(lanes, repo, force=True)
+    assert merged["opus"] == freeze_hashes(lanes / "opus", repo)
+
+
+def test_record_allows_adding_new_lane_without_force(tmp_path):
+    """两条车道不是同时 setup 的——先 opus 后 fable，第二次 record() 必须能
+    在不动 opus 已记录基准的前提下把 fable 加进去，不需要 --force。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    first = record(lanes, repo)
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    second = record(lanes, repo)
+    assert second["opus"] == first["opus"]
+    assert "fable" in second
+
+
+def test_record_rerun_with_unchanged_hashes_is_a_noop_without_force(tmp_path):
+    """内容没变的情况下重跑 record()（没有 --force）不该报错——这是最常见的
+    "再跑一次确认一下"操作，只有真的发生漂移才需要拦。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    first = record(lanes, repo)
+    second = record(lanes, repo)
+    assert first == second
+
+
+def test_record_preserves_other_top_level_manifest_keys(tmp_path):
+    """pilot-manifest.json 除 "lanes" 外还会人工写入 collapse_thresholds 等键
+    （见 I-extra 修复）；record() 重跑不得把这些键清掉。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    mp = lanes / "pilot-manifest.json"
+    doc = json.loads(mp.read_text(encoding="utf-8"))
+    doc["collapse_thresholds"] = {"kana_max": 0.03}
+    mp.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    record(lanes, repo)
+    doc2 = json.loads(mp.read_text(encoding="utf-8"))
+    assert doc2["collapse_thresholds"] == {"kana_max": 0.03}
+
+
+def test_verify_detects_cross_lane_glossary_mismatch(tmp_path):
+    """两条车道若在仓库 glossary 变更前后分别 setup，各自 verify 都会通过
+    （因为各自只跟自己 record() 时的哈希比）——但两条车道的术语基准已经不同，
+    正是 spec §0「术语泄漏」要防的事。verify() 须新增跨车道一致性检查。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    (repo / "glossary" / "active.json").write_text(
+        '{"a":"改过的"}', encoding="utf-8")
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    drift = verify(lanes, repo)
+    assert drift, "两条车道 active.json 冻结快照不同，必须报漂移"
+    assert any("跨车道" in d for d in drift)
+
+
+def test_verify_cross_lane_check_does_not_false_positive_on_matching_lanes(tmp_path):
+    """两条车道冻结快照本就相同（正常流程：先后 setup 但仓库中途没变）时，
+    跨车道检查不能误报。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    assert verify(lanes, repo) == []
 
 
 def test_freeze_hashes_picks_highest_glossary_version_not_lexicographic(tmp_path):

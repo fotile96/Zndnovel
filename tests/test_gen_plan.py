@@ -78,6 +78,18 @@ def test_lane_cfg_rewrites_every_path_to_lane_root():
     assert "`work/ctx/batch_1/" not in md
     assert "git add data/forward.jsonl" not in md
 
+
+def test_lane_cfg_env_prefix_is_present_on_every_step_that_needs_it():
+    """I2 回归：终审突变实证——删掉 append_forward 那行的 `{p["env"]}` 后，
+    旧版全文断言（只查 "ZND_WORK=… ZND_DATA=…" 出现过一次）20/20 仍全绿，
+    因为 Step 3（check_batch）已经提供了那一次命中。若该突变为真，两条车道
+    的 append_forward 都会写进仓库根 data/forward.jsonl，A/B 合并成一锅、
+    试点作废——必须按 Step 粒度分别断言整条命令行，不能只查全文出现次数。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    env = "ZND_WORK=work/lanes/opus/work ZND_DATA=work/lanes/opus/data "
+    assert f'{env}uv run python tools/check_batch.py --batch 1' in md
+    assert f'{env}uv run python tools/append_forward.py --batch 1 ' in md
+
 def test_lane_cfg_emits_config_block_with_model_and_effort():
     md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
     assert "claude-opus-5" in md
@@ -224,3 +236,234 @@ def test_no_lane_cfg_check_batch_step_has_no_lane_dir():
     md = render(_sel(), label="s1s", lane="main", every=3)
     assert "check_batch.py --batch 1" in md
     assert "check_batch.py --batch 1 --lane-dir" not in md
+
+
+# ---- 终审 C1：四道验收闸门在计划里零出现 ----
+
+BATCHES_35 = [{"batch": i, "lane": "main", "ids": [i], "jp_chars": 100,
+              "chapter": ("s0f" if i <= 2 else "crd" if i <= 14 else "s1s"
+                          if i <= 28 else "sys" if i <= 30 else "s1f"
+                          if i <= 33 else "s2s"),
+              "cut_reason": "budget"} for i in range(1, 36)]
+
+LANE_CFG_NO_SIBLING = LANE_CFG  # 别名保留：对方车道路径恒为占位符，不存在
+                                # "含 sibling"的 lane_cfg 变体，两个名字等价
+
+
+def test_non_lane_mode_gate_markers_are_completely_absent():
+    """回归闸：C1 明确要求「车道模式下生效；非车道模式输出保持不变」——四道
+    闸门相关的全部新增文案在非车道模式下一处都不能出现，且任务总数不变。"""
+    md = render(_sel(), label="s1s", lane="main", every=3)
+    for marker in ("detect_collapse", "隔离验收", "硬停", "lane_setup",
+                   "--verify", "窗口对撞"):
+        assert marker not in md, f"非车道模式不该出现 {marker!r}"
+    assert md.count("### Task") == 10, "7 个批次任务 + 2 个周期 CHECKPOINT + 1 个终任务"
+
+
+def test_lane_mode_batch_task_has_collapse_probe_step_between_check_and_append():
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    sections = _sections(md)
+    t1 = _find(sections, "批次 1 译文入库")
+    assert "tools/detect_collapse.py --batch 1 --lane-dir work/lanes/opus" in t1
+    assert "顾问级" in t1 and "不阻断" in t1
+    i_check = t1.index("check_batch.py --batch 1")
+    i_collapse = t1.index("detect_collapse.py --batch 1")
+    i_append = t1.index("append_forward.py --batch 1")
+    assert i_check < i_collapse < i_append, "崩溃探测须插在 check_batch 与 append_forward 之间"
+
+
+def test_lane_mode_checkpoint_starts_with_freeze_verify_gate():
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    checkpoint = _find(_sections(md), "CHECKPOINT")
+    assert "tools/lane_setup.py --verify" in checkpoint
+    assert "冻结校验：无漂移" in checkpoint
+    assert "停止试点" in checkpoint
+
+
+def test_non_lane_mode_checkpoint_has_no_verify_gate():
+    md = render(_sel(), label="s1s", lane="main", every=3)
+    checkpoint = _find(_sections(md), "CHECKPOINT")
+    assert "lane_setup.py --verify" not in checkpoint
+
+
+def test_hardstop_tasks_after_batch_1_and_2_in_lane_mode():
+    md = render(_sel(), label="pilot-opus", lane="main", every=10, lane_cfg=LANE_CFG)
+    sections = _sections(md)
+    hardstops = [s for s in sections if "硬停" in s.split("\n", 1)[0]]
+    assert len(hardstops) == 2
+    hs1, hs2 = hardstops
+    assert "隔离验收" in hs1
+    assert "forward.jsonl" in hs1 and "diff" in hs1
+    assert "lane_setup.py --verify" in hs1
+    assert "停止试点" in hs1
+    assert "kana-max" in hs2 or "kana_max" in hs2
+    assert "pilot-manifest.json" in hs2
+    assert "崩溃探测" in hs2 or "collapse" in hs2
+    assert "停止试点" in hs2
+    # 硬停任务必须紧跟在 batch 1 / batch 2 各自的批次任务之后
+    idx_b1 = sections.index(_find(sections, "批次 1 译文入库"))
+    idx_b2 = sections.index(_find(sections, "批次 2 译文入库"))
+    idx_hs1 = sections.index(hs1)
+    idx_hs2 = sections.index(hs2)
+    assert idx_hs1 == idx_b1 + 1
+    assert idx_hs2 == idx_b2 + 1
+
+
+def test_non_lane_mode_has_no_hardstop_tasks():
+    md = render(_sel(), label="s1s", lane="main", every=3)
+    sections = _sections(md)
+    assert not [s for s in sections if "硬停" in s.split("\n", 1)[0]]
+
+
+def test_window_probe_task_present_when_batch_33_selected():
+    sel = select(BATCHES_35, lane="main", batch_range=(1, 35))
+    md = render(sel, label="pilot-opus", lane="main", every=5, lane_cfg=LANE_CFG)
+    sections = _sections(md)
+    probe = [s for s in sections if "窗口对撞" in s.split("\n", 1)[0]]
+    assert len(probe) == 1
+    p = probe[0]
+    assert "batch 33" in p or "33" in p
+    assert "--profile api-A" in p and "--profile cc" in p
+    assert "cp -r" in p, "必须用临时车道副本，不得覆盖正式产物（I6）"
+    assert "rm -rf" in p, "用完须清理临时副本"
+    # 必须在 batch 35 任务之后、终任务之前
+    idx_b35 = sections.index(_find(sections, "批次 35 译文入库"))
+    idx_probe = sections.index(p)
+    idx_final = sections.index(_find(sections, "梗概回译自检"))
+    assert idx_b35 < idx_probe < idx_final
+
+
+def test_window_probe_task_absent_when_batch_33_not_in_range():
+    sel = select(BATCHES_35, lane="main", batch_range=(1, 10))
+    md = render(sel, label="pilot-opus", lane="main", every=5, lane_cfg=LANE_CFG)
+    assert "窗口对撞" not in md
+
+
+def test_window_probe_task_absent_in_non_lane_mode_even_with_batch_33():
+    sel = select(BATCHES_35, lane="main", batch_range=(1, 35))
+    md = render(sel, label="pilot-opus", lane="main", every=5)
+    assert "窗口对撞" not in md
+
+
+def test_full_pilot_task_count_in_lane_mode():
+    """35 批 + 7 个周期 CHECKPOINT（every=5：5/10/.../35）+ 2 个硬停
+    （batch1 后、batch2 后）+ 1 个窗口对撞探针（batch 33 在段内）+ 1 个终任务
+    = 46。此数字供终审自查引用。"""
+    sel = select(BATCHES_35, lane="main", batch_range=(1, 35))
+    md = render(sel, label="pilot-opus", lane="main", every=5, lane_cfg=LANE_CFG)
+    assert md.count("### Task") == 46
+
+
+# ---- I-extra：崩溃阈值标定值固化进命令行 ----
+
+def test_collapse_thresholds_are_appended_to_detect_collapse_command():
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG,
+                collapse_thresholds={"kana_max": 0.05, "ratio_lo": 0.3, "ratio_hi": 1.8})
+    assert ("detect_collapse.py --batch 1 --lane-dir work/lanes/opus "
+            "--kana-max 0.05 --ratio-lo 0.3 --ratio-hi 1.8") in md
+
+
+def test_collapse_thresholds_default_to_none_means_no_extra_flags():
+    """未标定时批次任务的 detect_collapse 命令行不带任何阈值 flag（沿用工具
+    自身默认值）。断言范围限定在批次任务段——batch 2 硬停任务的正文本就会
+    以散文提到这三个 flag 名字（指导人工怎么标定），那不是本用例要钉的东西。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    t1 = _find(_sections(md), "批次 1 译文入库")
+    assert "--kana-max" not in t1 and "--ratio-lo" not in t1 and "--ratio-hi" not in t1
+
+
+def test_collapse_thresholds_partial_override_only_emits_given_keys():
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG,
+                collapse_thresholds={"kana_max": 0.05})
+    t1 = _find(_sections(md), "批次 1 译文入库")
+    assert "--kana-max 0.05" in t1
+    assert "--ratio-lo" not in t1 and "--ratio-hi" not in t1
+
+
+def test_main_accepts_threshold_cli_flags_and_forwards_to_plan(tmp_path, monkeypatch):
+    (tmp_path / "data").mkdir(); (tmp_path / "glossary").mkdir()
+    (tmp_path / "glossary" / "glossary.v6.yaml").write_text("{}", encoding="utf-8")
+    write_jsonl(tmp_path / "data" / "batches.jsonl", BATCHES)
+    monkeypatch.setattr("tools.gen_plan.REPO", tmp_path)
+    monkeypatch.setattr("tools.gen_plan.DATA", tmp_path / "data")
+    rc = main(["--lane", "main", "--batches", "1-7", "--label", "pilot-opus",
+               "--lane-dir", "work/lanes/opus", "--model", "opus",
+               "--effort", "max", "--append-model-id", "claude-opus-5",
+               "--kana-max", "0.05", "--ratio-lo", "0.3", "--ratio-hi", "1.8"])
+    assert rc == 0
+    out = (tmp_path / "docs" / "superpowers" / "plans" /
+           "translate-pilot-opus.md").read_text(encoding="utf-8")
+    assert "--kana-max 0.05 --ratio-lo 0.3 --ratio-hi 1.8" in out
+
+
+# ---- 对方车道路径用占位符，不在生成期解析成具体路径 ----
+#
+# 早期实现尝试过在 main() 里自动扫盘发现对方车道目录、把具体路径（如
+# "pilot/lanes/fable"）直接烤进 opus 计划文件——但这会让 translate-pilot-opus.md
+# 里出现 "pilot/lanes/fable" 字样，违反终审自查清单里
+# `grep -c 'pilot/lanes/fable' translate-pilot-opus.md` 必须为 0 这条硬性要求
+# （两份计划各自只该谈自己的车道，不该在生成期就"知道"对方车道路径）。改为
+# 占位符（与本文件其它地方的 `<model>`/`<ctx_sha>` 是同一约定），见下。
+
+
+# ---- 顺手 minor：_header 的 label-as-chapter 表述 ----
+
+def test_final_task_commit_step_reference_matches_actual_step_number():
+    """同一处 Step-4-变-Step-5 的连带问题，也出现在终任务 Step 2 里"见各批
+    Task 的 Step 4"这句——车道模式下入库提交是 Step 5。"""
+    md_no_lane = render(_sel(), label="s1s", lane="main", every=3)
+    final_no_lane = _find(_sections(md_no_lane), "梗概回译自检")
+    assert "Step 4）交给人工复核" in final_no_lane
+    md_lane = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    final_lane = _find(_sections(md_lane), "梗概回译自检")
+    assert "Step 5）交给人工复核" in final_lane
+    assert "Step 4）交给人工复核" not in final_lane
+
+
+def test_header_git_step_reference_matches_actual_step_number():
+    """终审自查发现的连带问题：Global Constraints 里"执行 git 操作（Step N）"
+    是静态文案，车道模式下新插入的崩溃探测步把入库提交从 Step 4 挤到
+    Step 5，若不跟着变就会指错步骤号。"""
+    md_no_lane = render(_sel(), label="s1s", lane="main", every=3)
+    assert "执行 git 操作（Step 4）" in md_no_lane
+    md_lane = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    assert "执行 git 操作（Step 5）" in md_lane
+    assert "执行 git 操作（Step 4）" not in md_lane
+
+
+def test_header_single_chapter_mode_keeps_original_wording():
+    """--chapter 模式下 label 本就是真实章别，"label 章"是准确表述，不改。"""
+    md = render(_sel(), label="s1s", lane="main", every=3)
+    assert md.startswith("# s1s 章（main 车道）翻译执行计划")
+    assert "把 `data/batches.jsonl` 里 s1s 章（lane=main）的全部 7 个批次" in md
+
+
+def test_header_cross_chapter_label_mode_does_not_say_label_is_a_chapter():
+    """--batches 连续段模式下 label（如 pilot-opus）不是任何批次的真实章别——
+    H1/Goal 不能再写"pilot-opus 章"，须改为不误导的措辞并列出真实章别、
+    说明这是 timeline 连续段（终审分诊的顺手 minor）。"""
+    mixed = [
+        {"batch": 1, "lane": "main", "ids": [1], "jp_chars": 10, "chapter": "s0f", "cut_reason": "b"},
+        {"batch": 2, "lane": "main", "ids": [2], "jp_chars": 10, "chapter": "crd", "cut_reason": "b"},
+    ]
+    sel = select(mixed, lane="main", batch_range=(1, 2))
+    md = render(sel, label="pilot-opus", lane="main", every=10)
+    assert "pilot-opus 章" not in md
+    assert md.startswith("# pilot-opus（main 车道）翻译执行计划")
+    header_block = md.split("\n\n---")[0]
+    assert "timeline 连续段" in header_block
+    assert "s0f" in header_block and "crd" in header_block
+
+
+def test_hardstop_1_diff_command_uses_placeholder_not_a_resolved_sibling_path():
+    """硬停 1 的隔离验收要 diff 对方车道的 forward.jsonl，但对方车道路径必须是
+    占位符，不能在生成期就解析出具体路径写死进计划——否则 opus 计划文件里会
+    出现 "fable" 字样，违反两份计划互不知晓对方车道路径的隔离精神（也是终审
+    自查清单里跨车道 grep 必须为 0 的来由）。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=10,
+               lane_cfg=LANE_CFG_NO_SIBLING)
+    hs1 = next(s for s in _sections(md) if "硬停" in s.split("\n", 1)[0]
+              and "隔离验收" in s)
+    assert "diff" in hs1
+    assert "<对方车道根" in hs1
+    assert "fable" not in hs1.lower()

@@ -20,9 +20,9 @@ GLOSSARY_V = 6
 
 
 def _paths(lane_cfg):
-    """把计划文本里的全部路径按车道根改写。lane_cfg 为 None 时返回仓库相对路径，
-    输出与车道感知改造前逐字一致（回归闸 test_no_lane_cfg_output_is_byte_identical
-    _to_repo_mode 锁死这一点）。"""
+    """把计划文本里的全部路径按车道根改写。lane_cfg 为 None 时返回仓库相对路径
+    （回归闸 test_no_lane_cfg_keeps_repo_relative_paths 锁死这一点：非车道模式下
+    全部产出路径必须保持仓库相对形态，不出现 --repo/ZND_WORK 等车道专属前缀）。"""
     if lane_cfg is None:
         return {"ctx": "work/ctx", "out": "work/out", "forward": "data/forward.jsonl",
                 "notes": "data/notes", "repo_arg": "", "env": ""}
@@ -80,7 +80,7 @@ def _header(label, lane, every, count, glossary_v, lane_cfg):
 
 ## Global Constraints
 
-- 运行 `uv run python tools/<x>.py`；commit 规范 `type: 中文摘要`（type ∈ feat/fix/docs/data/analysis/chore/refactor），本计划的批次提交固定用 `data: {label} 批次N 译文入线`，main 分支直提交。
+- 运行 `uv run python tools/<x>.py`；commit 规范 `type: 中文摘要`（type ∈ feat/fix/docs/data/analysis/chore/refactor），本计划的批次提交固定用 `data: <chapter> 批次N 译文入线`（`<chapter>` 为该批次自己的真实章别，不是本计划名/label——连续段模式下同一计划可能横跨多章），main 分支直提交。
 - `skeleton/`、`glossary/` 只读引用，本计划不修改它们；发现术语缺口按 `prompts/translator_cc.md`「术语提案」节追加到 `{p["notes"]}/<chapter>.md`，不要直接改 `glossary/active.json`（版本化流程见 `CLAUDE.md`「术语层」节）。
 - `build_context.py` 的 `--profile` 固定 `cc`（本计划专属 CC 后端，即本工具名里的「CC」）；`--baseline` 试点期固定 `none`。
 - `append_forward.py` 的 `--backend/--model/--ctx/--glossary-v` 均为必填：`--backend cc`、`--glossary-v {glossary_v}`（当前最高 glossary 版本）固定；`--ctx` 取本批 `manifest.json` 里的 `ctx_sha`；`--model` 填实际执行本批翻译子代理所用的模型 ID。
@@ -126,14 +126,19 @@ git commit -m "data: {ch} 批次{n} 译文入线"
 ```"""
 
 
-def _checkpoint_task(tnum, first, last, chapter, p):
+def _checkpoint_task(tnum, first, last, chapters, p):
+    """chapters：本 chunk 涉及的真实章别（去重、升序），不是计划的 label——
+    连续段模式下一个 chunk 可能横跨多章，label 拼出的笔记文件路径在这种场景下
+    永远不存在（fix round 1 发现的文案错位）。"""
+    ch_str = "、".join(chapters)
+    files = "、".join(f"`{c}.md`" for c in chapters)
     return f"""### Task {tnum}: CHECKPOINT——批次 {first}–{last} 术语提案裁决 + 抽查
 
-到这里已完成 {chapter} 章批次 {first}–{last} 的翻译入库。继续下一批之前做两件事：
+到这里已完成 {ch_str} 章批次 {first}–{last} 的翻译入库。继续下一批之前做两件事：
 
 - [ ] **Step 1: 术语提案裁决**
 
-查看 `{p["notes"]}/{chapter}.md`（若这几批翻译中子代理追加过内容——文件不存在说明本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。试点期间**只清点归档、不裁决**：把提案原样留在文件里，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`，裁决推迟到试点结束。
+查看 `{p["notes"]}/` 下本段涉及的 {files}（文件不存在说明该章本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。试点期间**只清点归档、不裁决**：把提案原样留在文件里，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`，裁决推迟到试点结束。
 
 - [ ] **Step 2: 抽查**
 
@@ -151,7 +156,7 @@ def _final_task(tnum, chapter, lane, first, last, count, p):
 
 - [ ] **Step 2: 人工评审 gate**
 
-把本章相关的 `data:` commit（`git log --oneline` 过滤 `{chapter}`）交给人工复核。**不要自动放行**——人工确认无误后本章翻译才算完成，之后才能对下一章跑 `tools/gen_plan.py` 生成新计划。"""
+把本计划产生的 {count} 个 `data: <chapter> 批次N 译文入线` commit（批号 {first}–{last}，`<chapter>` 各批不同，见各批 Task 的 Step 4）交给人工复核。**不要自动放行**——人工确认无误后本计划才算完成，之后才能继续对后续批次跑 `tools/gen_plan.py` 生成新计划。"""
 
 
 def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
@@ -166,9 +171,11 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
     for b in sel:
         parts.append(_batch_task(tnum, b, baseline, glossary_v, p))
         tnum += 1
-        chunk.append(b["batch"])
+        chunk.append(b)
         if len(chunk) == every:
-            parts.append(_checkpoint_task(tnum, chunk[0], chunk[-1], label, p))
+            chapters = sorted({c["chapter"] for c in chunk})
+            parts.append(_checkpoint_task(tnum, chunk[0]["batch"], chunk[-1]["batch"],
+                                          chapters, p))
             tnum += 1
             chunk = []
     parts.append(_final_task(tnum, label, lane, sel[0]["batch"], sel[-1]["batch"],

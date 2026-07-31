@@ -25,3 +25,7 @@ pilot/lanes/*/glossary/
 pilot/lanes/*/data/*
 !pilot/lanes/*/data/forward.jsonl
 !pilot/lanes/*/data/patches.jsonl
+# notes/ 是 spec §8 产出物「两份术语提案清单」——需先放行目录本身，
+# 否则目录被 data/* 排除后其内文件的否定规则不生效（git 的目录排除优先规则）
+!pilot/lanes/*/data/notes/
+!pilot/lanes/*/data/notes/*.md

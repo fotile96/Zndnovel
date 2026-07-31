@@ -61,3 +61,23 @@ Hotfix D: 再评审全部 ADDRESSED，零新增破坏。评审独立核实：终
 Hotfix D: minor (deferred): _header() 的 H1 标题与 Goal 行仍写「pilot-opus 章」——同类 label-as-chapter 问题但位于 _header、本轮两条 finding 均未涵盖（评审列为 out-of-scope）
 Task 8: complete (commits f6a0a05..b124450, review clean after Hotfix D)
 # ==== 8 个计划任务 + Hotfix D 全部完成，进最终全分支评审 ====
+
+# ==== 最终全分支评审（opus 档）：不建议直接开跑，2 Critical + 6 Important ====
+FINAL: C1 两份执行计划里 spec 的四道验收闸门零出现（detect_collapse/隔离验收/硬停/lane_setup --verify/窗口对撞 grep 均为 0）——计划把它们划给「后续执行阶段」，但执行阶段拿到的只有这两份计划，trap #1（伪双车道）与 #5（拿 check_batch 当质量指标）的防线全部落空。控制器已实证
+FINAL: C2 70 处 `git add work/lanes/...` 均因 work/ 在 .gitignore 内而必失败（git check-ignore 实证 .gitignore:15），且 8564 行译文（约 6.6M token 成本）无任何备份，spec §8「逐批 commit 历史」产出物与 T8「车道不入库」直接矛盾 → **用户裁定：车道移出 work/，改 pilot/lanes/，只 gitignore 其 work/ 子目录**
+FINAL: I1 stratified_sample 位置退化（每层取 id 升序前 N），默认 per_kind=20 只覆盖 35 批中的 6 批、最大批号 29，batch 33-35（压缩窗口生效后）任何取值都进不了盲评材料
+FINAL: I2 **又一处假防护，评审已突变实证**：删掉 append_forward 那行的 {p["env"]} 后 gen_plan 20/20 仍全绿——断言只查「全文出现过一次 ZND_WORK=…」而 Step3 已提供该次。此突变若为真，两车道 append_forward 都写进仓库根 data/forward.jsonl，A/B 合并成一锅
+FINAL: I3 translator_cc.md 未随 Hotfix D 同步（自查命令仍无 --lane-dir，译者读仓库根词表、控制器读车道快照，冻结破口换了执行主体）；且第 41/43 行仍称第四节旧名
+FINAL: I4 verify() 只做车道自比从不互比（两条车道若在仓库 glossary 变更前后分别 setup，各记各的哈希，--verify 永远绿而基准已不同）；compare_lanes 的 anchors/ledger/timeline 全取 REPO 而非冻结快照
+FINAL: I5 lane_setup 重跑会静默重冻结并覆盖 pilot-manifest 基准，事后无法证明是否漂移过
+FINAL: I6 窗口对撞探针破坏性：ctx_dir 不含 profile，--profile api-A 会原地覆盖同批的 context.md/manifest.json，写进 forward 的 ctx_sha 会记错
+FINAL: 递延 minor 分诊 —— 10 组中 2 组「开跑前顺手修」（T4「哪怕」让步连词、Hotfix D 的 _header「pilot-opus 章」，均因同批要改同一文件而边际成本为零）、1 组「已无意义」（T2 章别分组无断言，评审在真实 context 上实测 19 个分组、120 条锚点全在）、其余可带着走；T7 的 violations 一条转为试点报告须知（两车道锚点覆盖数不同则 rate 分母不同，须同时记 total 不可只记 rate）
+FINAL: spec 覆盖缺口 6 项：四道闸门无载体（C1）、pilot-manifest 缺车道配置与逐批机器指标、卡面回译自检工装缺失（compare_lanes docstring 过度宣称）、三段 workflow 边界(12/24)与 checkpoint-every=5 不重合、崩溃阈值标定值无固化去处、窗口对撞无对应任务
+FINAL-FIX: 一次修复波覆盖全部 10 条（70cdef6 闸门+假防护 / daae5e6 车道迁 pilot/lanes / e29cdc8 重出计划 / 03a7af9 译者模板同步 / 82efd69 报告入库）；控制器另提交 spec 路径同步与 C2 裁决理由
+FINAL-FIX: 范围内再评审（唯一一次）——**10 条全部 ADDRESSED，零新增 C/I**。评审实证：四道闸门在真实计划里各就位（硬停在 Task 2/4、冻结校验为每个 CHECKPOINT 的 Step 0、逐批探测确在 check_batch 与 append_forward 之间、窗口探针 Task 45 强制 cp 到 /tmp 副本并 rm -rf 收尾）；gitignore 否定规则成立（排除的是 data/* 文件级而非 data/ 目录级）；I2/I4 两处突变自洽；I5 拒绝逻辑不误伤（键于 forward.jsonl 是否已存在，非车道是否存在）；minor 的 _header 已改且 --chapter 模式逐字未变
+FINAL-FIX: 评审自查出并自修两处本波引入的静态文案 bug（插入 Step 4 后 append_forward 变 Step 5，_header 与 _final_task 的 "Step 4" 引用同步，各带回归测试）
+PARKED-1: data/notes/*.md 被 pilot/lanes/*/data/* 吞掉而 spec §8 列其为产出物 —— **控制器当场修**（.gitignore 加 !.../notes/ 与 !.../notes/*.md 两行；三种权威判定复验：git add --dry-run 成功、check-ignore 退出码 1、status 可见；其余四类规则回归未松动）。注：check-ignore -v 匹配否定规则时仍返回 0，判定须用非 -v 形式
+PARKED-2: 硬停 2 若标定值偏离默认需重出计划，会重置 markdown 复选框状态（含已完成的批 1/2）——现仅由散文提示「从 batch 3 继续」缓解。裁决：可带着走，执行者按提示操作即可；P3 若沿用此机制可考虑把进度从计划文本外置
+PARKED-3: 硬停 1 的 diff 命令在姊妹车道尚未产出 forward.jsonl 时会硬报错而非「无差异」——两条硬停按设计应邻近执行，风险低。裁决：可带着走，执行时若撞上按「对方车道尚未跑到此处」理解即可
+# ==== P2 试点工装：8 任务 + Hotfix D + 终审修复波，全部完成并再评审 clean ====
+# 收尾决定：**不删除本 SDD 工作台**——CLAUDE.md 规定 .superpowers/sdd/ 下 *.md 为不可再生的执行状态与证据须入库携带，项目规约优先于技能默认（与 P1b 同）

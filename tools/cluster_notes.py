@@ -19,7 +19,10 @@ UNKEYED = "（未归词）"
 
 def extract_terms(title: str) -> list:
     t = re.sub(r"^\d+\.\s*", "", title)
-    if "→" not in t:
+    if t.count("→") != 1:
+        # 0 个 → 无词项；>1 个 → 顿号分隔的多词小族，不做多词解析（brief
+        # 明确不扩展），直接归未归词待人工过目，避免第一段箭头前文本被
+        # 误当成唯一词键、伪装成正常词族并跑出虚假的「无出现」饱和度。
         return []
     left = STRIP_RE.sub("", t.split("→", 1)[0]).replace("★", "")
     return [w.strip() for w in left.split("/") if w.strip()]

@@ -46,6 +46,28 @@ def test_extract_terms_variants():
     assert extract_terms("2. 菜单名的拉丁形态需要一条形态判据") == []
 
 
+def test_extract_terms_multi_arrow_returns_empty():
+    # 顿号分隔的多词小族：多个 → 不当成一个词键解析，直接归未归词待人工过目
+    assert extract_terms("5. 押し入れ→壁橱、付箋紙→便签") == []
+    assert extract_terms("5. 押し入れ→壁橱、付箋紙→便签、リビング→客厅") == []
+
+
+def test_extract_terms_single_arrow_regression_unaffected():
+    # 回归闸：单箭头（含 / 并列）不受多箭头 guard 影响，行为不变
+    assert extract_terms("1. 寝癖 → 睡翘的头发（**跨轨复现**）") == ["寝癖"]
+    assert extract_terms("1. 海馬 / 内嗅皮質 → 海马体 / 内嗅皮质") == ["海馬", "内嗅皮質"]
+
+
+def test_cluster_multi_arrow_title_buckets_unkeyed():
+    ps = parse_notes(
+        "## batch 1\n\n### 5. 押し入れ→壁橱、付箋紙→便签、リビング→客厅\n- 三词一并处理。\n",
+        "s1s",
+    )
+    c = cluster(ps)
+    assert ps[0]["terms"] == []
+    assert len(c["（未归词）"]) == 1
+
+
 def test_cluster_merges_across_batches_and_buckets_unkeyed():
     ps = parse_notes(NOTES, "s1s")
     c = cluster(ps)

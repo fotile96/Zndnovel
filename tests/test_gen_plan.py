@@ -467,3 +467,23 @@ def test_hardstop_1_diff_command_uses_placeholder_not_a_resolved_sibling_path():
     assert "diff" in hs1
     assert "<对方车道根" in hs1
     assert "fable" not in hs1.lower()
+
+
+# ---- P3 Task 4：段模式 --segment ----
+
+def test_render_segment_blocks_present():
+    sel = _sel()
+    md = render(sel, label="seg1-s2", lane="main", segment="seg1-s2")
+    assert "## 段开场自检" in md
+    assert "lane_setup.py --lane opus --verify" in md
+    assert "## 段末流程" in md
+    assert "prod-opus-seg1-s2-done" in md
+    assert "tools/saturation.py" in md
+    # 自检在正文批次任务之前、段末流程在其后
+    assert md.index("## 段开场自检") < md.index("## 段末流程")
+
+
+def test_render_without_segment_unchanged():
+    sel = _sel()
+    md = render(sel, label="x", lane="main")
+    assert "段开场自检" not in md and "段末流程" not in md

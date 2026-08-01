@@ -66,6 +66,30 @@ def _lane_block(lane_cfg):
 - **中断恢复**：从 `{lane_cfg["lane_dir"]}/data/forward.jsonl` 已有的 id 对照 `data/batches.jsonl` **重新推导**第一个未完成的批次，不要信任任何进度文件或记忆——forward 是 append-only 的，它与实际完成状态不可能失同步。"""
 
 
+def _segment_head(segment):
+    return f"""
+
+## 段开场自检（P3 生产会话必做，缺一不可）
+
+本计划属于检查段 **{segment}**（`config/segments.yaml`）。开工前逐项确认并把结果写进台账：
+
+1. **工具树**：本会话执行的 `tools/` 必须来自生产 worktree——`git -C <生产worktree> describe --tags` 应等于 runbook 记录的当前生产 tag；主仓 main 上的工具**不得**用于生产批次。
+2. **车道冻结**：`uv run python tools/lane_setup.py --lane opus --verify` 输出「冻结校验：无漂移」。
+3. **额度余量**：确认本周订阅额度尚有本段预算（生产目标 ≤50%/周）。流程细节见 `docs/ops/p3-production-runbook.md`。"""
+
+
+def _segment_tail(segment):
+    return f"""
+
+## 段末流程（本段全部批次入线后执行，缺一不可）
+
+1. 机检复核：本计划各批 check/collapse 记录过一遍，hard 全零。
+2. 请用户按 `config/segments.yaml` 本段 `review_focus` 抽读关键场。
+3. 打段完成 tag：`git tag prod-opus-{segment}-done`。
+4. 提醒用户开**段末小裁决会话**：先跑 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`，可裁决词族当场裁，滚存词族聚类归档（runbook「段末小裁决」节）。
+5. 裁决产出新 glossary 版本时，按 runbook「段边界版本切换」执行车道再冻结 + 召回/patches。"""
+
+
 def select(batches, *, lane, chapter=None, batch_range=None):
     """按 lane 过滤，再按 chapter 或 batch_range（闭区间 (lo, hi)）过滤，
     返回按 batch 升序的列表。两个过滤条件可同时为 None（取该 lane 全部）。"""
@@ -393,13 +417,17 @@ def _thresholds_arg(collapse_thresholds):
 
 
 def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
-           lane_cfg=None, collapse_thresholds=None) -> str:
+           lane_cfg=None, collapse_thresholds=None, segment=None) -> str:
     p = _paths(lane_cfg)
     thresholds_arg = _thresholds_arg(collapse_thresholds)
     chapters_all = sorted({b["chapter"] for b in sel})
     parts = [_header(label, lane, every, len(sel), glossary_v, lane_cfg, chapters_all)]
+    if segment:
+        parts.append(_segment_head(segment))
     if not sel:
         parts.append(f"（`data/batches.jsonl` 中没有选中的批次，无事可做。）")
+        if segment:
+            parts.append(_segment_tail(segment))
         return "\n\n".join(parts)
     tnum = 1
     chunk = []
@@ -433,6 +461,8 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
         tnum += 1
     parts.append(_final_task(tnum, chapters_all, lane, sel[0]["batch"], sel[-1]["batch"],
                              len(sel), p, lane_mode=lane_cfg is not None))
+    if segment:
+        parts.append(_segment_tail(segment))
     return "\n\n".join(parts)
 
 
@@ -463,6 +493,7 @@ def main(argv=None):
                     help="I-extra：batch 1-2 硬停标定后固化进后续批次 detect_collapse 命令行")
     ap.add_argument("--ratio-lo", type=float)
     ap.add_argument("--ratio-hi", type=float)
+    ap.add_argument("--segment", help="检查段 label（config/segments.yaml），生成段自检/段末流程块")
     args = ap.parse_args(argv)
 
     lane_params = [args.lane_dir, args.model, args.effort, args.append_model_id]
@@ -490,7 +521,7 @@ def main(argv=None):
                           if v is not None} or None
     md = render(sel, label=label, lane=args.lane, every=args.checkpoint_every,
                 glossary_v=glossary_version(REPO), lane_cfg=lane_cfg,
-                collapse_thresholds=collapse_thresholds)
+                collapse_thresholds=collapse_thresholds, segment=args.segment)
     out_path = REPO / "docs" / "superpowers" / "plans" / f"translate-{label}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")

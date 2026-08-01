@@ -554,7 +554,8 @@ def test_segment_head_pins_cwd_to_main_repo_and_names_the_prod_tree():
 
 # ---- 终审 M6：段模式不得再用 P2 试点措辞 ----
 
-SEG_ONLY_FORBIDDEN = ("试点", "章末——")
+# 段模式不生成 P2 试点专属的两个硬停任务，正文任何地方都不该再引用「硬停」
+SEG_ONLY_FORBIDDEN = ("试点", "章末——", "硬停")
 
 
 def test_segment_mode_drops_pilot_vocabulary():
@@ -576,6 +577,7 @@ def test_pilot_mode_keeps_pilot_vocabulary():
     assert "裁决推迟到试点结束" in md
     assert "章末——梗概回译自检" in md
     assert "章末插一个人工评审 gate" in md
+    assert "检查点/硬停任务汇总参考" in md
     checkpoint = _find(_sections(md), "CHECKPOINT")
     assert "立即停止试点" in checkpoint
 

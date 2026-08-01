@@ -199,14 +199,16 @@ def _header(label, lane, every, count, glossary_v, lane_cfg, chapters_all=(),
 ---"""
 
 
-def _batch_task(tnum, batch, baseline, glossary_v, p, thresholds_arg=""):
+def _batch_task(tnum, batch, baseline, glossary_v, p, thresholds_arg="", segment=None):
     n, ch, ids = batch["batch"], batch["chapter"], batch["ids"]
+    # M6：段模式没有 P2 试点专属的硬停任务（render 不生成），再指向它就是悬空引用。
+    roundup = "检查点/段末流程" if segment else "检查点/硬停任务"
     collapse_step = (
         f"""
 - [ ] **Step 4: 语义崩溃探测（顾问级，不阻断——命中需人眼过一遍再入线）**
 
 Run: `{p["env"]}uv run python {p["tools"]}/detect_collapse.py --batch {n}{p["lane_dir_arg"]}{thresholds_arg}`
-Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接进 Step 5；K>0 时打开 `{p["out"]}/batch_{n}.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回 Step 2 重新出译文、重跑 Step 3–4。把命中数（按规则 C1/C2/C3 分类）记进本批记录，供后面的检查点/硬停任务汇总参考。
+Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接进 Step 5；K>0 时打开 `{p["out"]}/batch_{n}.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回 Step 2 重新出译文、重跑 Step 3–4。把命中数（按规则 C1/C2/C3 分类）记进本批记录，供后面的{roundup}汇总参考。
 """
         if p["lane_dir_arg"] else "")
     step5_num = "5" if p["lane_dir_arg"] else "4"
@@ -490,7 +492,8 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
     chunk = []
     batch_task_count = 0
     for b in sel:
-        parts.append(_batch_task(tnum, b, baseline, glossary_v, p, thresholds_arg))
+        parts.append(_batch_task(tnum, b, baseline, glossary_v, p, thresholds_arg,
+                                 segment=segment))
         tnum += 1
         batch_task_count += 1
         # 硬停：车道模式下生效，非车道模式（lane_cfg is None）零改动——

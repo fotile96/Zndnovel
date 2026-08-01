@@ -82,36 +82,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次36 译文入线"
 ```
 
-### Task 2: 硬停——batch 1 隔离验收（不通过则停止试点）
-
-批次 1 已入库。**在继续 batch 2 之前必须做完以下检查，任一项不通过就停止试点、报告人工，不要往下派发**：
-
-- [ ] **① 隔离验收——两条车道确实互不可见**
-
-Run: `diff /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl <对方车道根——/Users/fotile96/Zndnovel/pilot/lanes/ 下除 opus 外的另一条车道目录，执行时按当次试点实际车道配置填入>/data/forward.jsonl`
-Expected：**有差异**（`diff` 非零退出码，即两个文件不完全相同）。若输出为空，说明两条车道读到了同一份译文，双车道对照已经退化——立即停止试点。
-
-再 Run（仅为核验隔离而提前生成一次，产物会被下面「batch 2 译文入库」任务的 Step 1 正常覆盖，无副作用）：
-
-`ZND_WORK=/Users/fotile96/Zndnovel/pilot/lanes/opus/work ZND_DATA=/Users/fotile96/Zndnovel/pilot/lanes/opus/data uv run python tools/build_context.py --batch 2 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
-
-然后核对：从 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 里挑本车道 batch 1 译出的任意一行 zh 片段，`grep` 能在 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_2/context.md` 第二节「前缀正文」里找到。
-Expected：能找到；找不到说明本车道下一批的前缀没有正确读到本车道自己的译文。
-
-- [ ] **② 冻结校验**
-
-Run: `uv run python tools/lane_setup.py --verify`
-Expected: `冻结校验：无漂移`。
-
-- [ ] **③ 人工抽读**
-
-从本车道 batch 1 的译文里抽 3–5 条对照原文通读，粗筛是否符合中文可读性/术语口调/全知纪律基本水准（正式三栏 rubric 见 spec §6.5，这里只做粗筛，不必按盲评格式）。
-
-- [ ] **④ 门禁**
-
-**①②③任一项不通过，立即停止试点、报告人工裁决，不要继续派发 batch 2。** 全部通过才能继续下一个任务。
-
-### Task 3: s2s 批次 37 译文入库（64 条，约 1891 日文字）
+### Task 2: s2s 批次 37 译文入库（64 条，约 1891 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_37/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_37.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 64 行（Step 5）
@@ -150,44 +121,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次37 译文入线"
 ```
 
-### Task 4: 硬停——batch 1–2 崩溃阈值标定 + 人工抽读（不通过则停止试点）
-
-批次 1–2 已入库，两批都已跑过各自 Task 里的语义崩溃探测步骤。**在继续 batch 3 之前完成以下三项**：
-
-- [ ] **① 用真实译文标定 detect_collapse 三个阈值**
-
-对照 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_1.collapse.json` 与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_2.collapse.json` 的命中，结合两批真实译文，人工判断 `--kana-max`/`--ratio-lo`/`--ratio-hi` 三个阈值（默认值见 `tools/detect_collapse.py` 常量注释）是否需要针对本次试点重新标定。把最终使用值写入 `pilot/lanes/pilot-manifest.json`（保留其余键，只加/改 `collapse_thresholds` 这一段）：
-
-```bash
-uv run python -c "
-import json
-p = 'pilot/lanes/pilot-manifest.json'
-d = json.load(open(p, encoding='utf-8'))
-d['collapse_thresholds'] = {'kana_max': <值>, 'ratio_lo': <值>, 'ratio_hi': <值>}
-json.dump(d, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-"
-```
-
-若标定值与 `tools/detect_collapse.py` 默认值相同：无需其他动作，后续批次继续用当前命令行。
-若不同：**必须重新生成本计划**——对本车道重跑（带上标定值；`--lane` 用本计划批次原本所属的 lane，通常是 `main`）：
-
-`uv run python tools/gen_plan.py --lane main --batches 36-62 --label seg1-s2 --lane-dir /Users/fotile96/Zndnovel/pilot/lanes/opus --model opus --effort max --append-model-id claude-opus-5 --kana-max <值> --ratio-lo <值> --ratio-hi <值>`
-
-用新计划覆盖当前文件（同一 `--label` 会写回同一路径 `docs/superpowers/plans/translate-seg1-s2.md`），从 batch 3 对应的任务继续执行——新计划里 batch 3 起的 Step 4 检测命令会带上标定值。**batch 1、2 已入库的译文不受影响**（`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 是 append-only 正向线，重出计划不会动它）。
-
-- [ ] **② 人工抽读**
-
-同 batch 1 硬停的抽读粒度，这次对 batch 2 抽 3–5 条。
-
-- [ ] **③ 崩溃探测命中逐条过目**
-
-`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_1.collapse.json` 与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_2.collapse.json` 里的每一条命中（不论 C1/C2/C3）都要人眼确认是误报还是真崩溃；真崩溃需回对应批次的 Step 2 重新出译文、重跑 Step 3–4。
-
-- [ ] **④ 门禁**
-
-**①②③任一项发现真实问题且未处理，立即停止试点、报告人工裁决。** 全部通过才能继续下一个任务。
-
-### Task 5: crd 批次 38 译文入库（75 条，约 2164 日文字）
+### Task 3: crd 批次 38 译文入库（75 条，约 2164 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_38/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_38.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 75 行（Step 5）
@@ -226,7 +160,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次38 译文入线"
 ```
 
-### Task 6: s2s 批次 39 译文入库（16 条，约 505 日文字）
+### Task 4: s2s 批次 39 译文入库（16 条，约 505 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_39/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_39.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 16 行（Step 5）
@@ -265,7 +199,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次39 译文入线"
 ```
 
-### Task 7: s2s 批次 40 译文入库（81 条，约 2213 日文字）
+### Task 5: s2s 批次 40 译文入库（81 条，约 2213 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_40/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_40.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 81 行（Step 5）
@@ -304,7 +238,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次40 译文入线"
 ```
 
-### Task 8: CHECKPOINT——批次 36–40 术语提案裁决 + 抽查
+### Task 6: CHECKPOINT——批次 36–40 术语提案裁决 + 抽查
 
 - [ ] **Step 0: 冻结校验**
 
@@ -321,7 +255,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 从批次 36–40 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
-### Task 9: s2s 批次 41 译文入库（28 条，约 597 日文字）
+### Task 7: s2s 批次 41 译文入库（28 条，约 597 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_41/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_41.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 28 行（Step 5）
@@ -360,7 +294,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次41 译文入线"
 ```
 
-### Task 10: crd 批次 42 译文入库（101 条，约 2786 日文字）
+### Task 8: crd 批次 42 译文入库（101 条，约 2786 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_42/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_42.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 101 行（Step 5）
@@ -399,7 +333,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次42 译文入线"
 ```
 
-### Task 11: s2s 批次 43 译文入库（5 条，约 123 日文字）
+### Task 9: s2s 批次 43 译文入库（5 条，约 123 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_43/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_43.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 5 行（Step 5）
@@ -438,7 +372,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次43 译文入线"
 ```
 
-### Task 12: crd 批次 44 译文入库（7 条，约 214 日文字）
+### Task 10: crd 批次 44 译文入库（7 条，约 214 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_44/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_44.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 7 行（Step 5）
@@ -477,7 +411,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次44 译文入线"
 ```
 
-### Task 13: s2s 批次 45 译文入库（103 条，约 2790 日文字）
+### Task 11: s2s 批次 45 译文入库（103 条，约 2790 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_45/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_45.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 103 行（Step 5）
@@ -516,7 +450,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次45 译文入线"
 ```
 
-### Task 14: CHECKPOINT——批次 41–45 术语提案裁决 + 抽查
+### Task 12: CHECKPOINT——批次 41–45 术语提案裁决 + 抽查
 
 - [ ] **Step 0: 冻结校验**
 
@@ -533,7 +467,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 从批次 41–45 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
-### Task 15: s2s 批次 46 译文入库（32 条，约 831 日文字）
+### Task 13: s2s 批次 46 译文入库（32 条，约 831 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_46/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_46.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 32 行（Step 5）
@@ -572,7 +506,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次46 译文入线"
 ```
 
-### Task 16: s2s 批次 47 译文入库（158 条，约 3684 日文字）
+### Task 14: s2s 批次 47 译文入库（158 条，约 3684 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_47/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_47.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 158 行（Step 5）
@@ -611,7 +545,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次47 译文入线"
 ```
 
-### Task 17: crd 批次 48 译文入库（76 条，约 2217 日文字）
+### Task 15: crd 批次 48 译文入库（76 条，约 2217 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_48/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_48.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 76 行（Step 5）
@@ -650,7 +584,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次48 译文入线"
 ```
 
-### Task 18: s2s 批次 49 译文入库（31 条，约 879 日文字）
+### Task 16: s2s 批次 49 译文入库（31 条，约 879 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_49/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_49.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 31 行（Step 5）
@@ -689,7 +623,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次49 译文入线"
 ```
 
-### Task 19: s2s 批次 50 译文入库（64 条，约 1574 日文字）
+### Task 17: s2s 批次 50 译文入库（64 条，约 1574 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_50/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_50.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 64 行（Step 5）
@@ -728,7 +662,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次50 译文入线"
 ```
 
-### Task 20: CHECKPOINT——批次 46–50 术语提案裁决 + 抽查
+### Task 18: CHECKPOINT——批次 46–50 术语提案裁决 + 抽查
 
 - [ ] **Step 0: 冻结校验**
 
@@ -745,7 +679,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 从批次 46–50 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
-### Task 21: crd 批次 51 译文入库（71 条，约 1666 日文字）
+### Task 19: crd 批次 51 译文入库（71 条，约 1666 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_51/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_51.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 71 行（Step 5）
@@ -784,7 +718,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次51 译文入线"
 ```
 
-### Task 22: s2s 批次 52 译文入库（2 条，约 54 日文字）
+### Task 20: s2s 批次 52 译文入库（2 条，约 54 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_52/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_52.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 2 行（Step 5）
@@ -823,7 +757,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次52 译文入线"
 ```
 
-### Task 23: crd 批次 53 译文入库（43 条，约 1089 日文字）
+### Task 21: crd 批次 53 译文入库（43 条，约 1089 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_53/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_53.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 43 行（Step 5）
@@ -862,7 +796,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次53 译文入线"
 ```
 
-### Task 24: s2s 批次 54 译文入库（3 条，约 62 日文字）
+### Task 22: s2s 批次 54 译文入库（3 条，约 62 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_54/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_54.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 3 行（Step 5）
@@ -901,7 +835,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次54 译文入线"
 ```
 
-### Task 25: crd 批次 55 译文入库（8 条，约 292 日文字）
+### Task 23: crd 批次 55 译文入库（8 条，约 292 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_55/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_55.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 8 行（Step 5）
@@ -940,7 +874,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次55 译文入线"
 ```
 
-### Task 26: CHECKPOINT——批次 51–55 术语提案裁决 + 抽查
+### Task 24: CHECKPOINT——批次 51–55 术语提案裁决 + 抽查
 
 - [ ] **Step 0: 冻结校验**
 
@@ -957,7 +891,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 从批次 51–55 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
-### Task 27: s2s 批次 56 译文入库（233 条，约 5285 日文字）
+### Task 25: s2s 批次 56 译文入库（233 条，约 5285 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_56/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_56.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 233 行（Step 5）
@@ -996,7 +930,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次56 译文入线"
 ```
 
-### Task 28: crd 批次 57 译文入库（138 条，约 4385 日文字）
+### Task 26: crd 批次 57 译文入库（138 条，约 4385 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_57/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_57.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 138 行（Step 5）
@@ -1035,7 +969,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次57 译文入线"
 ```
 
-### Task 29: s2f 批次 58 译文入库（326 条，约 8990 日文字）
+### Task 27: s2f 批次 58 译文入库（326 条，约 8990 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_58/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_58.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 326 行（Step 5）
@@ -1074,7 +1008,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2f 批次58 译文入线"
 ```
 
-### Task 30: s2f 批次 59 译文入库（103 条，约 2796 日文字）
+### Task 28: s2f 批次 59 译文入库（103 条，约 2796 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_59/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_59.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 103 行（Step 5）
@@ -1113,7 +1047,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2f 批次59 译文入线"
 ```
 
-### Task 31: s2s 批次 60 译文入库（8 条，约 175 日文字）
+### Task 29: s2s 批次 60 译文入库（8 条，约 175 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_60/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_60.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 8 行（Step 5）
@@ -1152,7 +1086,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次60 译文入线"
 ```
 
-### Task 32: CHECKPOINT——批次 56–60 术语提案裁决 + 抽查
+### Task 30: CHECKPOINT——批次 56–60 术语提案裁决 + 抽查
 
 - [ ] **Step 0: 冻结校验**
 
@@ -1169,7 +1103,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 从批次 56–60 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
-### Task 33: s2s 批次 61 译文入库（57 条，约 1638 日文字）
+### Task 31: s2s 批次 61 译文入库（57 条，约 1638 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_61/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_61.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 57 行（Step 5）
@@ -1208,7 +1142,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s2s 批次61 译文入线"
 ```
 
-### Task 34: crd 批次 62 译文入库（75 条，约 2014 日文字）
+### Task 32: crd 批次 62 译文入库（75 条，约 2014 日文字）
 
 **Files:**
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_62/{context.md,source.jsonl,manifest.json}`（Step 1）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_62.draft.jsonl`（Step 2 产出、Step 3 校验）、`/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 追加本批 75 行（Step 5）
@@ -1247,7 +1181,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次62 译文入线"
 ```
 
-### Task 35: 章末——梗概回译自检 + 人工评审 gate
+### Task 33: 章末——梗概回译自检 + 人工评审 gate
 
 crd、s2f、s2s 章 main 车道全部 27 个批次（36–62）已入库 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`。收尾前做两件事：
 

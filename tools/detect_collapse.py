@@ -22,6 +22,14 @@ from tools.pipelib import REPO, WORK, dumps, read_jsonl
 # 再补 ヽ-ヿ；即剔除 ゠(U+30A0)/・(U+30FB)/ー(U+30FC) 三个片假名标点——它们
 # 不是假名，此前误把项目符号「・」「ー」等计入残留假名比（P2 batch 31 实测
 # 4/6 行因 ・ 误报）。
+# 已知遗留（评审记账，暂不处理）：
+#   - 平假名段 ぀-ゟ 仍含 U+3099/309A（浊/半浊音结合符）与 309B゛/309C゜
+#     （非结合形式的浊/半浊音符）、309D゛/309E゛（假名重复符ゝ/ゞ）；这些
+#     不是"假名"本身但混在区间里，与片假名侧已单独摘除标点的处理不对称。
+#     实务影响极小（正文极少单独出现这几个码位），故不动正则，仅记录。
+#   - 剔除 ー(U+30FC) 会让"未译的长音片假名词"（如 スーパー）少计 1/3 的
+#     假名字符，残留假名比相应偏低、C1 灵敏度略降；方向与本次 F12 的目标
+#     （不把标点当假名）一致，代价可接受，此处留痕。
 KANA_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]")
 # 行内连续重复：长度≥4 的子串连续出现≥3 次（即总重复跨度≥12 字符）。
 # 定值依据（控制器+评审实测三类语料对比，见 task-6-report.md 修复记录）：
@@ -58,9 +66,29 @@ def retained_names(glossary_path) -> set:
 
 
 # F9：作品内引用的日文原文（钱仙拼字、五十音教学等）在译文中合法保留假名。
-# 判据：假名连串长度 ≤ 本值且逐字出现在同行 jp 原文中 → 视为引用、不计入假名比。
-# 长串即使出现在 jp 中也不豁免——整行未译（zh≈jp）正是 C1 的目标。
+# 判据（三重门槛，逐条收紧，任一不过则不豁免）：
+#   1) zh != jp 廉价短路——整行未译时 zh 与 jp 逐字相同，直接跳过豁免。
+#      注意：这道短路本身**不足以防住"近似复制"伪装**（二轮评审实测：把
+#      jp 逐字复制后只在句尾加一个「。」，或把日文标点换成中文标点，就能
+#      让 zh != jp 成立、从而放行下面的逐段豁免，最终把残留假名比整体洗
+#      成 0——漏报率高达 63.7%），必须叠加判据 2/3 才成立防线。
+#   2) 预算：被豁免的假名字符总数 / len(zh) ≤ JP_QUOTE_BUDGET——防止豁免
+#      机制替整行"背书"。一旦被豁免的假名占了译文相当比例，这行更可能是
+#      "近似复制的整行漏译"而非"作品内引用"。
+#   3) 换新：zh 中「jp 里根本不存在的字符」占比 ≥ JP_QUOTE_MIN_NOVEL——要求
+#      确有翻译动作发生的实证据，而不只是动了一个标点。
+# 长串（单个连段 > JP_QUOTE_MAX_LEN）本身即不进入豁免候选，不受判据 2/3 影响
+# ——整行未译（zh≈jp）正是 C1 的目标，不因预算/换新达标而破例。
+# JP_QUOTE_BUDGET=0.40、JP_QUOTE_MIN_NOVEL=0.05 标定依据：P3 devwave1
+# task-2 二轮实测（1–35 批 4282 行真实译文 + 全 ledger 16101 行含假名原文
+# 构造的"复制+句尾加句号"伪装集，见 task-2-report.md 标定表）——0.32/0.40/
+# 0.50 三档对真实译文的 C1 命中数（成本）相同均为 4（零新增误报）；已知
+# 合法豁免占比最高的真实样本为 0.316（batch19 id8300），0.32 对它只有 1.3%
+# 余量太薄，0.40 有 ≥25% 相对余量且对伪装集的漏报率仍优于 0.50（13.1% vs
+# 18.0%，越低越好），故取 0.40。
 JP_QUOTE_MAX_LEN = 6
+JP_QUOTE_BUDGET = 0.40
+JP_QUOTE_MIN_NOVEL = 0.05
 KANA_RUN_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]+")
 
 
@@ -70,16 +98,15 @@ def _kana_ratio(zh: str, names, jp: str = "") -> float:
     # 长名字剩余部分被误判为残留假名。
     for n in sorted(names, key=len, reverse=True):
         s = s.replace(n, "")
-    # 整行未译时 zh 与 jp 逐字相同——此时任何假名连串「出现在 jp 里」都是
-    # 平凡为真（zh 本来就是 jp 的拷贝），必须整体跳过豁免，否则会把这种
-    # 真正该被 C1 抓住的行洗成 0（尤其是假名与漢字交替的正常日文句子，
-    # 天然就会被漢字切成多段 ≤6 字的假名连段）。只有 zh 已经相对 jp 发生
-    # 改动（说明确有翻译动作），本行内残留的短假名连串才可能是"作品内
-    # 引用原文"而非"整行漏译"。
     if jp and zh != jp:
-        s = KANA_RUN_RE.sub(
-            lambda m: "" if len(m.group()) <= JP_QUOTE_MAX_LEN and m.group() in jp
-            else m.group(), s)
+        runs = [m.group() for m in KANA_RUN_RE.finditer(s)
+                if len(m.group()) <= JP_QUOTE_MAX_LEN and m.group() in jp]
+        novel = sum(1 for c in zh if c not in jp) / max(len(zh), 1)
+        if (sum(map(len, runs)) <= JP_QUOTE_BUDGET * len(zh)
+                and novel >= JP_QUOTE_MIN_NOVEL):
+            s = KANA_RUN_RE.sub(
+                lambda m: "" if len(m.group()) <= JP_QUOTE_MAX_LEN and m.group() in jp
+                else m.group(), s)
     return len(KANA_RE.findall(s)) / max(len(zh), 1)
 
 

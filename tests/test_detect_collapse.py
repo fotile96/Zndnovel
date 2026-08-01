@@ -72,9 +72,11 @@ def test_clean_batch_yields_nothing():
 
 
 def test_f12_kana_punct_not_counted():
-    # ・（U+30FB）项目符号、ー（U+30FC）、゠（U+30A0）不再计入假名比
+    # ・（U+30FB）项目符号、ー（U+30FC）、゠（U+30A0）不再计入假名比。
+    # zh 长度刻意比 jp*1.50 的 C2 上限留出余量（11/8=1.375），避免日后
+    # 微调 RATIO_HI 时本测试因触碰 C2 边界而以"F12 失败"的假象报红。
     src = [{"id": 1, "jp": "・項目一・項目二"}]
-    drf = [{"id": 1, "zh": "・条目一・条目二——ー゠"}]
+    drf = [{"id": 1, "zh": "・条目一・条目二—ー゠"}]
     assert scan(src, drf) == []
 
 
@@ -91,6 +93,25 @@ def test_f9_quoted_jp_kana_exempt_but_untranslated_still_caught():
     ]
     hits = scan(src, drf)
     assert [h["id"] for h in hits if h["rule"] == "C1"] == [2]
+
+
+def test_f9_approx_copy_with_trailing_period_still_caught():
+    """近似复制伪装 1：整行照抄 jp 后仅在句尾多加一个「。」。zh != jp 依然
+    成立，但豁免预算门槛（F9 二轮修复）必须挡住它——不能因为"动了一个
+    标点"就把整行漏译洗成 0。"""
+    src = [{"id": 1, "jp": "彼女は静かに笑った。"}]
+    drf = [{"id": 1, "zh": "彼女は静かに笑った。。"}]
+    hits = scan(src, drf)
+    assert any(h["rule"] == "C1" and h["id"] == 1 for h in hits)
+
+
+def test_f9_approx_copy_with_punct_swap_still_caught():
+    """近似复制伪装 2：整行照抄 jp，把日文读点「、」换成中文逗号「，」
+    ——这是 LLM 退化时最典型的输出形态之一，同样必须仍报 C1。"""
+    src = [{"id": 2, "jp": "ずっとまえから、すきでした。ほんとうです。"}]
+    drf = [{"id": 2, "zh": "ずっとまえから，すきでした。ほんとうです。"}]
+    hits = scan(src, drf)
+    assert any(h["rule"] == "C1" and h["id"] == 2 for h in hits)
 
 
 def test_f4_dup_thresholds_via_params():

@@ -29,7 +29,7 @@ def _owner_func(stack: list[tuple[str, int]]) -> str:
 def parse_vms_lines(stem: str, text: str) -> list[dict]:
     rows = []
     stack: list[tuple[str, int]] = []  # (函数名, 该行前导空白长度)，嵌套栈
-    for line in text.splitlines():
+    for lineno, line in enumerate(text.splitlines(), 1):
         m = FUNC_RE.match(line)
         if m:
             stack.append((m.group(1), m.start(1)))
@@ -48,6 +48,10 @@ def parse_vms_lines(stem: str, text: str) -> list[dict]:
         rows.append({
             "id": int(m.group(1)), "jp": jp, "voice": m.group(2),
             "file": stem, "func": _owner_func(stack), "literal": literal,
+            # line：该 vms 在 lua 源文件里的行号（1-based）。F7——单元内的 id 排序
+            # 若按消息号，后补的行会错位（全库 47 处相邻逆序）；(file, line) 才是
+            # 脚本真实执行顺序。仅新增字段，build() 的全局排序仍按 id 不变。
+            "line": lineno,
         })
     return rows
 

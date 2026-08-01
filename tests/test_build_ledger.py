@@ -98,6 +98,34 @@ def test_literal_flag_false_for_concatenation():
     assert rows[3]["literal"] is False
     assert '.. v7 ..' in rows[3]["jp"]           # 非字面量保留原始表达式
 
+# --- F7: lua 行号 line 字段 ---
+
+def test_rows_carry_lua_line_numbers():
+    text = 'v0 = function()\n  vms(10, "NONVOICE", "甲")\n  vms(11, "NONVOICE", "乙")\nend\n'
+    rows = parse_vms_lines("snr_test", text)
+    assert [r["line"] for r in rows] == [2, 3]
+
+
+def test_global_sort_still_by_id_line_is_additive(tmp_path):
+    # id 逆序出现在文件里（后补行的形态）：全局排序仍按 id（行序不变约定），
+    # line 忠实记录原行号。brief 里的 build_from_text 助手不存在，改用 build()
+    # 直接吃一个临时 lua 目录——与该文件既有的「跑真仓库」风格一致。
+    from tools.build_ledger import build
+    (tmp_path / "snr_test.lua").write_text(
+        'v0 = function()\n  vms(20, "NONVOICE", "乙")\n  vms(19, "NONVOICE", "甲")\nend\n',
+        encoding="utf-8")
+    ledger, _ = build(tmp_path)
+    assert [r["id"] for r in ledger] == [19, 20]
+    assert [r["line"] for r in ledger] == [3, 2]
+
+
+def test_line_is_lua_file_line_not_vms_ordinal():
+    # F7 例证形态：注释/空行让 vms 序号与行号脱钩，line 必须是文件行号。
+    text = '-- c1\n\n-- c2\nvms(5, "NONVOICE", "甲")\n'
+    rows = parse_vms_lines("snr_test", text)
+    assert rows[0]["line"] == 4
+
+
 from tools.build_ledger import chapter_of, classify
 
 def test_chapter_of_section_files():

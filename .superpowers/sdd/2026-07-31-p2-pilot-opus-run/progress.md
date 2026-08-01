@@ -164,6 +164,8 @@
 2. **spec §5.3「从 forward.jsonl 重新推导断点、不信任任何进度文件」是正确的**——重建后正是靠它确定「1–33 已完成、34/35 缺失」，无需任何状态文件。
 3. **逐批 commit 而非批量提交是正确的**——最后一次 commit 是 batch 33，恰好等于实际完成进度，无返工。
 
+**小缺陷（P3 输入）**：计划 Task 4 给的写 `collapse_thresholds` 命令用 `json.dump(..., indent=2)`，而 `lane_setup.record()` 走 `pipelib.dumps()` 写紧凑单行——两者格式不同，**每次跑 lane_setup 都会产生一次纯格式 diff**（本次恢复即撞上，虚惊一场：核对后语义完全等价、`collapse_thresholds` 被 `record()` 正确保留）。修法：计划里的写入片段改用 `pipelib.dumps()`，与该文件的权威写入方保持一致。
+
 **新增运维教训（P3 输入）**：workflow 脚本文件也在容器易失存储里（`~/.claude/projects/.../workflows/scripts/`），容器回收后 `scriptPath` 复用失效，必须重新 inline 发送。长跑任务应把派发脚本也纳入仓库或至少在台账里留一份可复制的副本。
 
 ## ★ 压缩边界后的一致性实测（batch 33，**含一条必须写进报告的方法论警告**）

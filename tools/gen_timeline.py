@@ -17,8 +17,11 @@ class Expander:
         self.by_filefunc = {}
         # pos：id → (file, line)，即该 vms 在 lua 源文件里的位置。单元内的 id 顺序
         # 必须按脚本行序，不能按消息号（F7）——后补的行消息号最大却排在中间，按 id
-        # 排会把它甩到单元末尾（全库 21 处相邻逆序，例证 id 17181 在 snr_s1_10_s
-        # 第 234 行）。line 由 build_ledger 记录；缺字段的旧数据/夹具退化为按 id 排。
+        # 排会把它甩到单元末尾：本口径下——按 timeline 单元分组、数「line 递减」的
+        # 相邻对——全库 21/16248 处逆序（0.13%），例证 id 17181 在 snr_s1_10_s 第 234
+        # 行。另有一个 47/16529（0.28%）的数指同一件事的另一口径（按 lua 文件分组、
+        # 按 line 排数「id 递减」对），两者都对，见 build_ledger 的 line 字段注释。
+        # line 由 build_ledger 记录；缺字段的旧数据/夹具退化为按 id 排。
         self.pos = {}
         for r in ledger_rows:
             if r.get("kind") == "narrative":

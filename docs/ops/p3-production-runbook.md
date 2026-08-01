@@ -89,6 +89,23 @@ worktree。** 命令按用途分两类：
 经钉死生产树对 batch 100 的 A/B 实验，`context.md`/`source.jsonl`/`manifest.json`
 逐字节相同，对在产批次无影响（详见 P3 devwave1 task-3 报告）。
 
+**执行时机纪律**：数据再生成**只在段边界做，且必须确认生产会话不在跑批**。
+`data/ledger.jsonl` 被生产车道以符号链接实时读取，而 `build_ledger` 写盘走
+`pipelib.write_jsonl`（truncate + 逐行写，不是 tmp+rename 原子替换）——重写这个 3MB
+文件期间若有并发读，会读到截断内容。故障模式是响亮崩溃（JSON 解析失败）而非静默污染，
+但没有理由去踩：段边界的定义本来就是「生产停在两段之间」。`write_jsonl` 本身**不改**
+（多工具共用，改动面与风险不对等）。
+
+**F7 覆盖面残留（读到这里必须知道边界在哪）**：本次 F7 修复**只覆盖前缀正文的顺序**，
+即 `timeline.jsonl` 单元内的 id 次序（`build_context._render_prefix` 按 `unit["ids"]`
+渲染）。**批次自身 `source.jsonl` 的行序不在覆盖面内、本轮永远不会被修好**：
+`build_context` 组装 source 走的是 `for i in b["ids"]`，直接取 `data/batches.jsonl`
+里那一批的 ids 数组，而 `batches.jsonl` **已冻结、不得再生成**（manifest 哈希锁定它），
+`timeline` 再生多少次都不会回流到它。P2 记录的原始症状——「id 17181 排到 source.jsonl
+第 58 位」（复核为 batch 7 第 59/90 位）——正属于**这不被修的一半**。也就是说：
+段边界再生 timeline 后，译者看到的**前缀**顺序修正了，**本批待译行的排列**仍是消息号序。
+要连这一半一起修，得解冻并重生 `batches.jsonl`，那是下一轮生产的事，不在 P3 范围内。
+
 ### 4.1 canary 的覆盖边界（必读——闸门不是万能的）
 
 canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加 `--regen-ctx`

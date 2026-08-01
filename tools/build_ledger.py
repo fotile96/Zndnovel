@@ -49,8 +49,15 @@ def parse_vms_lines(stem: str, text: str) -> list[dict]:
             "id": int(m.group(1)), "jp": jp, "voice": m.group(2),
             "file": stem, "func": _owner_func(stack), "literal": literal,
             # line：该 vms 在 lua 源文件里的行号（1-based）。F7——单元内的 id 排序
-            # 若按消息号，后补的行会错位（全库 47 处相邻逆序）；(file, line) 才是
-            # 脚本真实执行顺序。仅新增字段，build() 的全局排序仍按 id 不变。
+            # 若按消息号，后补的行会错位；(file, line) 才是脚本真实执行顺序。
+            # 错位规模有两个都对但口径不同的数，引用时务必带上口径：
+            #   47/16529（0.28%，P2 记录的数）＝ 按 lua 文件分组、按 line 排，数
+            #     「id 递减」的相邻对；分母 16529 = 16749 行 − 220 个文件，是每文件
+            #     相邻对总数。衡量「账本里有多少处后补行」。
+            #   21/16248（0.13%，见 gen_timeline 的注释）＝ 按 timeline 单元分组，
+            #     数「line 递减」的相邻对。衡量「产物里真正错位的相邻对」——运维
+            #     核对段边界 timeline 再生差异时用的是这个数。
+            # 仅新增字段，build() 的全局排序仍按 id 不变。
             "line": lineno,
         })
     return rows

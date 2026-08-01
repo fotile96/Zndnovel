@@ -194,3 +194,77 @@ commit（**均落 main**，按判定）：
    本报告的 A/B 实验就是替代性判定依据，已在 runbook §4 留痕。
 3. 若将来有别的工具改成整行透传 ledger 行（如把 ledger row 直接 dump 进产物），
    `line` 字段就会开始影响产物——届时需重做本预检。
+
+---
+
+# 评审修正轮（Approved / Critical 0 / Important 2 / Minor 2）
+
+评审独立复现并确认了预检判定（3 个批次 + 阴性对照 + 「拿旧账本重造已发出的 batch 41
+上下文、逐字节相同」的时间旅行验证），偏离 brief 换预检设计的理由亦经读码核实。
+以下是 2 条 Important 与 2 条 Minor 的处置。本轮为**纯注释/文档改动，未再生成任何数据文件**。
+
+## Important 1（已修）：F7 覆盖面残留——source.jsonl 那一半本轮不修
+
+评审指出：段边界再生 `timeline.jsonl` 后**只有前缀正文的顺序被修正**；批次自身
+`source.jsonl` 的行序**不会变**——`build_context` 组 source 走 `for i in b["ids"]`，
+直接取 `data/batches.jsonl` 的 ids 数组，而 batches.jsonl **已冻结、不得再生成**
+（manifest 哈希锁定），timeline 再生不回流到它。
+
+**而 P2 记录的原始症状恰恰在这不被修的一半**：「id 17181 排到 source.jsonl 第 58 位」
+（评审实测 batch 7 第 59/90 位）。原报告与 runbook 都没写这条边界，读者会误以为 F7 已全闭。
+
+处置：runbook §4 的段边界条目下新增「**F7 覆盖面残留**」小节，明确写出
+① 覆盖的是 timeline 单元内次序（`_render_prefix` 按 `unit["ids"]` 渲染）；
+② 不覆盖的是 `source.jsonl`（取自冻结的 batches.jsonl），本轮永远不修；
+③ P2 的 17181 症状属于不修的那一半；
+④ 段边界再生后的实际效果是「前缀顺序修正、本批待译行仍是消息号序」；
+⑤ 要连这一半一起修需解冻重生 batches.jsonl，属下一轮生产、不在 P3 范围。
+
+**本报告上文（Step 4「逆序计数」段以及顾虑 1）凡提及 F7 修复效果处，一律以此边界为准。**
+
+## Important 2（已修）：47 vs 21 是口径差异，P2 报告**不需要**第二次订正
+
+原报告写「分母不同说明 P2 是在另一份 timeline 快照上数的」——**该归因错误，作废**。
+评审查证：`data/timeline.jsonl` 全历史只有 1 个 commit（df71266），`lua_scripts/` 自 P2
+以来零改动，且 47/16529 在今天的数据上可逐位复现。我方独立复算确认（`data/ledger.jsonl`
+现状）：
+
+| 口径 | 结果 |
+|---|---|
+| timeline 单元内相邻对、数 `line` 递减 | **21 / 16248 = 0.13%**（本报告用的数） |
+| ledger 按 **lua 文件**分组、按 **line** 排，数 **id** 递减对 | **47 / 16529 = 0.28%**（**P2 的数，今天原样复现**） |
+| 同上分组但按 **id** 排，数 **line** 递减对 | 30 / 16529 |
+| batches.jsonl 每批内相邻对 | 25 / 16520 |
+
+分母 16529 = 16749 行 − 220 个 lua 文件，是**每文件相邻对**总数，与 timeline 口径无关。
+P2 是「按文件分组 + 镜像方向计数」，本报告是「按 timeline 单元 + 正方向计数」。
+**两个数各自正确，P2 报告不需要第二次订正**（此前已订正过一次 44→45，不要让人误以为又要改）。
+
+运维上以 **21/16248** 为准——它衡量「产物里真正错位的相邻对」，正是段边界要核对的量；
+runbook 写 21 保持不变。
+
+同时统一了两处打架且都没写口径的代码注释：`tools/build_ledger.py` 的 `line` 字段注释
+（原写「全库 47 处相邻逆序」）与 `tools/gen_timeline.py` 的 `pos` 注释（原写「21 处」），
+现在两处都写明各自口径并互相指引。
+
+## Minor（已修）
+
+1. 原报告称「23 条既有 gen_timeline 测试零改动通过」——**既有为 21 条**，21 + 新增 2 = 23。
+   订正：本改动的退化设计（缺 `line` 时按 id 排）使 **21 条既有测试零改动通过**。
+2. `build_ledger` 写盘走 `pipelib.write_jsonl`（truncate + 逐行写，非 tmp+rename 原子替换），
+   而生产车道以符号链接实时读这个 3MB 文件，存在「重写期间被并发读」的时间窗（故障模式
+   是响亮崩溃而非静默污染）。按评审意见**不改 `write_jsonl`**（多工具共用，改动面与风险
+   不对等），改为在 runbook §4 数据再生成条目加「**执行时机纪律**」一段：数据再生成只在
+   段边界执行，且必须确认生产会话不在跑批——这本就是段边界的定义，写明即可。
+
+## 本轮验证与 commit
+
+```
+$ uv run pytest -q
+251 passed
+```
+
+commit：`docs: F7 覆盖面残留说明与逆序口径订正`——
+`docs/ops/p3-production-runbook.md`、`tools/build_ledger.py`（注释）、
+`tools/gen_timeline.py`（注释）、本报告文件。只 add 这四个路径，未触碰
+`pilot/lanes/`、`.superpowers/sdd/2026-08-02-p3-seg1-s2/` 与任何 `data/` 文件。

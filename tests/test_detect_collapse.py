@@ -71,6 +71,36 @@ def test_clean_batch_yields_nothing():
     assert scan(src, drf) == []
 
 
+def test_f12_kana_punct_not_counted():
+    # ・（U+30FB）项目符号、ー（U+30FC）、゠（U+30A0）不再计入假名比
+    src = [{"id": 1, "jp": "・項目一・項目二"}]
+    drf = [{"id": 1, "zh": "・条目一・条目二——ー゠"}]
+    assert scan(src, drf) == []
+
+
+def test_f9_quoted_jp_kana_exempt_but_untranslated_still_caught():
+    src = [
+        {"id": 1, "jp": "「に」「ん」「げ」「ん」――にんげん、と読めた。"},
+        {"id": 2, "jp": "ずっとまえから、すきでした。ほんとうです。"},
+    ]
+    drf = [
+        # 钱仙拼字：引用原文假名（短串，均在 jp 中）→ 不报 C1
+        {"id": 1, "zh": "「に」「ん」「げ」「ん」――拼出来是「にんげん」，人类。"},
+        # 整行未译（长假名串）→ 仍报 C1
+        {"id": 2, "zh": "ずっとまえから、すきでした。ほんとうです。"},
+    ]
+    hits = scan(src, drf)
+    assert [h["id"] for h in hits if h["rule"] == "C1"] == [2]
+
+
+def test_f4_dup_thresholds_via_params():
+    src = [{"id": i, "jp": "x" * 10} for i in (1, 2)]
+    drf = [{"id": i, "zh": "同样的八字译文"} for i in (1, 2)]   # 7 字 ×2 次：默认不报
+    assert [h for h in scan(src, drf) if h["rule"] == "C3"] == []
+    hits = scan(src, drf, dup_min_len=6, dup_min_count=2)       # 收紧后报
+    assert len([h for h in hits if h["rule"] == "C3"]) == 2
+
+
 def test_retained_names_reads_glossary_characters(tmp_path):
     g = tmp_path / "glossary.v6.yaml"
     g.write_text(

@@ -18,7 +18,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import REPO, WORK, dumps, read_jsonl
 
-KANA_RE = re.compile(r"[぀-ゟ゠-ヿ]")
+# v2（F12）：片假名段起点从 ゠(U+30A0) 收窄到 ァ(U+30A1)、止于 ヺ(U+30FA)，
+# 再补 ヽ-ヿ；即剔除 ゠(U+30A0)/・(U+30FB)/ー(U+30FC) 三个片假名标点——它们
+# 不是假名，此前误把项目符号「・」「ー」等计入残留假名比（P2 batch 31 实测
+# 4/6 行因 ・ 误报）。
+KANA_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]")
 # 行内连续重复：长度≥4 的子串连续出现≥3 次（即总重复跨度≥12 字符）。
 # 定值依据（控制器+评审实测三类语料对比，见 task-6-report.md 修复记录）：
 # {2,}/{3,} 都会把视觉小说里合法的情绪表达（"哈哈哈哈哈哈""……………………"、
@@ -53,27 +57,45 @@ def retained_names(glossary_path) -> set:
             if c.get("zh") == c.get("jp") and KANA_RE.search(c.get("jp", ""))}
 
 
-def _kana_ratio(zh: str, names) -> float:
+# F9：作品内引用的日文原文（钱仙拼字、五十音教学等）在译文中合法保留假名。
+# 判据：假名连串长度 ≤ 本值且逐字出现在同行 jp 原文中 → 视为引用、不计入假名比。
+# 长串即使出现在 jp 中也不豁免——整行未译（zh≈jp）正是 C1 的目标。
+JP_QUOTE_MAX_LEN = 6
+KANA_RUN_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]+")
+
+
+def _kana_ratio(zh: str, names, jp: str = "") -> float:
     s = zh
     # 按长度降序替换：防止短名字（如「ユカリ」）先替换切碎长名字子串导致
     # 长名字剩余部分被误判为残留假名。
     for n in sorted(names, key=len, reverse=True):
         s = s.replace(n, "")
+    # 整行未译时 zh 与 jp 逐字相同——此时任何假名连串「出现在 jp 里」都是
+    # 平凡为真（zh 本来就是 jp 的拷贝），必须整体跳过豁免，否则会把这种
+    # 真正该被 C1 抓住的行洗成 0（尤其是假名与漢字交替的正常日文句子，
+    # 天然就会被漢字切成多段 ≤6 字的假名连段）。只有 zh 已经相对 jp 发生
+    # 改动（说明确有翻译动作），本行内残留的短假名连串才可能是"作品内
+    # 引用原文"而非"整行漏译"。
+    if jp and zh != jp:
+        s = KANA_RUN_RE.sub(
+            lambda m: "" if len(m.group()) <= JP_QUOTE_MAX_LEN and m.group() in jp
+            else m.group(), s)
     return len(KANA_RE.findall(s)) / max(len(zh), 1)
 
 
 def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
-         ratio_lo=RATIO_LO, ratio_hi=RATIO_HI) -> list:
+         ratio_lo=RATIO_LO, ratio_hi=RATIO_HI,
+         dup_min_len=DUP_MIN_LEN, dup_min_count=DUP_MIN_COUNT) -> list:
     src = {r["id"]: r["jp"] for r in source_rows}
     hits = []
     zh_counts = Counter(r["zh"] for r in draft_rows
-                        if len(r["zh"]) >= DUP_MIN_LEN)
+                        if len(r["zh"]) >= dup_min_len)
     for r in draft_rows:
         i, zh = r["id"], r["zh"]
         jp = src.get(i)
         if jp is None:
             continue
-        kr = _kana_ratio(zh, names)
+        kr = _kana_ratio(zh, names, jp)
         if kr > kana_max:
             hits.append({"id": i, "rule": "C1",
                          "msg": f"残留假名比 {kr:.3f} > {kana_max}（疑似原文未译）"})
@@ -83,7 +105,7 @@ def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
                          "msg": f"中日长度比 {ratio:.2f} 越界 [{ratio_lo}, {ratio_hi}]"})
         if LOOP_RE.search(zh):
             hits.append({"id": i, "rule": "C3", "msg": "行内子串连续重复≥3 次"})
-        elif zh_counts[zh] >= DUP_MIN_COUNT:
+        elif zh_counts[zh] >= dup_min_count:
             hits.append({"id": i, "rule": "C3",
                          "msg": f"同一句译文在批内出现 {zh_counts[zh]} 次"})
     return hits
@@ -104,13 +126,16 @@ def main(argv=None):
     ap.add_argument("--kana-max", type=float, default=KANA_MAX)
     ap.add_argument("--ratio-lo", type=float, default=RATIO_LO)
     ap.add_argument("--ratio-hi", type=float, default=RATIO_HI)
+    ap.add_argument("--dup-min-len", type=int, default=DUP_MIN_LEN)
+    ap.add_argument("--dup-min-count", type=int, default=DUP_MIN_COUNT)
     a = ap.parse_args(argv)
     work = Path(a.lane_dir) / "work" if a.lane_dir else Path(WORK)
     groot = Path(a.lane_dir) if a.lane_dir else Path(REPO)
     src = read_jsonl(work / "ctx" / f"batch_{a.batch}" / "source.jsonl")
     drf = read_jsonl(work / "out" / f"batch_{a.batch}.draft.jsonl")
     hits = scan(src, drf, names=retained_names(_glossary_max(groot)),
-                kana_max=a.kana_max, ratio_lo=a.ratio_lo, ratio_hi=a.ratio_hi)
+                kana_max=a.kana_max, ratio_lo=a.ratio_lo, ratio_hi=a.ratio_hi,
+                dup_min_len=a.dup_min_len, dup_min_count=a.dup_min_count)
     out = work / "out" / f"batch_{a.batch}.collapse.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(dumps(hits), encoding="utf-8")

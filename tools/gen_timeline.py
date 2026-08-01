@@ -15,9 +15,15 @@ class Expander:
         self.unit_funcs = unit_funcs or {}
         self.scene2card = scene2card or {}
         self.by_filefunc = {}
+        # pos：id → (file, line)，即该 vms 在 lua 源文件里的位置。单元内的 id 顺序
+        # 必须按脚本行序，不能按消息号（F7）——后补的行消息号最大却排在中间，按 id
+        # 排会把它甩到单元末尾（全库 21 处相邻逆序，例证 id 17181 在 snr_s1_10_s
+        # 第 234 行）。line 由 build_ledger 记录；缺字段的旧数据/夹具退化为按 id 排。
+        self.pos = {}
         for r in ledger_rows:
             if r.get("kind") == "narrative":
                 self.by_filefunc.setdefault((r["file"], r["func"]), []).append(r["id"])
+                self.pos[r["id"]] = (r["file"], r.get("line", 0))
         self.timeline, self.held, self.route = [], set(), []
         self.emitted_states = set()
         self._emitted_ids = set()
@@ -35,10 +41,12 @@ class Expander:
                 if f == file and any(fnmatch.fnmatch(fn, p) for p in pats)}
 
     def _ids_for(self, file, funcs):
+        """该 unit 的 id 列表，按 (file, line) 行序排（见 __init__ 的 pos 注释）；
+        id 本身只作同位置的稳定 tie-break，也是 line 缺失时的退化序。"""
         ids = []
         for fn in self._matched_funcs(file, funcs):
             ids += self.by_filefunc.get((file, fn), [])
-        return sorted(set(ids))
+        return sorted(set(ids), key=lambda i: (*self.pos.get(i, ("", 0)), i))
 
     def emit_unit(self, kind, src_file, state, title, funcs):
         """emit 一个 unit：

@@ -526,3 +526,35 @@ def test_replay_marker_keeps_pick_claim_for_true_choice_state():
     assert markers[0]["text"] == "【讲述指针回溯至 b_20_sel，本次选第 2 项】"
     assert markers[0]["recap"] == "重讲：指针回到 b_20_sel，本次改选第 2 项。"
     assert "选" in markers[0]["text"]
+
+
+# --- F7: 单元内 id 按 (file, line) 行序 ---
+
+DAG_F7 = {"states": {
+    "f_10": {"file": "snr_f_10_s", "scene": "scene_f_10", "title": "行序",
+             "seq": [{"play": "scene_f_10", "title": "行序"}, {"goto": "end"}]},
+}, "scene_meta": {}, "crds": {}}
+
+# 后补行的形态：id 8000 是事后补进脚本的一行，消息号最大但在 lua 里排第二行。
+LEDGER_F7 = [
+    {"id": 100, "file": "snr_f_10_s", "func": "scene_f_10", "kind": "narrative", "line": 10},
+    {"id": 8000, "file": "snr_f_10_s", "func": "scene_f_10", "kind": "narrative", "line": 11},
+    {"id": 200, "file": "snr_f_10_s", "func": "scene_f_10", "kind": "narrative", "line": 12},
+]
+
+
+def test_unit_ids_follow_lua_line_order_not_message_id():
+    ex = Expander(DAG_F7, LEDGER_F7, unit_funcs={})
+    ex.story("f_10", {}, until=None)
+    unit = next(u for u in ex.timeline if u["type"] == "unit")
+    assert unit["ids"] == [100, 8000, 200]      # 行序；按 id 排会得到 [100, 200, 8000]
+
+
+def test_ids_fall_back_to_id_order_when_line_absent():
+    """无 line 字段的 ledger 行（旧夹具/旧数据）退化为按 id 排——本改动对它们无行为变化。"""
+    rows = [{"id": 200, "file": "snr_f_10_s", "func": "scene_f_10", "kind": "narrative"},
+            {"id": 100, "file": "snr_f_10_s", "func": "scene_f_10", "kind": "narrative"}]
+    ex = Expander(DAG_F7, rows, unit_funcs={})
+    ex.story("f_10", {}, until=None)
+    unit = next(u for u in ex.timeline if u["type"] == "unit")
+    assert unit["ids"] == [100, 200]

@@ -438,12 +438,17 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
         batch_task_count += 1
         # 硬停：车道模式下生效，非车道模式（lane_cfg is None）零改动——
         # 终审 C1 item 3，位置紧跟第 1、第 2 个批次任务（不是全局 batch id
-        # 恰好为 1/2，而是本计划里的第 1、第 2 个批次任务，语义上等价，因为
-        # 试点计划恒从 batch 1 开始）。
-        if lane_cfg is not None and batch_task_count == 1:
+        # 恰好为 1/2，而是本计划里的第 1、第 2 个批次任务，语义上等价——但
+        # 这个等价只在「计划恒从全局 batch 1 开始」的试点模式（segment is
+        # None）下成立：两个模板里硬编码了字面量 --batch 2、batch_1/2.
+        # collapse.json 等，P3 段模式（segment 非 None）的计划通常从段起始
+        # 批（比如 SEG-1 的 36）开始，这些字面量会指向不相关批次，检查必然
+        # 失败。段模式因此不生成这两个硬停任务——段计划有自己的门（段开场
+        # 自检/段末流程，_segment_head/_segment_tail），P2 试点模式行为不变。
+        if segment is None and lane_cfg is not None and batch_task_count == 1:
             parts.append(_hardstop_after_batch1(tnum, lane_cfg, p))
             tnum += 1
-        elif lane_cfg is not None and batch_task_count == 2:
+        elif segment is None and lane_cfg is not None and batch_task_count == 2:
             parts.append(_hardstop_after_batch2(tnum, lane_cfg, p, label,
                                                 sel[0]["batch"], sel[-1]["batch"]))
             tnum += 1

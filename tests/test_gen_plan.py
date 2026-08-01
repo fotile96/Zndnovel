@@ -315,6 +315,28 @@ def test_non_lane_mode_has_no_hardstop_tasks():
     assert not [s for s in sections if "硬停" in s.split("\n", 1)[0]]
 
 
+def test_segment_mode_with_lane_cfg_has_no_hardstop_tasks():
+    """P3 段计划（segment 非 None）不该出现 P2 试点专属的两个硬停任务——
+    它们硬编码假设计划恒从全局 batch 1 开始，段计划通常从段起始批（比如
+    SEG-1 的 36）开始，硬编码的 --batch 2 / batch_1.collapse.json 等字面量
+    在段模式下指向不相关批次，必然失败。段计划自己的门是段开场自检/段末
+    流程（_segment_head/_segment_tail），不需要也不该叠加试点硬停。"""
+    md = render(_sel(), label="seg1-s2", lane="main", every=10,
+                lane_cfg=LANE_CFG, segment="seg1-s2")
+    sections = _sections(md)
+    assert not [s for s in sections if "硬停" in s.split("\n", 1)[0]]
+
+
+def test_pilot_mode_lane_cfg_without_segment_still_has_hardstop_tasks():
+    """回归闸：不传 segment（P2 试点模式）时，车道模式硬停任务必须原样保留——
+    防止修复 P3 段模式时把硬停功能整个删掉。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=10,
+                lane_cfg=LANE_CFG, segment=None)
+    sections = _sections(md)
+    hardstops = [s for s in sections if "硬停" in s.split("\n", 1)[0]]
+    assert len(hardstops) == 2
+
+
 def test_window_probe_task_present_when_batch_33_selected():
     sel = select(BATCHES_35, lane="main", batch_range=(1, 35))
     md = render(sel, label="pilot-opus", lane="main", every=5, lane_cfg=LANE_CFG)

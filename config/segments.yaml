@@ -1,51 +1,85 @@
-# P3 检查段切分表（spec §2）：opus 侦察全量余下 304 批（b36–339）按章切 8 段。
+# P3 检查段切分表（spec §2）：opus 侦察全量余下 304 批（b36–339）按章切 9 段。
 # 段完成 = 机检全绿 + 用户按 review_focus 抽读 + git tag prod-opus-<label>-done + 段末小裁决。
-# jp_chars 与 batches 区间由 tests/test_segments.py 对 data/batches.jsonl 锁定。
+# jp_chars / batches 区间 / chapters / 段内 lane 唯一，全部由 tests/test_segments.py
+# 对 data/batches.jsonl 锁定。
+# chapters 是该段的**实算**章别集合（含 crd——正文段里章节梗概卡批次与剧本批次交错，
+# 抽读范围认知必须包含它们）。extra 轨的「章别」是源 lua 脚本名，故 seg8 的列表很长；
+# 这是实况，不是可以省略的装饰。
 - seg: 1
   label: seg1-s2
   batches: [36, 62]
-  chapters: [s2s, s2f]
+  chapters: [s2s, s2f, crd]
   jp_chars: 53183
   review_focus: "ナゾトキ多层选择迷宫（答对/答错影响 s2s_260_sel 选项集）；s2s_390 夜晚成立判定三条件；周末プール/プラネタリウム伏笔；s2f 章终框架剧情"
 - seg: 2
   label: seg2-s3
   batches: [63, 90]
-  chapters: [s3s, s3fa]
+  chapters: [s3s, s3fa, crd]
   jp_chars: 49685
   review_focus: "楼梯怪谈线；s3s_50_sel→s6、s3s_300_sel→s4 跨章门控句；s3s_620/641_sel 的 3A 分支（ユウイチとキス）；s3fa 现实层"
 - seg: 3
   label: seg3-s4
   batches: [91, 117]
-  chapters: [s4s, s4fa, s4fb]
+  chapters: [s4s, s4fa, s4fb, crd]
   jp_chars: 61226
   review_focus: "ユウイチ视点开场的人称与口吻；s4s_30_sel「私じゃない」回 s3s_340；s4s_100_sel→e1、s4s_490_sel→s8 门控；4A（消えたサクラ）/4B（サクラを待つ）双结局"
 - seg: 4
   label: seg4-s3tail-s5
   batches: [118, 138]
-  chapters: [s3s, s3fb, s3fc, s5s, s5f]
+  chapters: [s3s, s3fb, s3fc, s5s, s5f, crd]
   jp_chars: 47299
   review_focus: "s3fc_90 绘本『总有一天你会看到的故事。』全文（童谣体，全篇最高难度润色位）；s5 日记体日期格式（9/13→2/13 + 返信）；「发作」选择 GAMEOVER 支线；s5s_680→e2 门控"
 - seg: 5
   label: seg5-s6-s7f
   batches: [139, 154]
-  chapters: [s6s, s6f, s7f]
+  chapters: [s6s, s6f, s7f, crd]
   jp_chars: 36767
   review_focus: "s6『True Color』大谜题与中庭の雪；s7f 全盘揭示章＝全知纪律最危险段（递卡段逐张核对、雪乃名字首次揭示位）；第一次 staff roll"
 - seg: 6
   label: seg6-s8-e1
   batches: [155, 166]
-  chapters: [s8s, s8f, s4s, e1s, e1f]
+  chapters: [s8s, s8f, s4s, e1s, e1f, crd]
   jp_chars: 30037
   review_focus: "s8 黎明结局：坠落抓手句族与 anchors 逐字核对；五年后尾声与『True Color，』逗号；e1 ユカリ第一人称 25 连场的语域"
 - seg: 7
   label: seg7-e2
   batches: [167, 173]
-  chapters: [e2s, e2f]
+  chapters: [e2s, e2f, crd]
   jp_chars: 36440
   review_focus: "e2s 单边电话/拜访独白（全书对上下文依赖最强段，CLAUDE.md 指定最后翻档位）；e2f if 幸福线＝标题回收章"
+# seg8/seg9 原本是一个 b174–339 的段，但 b339 是 ambient 轨、b174–338 是 extra 轨，
+# 而 gen_plan.select() 只按单一 lane 过滤——`--lane extra --batches 174-339` 会静默
+# 产出 165 批、漏掉 b339（终审 I4）。段内 lane 必须唯一，故拆两段。
 - seg: 8
   label: seg8-extra
-  batches: [174, 339]
-  chapters: []
-  jp_chars: 10382
-  review_focus: "extra 车道 UI/系统/tr_line 串（str id）：cHan2Zen 全角渲染、数字形制跟随原文、菜单词英日对版式；机械段，抽读以形制一致性为主"
+  batches: [174, 338]
+  chapters: [snr_common,snr_crd_0,snr_crd_10,snr_crd_100,snr_crd_101,snr_crd_102,snr_crd_103,
+    snr_crd_104,snr_crd_108,snr_crd_11,snr_crd_110,snr_crd_118,snr_crd_12,snr_crd_13,snr_crd_14,
+    snr_crd_146,snr_crd_147,snr_crd_148,snr_crd_149,snr_crd_15,snr_crd_150,snr_crd_151,
+    snr_crd_152,snr_crd_153,snr_crd_154,snr_crd_155,snr_crd_156,snr_crd_157,snr_crd_158,
+    snr_crd_159,snr_crd_16,snr_crd_160,snr_crd_161,snr_crd_162,snr_crd_163,snr_crd_164,
+    snr_crd_165,snr_crd_166,snr_crd_167,snr_crd_168,snr_crd_169,snr_crd_17,snr_crd_170,
+    snr_crd_171,snr_crd_172,snr_crd_173,snr_crd_174,snr_crd_175,snr_crd_176,snr_crd_177,
+    snr_crd_18,snr_crd_19,snr_crd_192,snr_crd_193,snr_crd_194,snr_crd_2,snr_crd_20,snr_crd_21,
+    snr_crd_22,snr_crd_23,snr_crd_24,snr_crd_25,snr_crd_26,snr_crd_27,snr_crd_28,snr_crd_29,
+    snr_crd_3,snr_crd_30,snr_crd_31,snr_crd_32,snr_crd_33,snr_crd_34,snr_crd_35,snr_crd_36,
+    snr_crd_37,snr_crd_38,snr_crd_39,snr_crd_4,snr_crd_40,snr_crd_41,snr_crd_42,snr_crd_43,
+    snr_crd_44,snr_crd_45,snr_crd_46,snr_crd_47,snr_crd_48,snr_crd_49,snr_crd_5,snr_crd_50,
+    snr_crd_51,snr_crd_52,snr_crd_53,snr_crd_54,snr_crd_55,snr_crd_56,snr_crd_57,snr_crd_58,
+    snr_crd_59,snr_crd_6,snr_crd_60,snr_crd_61,snr_crd_62,snr_crd_63,snr_crd_64,snr_crd_65,
+    snr_crd_66,snr_crd_67,snr_crd_68,snr_crd_69,snr_crd_7,snr_crd_70,snr_crd_71,snr_crd_72,
+    snr_crd_73,snr_crd_74,snr_crd_75,snr_crd_76,snr_crd_77,snr_crd_78,snr_crd_79,snr_crd_8,
+    snr_crd_80,snr_crd_81,snr_crd_82,snr_crd_83,snr_crd_84,snr_crd_85,snr_crd_86,snr_crd_87,
+    snr_crd_88,snr_crd_89,snr_crd_9,snr_crd_90,snr_crd_91,snr_crd_92,snr_crd_94,snr_crd_98,
+    snr_crd_99,snr_e1_10_f,snr_e1_10_s,snr_e2_10_f,snr_e2_10_s,snr_fragment_main,snr_mainmenu,
+    snr_s0_10_f,snr_s1_10_f,snr_s1_10_s,snr_s2_10_f,snr_s2_10_s,snr_s3_10_fa,snr_s3_10_fb,
+    snr_s3_10_fc,snr_s3_10_s,snr_s4_10_fa,snr_s4_10_fb,snr_s4_10_s,snr_s5_10_f,snr_s5_10_s,
+    snr_s6_10_f,snr_s6_10_s,snr_s7_10_f,snr_s8_10_f,snr_s8_10_s,snr_story_main]
+  jp_chars: 9019
+  review_focus: "extra 车道 UI/系统/tr_line 串（str id，chapter＝源 lua 脚本名）：cHan2Zen 全角渲染、数字形制跟随原文、菜单词英日对版式；机械段，抽读以形制一致性为主"
+- seg: 9
+  label: seg9-ambient
+  batches: [339, 339]
+  chapters: [sys]
+  jp_chars: 1363
+  review_focus: "ambient 轨唯一一批（全书环境/氛围文本尾批，chapter=sys）：系统通知【■おしらせ】体例、按钮/提示等超短串的语气统一；与 seg8 的 UI 串合起来看形制是否一致"

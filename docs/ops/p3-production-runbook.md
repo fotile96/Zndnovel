@@ -92,9 +92,12 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 - 判定方法：读 `git diff <旧tag> main -- tools/ prompts/`，逐文件问「这个改动会不会
   改变任何一批的产出或判定」；答案为否即可免跑 canary，但**必须在 git log / 台账里
   写明判定依据**。
-- 先例：`prod-run-v1`(fc0e284) → `prod-run-v2`，`git diff prod-run-v1 main -- tools/`
-  仅触及 `gen_plan.py`（段模式不再误生成 P2 试点硬停任务 + 本轮终审修正），属
-  「计划生成器」而非判定/产出工具，对已入线批次判定恒等，故免跑 canary，留痕于此。
+- 先例：`prod-run-v1`(fc0e284) → `prod-run-v2`，`git diff prod-run-v1 prod-run-v2 --
+  tools/ prompts/` 只触及 `gen_plan.py`（计划生成器：段模式不再误生成 P2 试点硬停
+  任务、`--tools-root`、`--segment` 读段表、段语汇）与 `saturation.py`（段末裁决的
+  证据表，仅**新增**两行说明性输出，饱和度算法一字未动）。两者都不在
+  `check_batch.check` / `detect_collapse.scan` / `build_context` 三者之内，对已入线
+  批次的判定与产出**恒等**；`prompts/` 零改动。故免跑 canary，留痕于此。
 
 ## 五、段末流程与小裁决会话
 

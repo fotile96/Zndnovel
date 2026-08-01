@@ -26,28 +26,53 @@ GLOSSARY_V = 6
 WINDOW_PROBE_BATCH = 33
 
 
-def _paths(lane_cfg):
+def _tools_prefix(tools_root=""):
+    """按批四件套（build_context/check_batch/detect_collapse/append_forward）Run
+    行里的工具目录前缀。终审 C1 的规则：
+
+    - cwd 恒为主仓；
+    - 只有这四件套用生产 worktree 的绝对路径（它们才是「段内必须不变」的东西，
+      也是 canary 回归闸真正覆盖的判定面）；
+    - `lane_setup`/`gen_plan`/`saturation`/`resolve` 与全部 git 操作固定用主仓
+      `tools/`——lane_setup 的 `LANES_ROOT`/`REPO` 由 `__file__` 推出，在生产
+      worktree 里指向 gitignore 的空车道目录，`--verify` 必然 exit 1；git 操作
+      在生产树 cwd 下会因主仓路径「outside repository」而失败，且生产树是
+      detached HEAD，commit 落不到 main。
+
+    tools_root 为空（默认）时返回裸 "tools"——非段模式输出与改造前逐字相同。
+    """
+    return f"{tools_root.rstrip('/')}/tools" if tools_root else "tools"
+
+
+def _paths(lane_cfg, tools_root=""):
     """把计划文本里的全部路径按车道根改写。lane_cfg 为 None 时返回仓库相对路径
     （回归闸 test_no_lane_cfg_keeps_repo_relative_paths 锁死这一点：非车道模式下
-    全部产出路径必须保持仓库相对形态，不出现 --repo/ZND_WORK 等车道专属前缀）。"""
+    全部产出路径必须保持仓库相对形态，不出现 --repo/ZND_WORK 等车道专属前缀）。
+    "tools" 键是四件套的工具目录前缀，见 _tools_prefix。"""
+    tools = _tools_prefix(tools_root)
     if lane_cfg is None:
         return {"ctx": "work/ctx", "out": "work/out", "forward": "data/forward.jsonl",
-                "notes": "data/notes", "repo_arg": "", "env": "", "lane_dir_arg": ""}
+                "notes": "data/notes", "repo_arg": "", "env": "", "lane_dir_arg": "",
+                "tools": tools}
     d = lane_cfg["lane_dir"]
     return {"ctx": f"{d}/work/ctx", "out": f"{d}/work/out",
             "forward": f"{d}/data/forward.jsonl", "notes": f"{d}/data/notes",
             "repo_arg": f" --repo {d}",
             "env": f"ZND_WORK={d}/work ZND_DATA={d}/data ",
-            "lane_dir_arg": f" --lane-dir {d}"}
+            "lane_dir_arg": f" --lane-dir {d}",
+            "tools": tools}
 
 
-def _lane_block(lane_cfg):
+def _lane_block(lane_cfg, segment=None):
     if lane_cfg is None:
         return ""
     # 车道根的父目录（车道们的公共目录）动态取自 lane_dir，不写死——
     # 车道根从 work/lanes/ 迁到 pilot/lanes/ 之后（终审 C2）这里若仍硬编码
     # 旧路径会把隔离纪律指向一个不存在的目录。
     lanes_root_display = str(Path(lane_cfg["lane_dir"]).parent)
+    # M6：段模式换段语汇——段末流程明文要求裁决，再说「裁决推迟到试点结束」
+    # 会与本计划自己的段末清单直接打架。
+    proposal = ("本段进行中提案只追加进" if segment else "试点期间提案只追加进")
     return f"""
 
 ## 车道配置（本计划专属，派发时逐字遵守）
@@ -62,20 +87,24 @@ def _lane_block(lane_cfg):
 
 - **派发只能走 Workflow 的 `agent(prompt, {{"model": "{lane_cfg["model"]}", "effort": "{lane_cfg["effort"]}"}})`**——`Agent` 工具无法指定 reasoning effort，用它重试会静默回落到会话默认档，使该批次失去可比性。任何一次重试都必须重新读取本表。
 - **隔离纪律**：禁止读取、列出 `{lanes_root_display}/` 下除 `{lane_cfg["lane"]}` 外的任何目录，禁止读取仓库根 `data/forward.jsonl`；查既有译法一律用 `{lane_cfg["lane_dir"]}/data/forward.jsonl`。违反即本批作废重跑。
-- **术语提案不裁决**：试点期间提案只追加进 `{lane_cfg["lane_dir"]}/data/notes/<chapter>.md`，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`。
+- **术语提案不裁决**：{proposal} `{lane_cfg["lane_dir"]}/data/notes/<chapter>.md`，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`。
 - **中断恢复**：从 `{lane_cfg["lane_dir"]}/data/forward.jsonl` 已有的 id 对照 `data/batches.jsonl` **重新推导**第一个未完成的批次，不要信任任何进度文件或记忆——forward 是 append-only 的，它与实际完成状态不可能失同步。"""
 
 
-def _segment_head(segment):
+def _segment_head(segment, tools_root=""):
+    tr = tools_root or "<生产worktree>"
     return f"""
 
 ## 段开场自检（P3 生产会话必做，缺一不可）
 
 本计划属于检查段 **{segment}**（`config/segments.yaml`）。开工前逐项确认并把结果写进台账：
 
-1. **工具树**：本会话执行的 `tools/` 必须来自生产 worktree——`git -C <生产worktree> describe --tags` 应等于 runbook 记录的当前生产 tag；主仓 main 上的工具**不得**用于生产批次。
-2. **车道冻结**：`uv run python tools/lane_setup.py --lane opus --verify` 输出「冻结校验：无漂移」。
-3. **额度余量**：确认本周订阅额度尚有本段预算（生产目标 ≤50%/周）。流程细节见 `docs/ops/p3-production-runbook.md`。"""
+1. **cwd 与工具树划分**（本节全部命令、以及本计划的全部 git 操作，一律在**主仓**执行，cwd 恒为主仓，**不要 `cd` 到生产 worktree**）：
+   - 按批四件套 `build_context` / `check_batch` / `detect_collapse` / `append_forward` 走**生产 worktree 的绝对路径**——各批 Task 的 Run 行已内嵌 `{tr}/tools/…`，逐字照抄，不要改回相对形态；
+   - `lane_setup` / `gen_plan` / `saturation` / `resolve` 与全部 git 操作走**主仓 `tools/`**（它们不参与段内冻结语义；lane_setup 在生产树里会因 `__file__` 推出的车道根为空而必然报「冻结文件缺失」，git 也会因主仓路径 outside repository 而失败）。
+2. **工具树版本**：`git -C {tr} describe --tags` 应等于 runbook「当前生产 tag」行记录的值。
+3. **车道冻结**（本命令在主仓执行）：`uv run python tools/lane_setup.py --lane opus --verify` 输出「冻结校验：无漂移」。
+4. **额度余量**：确认本周订阅额度尚有本段预算（生产目标 ≤50%/周）。流程细节见 `docs/ops/p3-production-runbook.md`。"""
 
 
 def _segment_tail(segment):
@@ -83,10 +112,12 @@ def _segment_tail(segment):
 
 ## 段末流程（本段全部批次入线后执行，缺一不可）
 
+以下命令与 git 操作全部在**主仓**执行（cwd 恒为主仓，工具用主仓 `tools/`）。
+
 1. 机检复核：本计划各批 check/collapse 记录过一遍，hard 全零。
 2. 请用户按 `config/segments.yaml` 本段 `review_focus` 抽读关键场。
 3. 打段完成 tag：`git tag prod-opus-{segment}-done`。
-4. 提醒用户开**段末小裁决会话**：先跑 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`，可裁决词族当场裁，滚存词族聚类归档（runbook「段末小裁决」节）。
+4. 提醒用户开**段末小裁决会话**：先跑 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`（**`--data-dir` 必须带**——漏传会读仓库根 `data/`，那里没有车道 forward.jsonl，结果是一张全列「滚存」的合理假表；工具会在表头前打印 `done=N 条已入线译文`，N 为 0 即说明漏传），可裁决词族当场裁，滚存词族聚类归档（runbook「段末小裁决」节）。
 5. 裁决产出新 glossary 版本时，按 runbook「段边界版本切换」执行车道再冻结 + 召回/patches。"""
 
 
@@ -102,13 +133,14 @@ def select(batches, *, lane, chapter=None, batch_range=None):
     return sorted(sel, key=lambda b: b["batch"])
 
 
-def _header(label, lane, every, count, glossary_v, lane_cfg, chapters_all=()):
+def _header(label, lane, every, count, glossary_v, lane_cfg, chapters_all=(),
+            segment=None, tools_root=""):
     """chapters_all：本计划全部批次涉及的真实章别（去重、升序）。--chapter 模式
     下 label 恰好就是唯一真实章别，"label 章"是准确表述；--batches 连续段模式
     下 label 只是计划名（如 "pilot-opus"），不是任何批次的真实章别——继续说
     "label 章"具有误导性（终审分诊的顺手 minor，与 Hotfix D 修的 _final_task/
     _checkpoint_task 是同一类 label-as-chapter 问题，当时未覆盖到这里）。"""
-    p = _paths(lane_cfg)
+    p = _paths(lane_cfg, tools_root)
     single_chapter = len(chapters_all) == 1 and chapters_all[0] == label
     if single_chapter or not chapters_all:
         # chapters_all 为空是测试兜底（旧调用点未传参）——保持原表述，不因为
@@ -134,24 +166,36 @@ def _header(label, lane, every, count, glossary_v, lane_cfg, chapters_all=()):
                          "派译者子代理 → check_batch 机械校验 → detect_collapse "
                          "语义崩溃探测（顾问级） → append_forward 入库并提交」五步流水线")
         git_step = "Step 5"
+    # M6：段模式统一换段语汇（非段模式一字不变）。
+    gate_where = "段末" if segment else "章末"
+    baseline_when = "本段" if segment else "试点期"
+    if segment:
+        tr = tools_root or "<生产worktree>"
+        run_rule = (f"**cwd 恒为主仓**；按批四件套（`build_context`/`check_batch`/"
+                    f"`detect_collapse`/`append_forward`）用各 Task Run 行内嵌的"
+                    f"生产 worktree 绝对路径 `{tr}/tools/…`，其余工具"
+                    f"（`lane_setup`/`gen_plan`/`saturation`/`resolve`）与全部 git "
+                    f"操作用主仓 `uv run python tools/<x>.py`（详见「段开场自检」）")
+    else:
+        run_rule = "运行 `uv run python tools/<x>.py`"
     return f"""# {title}
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** {goal}
 
-**Architecture:** 每个批次一个任务，走 {pipeline_desc}（P1b 已建成，签名见下）；每 {every} 批插一个 CHECKPOINT 任务做术语提案裁决与抽查；章末插一个人工评审 gate，不自动放行。
+**Architecture:** 每个批次一个任务，走 {pipeline_desc}（P1b 已建成，签名见下）；每 {every} 批插一个 CHECKPOINT 任务做术语提案裁决与抽查；{gate_where}插一个人工评审 gate，不自动放行。
 
 **Tech Stack:** uv 项目 Python 工具链（`tools/build_context.py` / `tools/check_batch.py` / `tools/append_forward.py`），零新增依赖；译者/评审子代理分别按 `prompts/translator_cc.md` / `prompts/reviewer_cc.md` 派发。
 
 ## Global Constraints
 
-- 运行 `uv run python tools/<x>.py`；commit 规范 `type: 中文摘要`（type ∈ feat/fix/docs/data/analysis/chore/refactor），本计划的批次提交固定用 `data: <chapter> 批次N 译文入线`（`<chapter>` 为该批次自己的真实章别，不是本计划名/label——连续段模式下同一计划可能横跨多章），main 分支直提交。
+- {run_rule}；commit 规范 `type: 中文摘要`（type ∈ feat/fix/docs/data/analysis/chore/refactor），本计划的批次提交固定用 `data: <chapter> 批次N 译文入线`（`<chapter>` 为该批次自己的真实章别，不是本计划名/label——连续段模式下同一计划可能横跨多章），main 分支直提交。
 - `skeleton/`、`glossary/` 只读引用，本计划不修改它们；发现术语缺口按 `prompts/translator_cc.md`「术语提案」节追加到 `{p["notes"]}/<chapter>.md`，不要直接改 `glossary/active.json`（版本化流程见 `CLAUDE.md`「术语层」节）。
-- `build_context.py` 的 `--profile` 固定 `cc`（本计划专属 CC 后端，即本工具名里的「CC」）；`--baseline` 试点期固定 `none`。
+- `build_context.py` 的 `--profile` 固定 `cc`（本计划专属 CC 后端，即本工具名里的「CC」）；`--baseline` {baseline_when}固定 `none`。
 - `append_forward.py` 的 `--backend/--model/--ctx/--glossary-v` 均为必填：`--backend cc`、`--glossary-v {glossary_v}`（当前最高 glossary 版本）固定；`--ctx` 取本批 `manifest.json` 里的 `ctx_sha`；`--model` 填实际执行本批翻译子代理所用的模型 ID。
 - 派子代理（Step 2）与执行 git 操作（{git_step}）都由执行本计划的 agent 亲自完成——`prompts/translator_cc.md`/`reviewer_cc.md` 都明确子代理不得碰 git。
-{_lane_block(lane_cfg)}
+{_lane_block(lane_cfg, segment)}
 ---"""
 
 
@@ -161,7 +205,7 @@ def _batch_task(tnum, batch, baseline, glossary_v, p, thresholds_arg=""):
         f"""
 - [ ] **Step 4: 语义崩溃探测（顾问级，不阻断——命中需人眼过一遍再入线）**
 
-Run: `{p["env"]}uv run python tools/detect_collapse.py --batch {n}{p["lane_dir_arg"]}{thresholds_arg}`
+Run: `{p["env"]}uv run python {p["tools"]}/detect_collapse.py --batch {n}{p["lane_dir_arg"]}{thresholds_arg}`
 Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接进 Step 5；K>0 时打开 `{p["out"]}/batch_{n}.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回 Step 2 重新出译文、重跑 Step 3–4。把命中数（按规则 C1/C2/C3 分类）记进本批记录，供后面的检查点/硬停任务汇总参考。
 """
         if p["lane_dir_arg"] else "")
@@ -177,7 +221,7 @@ Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒�
 
 - [ ] **Step 1: 生成上下文包**
 
-Run: `uv run python tools/build_context.py --batch {n} --profile cc --baseline {baseline}{p["repo_arg"]}`
+Run: `uv run python {p["tools"]}/build_context.py --batch {n} --profile cc --baseline {baseline}{p["repo_arg"]}`
 Expected: 生成 `{p["ctx"]}/batch_{n}/context.md`、`source.jsonl`、`manifest.json`；记下 `manifest.json` 里的 `ctx_sha`（Step {step5_num} 要用）。
 
 - [ ] **Step 2: 派译者子代理**
@@ -186,14 +230,14 @@ Expected: 生成 `{p["ctx"]}/batch_{n}/context.md`、`source.jsonl`、`manifest.
 
 - [ ] **Step 3: 校验**
 
-Run: `{p["env"]}uv run python tools/check_batch.py --batch {n}{p["lane_dir_arg"]}`
+Run: `{p["env"]}uv run python {p["tools"]}/check_batch.py --batch {n}{p["lane_dir_arg"]}`
 Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `{p["out"]}/batch_{n}.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 {collapse_step}
 - [ ] **Step {step5_num}: 入库并提交**
 
 Run（`<model>` 换成本车道 `append_model_id`；`<ctx_sha>` 取自 Step 1 产出的 `manifest.json`）：
 
-`{p["env"]}uv run python tools/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {glossary_v}`
+`{p["env"]}uv run python {p["tools"]}/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {glossary_v}`
 
 ```bash
 git add {p["forward"]}
@@ -201,7 +245,7 @@ git commit -m "data: {ch} 批次{n} 译文入线"
 ```"""
 
 
-def _checkpoint_task(tnum, first, last, chapters, p, lane_mode=False):
+def _checkpoint_task(tnum, first, last, chapters, p, lane_mode=False, segment=None):
     """chapters：本 chunk 涉及的真实章别（去重、升序），不是计划的 label——
     连续段模式下一个 chunk 可能横跨多章，label 拼出的笔记文件路径在这种场景下
     永远不存在（fix round 1 发现的文案错位）。
@@ -212,12 +256,22 @@ def _checkpoint_task(tnum, first, last, chapters, p, lane_mode=False):
     才发现。"""
     verify_step = ""
     if lane_mode:
-        verify_step = """
-- [ ] **Step 0: 冻结校验**
+        # M6：段模式换段语汇。lane_setup 恒用主仓 tools/（终审 C1）。
+        stop = "**立即停止本段**，报告人工裁决" if segment else "**立即停止试点**，报告人工裁决"
+        where = "（在主仓执行）" if segment else ""
+        verify_step = f"""
+- [ ] **Step 0: 冻结校验**{where}
 
 Run: `uv run python tools/lane_setup.py --verify`
-Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**，报告人工裁决，不要继续派发下一批——漂移意味着两条车道的术语/骨架基准已经不再可比。
+Expected: `冻结校验：无漂移`。若报出漂移，{stop}，不要继续派发下一批——漂移意味着两条车道的术语/骨架基准已经不再可比。
 """
+    if segment:
+        adjudicate = ("本段进行中**只清点归档、不裁决**：把提案原样留在文件里，不新增 "
+                      "`glossary.vN.yaml`、不改 `glossary/active.json`，裁决集中到"
+                      "本计划末尾「段末流程」指向的段末小裁决会话。")
+    else:
+        adjudicate = ("试点期间**只清点归档、不裁决**：把提案原样留在文件里，不新增 "
+                      "`glossary.vN.yaml`、不改 `glossary/active.json`，裁决推迟到试点结束。")
     ch_str = "、".join(chapters)
     files = "、".join(f"`{c}.md`" for c in chapters)
     return f"""### Task {tnum}: CHECKPOINT——批次 {first}–{last} 术语提案裁决 + 抽查
@@ -226,7 +280,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止试点**�
 
 - [ ] **Step 1: 术语提案裁决**
 
-查看 `{p["notes"]}/` 下本段涉及的 {files}（文件不存在说明该章本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。试点期间**只清点归档、不裁决**：把提案原样留在文件里，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`，裁决推迟到试点结束。
+查看 `{p["notes"]}/` 下本段涉及的 {files}（文件不存在说明该章本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。{adjudicate}
 
 - [ ] **Step 2: 抽查**
 
@@ -359,7 +413,8 @@ cp {tmp}/work/ctx/batch_{batch_n}/context.md {tmp}-api-a.md
 对照两版译文：窗口版（cc）出现全前缀版（api-A）没有的指代错误/前情误解，即为窗口丢信息的直接证据；若两版无实质差异，即为"压缩未丢信息"的证据。结论写进试点报告（含 §1 声明的"不能回答"边界：这仍只是段内唯一一次压缩跃迁的单点观测，不能外推到深层前缀）。完成后删除临时副本：`rm -rf {tmp}*`。"""
 
 
-def _final_task(tnum, chapters, lane, first, last, count, p, lane_mode=False):
+def _final_task(tnum, chapters, lane, first, last, count, p, lane_mode=False,
+                segment=None):
     """chapters：本计划全部批次涉及的真实章别（去重、升序），与 `_checkpoint_task`
     的 chapters 参数同规格——不能再用 label（`--batches` 连续段模式下 label
     只是计划名，不是任何批次的真实章别；用它拼「skeleton/cards.zh/ 的 <label>
@@ -388,7 +443,7 @@ def _final_task(tnum, chapters, lane, first, last, count, p, lane_mode=False):
             f"地方提前泄露后续真相（全知纪律，`glossary/style.md`）。**注意本段是"
             f" timeline 连续段而非完整章，某些章可能只覆盖了一部分，不要按"
             f"「整章完结」的标准要求梗概吻合。**")
-    return f"""### Task {tnum}: 章末——梗概回译自检 + 人工评审 gate
+    return f"""### Task {tnum}: {"段末" if segment else "章末"}——梗概回译自检 + 人工评审 gate
 
 {header}
 
@@ -417,13 +472,15 @@ def _thresholds_arg(collapse_thresholds):
 
 
 def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
-           lane_cfg=None, collapse_thresholds=None, segment=None) -> str:
-    p = _paths(lane_cfg)
+           lane_cfg=None, collapse_thresholds=None, segment=None,
+           tools_root="") -> str:
+    p = _paths(lane_cfg, tools_root)
     thresholds_arg = _thresholds_arg(collapse_thresholds)
     chapters_all = sorted({b["chapter"] for b in sel})
-    parts = [_header(label, lane, every, len(sel), glossary_v, lane_cfg, chapters_all)]
+    parts = [_header(label, lane, every, len(sel), glossary_v, lane_cfg, chapters_all,
+                     segment, tools_root)]
     if segment:
-        parts.append(_segment_head(segment))
+        parts.append(_segment_head(segment, tools_root))
     if not sel:
         parts.append(f"（`data/batches.jsonl` 中没有选中的批次，无事可做。）")
         if segment:
@@ -456,7 +513,8 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
         if len(chunk) == every:
             chapters = sorted({c["chapter"] for c in chunk})
             parts.append(_checkpoint_task(tnum, chunk[0]["batch"], chunk[-1]["batch"],
-                                          chapters, p, lane_mode=lane_cfg is not None))
+                                          chapters, p, lane_mode=lane_cfg is not None,
+                                          segment=segment))
             tnum += 1
             chunk = []
     # 窗口对撞探针：车道模式下、且本次选中的批次里真的含 batch 33 时才生成
@@ -465,7 +523,8 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
         parts.append(_window_probe_task(tnum, WINDOW_PROBE_BATCH, lane_cfg, p))
         tnum += 1
     parts.append(_final_task(tnum, chapters_all, lane, sel[0]["batch"], sel[-1]["batch"],
-                             len(sel), p, lane_mode=lane_cfg is not None))
+                             len(sel), p, lane_mode=lane_cfg is not None,
+                             segment=segment))
     if segment:
         parts.append(_segment_tail(segment))
     return "\n\n".join(parts)
@@ -481,13 +540,30 @@ def _parse_range(s):
     return lo, hi
 
 
+def segment_range(label, repo=None):
+    """config/segments.yaml 里 label 段的批号闭区间。终审 I3：`--segment` 曾是
+    纯文案插值的自由字符串，批号靠另外手传 `--batches`——`--batches 36-62
+    --segment seg2-s3` 这种错配会静默产出段名与批号不符的生产计划。"""
+    import yaml
+    p = Path(repo or REPO) / "config" / "segments.yaml"
+    segs = yaml.safe_load(p.read_text(encoding="utf-8")) or []
+    for s in segs:
+        if s["label"] == label:
+            lo, hi = s["batches"]
+            return int(lo), int(hi)
+    raise SystemExit(
+        f"{p} 中没有 label={label!r} 的检查段；已有："
+        f"{', '.join(s['label'] for s in segs)}")
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--lane", required=True)
-    g = ap.add_mutually_exclusive_group(required=True)
+    g = ap.add_mutually_exclusive_group()
     g.add_argument("--chapter")
-    g.add_argument("--batches", help="连续段批号闭区间，形如 1-35")
+    g.add_argument("--batches", help="连续段批号闭区间，形如 1-35；"
+                                     "与 --segment 同给时覆盖段表批号")
     ap.add_argument("--label", help="--batches 模式下的计划名（必填）")
     ap.add_argument("--checkpoint-every", type=int, default=5)
     ap.add_argument("--lane-dir")
@@ -498,7 +574,12 @@ def main(argv=None):
                     help="I-extra：batch 1-2 硬停标定后固化进后续批次 detect_collapse 命令行")
     ap.add_argument("--ratio-lo", type=float)
     ap.add_argument("--ratio-hi", type=float)
-    ap.add_argument("--segment", help="检查段 label（config/segments.yaml），生成段自检/段末流程块")
+    ap.add_argument("--segment", help="检查段 label（config/segments.yaml）：批号由段表"
+                                      "读出，并生成段自检/段末流程块")
+    ap.add_argument("--tools-root", default="",
+                    help="按批四件套（build_context/check_batch/detect_collapse/"
+                         "append_forward）的工具树根（生产 worktree 绝对路径）；"
+                         "留空＝主仓相对 tools/（非段模式行为不变）")
     args = ap.parse_args(argv)
 
     lane_params = [args.lane_dir, args.model, args.effort, args.append_model_id]
@@ -509,16 +590,24 @@ def main(argv=None):
         "model": args.model, "effort": args.effort,
         "append_model_id": args.append_model_id}
 
-    if args.batches:
+    if args.segment:
+        if args.chapter:
+            raise SystemExit("--segment 与 --chapter 互斥")
+        rng = _parse_range(args.batches) if args.batches else segment_range(args.segment)
+        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane, batch_range=rng)
+        label = args.label or args.segment
+    elif args.batches:
         if not args.label:
             raise SystemExit("--batches 模式必须同时给 --label")
         sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane,
                      batch_range=_parse_range(args.batches))
         label = args.label
-    else:
+    elif args.chapter:
         sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane,
                      chapter=args.chapter)
         label = args.chapter
+    else:
+        raise SystemExit("需给 --chapter / --batches / --segment 之一")
 
     collapse_thresholds = {k: v for k, v in (("kana_max", args.kana_max),
                                              ("ratio_lo", args.ratio_lo),
@@ -526,7 +615,8 @@ def main(argv=None):
                           if v is not None} or None
     md = render(sel, label=label, lane=args.lane, every=args.checkpoint_every,
                 glossary_v=glossary_version(REPO), lane_cfg=lane_cfg,
-                collapse_thresholds=collapse_thresholds, segment=args.segment)
+                collapse_thresholds=collapse_thresholds, segment=args.segment,
+                tools_root=args.tools_root)
     out_path = REPO / "docs" / "superpowers" / "plans" / f"translate-{label}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")

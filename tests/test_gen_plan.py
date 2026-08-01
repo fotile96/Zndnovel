@@ -509,3 +509,147 @@ def test_render_without_segment_unchanged():
     sel = _sel()
     md = render(sel, label="x", lane="main")
     assert "段开场自检" not in md and "段末流程" not in md
+
+
+# ---- 终审 C1：生产树/主仓的命令形态划分（--tools-root） ----
+
+PROD = "/Users/fotile96/Zndnovel-prod"
+
+
+def test_tools_root_prefixes_only_the_four_per_batch_tools():
+    """按批四件套（build_context/check_batch/detect_collapse/append_forward）是
+    「段内必须不变」的东西，Run 行须带生产树绝对路径；lane_setup/gen_plan/
+    saturation/resolve 不参与段内冻结语义，必须保持主仓 `tools/` 形态——否则
+    lane_setup 在生产树里因 `__file__` 推出的 LANES_ROOT 指向 gitignore 的空
+    车道目录而必然 exit 1（终审 C1 实测）。"""
+    md = render(_sel(), label="seg1-s2", lane="main", every=3, lane_cfg=LANE_CFG,
+                segment="seg1-s2", tools_root=PROD)
+    for tool in ("build_context", "check_batch", "detect_collapse", "append_forward"):
+        assert f"{PROD}/tools/{tool}.py" in md, tool
+        assert f"python tools/{tool}.py" not in md, f"{tool} 仍有主仓相对形态残留"
+    for tool in ("lane_setup", "saturation", "gen_plan"):
+        assert f"{PROD}/tools/{tool}.py" not in md, f"{tool} 不该指向生产树"
+    assert "tools/lane_setup.py --lane opus --verify" in md
+
+
+def test_tools_root_default_is_bare_tools_path():
+    """回归闸：不传 --tools-root 时四件套 Run 行必须与改造前逐字相同。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    for tool in ("build_context", "check_batch", "detect_collapse", "append_forward"):
+        assert f"uv run python tools/{tool}.py" in md, tool
+    assert "Zndnovel-prod" not in md
+
+
+def test_segment_head_pins_cwd_to_main_repo_and_names_the_prod_tree():
+    md = render(_sel(), label="seg1-s2", lane="main", every=3, lane_cfg=LANE_CFG,
+                segment="seg1-s2", tools_root=PROD)
+    head = md.split("## 段开场自检")[1].split("### Task")[0]
+    assert "主仓" in head and "cwd" in head
+    assert PROD in head
+    assert "本命令在主仓执行" in head
+    # 旧措辞（"本会话执行的 tools/ 必须来自生产 worktree" + "主仓 main 上的工具
+    # 不得用于生产批次"）与批次 Run 行的相对形态自相矛盾，必须消失。
+    assert "主仓 main 上的工具**不得**用于生产批次" not in head
+
+
+# ---- 终审 M6：段模式不得再用 P2 试点措辞 ----
+
+SEG_ONLY_FORBIDDEN = ("试点", "章末——")
+
+
+def test_segment_mode_drops_pilot_vocabulary():
+    md = render(_sel(), label="seg1-s2", lane="main", every=3, lane_cfg=LANE_CFG,
+                segment="seg1-s2", tools_root=PROD)
+    for bad in SEG_ONLY_FORBIDDEN:
+        assert bad not in md, f"段模式残留试点措辞 {bad!r}"
+    assert "段末——梗概回译自检" in md
+    assert "段末插一个人工评审 gate" in md
+    checkpoint = _find(_sections(md), "CHECKPOINT")
+    assert "停止本段" in checkpoint
+    assert "段末小裁决" in checkpoint
+
+
+def test_pilot_mode_keeps_pilot_vocabulary():
+    """回归闸：非段模式（P2 试点那种计划）措辞一字不变。"""
+    md = render(_sel(), label="pilot-opus", lane="main", every=3, lane_cfg=LANE_CFG)
+    assert "试点期间提案只追加进" in md
+    assert "裁决推迟到试点结束" in md
+    assert "章末——梗概回译自检" in md
+    assert "章末插一个人工评审 gate" in md
+    checkpoint = _find(_sections(md), "CHECKPOINT")
+    assert "立即停止试点" in checkpoint
+
+
+# ---- 终审 I3：--segment 与 config/segments.yaml 的程序耦合 ----
+
+SEGMENTS_YAML = """\
+- seg: 1
+  label: seg1-s2
+  batches: [2, 5]
+  chapters: [s1s]
+  jp_chars: 400
+  review_focus: "x"
+- seg: 2
+  label: seg2-s3
+  batches: [6, 7]
+  chapters: [s1s]
+  jp_chars: 200
+  review_focus: "y"
+"""
+
+
+def _repo_fixture(tmp_path, monkeypatch):
+    (tmp_path / "data").mkdir(); (tmp_path / "glossary").mkdir()
+    (tmp_path / "config").mkdir()
+    (tmp_path / "glossary" / "glossary.v7.yaml").write_text("{}", encoding="utf-8")
+    (tmp_path / "config" / "segments.yaml").write_text(SEGMENTS_YAML, encoding="utf-8")
+    write_jsonl(tmp_path / "data" / "batches.jsonl", BATCHES)
+    monkeypatch.setattr("tools.gen_plan.REPO", tmp_path)
+    monkeypatch.setattr("tools.gen_plan.DATA", tmp_path / "data")
+    return tmp_path
+
+
+def _plan(tmp_path, label):
+    return (tmp_path / "docs" / "superpowers" / "plans" /
+            f"translate-{label}.md").read_text(encoding="utf-8")
+
+
+def test_main_segment_derives_batches_from_segments_yaml(tmp_path, monkeypatch):
+    _repo_fixture(tmp_path, monkeypatch)
+    assert main(["--lane", "main", "--segment", "seg1-s2"]) == 0
+    out = _plan(tmp_path, "seg1-s2")
+    assert "--batch 2" in out and "--batch 5" in out
+    assert "--batch 1" not in out and "--batch 6" not in out
+
+
+def test_main_segment_unknown_label_exits(tmp_path, monkeypatch):
+    _repo_fixture(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        main(["--lane", "main", "--segment", "seg9-nope"])
+
+
+def test_main_segment_batches_override_wins(tmp_path, monkeypatch):
+    _repo_fixture(tmp_path, monkeypatch)
+    assert main(["--lane", "main", "--segment", "seg1-s2",
+                 "--batches", "6-7", "--label", "seg1-s2"]) == 0
+    out = _plan(tmp_path, "seg1-s2")
+    assert "--batch 6" in out and "--batch 7" in out
+    assert "--batch 2" not in out
+
+
+def test_main_segment_forwards_tools_root(tmp_path, monkeypatch):
+    _repo_fixture(tmp_path, monkeypatch)
+    assert main(["--lane", "main", "--segment", "seg1-s2",
+                 "--lane-dir", "/abs/lanes/opus", "--model", "opus",
+                 "--effort", "max", "--append-model-id", "claude-opus-5",
+                 "--tools-root", PROD]) == 0
+    out = _plan(tmp_path, "seg1-s2")
+    assert f"{PROD}/tools/build_context.py" in out
+    assert f"{PROD}/tools/append_forward.py" in out
+    assert "tools/lane_setup.py --lane opus --verify" in out
+
+
+def test_main_requires_one_of_chapter_batches_segment(tmp_path, monkeypatch):
+    _repo_fixture(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        main(["--lane", "main"])

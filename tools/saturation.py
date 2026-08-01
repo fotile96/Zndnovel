@@ -53,11 +53,22 @@ def main(argv=None):
     extra = data / "ledger_extra.jsonl"
     if extra.exists():
         ledger += read_jsonl(extra)
-    fwd = read_jsonl(data / "forward.jsonl") if (data / "forward.jsonl").exists() else []
-    pat = read_jsonl(data / "patches.jsonl") if (data / "patches.jsonl").exists() else []
+    # 「已入线译文」为空是本工具唯一的失败开方向：漏传 --data-dir 时 DATA 落到
+    # 仓库根 data/（那里没有车道 forward.jsonl），输出一张全列 0.000/「滚存」的
+    # 完全合理的表——闸门失效却毫无痕迹（终审 I2；runbook 里那条命令还是折行
+    # 两行、极易漏抄第二行）。故：表头前自述统计口径，forward 缺失时醒目告警。
+    fwd_path, pat_path = data / "forward.jsonl", data / "patches.jsonl"
+    missing_forward = not fwd_path.exists()
+    fwd = read_jsonl(fwd_path) if not missing_forward else []
+    pat = read_jsonl(pat_path) if pat_path.exists() else []
     done = set(resolve_map(fwd, pat))
     rows = [saturation(t, ledger, done) for t in terms]
     rows.sort(key=lambda r: (r["ratio"] is None, r["ratio"] if r["ratio"] is not None else 0))
+    print(f"done={len(done)} 条已入线译文（data-dir={data}）")
+    if missing_forward:
+        print(f"!! 告警：{fwd_path} 不存在——本次按「零条已译」计算，全部词族必然"
+              f"判为「滚存」，闸门等于失效。是否漏传 --data-dir？"
+              f"（车道数据在 pilot/lanes/<lane>/data）")
     print("| 词 | 出现 | 已覆盖 | 饱和度 | 判定 | 未覆盖分布 |")
     print("|---|---|---|---|---|---|")
     for r in rows:

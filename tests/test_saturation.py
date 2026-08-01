@@ -35,3 +35,22 @@ def test_main_reads_data_dir_and_gates(tmp_path, capsys):
     assert rc == 0
     assert "0.750" in out and "滚存" in out   # 0.75 < 0.8 → 滚存
     assert "无出现" in out                     # total=0 单列
+    # 终审 I2：表头前必须自述统计口径（已入线条数 + 实际 data-dir）
+    assert "done=2 条已入线译文" in out
+    assert str(tmp_path) in out
+
+
+def test_main_warns_loudly_when_forward_missing(tmp_path, capsys):
+    """终审 I2：漏传 --data-dir 时仓库根 data/ 没有 forward.jsonl，旧实现静默
+    当成「零条已译」，输出一张全列 0.000/滚存 的完全合理的表——闸门失效方向
+    最难发现。缺 forward 必须有醒目告警。"""
+    import json
+    (tmp_path / "ledger.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in LEDGER), encoding="utf-8")
+    assert not (tmp_path / "forward.jsonl").exists()
+    rc = main(["--term", "十円玉", "--data-dir", str(tmp_path), "--gate", "0.8"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "告警" in out
+    assert "forward.jsonl" in out
+    assert "done=0 条已入线译文" in out

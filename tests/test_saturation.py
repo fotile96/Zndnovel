@@ -1,7 +1,7 @@
 """饱和度计算器：词族「全书出现数中已译批次覆盖比」——段末裁决的证据闸门（spec §2）。"""
 from pathlib import Path
 
-from tools.saturation import saturation, main, DIRTY_KEY_VERDICT
+from tools.saturation import saturation, main, DIRTY_KEY_VERDICT, COMPOUND_VERDICT_PREFIX
 
 
 LEDGER = [
@@ -132,6 +132,53 @@ def test_main_warns_on_empty_ledger_file(tmp_path, capsys):
     assert "全部词键将被判脏" in out
 
 
+# ── 并列词串探测：`はい／いいえ` 是当初那个 Critical 的头号例子 ──
+# is_clean_key 本身逐字检查会放行「はい／いいえ」（全角 ／ 本身也出现在游戏
+# 原文标点里，所以在 corpus_chars 内）——但 total==0 被读成「无出现、可以随便
+# 定」，而 はい 单独查在 opus 车道真实是 396 次（覆盖 167）、いいえ 是 18 次
+# （覆盖 13）。main() 现在会在 total==0 时按并列分隔符拆开子串各查一次，只要
+# 有子串 total>0 就报「疑似并列词串」并摆出真实数字，不再报「无出现」。
+PILOT_OPUS_DATA = Path(__file__).resolve().parent.parent / "pilot/lanes/opus/data"
+
+
+def test_main_flags_compound_term_with_real_lane_evidence(capsys):
+    # 不编造数字：直接读真实 opus 车道数据（只读，不修改），用实测的
+    # はい=167/396=0.422、いいえ=13/18=0.722 钉住输出。全角 ／ 与半角 / 两种
+    # 抄法都要能被识别成并列词串——识别与否不该取决于抄词表的人用了哪个斜杠
+    # （这正是原判据的巧合漏洞：分隔符本身是否出现在语料标点里）。
+    assert (PILOT_OPUS_DATA / "ledger.jsonl").exists(), "需要真实 opus 车道数据"
+    rc = main(["--term", "はい／いいえ", "--term", "はい/いいえ",
+               "--data-dir", str(PILOT_OPUS_DATA), "--gate", "0.8"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    expected = "疑似并列词串，请拆开分别查（はい=167/396=0.422、いいえ=13/18=0.722）"
+    assert out.count(expected) == 2   # 全角/半角两行都命中同一条真实证据
+    assert "无出现" not in out
+    assert "未匹配到该词键" not in out
+
+
+def test_main_compound_split_all_zero_falls_back_to_existing_verdict(tmp_path, capsys):
+    # 反面：词键含并列分隔符，但拆开后每个子串也都是零出现——不能被误报成
+    # 「疑似并列词串」，仍按原有判据走（这里子串与整词都干净，报「无出现」）。
+    # 字符分散布置在不同行，保证「タニ」「バタ」都不作为连续子串出现在语料里。
+    import json
+    ledger = [
+        {"id": 1, "jp": "タの音", "chapter": "s1s"},
+        {"id": 2, "jp": "ニの字", "chapter": "s1s"},
+        {"id": 3, "jp": "／区切り", "chapter": "s1s"},
+        {"id": 4, "jp": "バラの花", "chapter": "s1s"},
+    ]
+    (tmp_path / "ledger.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in ledger), encoding="utf-8")
+    (tmp_path / "forward.jsonl").write_text(
+        json.dumps({"id": 1, "zh": "x"}), encoding="utf-8")
+    rc = main(["--term", "タニ／バタ", "--data-dir", str(tmp_path), "--gate", "0.8"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "| タニ／バタ | 0 | 0 | - | 无出现 | - |" in out
+    assert "疑似并列词串" not in out
+
+
 def test_runbook_step2_wording_matches_dirty_key_verdict_constant():
     # 跨文件一致性靠注释约束不可靠（本仓库刚吃过一次亏，见 cluster_notes.py
     # task-1 的教训）：runbook §5 第 2 步引用的措辞必须与代码里实际打印的
@@ -144,4 +191,15 @@ def test_runbook_step2_wording_matches_dirty_key_verdict_constant():
     # 哪里提了一句同名字符串。
     idx_step2 = text.index("uv run python tools/saturation.py --terms-file")
     idx_wording = text.index(DIRTY_KEY_VERDICT, idx_step2)
+    assert 0 < idx_wording - idx_step2 < 800
+
+
+def test_runbook_step2_wording_matches_compound_verdict_constant():
+    # 同上一条的教训，这次钉 COMPOUND_VERDICT_PREFIX：并列词串探测是本轮
+    # 追加的修正（`はい／いいえ` 是当初 Critical 的头号例子），runbook 里
+    # 说明这道判据的措辞必须与代码常量逐字一致。
+    runbook = Path(__file__).resolve().parent.parent / "docs/ops/p3-production-runbook.md"
+    text = runbook.read_text(encoding="utf-8")
+    idx_step2 = text.index("uv run python tools/saturation.py --terms-file")
+    idx_wording = text.index(COMPOUND_VERDICT_PREFIX, idx_step2)
     assert 0 < idx_wording - idx_step2 < 800

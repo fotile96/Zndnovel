@@ -30,6 +30,28 @@ WORDCHAR_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ々一-鿿]")
 # 校验 runbook 文案与本常量一致的回归测试）。
 DIRTY_KEY_VERDICT = "未匹配到该词键（可能提取不干净，请人工核对）"
 
+# 并列词串探测（main() 专用，不改动 is_clean_key 的判据/五案例）：段末裁决
+# 手抄词表时若整串抄了「はい／いいえ」这类并列词，is_clean_key 逐字检查会
+# 放行它——并列分隔符本身可能就出现在语料标点里（全角 ／ 就在游戏原文中，
+# 半角 / 不在），于是"分隔符是不是语料内字符"这个纯粹的巧合决定了这个键被判
+# clean 还是 dirty；判 clean 时 total==0 会被读成「无出现、可以随便定」，
+# 判 dirty 时读成「未匹配到该词键」——两种读法都不对，因为 はい 单独查是
+# 396 次、いいえ 是 18 次：这正是当初那个 Critical 的头号例子，绝不能再从
+# 这道门进来。main() 另开一道探测，不依赖 is_clean_key：total==0 时按常见
+# 并列分隔符（全角／半角斜杠、顿号、竖线）拆开，只要有一个子串 total>0，
+# 就说明这键极可能是被误抄成一整块的并列词，直接把各子串的真实证据摆出来，
+# 不再报「无出现」或「未匹配」。
+COMPOUND_SPLIT_RE = re.compile(r"[/／、|｜]")
+COMPOUND_VERDICT_PREFIX = "疑似并列词串，请拆开分别查"
+
+
+def split_compound_candidates(term: str) -> list:
+    """把 term 按常见并列分隔符拆开，返回非空子串列表；不含分隔符（或拆完
+    只剩一段）时返回空列表，表示"不是并列词串"。"""
+    parts = [p.strip() for p in COMPOUND_SPLIT_RE.split(term)]
+    parts = [p for p in parts if p]
+    return parts if len(parts) > 1 else []
+
 
 def corpus_chars_from_ledger(ledger_rows) -> set:
     """从 ledger 的 jp 字段构造语料字符集：全书日文原文里实际出现过的字符。
@@ -155,9 +177,30 @@ def main(argv=None):
     corpus_chars = corpus_chars_from_ledger(ledger)
     for r in rows:
         r["clean"] = is_clean_key(r["term"], corpus_chars, r["total"])
+        # 并列词串探测（见 COMPOUND_SPLIT_RE 处注释）：只在 total==0 时才有
+        # 意义——整词本身已有命中就不存在「被并列串掩盖了证据」的问题。
+        r["compound"] = None
+        if r["total"] == 0:
+            cands = split_compound_candidates(r["term"])
+            if cands:
+                sub = [(c, saturation(c, ledger, done)) for c in cands]
+                if any(s["total"] > 0 for _, s in sub):
+                    r["compound"] = sub
 
-    rows.sort(key=lambda r: (not r["clean"], r["ratio"] is None,
-                              r["ratio"] if r["ratio"] is not None else 0))
+    def _rank(r):
+        # 有真实 ratio 的行最先看；「疑似并列词串」次之（有证据但需要拆开）；
+        # 「无出现」（干净但零出现）再次之；脏键（未匹配到该词键）殿后。
+        if r["compound"] is not None:
+            cat = 1
+        elif not r["clean"]:
+            cat = 3
+        elif r["ratio"] is None:
+            cat = 2
+        else:
+            cat = 0
+        return (cat, r["ratio"] if r["ratio"] is not None else 0)
+
+    rows.sort(key=_rank)
     print(f"done={len(done)} 条已入线译文（data-dir={data}）")
     if missing_forward:
         print(f"!! 告警：{fwd_path} 不存在——本次按「零条已译」计算，全部词族必然"
@@ -172,7 +215,13 @@ def main(argv=None):
     print("| 词 | 出现 | 已覆盖 | 饱和度 | 判定 | 未覆盖分布 |")
     print("|---|---|---|---|---|---|")
     for r in rows:
-        if not r["clean"]:
+        if r["compound"] is not None:
+            parts_str = "、".join(
+                f"{c}={s['covered']}/{s['total']}"
+                + (f"={s['ratio']:.3f}" if s["ratio"] is not None else "")
+                for c, s in r["compound"])
+            verdict, ratio_s = f"{COMPOUND_VERDICT_PREFIX}（{parts_str}）", "-"
+        elif not r["clean"]:
             verdict, ratio_s = DIRTY_KEY_VERDICT, "-"
         elif r["ratio"] is None:
             verdict, ratio_s = "无出现", "-"

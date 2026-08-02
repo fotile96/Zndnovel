@@ -125,3 +125,126 @@ done=6278 条已入线译文（data-dir=pilot/lanes/opus/data）
   （任务只要求补齐脏键判据，不要求词表层面的拆分），但裁决会话第 2 步的
   操作纪律（词表应逐词干净地手抄）仍需人工把关，runbook 已有提示但未做
   强制校验。
+
+  **【追加修正见下】上面这条顾虑被协调者实测证实为真——而且命中的正是当初
+  那个 Critical 的头号例子，已在本轮补上，见下方追加章节。**
+
+---
+
+## 追加修正：并列词串探测（协调者复评后二轮）
+
+### 问题实测
+
+协调者对上面那条「顾虑」做了实测：
+
+```
+'はい／いいえ'（全角斜杠）  total=0  is_clean_key=True   ← 被报「无出现」
+'はい/いいえ'（半角斜杠）    total=0  is_clean_key=False  ← 正确判脏
+'意識'                      total=55 clean=True
+全角 ／ 在语料字符集里吗：True | 半角 / ：False
+```
+
+根因：全角 `／` 本身出现在游戏原文标点里（所以在 `corpus_chars` 内），
+`is_clean_key` 逐字检查因此放行了它；半角 `/` 不在语料里则被拦下——**判定
+结果完全取决于抄词表的人用了哪个斜杠，这是巧合，不是判据**。而 `はい` 单独
+查是 396 次（覆盖 167）、`いいえ` 是 18 次（覆盖 13）：整串抄 `はい／いいえ`
+去查，会读到「原文里没这词、可以随便定」——这正是终审那个 Critical 修的
+第一行例子，从 `saturation.py --term` 这条路又能进来一次。
+
+### 修法
+
+不改动 `is_clean_key` 本身（五案例语义保持不变），在 `tools/saturation.py`
+新增一道**只在 `main()` 里生效**的并列词串探测，与脏键判据平行、互不影响：
+
+- 新增 `COMPOUND_SPLIT_RE = re.compile(r"[/／、|｜]")`（全角/半角斜杠、顿号、
+  竖线）与 `split_compound_candidates(term)`：按这些分隔符拆开、去空白、
+  过滤空段，段数 ≤1（没真的拆出多段）则返回空列表，表示"不是并列词串"。
+- `main()` 里：对每个词先算整词的 `saturation`；**仅当 `total == 0`** 时才
+  尝试拆分（`total > 0` 时整词本身已有证据，不存在"证据被并列串掩盖"的
+  问题）；拆出候选后对每个子串各算一次 `saturation`，只要**任一**子串
+  `total > 0`，就把该行判为 `COMPOUND_VERDICT_PREFIX`
+  （`"疑似并列词串，请拆开分别查"`），并把各子串的 `covered/total=ratio`
+  拼进判定文字；否则（没有分隔符，或分隔符拆出的子串也全部零出现）维持
+  原有的 clean/dirty 判定不变。
+- 排序新增一档：有真实 ratio 的行最先、「疑似并列词串」次之、「无出现」
+  （干净零出现）再次之、脏键（未匹配到该词键）殿后——并列词串虽然整词
+  `total==0`，但已经摆出了子串的真实证据，理应比"无出现"更靠前提醒人工。
+
+### `はい／いいえ` 修后的实际输出（真实 opus 车道）
+
+```
+uv run python tools/saturation.py --term "はい" --term "いいえ" \
+  --term "はい／いいえ" --term "はい/いいえ" --term "はい、いいえ" \
+  --data-dir pilot/lanes/opus/data --gate 0.8
+```
+
+```
+| はい | 396 | 167 | 0.422 | 滚存 | ... |
+| いいえ | 18 | 13 | 0.722 | 滚存 | ... |
+| はい、いいえ | 2 | 2 | 1.000 | 可裁决 | - |
+| はい／いいえ | 0 | 0 | - | 疑似并列词串，请拆开分别查（はい=167/396=0.422、いいえ=13/18=0.722） | - |
+| はい/いいえ | 0 | 0 | - | 疑似并列词串，请拆开分别查（はい=167/396=0.422、いいえ=13/18=0.722） | - |
+```
+
+全角、半角两种抄法现在得到**完全相同**的提示与数字——不再取决于用了哪个
+斜杠。（`はい、いいえ` 这个真实存在的顿号并列短语本身 total=2、covered=2，
+不落入并列词串分支，走原有「可裁决」判定，符合预期：它本身就是有证据的
+整词，不需要拆。）
+
+### 五案例判定（未变）
+
+`is_clean_key` 完全没有改动，五个基准案例的判定与上一轮报告一致：
+`いつか きみが みる お話。`(3)→clean、`ＴｒｕｅＣｏｌｕｒ`(1)→clean、
+`12`(1)→dirty、`882`/`2470`/`【】`(0)→dirty、含空白+total0→dirty，
+`test_five_review_cases_shape_check` 断言未动，全绿。
+
+### cluster_notes.py 零回归比对（二次验证）
+
+`cluster_notes.py` 未改动一行（`extract_terms` 本来就按 `/`／`／` 拆分，
+不会产出并列词键；本轮改动只落在 `saturation.py::main()`），但仍按上一轮
+方法重新跑了一次真实车道对比：
+
+```
+uv run python <scratchpad>/orig_tools/tools/cluster_notes.py --lane-dir pilot/lanes/opus --out dossier_before.md
+uv run python tools/cluster_notes.py                          --lane-dir pilot/lanes/opus --out dossier_after2.md
+```
+
+`dossier_before.md` 与 `dossier_after2.md` **md5 仍完全一致**
+（`f21c2451e074ab1d4247cc52f90e4675`），stdout 逐字节比对（刨除输出文件名）
+也一致。**结论：cluster_notes.py 二次验证零回归。**
+
+### 新增测试
+
+`tests/test_saturation.py` 追加 3 条（不改任何既有断言）：
+- `test_main_flags_compound_term_with_real_lane_evidence`：直接读真实
+  `pilot/lanes/opus/data`（只读），用实测的 `はい=167/396=0.422`、
+  `いいえ=13/18=0.722` 钉住输出；同时验证全角 `／` 与半角 `/` 两种抄法
+  得到完全相同的判定文字（各 2 次命中同一条真实证据）。
+- `test_main_compound_split_all_zero_falls_back_to_existing_verdict`：
+  构造 `タニ／バタ`——含分隔符，但拆开的子串 `タニ`/`バタ` 在语料里都是
+  真零出现，不应误报「疑似并列词串」，仍走原有「无出现」判定。
+- `test_runbook_step2_wording_matches_compound_verdict_constant`：把 runbook
+  §5 第 2 步的新增文案与 `COMPOUND_VERDICT_PREFIX` 常量钉在一起，同上一轮
+  `DIRTY_KEY_VERDICT` 的回归闸手法，防止文案与代码再次分家。
+
+`docs/ops/p3-production-runbook.md` §5 第 2 步同步补充说明：词表不要整串抄
+并列词，工具会自动拆分子串查证据、报「疑似并列词串，请拆开分别查」。
+
+### 测试结果
+
+`uv run python -m pytest -q` → **326 passed**（323 + 本轮新增 3 条）。
+
+### 顾虑（本轮）
+
+- 并列分隔符集合（`/ ／ 、 |｜`）是启发式列举，不是穷举——若未来遇到用
+  其他符号（如 `・` 顿号变体、`,`、`；`）分隔的并列词误抄进词表，仍会退回
+  「无出现」/「未匹配」的旧判定而不会触发并列词串提示。当前集合覆盖了
+  终审报告点名的实况（全角/半角斜杠），足够堵住已知的头号例子，但不是
+  100% 兜底；后续若再发现新的分隔符实况，按同样思路加进
+  `COMPOUND_SPLIT_RE` 即可。
+- `test_main_flags_compound_term_with_real_lane_evidence` 直接断言真实
+  `pilot/lanes/opus/data` 里 `はい`/`いいえ` 的精确计数（167/396、13/18）；
+  这是有意为之（协调者要求"不要编造，用真实语料值"），但意味着若该车道
+  之后又有新的 ledger 行落入这两个词（不太可能——ledger 建自已冻结的原文
+  lua 脚本、不随译文进度变化，但若段表/车道范围扩大仍有微小可能），这条
+  测试需要同步更新计数。

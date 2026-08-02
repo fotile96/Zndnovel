@@ -325,6 +325,77 @@ def test_gate3_does_not_fire_when_ids_prewired_even_if_no_tool_calls(monkeypatch
     assert out["verdict"] == "已履行"
 
 
+def test_prewire_call_tool_exception_forces_cannot_tell_without_calling_model(monkeypatch):
+    """T5 复评 §2：预拼路径的 `call_tool` 不经过 `run_with_tools` 内部的
+    try/except，机械闸②对它不生效。这里补的早退闸：取材阶段抛异常时强制
+    「无法判断」，口径与机械闸②一致（reason 里点明是取材阶段失败），且
+    **不应该再去调用模型**——材料都没有，调用只是白花钱。
+    """
+    from tools import audit_notes_promises as A
+
+    def boom(name, args, lane_dir=None):
+        raise RuntimeError("ledger 文件缺失")
+    monkeypatch.setattr(A, "call_tool", boom)
+
+    called = {"n": 0}
+
+    def fake_runner(messages, **kw):
+        called["n"] += 1
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [],
+                                       "reason": "不管怎样都算履行了"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "无法判断"
+    assert "RuntimeError" in out["reason"] and "取材阶段失败" in out["reason"]
+    assert called["n"] == 0  # 模型未被调用——省下一次注定判不出东西的真实调用
+
+
+def test_gate4_all_lines_without_translation_forces_cannot_tell(monkeypatch):
+    """「材料为空」闸：预拼取回的行全部没有译文（zh 为空/None）——id 不在
+    ledger/zh 表里时 `get_lines` 会静默返回 `zh=None`，没有任何闸拦截的话
+    模型可能拿着空材料照样给出「已履行」（T5 复评 §2）。全空时应强制降级，
+    且不应该再调用模型。
+    """
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 9999, "jp": None, "zh": None, "chapter": None}]})
+
+    called = {"n": 0}
+
+    def fake_runner(messages, **kw):
+        called["n"] += 1
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [],
+                                       "reason": "看起来没问题"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [9999], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "无法判断"
+    assert "材料不足以判定" in out["reason"] or "为空" in out["reason"]
+    assert called["n"] == 0
+
+
+def test_gate4_partial_translation_does_not_fire(monkeypatch):
+    """边界：部分行有译文、部分没有是正常情形（该批可能只译了一部分），
+    不应误开火——否则会把大量本可判定的承诺误降成「无法判断」，把可信度
+    指标搞脏。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"},
+                  {"id": 9999, "jp": "未译行", "zh": None, "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "译文含睡翘"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327, 9999], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "已履行"  # 未被误伤，模型的结论正常生效
+
+
 def test_verify_does_not_fall_back_to_prewire_ids_when_model_says_none(monkeypatch):
     """决策（brief §4）：`ids_source == "model"` 且 `ids == []` 时不回退到
     `prewire_ids`——尊重模型「本承诺不针对具体行」的判断，走工具兜底而不是
@@ -430,4 +501,134 @@ def test_main_records_extraction_failures_separately(monkeypatch, tmp_path):
     md = out_path.read_text(encoding="utf-8")
     assert "抽取失败提案 1 条" in md
     assert "提案甲" in md
+
+
+# --- main() 异常隔离 + 增量落盘（T5 复评发现，本次修复核心） -------------
+
+
+def _lane_with_two_proposals(tmp_path):
+    lane = tmp_path / "lane"
+    (lane / "data" / "notes").mkdir(parents=True)
+    (lane / "data" / "notes" / "s1s.md").write_text(
+        "## batch 1\n### 1. 提案甲\n- id 1\n- 本批已按 X 统一。\n"
+        "### 2. 提案乙\n- id 2\n- 本批已按 Y 统一。\n",
+        encoding="utf-8")
+    return lane
+
+
+def test_main_survives_verify_promise_raising_and_still_writes_report(monkeypatch, tmp_path):
+    """复评复现的场景：第 2 条提案的 `verify_promise` 抛异常。过去 `main()`
+    会整体崩溃——`render_report` 从未被调用，报告文件根本不存在，连第 1
+    条已经算出的「已履行」结果都一起没了。修复后：第 2 条的异常变成一条
+    可见的「无法判断」结果，第 1 条的结果原样保留，报告正常写出，
+    `rc == 0`。
+    """
+    from tools import audit_notes_promises as A
+    lane = _lane_with_two_proposals(tmp_path)
+
+    def fake_extract(prop, runner=None):
+        return {"promises": [{"kind": "已统一", "ids": [prop["num"]],
+                              "ids_source": "model", "prewire_ids": [prop["num"]],
+                              "ids_invalid": [], "quote": "已统一",
+                              "quote_verified": True}],
+                "parse_ok": True, "stopped_reason": "finished", "ok": True}
+
+    def fake_verify(pr, prop, lane_dir=None, runner=None):
+        if prop["num"] == 1:
+            return {"verdict": "已履行", "evidence_ids": [1], "reason": "ok",
+                    "used_tools": False}
+        raise RuntimeError("网络异常")
+
+    monkeypatch.setattr(A, "extract_promises", fake_extract)
+    monkeypatch.setattr(A, "verify_promise", fake_verify)
+
+    out_path = tmp_path / "report.md"
+    rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
+
+    assert rc == 0
+    assert out_path.exists()
+    md = out_path.read_text(encoding="utf-8")
+    # 第 1 条已算出的「已履行」结果没有跟着第 2 条的异常一起消失。
     assert "已履行 1" in md
+    # 第 2 条的异常变成一条可见的「无法判断」，异常类型+消息出现在报告里，
+    # 不是被吞掉、也不是被误计入「已履行」。
+    assert "无法判断 1" in md
+    assert "RuntimeError" in md and "网络异常" in md
+
+
+def test_main_survives_extract_promises_raising(monkeypatch, tmp_path):
+    """抽取阶段本身抛异常（不是 `ok=False`，是直接抛）同样不得杀死整个循环，
+    应归入抽取失败列表，异常类型+消息可见。"""
+    from tools import audit_notes_promises as A
+    lane = _lane_with_two_proposals(tmp_path)
+
+    def fake_extract(prop, runner=None):
+        if prop["num"] == 1:
+            raise ValueError("解析崩了")
+        return {"promises": [], "parse_ok": True, "stopped_reason": "finished", "ok": True}
+
+    monkeypatch.setattr(A, "extract_promises", fake_extract)
+
+    out_path = tmp_path / "report.md"
+    rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
+
+    assert rc == 0
+    md = out_path.read_text(encoding="utf-8")
+    assert "抽取失败提案 1 条" in md
+    assert "ValueError" in md and "解析崩了" in md
+
+
+def test_main_writes_incremental_jsonl_sidecar_surviving_later_crash(monkeypatch, tmp_path):
+    """增量落盘：即使第 2 条在核对阶段抛异常，第 1 条已经算出的结果也必须
+    已经落在 sidecar 里——这是「进程中途死亡也不丢已花费调用的结论」这条
+    纪律的验证点（哪怕 `main()` 本身已经不会再因此崩溃，sidecar 仍然是
+    抵御「try/except 也接不住的意外」的第二道防线）。
+    """
+    from tools import audit_notes_promises as A
+    lane = _lane_with_two_proposals(tmp_path)
+
+    def fake_extract(prop, runner=None):
+        return {"promises": [{"kind": "已统一", "ids": [prop["num"]],
+                              "ids_source": "model", "prewire_ids": [prop["num"]],
+                              "ids_invalid": [], "quote": "已统一",
+                              "quote_verified": True}],
+                "parse_ok": True, "stopped_reason": "finished", "ok": True}
+
+    def fake_verify(pr, prop, lane_dir=None, runner=None):
+        if prop["num"] == 1:
+            return {"verdict": "已履行", "evidence_ids": [1], "reason": "ok",
+                    "used_tools": False}
+        raise RuntimeError("网络异常")
+
+    monkeypatch.setattr(A, "extract_promises", fake_extract)
+    monkeypatch.setattr(A, "verify_promise", fake_verify)
+
+    out_path = tmp_path / "report.md"
+    rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
+    assert rc == 0
+
+    sidecar = out_path.with_suffix(".jsonl")
+    assert sidecar.exists()
+    lines = [json.loads(l) for l in sidecar.read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 2
+    assert all(l["type"] == "result" for l in lines)
+    verdicts = {l["data"]["verdict"] for l in lines}
+    assert verdicts == {"已履行", "无法判断"}
+
+
+def test_main_sidecar_truncated_at_start_of_run(tmp_path):
+    """sidecar 在每次运行开始时清空，避免上一次运行的行混进这一次——
+    否则增量落盘反而会制造「结论比实际多」的假象。"""
+    from tools import audit_notes_promises as A
+    lane = tmp_path / "lane"
+    (lane / "data" / "notes").mkdir(parents=True)
+    # 空提案：没有任何提案，验证 main() 至少会把 sidecar 清空成空文件。
+    out_path = tmp_path / "report.md"
+    sidecar = out_path.with_suffix(".jsonl")
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text('{"type": "result", "data": {"verdict": "已履行"}}\n',
+                       encoding="utf-8")
+
+    rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
+    assert rc == 0
+    assert sidecar.read_text(encoding="utf-8") == ""

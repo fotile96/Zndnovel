@@ -197,6 +197,25 @@ TOOL_NAMES = ["get_lines", "search_lines", "get_anchor"]
 VALID_VERDICTS = {"已履行", "未履行", "无法判断"}
 
 
+def _forced_cannot_tell(promise, reason):
+    """构造一条被机械闸强制降级的「无法判断」结果（T5 brief §1/§2）。
+
+    供 `verify_promise` 内部的早退闸（取材异常、材料为空）与 `main()` 里
+    对单条 promise 处理异常的兜底共用同一形状，保证无论在哪个环节被拦下，
+    下游（`render_report`）看到的结果结构都一致：不会因为字段缺失而在
+    统计/展示时被跳过或误判。
+    """
+    return {
+        "verdict": "无法判断",
+        "evidence_ids": [],
+        "reason": reason,
+        "used_tools": False,
+        "reasoning_text": "",
+        "quote_verified": promise.get("quote_verified"),
+        "ids_invalid": promise.get("ids_invalid") or [],
+    }
+
+
 def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
     """步骤 2：预拼为主、工具兜底。
 
@@ -220,11 +239,33 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
     这里再做一次回填，等于绕开 T4 定的边界，重新把跨子句的 id 接回来。空
     `ids` 因此照实走工具兜底，让模型自己确认/检索「这条承诺确实不针对
     具体行」。
+
+    **预拼路径的两条早退闸**（T5 复评 §2）：预拼路径的取材（`call_tool`）
+    不经过 `run_with_tools` 内部的 try/except，机械闸②（`tool_errors`）对
+    它不生效；这里补两条独立检查，**都在调用模型之前短路返回**（既堵住
+    漏洞，也省下一次注定判不出东西的真实 API 调用——全量真跑按次计费）：
+    - 取材本身抛异常（`_ledger()`/`_zh()` 文件缺失等系统性故障）：强制
+      「无法判断」，口径与机械闸②一致。
+    - 取材成功但取回的行**全部**没有译文（`zh` 为空/None）：材料不足以
+      判定任何履行情况，同样强制「无法判断」。**只在全空时开火**——部分
+      行有译文、部分没有是正常情形（该批可能只译了一部分），不得据此误伤
+      （见 `test_gate4_partial_empty_zh_does_not_fire`）。
     """
     ids = promise.get("ids") or []
-    used_tools_path = not ids
+    tool_fallback_path = not ids
     if ids:
-        lines = call_tool("get_lines", {"ids": ids}, lane_dir=lane_dir)["lines"]
+        try:
+            lines = call_tool("get_lines", {"ids": ids}, lane_dir=lane_dir)["lines"]
+        except Exception as e:
+            return _forced_cannot_tell(
+                promise,
+                f"机械闸：预拼取材阶段失败（{type(e).__name__}: {e}），"
+                f"模型未被调用")
+        if all(not (r.get("zh") or "").strip() for r in lines):
+            return _forced_cannot_tell(
+                promise,
+                "机械闸：预拼取回的行全部没有译文（zh 为空/None），"
+                "材料不足以判定履行情况，模型未被调用")
         ctx = "\n".join(
             f"id {r['id']}（{r['chapter']}）\n  原文：{r['jp']}\n  译文：{r['zh']}"
             for r in lines)
@@ -257,7 +298,7 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
         gate = f"机械闸：stopped_reason={stopped_reason}，结论不完整"
     elif tool_errors:
         gate = f"机械闸：tool_errors={tool_errors}，模型基于报错信息作答"
-    elif used_tools_path and not tool_calls:
+    elif tool_fallback_path and not tool_calls:
         gate = "机械闸：开了工具但模型一次都没调用，判断可能是凭空作答"
     if gate:
         verdict = "无法判断"
@@ -267,7 +308,7 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
         "verdict": verdict,
         "evidence_ids": [i for i in (data.get("evidence_ids") or []) if isinstance(i, int)],
         "reason": reason,
-        "used_tools": used_tools_path or bool(tool_calls),
+        "used_tools": tool_fallback_path or bool(tool_calls),
         "reasoning_text": res.get("reasoning_text", ""),
         # 决策（brief §4）：quote_verified/ids_invalid 不用于改变 verdict——
         # 它们是提案抽取阶段的留痕信号，不代表履行核对本身出了问题；这里
@@ -334,7 +375,34 @@ def render_report(results, extraction_failures=None):
     return "\n".join(lines)
 
 
+def _append_jsonl(path, obj):
+    """把一条结果原子性地追加进增量落盘 sidecar（T5 brief §1(b)）。
+
+    每条记录各自 open/write/close，不依赖跨迭代保持同一个文件句柄——即使
+    进程在写完这一条之后的下一次迭代中途被杀（未预见的异常、被信号杀死
+    等 try/except 也接不住的情形），本条已经落盘的记录不会因为缓冲区未
+    flush 而丢失。
+    """
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
 def main(argv=None):
+    """入口：抽取 → 核对 → 报告，附**逐条异常隔离**与**增量落盘**。
+
+    这两条是 T5 复评发现的洞（brief §1）：`verify_promise`（或抽取阶段）
+    对任意一条 promise/提案抛出未捕获异常，过去会让整个 `main()` 崩溃——
+    `render_report` 从未被调用，报告文件根本不存在，连前面已经算出、
+    已经花钱调用过 API 的结果也一起从存在中消失。修法：
+    (a) 每条提案的抽取、每条 promise 的核对各自套 try/except；失败变成一条
+        可见的「无法判断」结果（`_forced_cannot_tell`／抽取失败列表），
+        reason 里带上异常类型与消息，不允许被静默吞掉或计入「已履行」。
+    (b) 每算出一条结果/一条抽取失败，立刻 `_append_jsonl` 写进与 `--out`
+        同名的 `.jsonl` sidecar——真实发生且已计费的调用不能因为进程后面
+        才发生的意外而在结论侧凭空消失（`data/api_ledger.jsonl` 记的是
+        调用账，这个 sidecar 记的是结论账）。sidecar 在每次运行开始时清空，
+        避免跨运行的行混在一起。
+    """
     import argparse
     from tools.cluster_notes import parse_notes
     ap = argparse.ArgumentParser(description="手记「承诺-履行」审计")
@@ -352,27 +420,53 @@ def main(argv=None):
     if a.limit:
         props = props[:a.limit]
 
+    out = Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sidecar = out.with_suffix(".jsonl")
+    sidecar.write_text("", encoding="utf-8")
+
     results, extraction_failures = [], []
     for prop in props:
-        extracted = extract_promises(prop)
+        try:
+            extracted = extract_promises(prop)
+        except Exception as e:
+            # (a) 抽取阶段异常隔离：这一条提案没读懂，但不能拖垮整个循环。
+            failure = {"proposal": prop,
+                       "reason": f"抽取阶段异常：{type(e).__name__}: {e}"}
+            extraction_failures.append(failure)
+            _append_jsonl(sidecar, {"type": "extraction_failure", "data": failure})
+            continue
         if not extracted["ok"]:
             # 抽取阶段没读懂——不能当成「确认无承诺」一笔带过（brief §3）。
-            extraction_failures.append({
+            failure = {
                 "proposal": prop,
                 "reason": f"parse_ok={extracted['parse_ok']} "
                           f"stopped_reason={extracted['stopped_reason']}",
-            })
+            }
+            extraction_failures.append(failure)
+            _append_jsonl(sidecar, {"type": "extraction_failure", "data": failure})
             continue
         for pr in extracted["promises"]:
-            r = verify_promise(pr, prop, lane_dir=lane)
+            try:
+                r = verify_promise(pr, prop, lane_dir=lane)
+            except Exception as e:
+                # (a) 核对阶段异常隔离：单条 promise 处理失败必须变成一条
+                # 可见结果、归入「无法判断」侧，绝不能静默消失或被误计入
+                # 「已履行」，也绝不能让异常继续往上冒杀掉整个循环——这正是
+                # 复评复现的场景（第 2 条提案的 verify_promise 抛异常导致
+                # rc=None、报告不存在、连第 1 条已算出的结果都一起没了）。
+                r = _forced_cannot_tell(
+                    pr, f"核对阶段异常：{type(e).__name__}: {e}")
             r.update({"proposal": prop, "promise": pr})
             results.append(r)
+            # (b) 增量落盘：这一条已经花掉的调用（若走了模型）产出的结论
+            # 立刻写盘，不等全循环跑完才落地。
+            _append_jsonl(sidecar, {"type": "result", "data": r})
 
-    out = Path(a.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(results, extraction_failures), encoding="utf-8")
     print(f"审计报告已写 {out}（{len(props)} 条提案 → {len(results)} 条硬承诺，"
-          f"{len(extraction_failures)} 条提案抽取阶段失败未被审到）")
+          f"{len(extraction_failures)} 条提案抽取阶段失败未被审到；"
+          f"增量结果见 {sidecar}）")
     return 0
 
 

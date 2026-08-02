@@ -41,9 +41,11 @@ def _mk_fixture(tmp_path):
     # 卡 1 挂在 s0f（不出现在任何段的 chapters 里 → 恒早于全部段，见
     # config/card_chapter.yaml 头注释），故对 seg=1 的 segX 而言"严格早于"成立。
     (repo / "config" / "card_chapter.yaml").write_text("1: s0f\n", encoding="utf-8")
+    # 题库顶层带 segment 绑定（终审 I4）——拿别段题库跑本段必须报错，不能静默全绿
     (repo / "config" / "qa.yaml").write_text(yaml.safe_dump(
-        [{"id": "q1", "question": "彩野今天讲了什么约定？",
-          "reference": "游泳池的约定", "info_point": "s2 周末伏笔"}],
+        {"segment": "segX",
+         "questions": [{"id": "q1", "question": "彩野今天讲了什么约定？",
+                        "reference": "游泳池的约定", "info_point": "s2 周末伏笔"}]},
         allow_unicode=True), encoding="utf-8")
     return lane, repo
 
@@ -266,6 +268,68 @@ def test_assemble_context_prefix_not_emptied_by_filter(tmp_path):
     tail = ctx.index("最新一段正文")
     prefix_section = ctx[head:tail]
     assert "卡一梗概正文" in prefix_section
+
+
+def test_qa_segment_binding_mismatch_exits(tmp_path):
+    """终审 I4：题库与段零绑定时，拿 seg1 的题库跑 seg2–seg9 实测全部 rc=0 静默
+    接受——而 seg2 的前缀恰好含 seg1 全部 6 张答案卡，受试模型不看译文即可全对，
+    报告全绿被读成「译文没丢信息」。这是 task-7 修掉的恒绿失效从另一入口复活。"""
+    import pytest
+    from tools.ayano_test import load_qa, main
+    lane, repo = _mk_fixture(tmp_path)
+    qa = repo / "config" / "qa.yaml"
+
+    with pytest.raises(SystemExit) as e:
+        load_qa(qa, "segY")
+    assert "segX" in str(e.value) and "segY" in str(e.value)
+
+    # 走 CLI 全程：错配必须在任何 API 调用之前就退出
+    with pytest.raises(SystemExit):
+        main(["--segment", "segY", "--qa", str(qa), "--lane-dir", str(lane),
+              "--repo", str(repo), "--out", str(tmp_path / "r.md")],
+             stream_transport=lambda *a: (_ for _ in ()).throw(AssertionError("不该调 API")),
+             api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    assert load_qa(qa, "segX")[0]["id"] == "q1"      # 段名相符时照常返回题目
+
+
+def test_qa_legacy_bare_list_rejected(tmp_path):
+    """无绑定的老式题库（顶层裸列表）一律拒收——「查不到绑定」不能当「绑定正确」。"""
+    import pytest
+    from tools.ayano_test import load_qa
+    p = tmp_path / "legacy.yaml"
+    p.write_text(yaml.safe_dump([{"id": "q1", "question": "x", "reference": "y"}],
+                                allow_unicode=True), encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        load_qa(p, "segX")
+    assert "segment" in str(e.value)
+
+
+def test_real_qa_bank_is_bound_to_its_segment():
+    """仓库现行题库的数据闸：文件名段名与内部绑定必须一致，且题数不减。"""
+    from tools.ayano_test import load_qa
+    p = REPO / "config" / "ayano_qa" / "seg1-s2.yaml"
+    qs = load_qa(p, "seg1-s2")
+    assert len(qs) == 15
+    assert [q["id"] for q in qs] == [f"q{i}" for i in range(1, 16)]
+    assert all({"id", "question", "reference", "info_point"} <= set(q) for q in qs)
+
+
+def test_verdict_format_contract_tolerates_drift():
+    """终审 M3：判分行格式完全由提示词约束，模型随时可能漂移。此前用「切分后恰等于
+    『对』」做判据，`**对**|…` / `判定：对|…` / 全角竖线 / 「对。」都会让分诊标记
+    **静默归零**——一个不报警的失效。放宽后仍必须守住：「部分对」「不对」不是「对」。"""
+    from tools.ayano_test import is_correct, triage
+    for ok in ("对|一致", "**对**|一致", "判定：对|一致", "对｜一致", "对。|一致",
+               "对（措辞不同）|一致", " 对 | 一致 ", "对"):
+        assert is_correct(ok), ok
+    for bad in ("部分对|漏了细节", "错|答非所问", "不对|事实错误",
+                "**部分对**|漏了细节", "判定：错|答非所问"):
+        assert not is_correct(bad), bad
+
+    ctx = "＝＝ 正文 ＝＝\n赝品的做工完全没有问题，被识破的原因在于原作本身。"
+    copied = "赝品的做工完全没有问题，被识破的原因在于原作本身"
+    assert triage("**对**|一致", copied, "干净", ctx).startswith("⚠ 存疑")
+    assert triage("**部分对**|漏了细节", copied, "需确认", ctx) == ""
 
 
 def test_real_card_chapter_data_gate():

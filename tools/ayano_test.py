@@ -3,6 +3,7 @@
 本段中文译文（零日文原文），回答剧情理解题；答错处＝译文或压缩丢了信息，且丢的
 恰是真实玩家会丢的。判分由第二次 API 调用完成。advisory 工具：恒 exit 0，
 结论供段末人工验收参考。--dry-run 只组装统计、零 API 调用。"""
+import re
 import sys
 from pathlib import Path
 
@@ -153,14 +154,29 @@ def _longest_verbatim_span(answer: str, ctx: str) -> int:
 
 
 def _verdict_head(verdict: str) -> str:
-    """判分行格式是「判定|一句话依据」，取判定部分。"""
-    return verdict.split("|", 1)[0].strip()
+    """判分行格式契约是「判定|一句话依据」，取判定部分。
+
+    格式完全由 JUDGE_SYS 提示词约束，模型随时可能漂移（`**对**|…`、`判定：对|…`、
+    全角竖线、只回两个字）。此前用「切分后**恰等于**『对』」做判据，任何一种漂移
+    都会让分诊标记**静默归零**——一个不报警的失效（终审 M3）。故这里把常见装饰
+    （粗体星号、前缀标签、空白）一并剥掉，并认全角竖线。"""
+    head = re.split(r"[|｜]", verdict, maxsplit=1)[0]
+    head = head.replace("*", "").replace("＊", "").strip()
+    head = re.sub(r"^[^：:]{0,10}[：:]\s*", "", head).strip()
+    return head
+
+
+def is_correct(verdict: str) -> bool:
+    """判分是否为「对」。用 startswith 而非全等：判定词后面常挂标点/补语
+    （「对。」「对（措辞不同）」），全等匹配会把它们当成非「对」。
+    注意「对」是「部分对」「不对」的子串——必须判**开头**，不能用 in。"""
+    return _verdict_head(verdict).startswith("对")
 
 
 def triage(verdict: str, answer: str, cot: str, ctx: str) -> str:
     """判「对」的行做机械分诊，返回警示串（无信号则空串）。只用已到手的数据，
     零额外 API 成本。"""
-    if _verdict_head(verdict) != "对":
+    if not is_correct(verdict):
         return ""
     signals = []
     hits = [m for m in HESITATION_MARKERS if m in cot]
@@ -172,6 +188,34 @@ def triage(verdict: str, answer: str, cot: str, ctx: str) -> str:
     if not signals:
         return ""
     return "⚠ 存疑：可能照抄未理解（" + "；".join(signals) + "）"
+
+
+def load_qa(path, segment: str) -> list:
+    """读题库并**校验它绑定的正是本段**（终审 I4）。
+
+    题库与段零绑定时，拿 seg1 的题库跑 seg2–seg9 实测全部 rc=0 静默接受——而
+    seg2 的卡组前缀恰好含 seg1 全部 6 张答案卡（41/44/45/46/58/134），受试模型
+    一行译文不看、只读前缀卡即可全对，报告全绿被读成「本段译文没丢信息」。这
+    正是 task-7 花两轮修掉的恒绿失效从另一个入口原样复活，故：题库顶层必须写
+    `segment:`，不符即报错退出；顶层裸列表（无绑定的老式题库）同样拒收——
+    「查不到绑定」不能当「绑定正确」，与 assemble_context 的未知即排除同向。"""
+    doc = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if isinstance(doc, list):
+        raise SystemExit(
+            f"{path}：老式无绑定题库（顶层是裸列表）。请改成 "
+            f"`segment: <段label>` + `questions:` 两层结构——题库不绑定段，"
+            f"跨段误用会静默全绿。")
+    if not isinstance(doc, dict) or "segment" not in doc or "questions" not in doc:
+        raise SystemExit(f"{path}：题库结构须为 `segment:` + `questions:` 两个顶层键。")
+    if doc["segment"] != segment:
+        raise SystemExit(
+            f"题库 {path} 绑定的是段 {doc['segment']!r}，与 --segment {segment!r} 不符。"
+            f"别段的题库不能顶替：上一段的答案往往整张躺在本段的前缀卡里，"
+            f"跑出来必是恒绿假信号。请为 {segment} 单独出题。")
+    qs = doc["questions"] or []
+    if not qs:
+        raise SystemExit(f"{path}：questions 为空。")
+    return qs
 
 
 def _cot_excerpt(text: str, limit: int = COT_EXCERPT_CHARS) -> str:
@@ -202,8 +246,8 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                     help="reasoning.effort，透传给 api_client（默认走其 DEFAULT_EFFORT）")
     a = ap.parse_args(argv)
     repo = Path(a.repo) if a.repo else REPO
+    qa = load_qa(a.qa, a.segment)          # 段绑定校验在组装上下文之前，错配尽早失败
     ctx, missing = assemble_context(a.segment, Path(a.lane_dir), repo=repo)
-    qa = yaml.safe_load(Path(a.qa).read_text(encoding="utf-8"))
     if a.dry_run:
         print(f"segment={a.segment} 上下文 {len(ctx)} 字符 缺译 {missing} 行 题数 {len(qa)}")
         return 0

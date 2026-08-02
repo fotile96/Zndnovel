@@ -105,25 +105,31 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
 COT_EXCERPT_CHARS = 300
 
 
-# 机械分诊（task-10 复评采纳）：判分是**答案层**评分，对「可被字符串检索答对」的
-# 题天然失效——受试者在上下文里定位到一段可逐字复制的跨度、照抄就能得分，根本不
-# 需要理解推理链（seg1-s2 的 q4 就是实例：它抄了「赝品的做工完全没有问题，原因在
-# 于原作」，CoT 里却写着「需确认」）。
-# 分诊**不改判分语义**，只在判「对」的行上追加一个可复现的存疑信号，供人工复核。
-# 为什么不把 CoT 直接喂给判分员：推理链里的「需确认/大概/？」是模型常规对冲话术，
-# 真读懂了也常出现，用它扣分会推高误报率，还让分数挂钩一个不稳定的私有产物。
+# CoT 遥测（原名「机械分诊」，2026-08-02 经 SEG-1 首次真实全跑（15 题）证伪后
+# **降级**：不再输出任何自动判定，只保留测量值本身）。
 #
-# 两个阈值都用 seg1-s2 的**真实产出**标定过（离线复算，见 task-10 报告复评附录）：
-#   · 裸问号 `？/?` 从标记表里**去掉**了：复评给的原始清单含它，但实测 q1 那条
-#     「读懂了、复述得干净」的 CoT 里逐句引用了译文对白（「嗯？有什么安排吗？」）
-#     照样命中——本作是视觉小说，上下文里问号遍地，留着它等于每条都打标，信号
-#     直接归零。留下的是**真正的对冲措辞**。
-#   · 逐字重合门槛定在 12：实测 q1（自己的话复述）最长重合 7 字，q4（已知的
-#     「照抄得分但没读懂」实例）最长重合 12 字（「赝品的做工完全没有问题，」）。
-#     取 12 能抓住 q4 且不误伤 q1。样本只有 2 条，**将来跑更多段后应重新标定**；
-#     好在这标记是 advisory（只提示人看一眼、不改分），误报成本仅一次人工扫视。
+# 原设计（task-10 复评采纳）：判分为「对」时，若 CoT 命中犹豫词、或回答与上下文
+# 有 ≥12 字逐字重合，就打 `⚠ 存疑：可能照抄未理解`——意图是把一次人肉观察
+# （seg1-s2 q4：判「对」但 CoT 写「需确认」，实为照抄未理解）固化成可复现信号。
+#
+# **证伪数据**（SEG-1，15 题）：打了 **10 个标记，全部落在「对」上**（对 10/13＝
+# 77%），而两条「部分对」**零标记**——与判分员自己的疑虑**反相关**，无区分力。
+# 构成：仅犹豫词 5（大概×4、需确认、应该是）、仅重合 3（13/15/17 字）、两者都有
+# 2（12/19 字）。**致命的一条**：q4——分诊标记当初就是为它设计的——**本轮零
+# 标记**：同一道题、更完整的上下文，标记反而消失。
+#
+# **根因**：标记键控在模型 **run-to-run 可变的私有推理文本**（reasoning_text）
+# 上。这正是当初评审警告过的原则——「不该让分数挂钩一个不稳定的私有产物」——
+# 被用在了判分上，却没用在标记自身。在 n=15 上重新标定也救不回来：AND 化（犹豫
+# 词与重合都命中才打标）只剩 2 个标记，仍会漏掉 q4——问题在假设本身，不在阈值。
+#
+# 完整记录见 `.superpowers/sdd/2026-08-02-p3-devwave1/progress.md`（搜「机械
+# 分诊标记不成立」）。**降级结论：判定去掉，测量留下**——下面两个常量此后只作为
+# `cot_signals()` 报告行的原始测量口径使用，不再驱动任何自动判定、不再输出
+# 「存疑」「可能」这类带结论的措辞。看到这份现成的犹豫词表/阈值，请不要凭直觉
+# 把判定加回去——上面这组数字就是加回去会复现的失败模式。
 HESITATION_MARKERS = ("需确认", "不确定", "猜", "大概", "应该是")
-VERBATIM_MIN = 12
+VERBATIM_MIN = 12                 # 逐字重合的测量下限：低于此值一律报「无」
 VERBATIM_PROBE_MAX = 400          # 延伸探测上限，纯粹为了给成本封顶
 
 
@@ -158,8 +164,8 @@ def _verdict_head(verdict: str) -> str:
 
     格式完全由 JUDGE_SYS 提示词约束，模型随时可能漂移（`**对**|…`、`判定：对|…`、
     全角竖线、只回两个字）。此前用「切分后**恰等于**『对』」做判据，任何一种漂移
-    都会让分诊标记**静默归零**——一个不报警的失效（终审 M3）。故这里把常见装饰
-    （粗体星号、前缀标签、空白）一并剥掉，并认全角竖线。"""
+    都会让 `is_correct` **静默判错**——一个不报警的失效（终审 M3）。故这里把常见
+    装饰（粗体星号、前缀标签、空白）一并剥掉，并认全角竖线。"""
     head = re.split(r"[|｜]", verdict, maxsplit=1)[0]
     head = head.replace("*", "").replace("＊", "").strip()
     head = re.sub(r"^[^：:]{0,10}[：:]\s*", "", head).strip()
@@ -173,21 +179,16 @@ def is_correct(verdict: str) -> bool:
     return _verdict_head(verdict).startswith("对")
 
 
-def triage(verdict: str, answer: str, cot: str, ctx: str) -> str:
-    """判「对」的行做机械分诊，返回警示串（无信号则空串）。只用已到手的数据，
-    零额外 API 成本。"""
-    if not is_correct(verdict):
-        return ""
-    signals = []
+def cot_signals(answer: str, cot: str, ctx: str) -> str:
+    """本题的 CoT 遥测行内容：CoT 里出现的犹豫词、回答与上下文的最长逐字重合
+    字数。这两个数字只是**测量值**，不是判定——不用「存疑」「可能」这类带结论
+    的措辞，也不看判分是「对」「部分对」还是「错」，每一题都原样输出（判分与
+    遥测是否有信号并无必然关系，见上方常量定义处的降级记录）。"""
     hits = [m for m in HESITATION_MARKERS if m in cot]
-    if hits:
-        signals.append(f"CoT 含犹豫标记 {'/'.join(hits)}")
+    hesitation = "、".join(hits) if hits else "无"
     span = _longest_verbatim_span(answer, ctx)
-    if span >= VERBATIM_MIN:
-        signals.append(f"回答与上下文有 {span} 字逐字重合")
-    if not signals:
-        return ""
-    return "⚠ 存疑：可能照抄未理解（" + "；".join(signals) + "）"
+    verbatim = f"{span} 字" if span >= VERBATIM_MIN else "无"
+    return f"犹豫词 {hesitation} ｜ 与上下文最长逐字重合 {verbatim}"
 
 
 def load_qa(path, segment: str) -> list:
@@ -281,14 +282,14 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                        purpose=f"ayano-judge:{a.segment}:{q['id']}", **kw)
         cot = ans.get("reasoning_text", "")
         rows.append((q, ans["content"], verdict["content"], cot,
-                     triage(verdict["content"], ans["content"], cot, ctx)))
+                     cot_signals(ans["content"], cot, ctx)))
     out = Path(a.out) if a.out else repo / "work" / "out" / f"ayano-{a.segment}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 彩野测试报告 · {a.segment}（{len(rows)} 题）", ""]
     if missing:
         lines.append(f"> ⚠ 本段**缺译 {missing} 行**（段未译完，结论仅供参考）。")
         lines.append("")
-    for q, ans, verdict, cot, flag in rows:
+    for q, ans, verdict, cot, signals in rows:
         lines += [f"## {q['id']}：{q['question']}",
                   f"- 信息点：{q.get('info_point', '-')}",
                   f"- 标准答案：{q['reference']}",
@@ -297,9 +298,11 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                   # 引用了给定文本的具体句子，说明信息确实从译文传达到了；若它在
                   # 凭常识/剧情套路补全，摘要里一眼可见。
                   f"- CoT 摘要：{_cot_excerpt(cot)}",
+                  # 原始测量值，不是判定——每一题都输出，不论下面的判分是什么
+                  # （旧的「机械分诊」只在判「对」时触发，已证伪并降级，见上方
+                  # cot_signals 与其上方常量定义处的记录）。
+                  f"- CoT 信号：{signals}",
                   f"- **判分：{verdict}**"]
-        if flag:
-            lines.append(f"- **{flag}**")
         lines.append("")
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"报告已写 {out}")

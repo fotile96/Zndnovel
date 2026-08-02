@@ -128,61 +128,68 @@ def test_report_includes_cot_excerpt(tmp_path):
     assert _cot_excerpt("") == "（无 CoT：模型未返回 reasoning_text）"
 
 
-def test_triage_flags_hesitation_and_verbatim_copy():
-    """复评采纳项：机械分诊（纯本地后处理、零额外 API 成本）。判「对」时若 CoT
-    含犹豫标记，或回答与上下文有长逐字重合，就打存疑标记——把「答案层评分对可被
-    字符串检索答对的题天然失效」这件事固化成可复现信号（seg1-s2 q4 是原始实例）。
-    分诊**不改判分语义**：非「对」的行一律不打标。"""
-    from tools.ayano_test import VERBATIM_MIN, triage
+def test_cot_signals_measures_without_verdict():
+    """降级后的核心行为（P3 devwave1，SEG-1 首次真实全跑证伪原「机械分诊」后）：
+    cot_signals 只回报**测量值**——CoT 里出现的犹豫词、回答与上下文的最长逐字
+    重合字数——不做任何判定，也不看判分是什么。旧版在这三种输入下会打
+    `⚠ 存疑：可能照抄未理解`；新版只输出数字/词本身，不含「存疑」「可能」这类
+    带结论的措辞。降级原因见 tools/ayano_test.py 里 HESITATION_MARKERS 上方的
+    记录，以及 .superpowers/sdd/2026-08-02-p3-devwave1/progress.md（搜「机械
+    分诊标记不成立」）。"""
+    from tools.ayano_test import VERBATIM_MIN, _longest_verbatim_span, cot_signals
 
     ctx = "＝＝ 正文 ＝＝\n赝品的做工完全没有问题，被识破的原因在于原作本身，与仿者无关。"
     copied = "赝品的做工完全没有问题，被识破的原因在于原作本身"
     assert len(copied) >= VERBATIM_MIN
+    span = _longest_verbatim_span(copied, ctx)
 
-    # 1) 逐字照抄 → 打标，且标出重合字数
-    f = triage("对|一致", copied, "文本里就是这么写的", ctx)
-    assert f.startswith("⚠ 存疑") and "逐字重合" in f
+    # 1) 逐字照抄 → 报出重合字数（是数字，不是判定用词）
+    s = cot_signals(copied, "文本里就是这么写的", ctx)
+    assert s == f"犹豫词 无 ｜ 与上下文最长逐字重合 {span} 字"
+    assert "存疑" not in s and "可能" not in s
 
-    # 2) CoT 犹豫标记 → 打标（回答很短、无长重合）
-    f = triage("对|一致", "原作有问题", "大概是原作的问题？需确认", ctx)
-    assert "犹豫标记" in f and "需确认" in f and "逐字重合" not in f
+    # 2) CoT 犹豫标记 → 报出命中的词；回答短、无长重合 → 该项为「无」
+    s = cot_signals("原作有问题", "大概是原作的问题？需确认", ctx)
+    assert s == "犹豫词 需确认、大概 ｜ 与上下文最长逐字重合 无"
 
-    # 3) 自己的话复述、CoT 干净 → 不打标（不能变成恒打标的噪声）
-    assert triage("对|一致", "问题出在被仿的原作上", "定位到サクラ的判定句", ctx) == ""
+    # 3) 自己的话复述、CoT 干净 → 两项都「无」
+    assert cot_signals("问题出在被仿的原作上", "定位到サクラ的判定句", ctx) == \
+        "犹豫词 无 ｜ 与上下文最长逐字重合 无"
 
-    # 4) 判分不是「对」时一律不打标——分诊不改判分语义
-    assert triage("错|答非所问", copied, "需确认", ctx) == ""
-    assert triage("部分对|漏了细节", copied, "需确认", ctx) == ""
+    # 4) 判分不是「对」时同样输出测量值——遥测不再像旧分诊那样只在「对」时触发
+    #    （cot_signals 根本不接收 verdict 参数，语义上就不可能只在某个判分下触发）
+    s = cot_signals(copied, "需确认", ctx)
+    assert s == f"犹豫词 需确认 ｜ 与上下文最长逐字重合 {span} 字"
 
 
-def test_triage_threshold_boundary_and_no_bare_question_mark():
-    """阈值语义闸。VERBATIM_MIN 的标定依据是 seg1-s2 的真实产出（离线复算：q1
-    「自己的话复述、确实读懂了」最长逐字重合 7 字；q4「照抄得分但 CoT 自陈没读懂」
-    12 字，即「赝品的做工完全没有问题，」），故取 12。这里不去伪造一份假的
-    "真实上下文"来复现那两个数字，只钉死**边界语义**：差一个字不打标、够了就打标。
+def test_cot_signals_verbatim_threshold_and_no_bare_question_mark():
+    """测量下限的边界语义闸（延续自原「机械分诊」的标定，现只是测量口径，不再
+    是判定阈值，见常量定义处的降级记录）：VERBATIM_MIN 定在 12，差一个字不计入
+    数字（报「无」）、够了就报出具体字数。
 
-    另守住裸问号必须留在标记表**之外**：复评给的原始清单含 `？`，但 q1 那条干净
-    CoT 里逐句引用了译文对白（本作是视觉小说，问号遍地）照样命中——留着它等于
-    每条都打标、信号归零。"""
-    from tools.ayano_test import HESITATION_MARKERS, VERBATIM_MIN, _longest_verbatim_span, triage
+    另守住裸问号仍不在犹豫词表里：本作是视觉小说，上下文问号遍地，若把「？」
+    当犹豫词，几乎每条 CoT 都会命中，测量值直接失去区分力。"""
+    from tools.ayano_test import (HESITATION_MARKERS, VERBATIM_MIN,
+                                   _longest_verbatim_span, cot_signals)
 
-    span = "赝品的做工完全没有问题，原因在于原作。这里再写点别的把上下文撑开一些。"
-    ctx = "＝＝ 正文 ＝＝\nサクラ：「" + span + "」"
-    just_under = span[:VERBATIM_MIN - 1]
-    just_over = span[:VERBATIM_MIN]
+    span_text = "赝品的做工完全没有问题，原因在于原作。这里再写点别的把上下文撑开一些。"
+    ctx = "＝＝ 正文 ＝＝\nサクラ：「" + span_text + "」"
+    just_under = span_text[:VERBATIM_MIN - 1]
+    just_over = span_text[:VERBATIM_MIN]
 
-    assert _longest_verbatim_span(just_under, ctx) == 0        # 未达门槛不计
+    assert _longest_verbatim_span(just_under, ctx) == 0        # 未达下限不计
     assert _longest_verbatim_span(just_over, ctx) == VERBATIM_MIN
-    assert triage("对|一致", just_under, "干净的推理", ctx) == ""
-    assert f"{VERBATIM_MIN} 字逐字重合" in triage("对|一致", just_over, "干净的推理", ctx)
+    assert "逐字重合 无" in cot_signals(just_under, "干净的推理", ctx)
+    assert f"逐字重合 {VERBATIM_MIN} 字" in cot_signals(just_over, "干净的推理", ctx)
 
-    # 裸问号不得入表：只引用了带问号的对白、没有任何对冲措辞 → 不该打标
+    # 裸问号不得入表：只引用了带问号的对白、没有任何对冲措辞 → 犹豫词项为「无」
     assert "？" not in HESITATION_MARKERS and "?" not in HESITATION_MARKERS
-    assert triage("对|一致", "自己的话复述", "ユウイチ问“嗯？有什么安排吗？”", ctx) == ""
+    s = cot_signals("自己的话复述", "ユウイチ问“嗯？有什么安排吗？”", ctx)
+    assert "犹豫词 无" in s
 
 
-def test_triage_marker_reaches_report(tmp_path):
-    """分诊标记要真的写进报告行（不是只有函数能算出来）。"""
+def test_cot_signal_line_reaches_report(tmp_path):
+    """遥测行要真的写进报告行（不是只有函数能算出来），且不再含旧的判定式措辞。"""
     lane, repo = _mk_fixture(tmp_path)
     calls = []
 
@@ -197,8 +204,31 @@ def test_triage_marker_reaches_report(tmp_path):
           "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo)],
          stream_transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
     text = out.read_text(encoding="utf-8")
-    assert "⚠ 存疑：可能照抄未理解" in text and "需确认" in text
+    assert "- CoT 信号：犹豫词 需确认 ｜ 与上下文最长逐字重合 无" in text
+    assert "⚠ 存疑" not in text and "可能照抄未理解" not in text
     assert "**判分：对|回答与标准一致**" in text      # 判分本身没被改写
+
+
+def test_cot_signal_line_reaches_report_for_non_correct_verdicts(tmp_path):
+    """遥测没有理由只在判「对」时给：旧的机械分诊只在判「对」的行上触发（已被
+    SEG-1 首次真实全跑证伪并停用），遥测行必须对「部分对」「错」同样输出——
+    降级要求见 tools/ayano_test.py 里的记录。"""
+    lane, repo = _mk_fixture(tmp_path)
+    calls = []
+
+    def fake(url, headers, payload):
+        calls.append(payload)
+        if len(calls) == 1:
+            return _fake_events("游泳池的约定，大概是这样", "大概是这样，需确认")
+        return _fake_events("部分对|漏了细节")
+
+    out = tmp_path / "report.md"
+    main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+          "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo)],
+         stream_transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    text = out.read_text(encoding="utf-8")
+    assert "**判分：部分对|漏了细节**" in text
+    assert "- CoT 信号：犹豫词 需确认、大概 ｜ 与上下文最长逐字重合 无" in text
 
 
 def test_effort_passthrough(tmp_path, monkeypatch):
@@ -335,20 +365,18 @@ def test_real_qa_bank_is_bound_to_its_segment():
 
 def test_verdict_format_contract_tolerates_drift():
     """终审 M3：判分行格式完全由提示词约束，模型随时可能漂移。此前用「切分后恰等于
-    『对』」做判据，`**对**|…` / `判定：对|…` / 全角竖线 / 「对。」都会让分诊标记
-    **静默归零**——一个不报警的失效。放宽后仍必须守住：「部分对」「不对」不是「对」。"""
-    from tools.ayano_test import is_correct, triage
+    『对』」做判据，`**对**|…` / `判定：对|…` / 全角竖线 / 「对。」都会让 is_correct
+    **静默判错**——一个不报警的失效。放宽后仍必须守住：「部分对」「不对」不是「对」。
+
+    is_correct 是独立于（已停用的）机械分诊之外的判分文本解析工具，继续保留、
+    继续测试；cot_signals 不再接收 verdict 参数，与判分格式漂移无关。"""
+    from tools.ayano_test import is_correct
     for ok in ("对|一致", "**对**|一致", "判定：对|一致", "对｜一致", "对。|一致",
                "对（措辞不同）|一致", " 对 | 一致 ", "对"):
         assert is_correct(ok), ok
     for bad in ("部分对|漏了细节", "错|答非所问", "不对|事实错误",
                 "**部分对**|漏了细节", "判定：错|答非所问"):
         assert not is_correct(bad), bad
-
-    ctx = "＝＝ 正文 ＝＝\n赝品的做工完全没有问题，被识破的原因在于原作本身。"
-    copied = "赝品的做工完全没有问题，被识破的原因在于原作本身"
-    assert triage("**对**|一致", copied, "干净", ctx).startswith("⚠ 存疑")
-    assert triage("**部分对**|漏了细节", copied, "需确认", ctx) == ""
 
 
 def test_real_card_chapter_data_gate():

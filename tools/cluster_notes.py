@@ -88,7 +88,17 @@ def is_clean_key(key: str, corpus_chars: set, total: int) -> bool:
     原文，凡是键里出现语料中根本不存在的字符（简体中文字、空白、裸 ASCII id
     数字），这个键就不可能是本作的日文词。不干净的键一律降级进「（未归词）」——
     宁可明确待人工过目，也不要伪装成正常词族输出一个 0/0（task-1 修复确立的
-    原则，此处一致适用）。"""
+    原则，此处一致适用）。
+
+    最优先短路：`total > 0` 即判 clean，不再看后面任何形状判据。下面这些判据
+    要解决的全部是「饱和度 0/0 的两种相反含义」这一件事——键本身没有证据时，
+    才需要靠字符形状去猜它是真的「无出现」还是「没提干净」。而 total>0 意味着
+    这个键**逐字命中了 ledger 里的原文**，它就是本作里确实出现过的串，跟它像
+    不像"日文词"无关（`いつか きみが みる お話。` 带空格是绘本标题原文如此；
+    `ＴｒｕｅＣｏｌｕｒ` 全角拉丁也是原文书写形态）。既然逐字出现，歧义已经
+    不存在，没有降级的理由——降级反而会把有真实证据的合法键错杀。"""
+    if total > 0:
+        return True
     if not key or any(ch.isspace() for ch in key):
         return False
     if not WORDCHAR_RE.search(key):
@@ -117,7 +127,8 @@ def main(argv=None):
     md_files = sorted((data / "notes").glob("*.md"))
     for p in md_files:
         props += parse_notes(p.read_text(encoding="utf-8"), p.stem)
-    ledger = read_jsonl(data / "ledger.jsonl")
+    ledger_path = data / "ledger.jsonl"
+    ledger = read_jsonl(ledger_path) if ledger_path.exists() else []
     extra = data / "ledger_extra.jsonl"
     if extra.exists():
         ledger += read_jsonl(extra)
@@ -182,6 +193,12 @@ def main(argv=None):
     print(f"已扫描 {len(md_files)} 个 md，期望标题格式 `### 序号. 词 → 译`"
           f"；成词词族 {len(sats)}、未归词 {len(c.get(UNKEYED, []))} 条"
           f"（其中 {len(demoted)} 个键因提取不干净被降级）")
+    if not ledger:
+        print(f"!! 告警：{ledger_path} 没读到或为空（0 条记录）——corpus_chars 语料字符集"
+              f"随之为空集，is_clean_key 的「含语料外字符」判据对**任何**键都成立，"
+              f"于是全部词键将被降级进「（未归词）」、饱和度判定不可用。这不是"
+              f"「本段提案都没法归词」，是数据源没读到。请确认 --lane-dir 指对了车道、"
+              f"且该车道已跑过 build_ledger。")
     if not fwd_path.exists():
         print(f"!! 告警：{fwd_path} 不存在——按「零条已译」计算，全部词族必然判「滚存」，"
               f"闸门等于失效。是否 --lane-dir 指错车道？")

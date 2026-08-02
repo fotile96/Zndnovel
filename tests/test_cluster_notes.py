@@ -103,6 +103,20 @@ def test_is_clean_key_rejects_extraction_debris():
     assert is_clean_key("物語カードはい意識寝癖", corpus, 0) is False  # 长键 + 零出现
 
 
+def test_is_clean_key_total_gt_zero_short_circuits_whitespace_key():
+    # P1 复评：`いつか きみが みる お話。` 带空格是绘本标题原文本身如此，
+    # ledger 里出现 3 次——total>0 即有真实证据，不该被空白判据降级。
+    corpus = set("いつかきみがみるお話。")
+    assert is_clean_key("いつか きみが みる お話。", corpus, 3) is True
+
+
+def test_is_clean_key_whitespace_key_zero_total_stays_dirty():
+    # 反向：同样带空白，但 total==0（没有证据支撑）时，短路不生效，
+    # 原有的空白判据照常把它判脏——回归闸防止短路被写宽。
+    corpus = set("いつかきみがみるお話。")
+    assert is_clean_key("いつか きみが みる お話。", corpus, 0) is False
+
+
 def test_batch_title_with_parenthetical_still_parsed():
     # 终审 I5：真实标题是 `## batch 33（scene_s2s_40「…」＋ …）`，锚死行尾会让
     # 提案丢批号，更坏的是**挂到上一个匹配上的批号**（外观正常但错）。
@@ -147,6 +161,41 @@ def test_main_warns_on_empty_dossier(tmp_path, capsys):
     assert "解析出 0 条提案" in out
     assert "forward.jsonl 不存在" in out
     assert "已扫描 1 个 md" in out
+
+
+def test_main_warns_on_empty_ledger(tmp_path, capsys):
+    # P2 复评：ledger 为空/缺失时 corpus_chars 是空集，会让每个键都含
+    # 「语料外字符」而全体降级——此前无任何点名 ledger 的告警，看起来像
+    # 「本段提案都没法归词」，实际是数据源没读到。
+    import json
+    from tools.cluster_notes import main
+    lane = tmp_path / "lane"
+    (lane / "data" / "notes").mkdir(parents=True)
+    (lane / "data" / "notes" / "s1s.md").write_text(
+        "## batch 4\n\n### 1. 寝癖 → 睡翘的头发\n- id 7327\n", encoding="utf-8")
+    (lane / "data" / "ledger.jsonl").write_text("", encoding="utf-8")  # 存在但空
+    (lane / "data" / "forward.jsonl").write_text(
+        json.dumps({"id": 7327, "zh": "x"}), encoding="utf-8")
+    assert main(["--lane-dir", str(lane)]) == 0
+    out = capsys.readouterr().out
+    assert "ledger.jsonl" in out and "没读到或为空" in out
+    assert "全部词键将被降级" in out
+
+
+def test_main_warns_on_missing_ledger_file(tmp_path, capsys):
+    # 反面：ledger.jsonl 文件干脆不存在（新车道还没跑 build_ledger），
+    # 同样要报警而不是 FileNotFoundError 崩溃。
+    import json
+    from tools.cluster_notes import main
+    lane = tmp_path / "lane"
+    (lane / "data" / "notes").mkdir(parents=True)
+    (lane / "data" / "notes" / "s1s.md").write_text(
+        "## batch 4\n\n### 1. 寝癖 → 睡翘的头发\n- id 7327\n", encoding="utf-8")
+    (lane / "data" / "forward.jsonl").write_text(
+        json.dumps({"id": 7327, "zh": "x"}), encoding="utf-8")
+    assert main(["--lane-dir", str(lane)]) == 0
+    out = capsys.readouterr().out
+    assert "ledger.jsonl" in out and "没读到或为空" in out
 
 
 def test_main_renders_dossier(tmp_path, capsys):

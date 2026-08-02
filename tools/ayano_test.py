@@ -246,6 +246,18 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                     help="reasoning.effort，透传给 api_client（默认走其 DEFAULT_EFFORT）")
     a = ap.parse_args(argv)
     repo = Path(a.repo) if a.repo else REPO
+    qa_path = Path(a.qa)
+    if not qa_path.exists():
+        # runbook §5 第 3 项 / handoff 段末清单第 3 项明文：题库由开发轨按段提供，
+        # 不存在就跳过并记台账——不是失败，只是这段的题库还没产出。此前直接
+        # FileNotFoundError 崩溃，与文档许诺的行为不符（M-park P3）。
+        # rc 特意选一个既非 0（不能看起来像"跑完且全部通过"）也非其余错误路径
+        # 常用的 1（缺 key/段不符等真失败）的值，段末台账脚本可用它单独识别
+        # 「跳过」而不是与「成功」或「配置错误」混淆。
+        print(f"!! 跳过：题库 {qa_path} 不存在——本段题库尚未产出，彩野测试跳过。"
+              f"这不是失败：请把这次跳过原样记进段末台账（哪一段、期望路径），"
+              f"待题库补齐后再补跑一次。")
+        return 2
     qa = load_qa(a.qa, a.segment)          # 段绑定校验在组装上下文之前，错配尽早失败
     ctx, missing = assemble_context(a.segment, Path(a.lane_dir), repo=repo)
     if a.dry_run:

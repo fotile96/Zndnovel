@@ -224,6 +224,25 @@ def test_effort_passthrough(tmp_path, monkeypatch):
     assert all("effort" not in c for c in captured)
 
 
+def test_missing_qa_file_skips_without_traceback(tmp_path, capsys):
+    """P3 复评：runbook §5 第 3 项 / handoff 段末清单第 3 项明文「题库不存在就
+    跳过并记台账」，但此前 `--qa` 指向不存在的路径会直接 FileNotFoundError
+    崩溃。修复后必须：不抛异常、输出含跳过提示（点名路径）、且退出码不能与
+    「跑完且全部通过」（rc=0）混淆——这里选 2。"""
+    lane, repo = _mk_fixture(tmp_path)
+    missing_qa = repo / "config" / "ayano_qa" / "not-there.yaml"
+    assert not missing_qa.exists()
+    rc = main(["--segment", "segX", "--qa", str(missing_qa),
+               "--lane-dir", str(lane), "--repo", str(repo)],
+              stream_transport=lambda *a: (_ for _ in ()).throw(
+                  AssertionError("不该调 API")))
+    assert rc == 2
+    out = capsys.readouterr().out
+    assert "跳过" in out
+    assert str(missing_qa) in out
+    assert "尚未产出" in out
+
+
 def test_dry_run_zero_api_calls(tmp_path, capsys):
     lane, repo = _mk_fixture(tmp_path)
     rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),

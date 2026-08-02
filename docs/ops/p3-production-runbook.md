@@ -158,7 +158,9 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 不在覆盖面内、必须人工判定的：`gen_plan`、`append_forward`、`lane_setup`、`resolve`、
 `build_ledger`、`ayano_test`（对**车道数据**风险为零：只读车道，不写车道任何文件。
 但另两条常被以讹传讹的说法不成立——①**不是恒 exit 0**：未知段 label、缺
-`DEEPSEEK_API_KEY`、题库 segment 与 `--segment` 不符都 rc=1 退出；②**它会写仓库跟踪
+`DEEPSEEK_API_KEY`、题库 segment 与 `--segment` 不符都 rc=1 退出；`--qa` 指向的题库
+文件不存在时 rc=2（「本段题库尚未产出，跳过」，与 rc=1 的真失败/配置错误刻意区分，
+也不与 rc=0 的「跑完且全部通过」混淆）；②**它会写仓库跟踪
 文件**：每次 API 调用向仓库跟踪的 `data/api_ledger.jsonl` 追加一行计费台账，且**没有
 CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）——跑完记得连它一起
 提交或确认无关改动），以及 §1 划入钉死面的 `prompts/`。这些东西改了，canary 照样输出
@@ -190,7 +192,9 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
 3. （tag 前，可选但强烈建议）跑彩野测试作额外验收：
    `uv run python tools/ayano_test.py --segment <label> --qa config/ayano_qa/<label>.yaml --lane-dir pilot/lanes/opus`
    （零订阅额度，走 deepseek API，需 `DEEPSEEK_API_KEY`；题库由开发轨按段提供，
-   `config/ayano_qa/<label>.yaml` 不存在就跳过并记台账；报告落 work/out/ayano-<label>.md，
+   `config/ayano_qa/<label>.yaml` 不存在时**工具自身**会打印跳过提示（点名期望路径）
+   并以 **rc=2** 退出——不抛异常、也不会被误读成「跑完且全部通过」（rc=0）；见此跳过
+   即记进段末台账，不必人工先 `ls` 探路径。报告落 work/out/ayano-<label>.md，
    判「错」的题逐条人工核对是译文丢信息还是题目/判分问题，结论记进段末台账。）
    **不得拿别段的题库顶替**：题库顶层带 `segment:` 绑定，与 `--segment` 不符工具直接
    报错退出。理由是上一段的答案往往整张躺在本段前缀卡里（实测 seg1 的 6 张答案卡

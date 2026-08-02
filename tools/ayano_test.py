@@ -104,6 +104,76 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
 COT_EXCERPT_CHARS = 300
 
 
+# 机械分诊（task-10 复评采纳）：判分是**答案层**评分，对「可被字符串检索答对」的
+# 题天然失效——受试者在上下文里定位到一段可逐字复制的跨度、照抄就能得分，根本不
+# 需要理解推理链（seg1-s2 的 q4 就是实例：它抄了「赝品的做工完全没有问题，原因在
+# 于原作」，CoT 里却写着「需确认」）。
+# 分诊**不改判分语义**，只在判「对」的行上追加一个可复现的存疑信号，供人工复核。
+# 为什么不把 CoT 直接喂给判分员：推理链里的「需确认/大概/？」是模型常规对冲话术，
+# 真读懂了也常出现，用它扣分会推高误报率，还让分数挂钩一个不稳定的私有产物。
+#
+# 两个阈值都用 seg1-s2 的**真实产出**标定过（离线复算，见 task-10 报告复评附录）：
+#   · 裸问号 `？/?` 从标记表里**去掉**了：复评给的原始清单含它，但实测 q1 那条
+#     「读懂了、复述得干净」的 CoT 里逐句引用了译文对白（「嗯？有什么安排吗？」）
+#     照样命中——本作是视觉小说，上下文里问号遍地，留着它等于每条都打标，信号
+#     直接归零。留下的是**真正的对冲措辞**。
+#   · 逐字重合门槛定在 12：实测 q1（自己的话复述）最长重合 7 字，q4（已知的
+#     「照抄得分但没读懂」实例）最长重合 12 字（「赝品的做工完全没有问题，」）。
+#     取 12 能抓住 q4 且不误伤 q1。样本只有 2 条，**将来跑更多段后应重新标定**；
+#     好在这标记是 advisory（只提示人看一眼、不改分），误报成本仅一次人工扫视。
+HESITATION_MARKERS = ("需确认", "不确定", "猜", "大概", "应该是")
+VERBATIM_MIN = 12
+VERBATIM_PROBE_MAX = 400          # 延伸探测上限，纯粹为了给成本封顶
+
+
+def _strip_ws(s: str) -> str:
+    return "".join(s.split())
+
+
+def _longest_verbatim_span(answer: str, ctx: str) -> int:
+    """受试回答里**逐字出现在上下文中**的最长连续跨度（去空白后按字符计）。
+
+    先用 VERBATIM_MIN 长的窗口做廉价筛（绝大多数起点会被直接否掉），命中了再逐字
+    延伸。上下文 3.5 万字符 × 回答几百字符，实测毫秒级。"""
+    a, c = _strip_ws(answer), _strip_ws(ctx)
+    n, best = len(a), 0
+    if not a or not c:
+        return 0
+    for i in range(n):
+        if n - i <= best or n - i < VERBATIM_MIN:
+            break
+        if a[i:i + VERBATIM_MIN] not in c:
+            continue
+        L = VERBATIM_MIN
+        cap = min(VERBATIM_PROBE_MAX, n - i)
+        while L < cap and a[i:i + L + 1] in c:
+            L += 1
+        best = max(best, L)
+    return best
+
+
+def _verdict_head(verdict: str) -> str:
+    """判分行格式是「判定|一句话依据」，取判定部分。"""
+    return verdict.split("|", 1)[0].strip()
+
+
+def triage(verdict: str, answer: str, cot: str, ctx: str) -> str:
+    """判「对」的行做机械分诊，返回警示串（无信号则空串）。只用已到手的数据，
+    零额外 API 成本。"""
+    if _verdict_head(verdict) != "对":
+        return ""
+    signals = []
+    hits = [m for m in HESITATION_MARKERS if m in cot]
+    if hits:
+        signals.append(f"CoT 含犹豫标记 {'/'.join(hits)}")
+    span = _longest_verbatim_span(answer, ctx)
+    if span >= VERBATIM_MIN:
+        signals.append(f"回答与上下文有 {span} 字逐字重合")
+    if not signals:
+        return ""
+    return "⚠ 存疑：可能照抄未理解（" + "；".join(signals) + "）"
+
+
 def _cot_excerpt(text: str, limit: int = COT_EXCERPT_CHARS) -> str:
     """CoT 摘要：压掉换行（报告里是单行列表项），超长截断并标注原始长度。"""
     if not text:
@@ -153,14 +223,16 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                          f"【问题】{q['question']}\n【标准答案】{q['reference']}\n"
                          f"【受试回答】{ans['content']}"}],
                        purpose=f"ayano-judge:{a.segment}:{q['id']}", **kw)
-        rows.append((q, ans["content"], verdict["content"], ans.get("reasoning_text", "")))
+        cot = ans.get("reasoning_text", "")
+        rows.append((q, ans["content"], verdict["content"], cot,
+                     triage(verdict["content"], ans["content"], cot, ctx)))
     out = Path(a.out) if a.out else repo / "work" / "out" / f"ayano-{a.segment}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 彩野测试报告 · {a.segment}（{len(rows)} 题）", ""]
     if missing:
         lines.append(f"> ⚠ 本段**缺译 {missing} 行**（段未译完，结论仅供参考）。")
         lines.append("")
-    for q, ans, verdict, cot in rows:
+    for q, ans, verdict, cot, flag in rows:
         lines += [f"## {q['id']}：{q['question']}",
                   f"- 信息点：{q.get('info_point', '-')}",
                   f"- 标准答案：{q['reference']}",
@@ -169,7 +241,10 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
                   # 引用了给定文本的具体句子，说明信息确实从译文传达到了；若它在
                   # 凭常识/剧情套路补全，摘要里一眼可见。
                   f"- CoT 摘要：{_cot_excerpt(cot)}",
-                  f"- **判分：{verdict}**", ""]
+                  f"- **判分：{verdict}**"]
+        if flag:
+            lines.append(f"- **{flag}**")
+        lines.append("")
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"报告已写 {out}")
     return 0

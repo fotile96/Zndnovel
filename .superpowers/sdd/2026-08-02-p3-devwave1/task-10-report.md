@@ -311,3 +311,145 @@ transport 必须改形状。**没有一条断言被削弱。**
 5. `--dry-run` 之外新增的 `--effort` 默认走 `api_client.DEFAULT_EFFORT = "medium"`。
    若发现 CoT 太短看不出所以然，可以 `--effort high`；但 reasoning token 是计费的
    输出 token，成本会涨。
+
+---
+
+# 复评修正轮（task-10 round 2）
+
+**状态：完成，2 个 commit。全量 `uv run pytest -q` → 294 passed**（上一轮 287 +
+本轮 7：`tests/test_api_client.py` 20→24、`tests/test_ayano_test.py` 11→14）。
+零真实网络——本轮是纯代码修正，按要求未再发任何真实 API 请求。
+
+## R-1（Important）：最贵的那类失败反而不入台账 —— 已修
+
+**病灶**：入账门槛写成 `if produced or partial["usage"]`（必须已吐出至少一个
+delta），而 ② 的重试规则又只在「delta 之前失败」时才重试。两句合起来 = **唯一会
+触发重试的路径永远不写台账**。彩野测试的成本主导项是输入侧（约 2.35 万 in vs 数百
+out），这笔重复烧掉的钱在账上完全不可见——正是约束 4① 要防的系统性低估。
+
+**修法**：门槛改成「**有任何事件到达**」（`partial["event_types"]` 非空）。
+`response.created` 到了就证明远端已接受请求并开始 prefill。零事件（4xx / 连不上）
+仍不入账。
+
+**验证**（离线探针，注入 `response.created` + `response.in_progress` 后抛
+`TimeoutError`，第二次成功）：
+
+```
+修前：尝试次数= 2   台账行数= 1     ← 只有成功那次
+修后：尝试次数= 2   台账行数= 2
+      失败行 = {prompt_tokens: -1, completion_tokens: 0,
+                partial: True, attempt: 1, estimated: True}
+```
+
+**测试**：原 `test_timeout_before_any_delta_is_retried`（只断言重试次数与 sleep，
+对台账一字未断言，所以没兜住）改名
+`test_timeout_before_any_delta_is_retried_and_is_ledgered` 并**补齐台账断言**——
+2 行、失败行带 `partial/attempt/estimated`、`prompt_tokens == -1`。另新增
+`test_zero_event_failure_is_not_ledgered` 守住反向：别把修法修过头，变成每次连接
+失败都记一笔。
+
+## R-2（Important）：`.done` 覆盖而非追加，多 part 时静默截断 —— 已修
+
+**病灶**：`_consume` 对 `.done` 做 `prog["text"] = [data["text"]]`（整体替换）。
+一次响应出现多个 content part / output item 时（Responses 对长推理常拆多段），
+前面的段被**静默丢弃**：报告拿到半截答案 + 半截 CoT，判分员照常打分。
+
+**修法**：累加器改成 `{text,reasoning}_done`（已收尾的各段）＋
+`{text,reasoning}_buf`（当前段的 delta 缓冲）两层。`.done` **追加**该段并清缓冲；
+`response.content_part.added` 时若上一段没等到 `.done` 就换段，先把缓冲收进已完成
+列表（防被下一段冲掉）。最终文本 = 各已完成段 + 未收尾缓冲，由新的 `_joined()`
+统一拼装。
+
+**验证**（离线探针，两段 reasoning + 两段 output）：
+
+```
+修前：content= '222'   reasoning_text= 'BBB'
+修后：content= '111222' reasoning_text= 'AAABBB'   ← 与期望一致
+```
+
+**测试**：新增 `test_multiple_parts_are_concatenated_not_overwritten` 与
+`test_part_without_done_is_not_lost_when_next_part_starts`。更要紧的是**把漏网的
+根因也堵上**——复评指出「测试侧 `_sse_lines()` 只造单 part 是这条漏网的直接原因」，
+所以 `_sse_lines()` 已按 §B 实测的真实事件序列重写，**保留了
+`output_item.added` / `content_part.added` / `content_part.done` /
+`output_item.done` 全部边界事件**，两个 item（reasoning + message）各走完整一遍。
+默认 transport 那几条测试从此走的是真实形状而不是裸 delta。
+
+复评关于「是否真的永远只有单 part，样本不足以支撑该假设」的判断已接受：修法不依赖
+该假设，单 part 与多 part 都正确。
+
+## R-3 顺手三条 —— 已做
+
+1. **`estimated` 与 `partial` 解耦**：`_write_ledger` 现在只要 `usage["estimated"]`
+   就写 `estimated: true`，与 `partial` 无关。修前 `response.completed` 到了但
+   `usage` 缺失的行会出现「`prompt_tokens: -1` 却看不出是估算」。新增
+   `test_estimated_flag_is_decoupled_from_partial`（断言该行有 `estimated`、
+   且**没有** `partial`）。
+2. **注释数字对齐**：`api_client.py` 里两处「约 2.1 万 token」→「实测约 2.35 万
+   token」，与 §C/§D 与台账一致。
+3. **`--show-cot` 区分两股流**：`on_delta` 在 kind 切换时打一次段头
+   `【CoT】` / `【正文】`，不再混排成一团。
+
+## R-4（复评设计，采纳）：机械分诊标记 —— 已做，并按真实数据重新标定
+
+`tools/ayano_test.py` 新增 `triage(verdict, answer, cot, ctx)`：**判分为「对」**
+时，若 ①CoT 命中犹豫标记，**或** ②回答与上下文存在长逐字重合，就在该行报告追加
+`⚠ 存疑：可能照抄未理解（…具体信号…）`。纯本地后处理、零额外 API 成本，
+**不改判分语义**（非「对」的行一律不打标，判分文本原样保留）。
+
+CoT 不进判分上下文这一点保持不变——复评给的理由（对冲话术会推高误报、让分数挂钩
+不稳定的私有产物）成立。
+
+### 用真实数据标定后，对复评给的参数做了两处修正（有实证）
+
+离线复算 seg1-s2 的真实产出（q1/q4 的作答与 CoT，零网络）：
+
+| 样本 | 性质 | 最长逐字重合 |
+|---|---|---|
+| q1 | 自己的话复述、确实读懂了 | **7 字** |
+| q4 | 照抄得分但 CoT 自陈「需确认」 | **12 字**（「赝品的做工完全没有问题，」） |
+
+- **逐字重合门槛 20 → 12**。原定 20 对 q4 完全失效（实测 0 命中），即分诊抓不到
+  它本来要抓的那个实例。12 能抓住 q4 且不误伤 q1（7 字）。样本只有 2 条，代码注释
+  里写明**将来跑更多段后应重新标定**；标记是 advisory，误报成本仅一次人工扫视。
+- **裸问号 `？` / `?` 从标记表里去掉**。复评给的原始清单含它，但实测 q1 那条干净
+  CoT 逐句引用了译文对白（「嗯？有什么安排吗？」）照样命中——本作是视觉小说，
+  上下文问号遍地，留着等于每条都打标、信号归零。保留的是真正的对冲措辞：
+  `需确认 / 不确定 / 猜 / 大概 / 应该是`。
+
+### 标定后的实际效果（离线复算，零网络）
+
+```
+q1  最长逐字重合 = 0（未达门槛）   → （无标记）
+q4  最长逐字重合 = 12             → ⚠ 存疑：可能照抄未理解
+                                    （CoT 含犹豫标记 需确认；回答与上下文有 12 字逐字重合）
+两题分诊合计 0.004s（ctx 42438 字符）
+```
+
+**正是预期结果**：上一轮我靠肉眼在 q4 上发现的东西，现在成了可复现信号；而真正读懂
+的 q1 不被误伤。
+
+**测试**：`test_triage_flags_hesitation_and_verbatim_copy`（四类：照抄 / 犹豫 /
+干净复述不打标 / 非「对」不打标）、`test_triage_marker_reaches_report`（标记真的
+写进报告行且判分文本未被改写）、`test_triage_threshold_boundary_and_no_bare_question_mark`
+（钉死边界语义：差一字不打标、够了就打标；并守住裸问号不得回到标记表）。
+
+标定测试**没有**去伪造一份假的"真实上下文"来复现 7/12 这两个数字——那种 fixture
+是自证的假证据；真实数值写在代码注释与本报告里，测试只钉死边界语义。
+
+## 本轮 commit
+
+见 `git log`：`fix:` 一条（api_client 两个 Important + 顺手三条）、`feat:` 一条
+（ayano_test 机械分诊）。
+
+## 本轮顾虑
+
+1. **分诊阈值只有 2 条真实样本标定**（7 vs 12），margin 很薄。跑完更多段后应拿
+   一批真实作答重新标定；代码注释里已写明这一点。它是 advisory 标记不改分，所以
+   现在这个精度是可接受的起点，而不是终点。
+2. **逐字重合是「检索型可答题」的代理指标，不是「没读懂」的证据**。译文里本来就
+   有的固定表述（人名、术语、专有短语）被完整引用也会计入。看到标记应当去看 CoT
+   与译文本身，别把它当判决。
+3. 上一轮实测用的 scratchpad 原始 SSE 抓包在本轮已被清理，无法再回放；不过其形状
+   已按 §B 记录、并固化进 `_sse_lines()` 测试夹具，且复评用 127.0.0.1 裸 socket
+   服务器独立验证过真流式，证据链完整。

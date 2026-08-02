@@ -126,6 +126,79 @@ def test_report_includes_cot_excerpt(tmp_path):
     assert _cot_excerpt("") == "（无 CoT：模型未返回 reasoning_text）"
 
 
+def test_triage_flags_hesitation_and_verbatim_copy():
+    """复评采纳项：机械分诊（纯本地后处理、零额外 API 成本）。判「对」时若 CoT
+    含犹豫标记，或回答与上下文有长逐字重合，就打存疑标记——把「答案层评分对可被
+    字符串检索答对的题天然失效」这件事固化成可复现信号（seg1-s2 q4 是原始实例）。
+    分诊**不改判分语义**：非「对」的行一律不打标。"""
+    from tools.ayano_test import VERBATIM_MIN, triage
+
+    ctx = "＝＝ 正文 ＝＝\n赝品的做工完全没有问题，被识破的原因在于原作本身，与仿者无关。"
+    copied = "赝品的做工完全没有问题，被识破的原因在于原作本身"
+    assert len(copied) >= VERBATIM_MIN
+
+    # 1) 逐字照抄 → 打标，且标出重合字数
+    f = triage("对|一致", copied, "文本里就是这么写的", ctx)
+    assert f.startswith("⚠ 存疑") and "逐字重合" in f
+
+    # 2) CoT 犹豫标记 → 打标（回答很短、无长重合）
+    f = triage("对|一致", "原作有问题", "大概是原作的问题？需确认", ctx)
+    assert "犹豫标记" in f and "需确认" in f and "逐字重合" not in f
+
+    # 3) 自己的话复述、CoT 干净 → 不打标（不能变成恒打标的噪声）
+    assert triage("对|一致", "问题出在被仿的原作上", "定位到サクラ的判定句", ctx) == ""
+
+    # 4) 判分不是「对」时一律不打标——分诊不改判分语义
+    assert triage("错|答非所问", copied, "需确认", ctx) == ""
+    assert triage("部分对|漏了细节", copied, "需确认", ctx) == ""
+
+
+def test_triage_threshold_boundary_and_no_bare_question_mark():
+    """阈值语义闸。VERBATIM_MIN 的标定依据是 seg1-s2 的真实产出（离线复算：q1
+    「自己的话复述、确实读懂了」最长逐字重合 7 字；q4「照抄得分但 CoT 自陈没读懂」
+    12 字，即「赝品的做工完全没有问题，」），故取 12。这里不去伪造一份假的
+    "真实上下文"来复现那两个数字，只钉死**边界语义**：差一个字不打标、够了就打标。
+
+    另守住裸问号必须留在标记表**之外**：复评给的原始清单含 `？`，但 q1 那条干净
+    CoT 里逐句引用了译文对白（本作是视觉小说，问号遍地）照样命中——留着它等于
+    每条都打标、信号归零。"""
+    from tools.ayano_test import HESITATION_MARKERS, VERBATIM_MIN, _longest_verbatim_span, triage
+
+    span = "赝品的做工完全没有问题，原因在于原作。这里再写点别的把上下文撑开一些。"
+    ctx = "＝＝ 正文 ＝＝\nサクラ：「" + span + "」"
+    just_under = span[:VERBATIM_MIN - 1]
+    just_over = span[:VERBATIM_MIN]
+
+    assert _longest_verbatim_span(just_under, ctx) == 0        # 未达门槛不计
+    assert _longest_verbatim_span(just_over, ctx) == VERBATIM_MIN
+    assert triage("对|一致", just_under, "干净的推理", ctx) == ""
+    assert f"{VERBATIM_MIN} 字逐字重合" in triage("对|一致", just_over, "干净的推理", ctx)
+
+    # 裸问号不得入表：只引用了带问号的对白、没有任何对冲措辞 → 不该打标
+    assert "？" not in HESITATION_MARKERS and "?" not in HESITATION_MARKERS
+    assert triage("对|一致", "自己的话复述", "ユウイチ问“嗯？有什么安排吗？”", ctx) == ""
+
+
+def test_triage_marker_reaches_report(tmp_path):
+    """分诊标记要真的写进报告行（不是只有函数能算出来）。"""
+    lane, repo = _mk_fixture(tmp_path)
+    calls = []
+
+    def fake(url, headers, payload):
+        calls.append(payload)
+        if len(calls) == 1:
+            return _fake_events("游泳池的约定", "文本里说了，不过具体日期需确认")
+        return _fake_events("对|回答与标准一致")
+
+    out = tmp_path / "report.md"
+    main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+          "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo)],
+         stream_transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    text = out.read_text(encoding="utf-8")
+    assert "⚠ 存疑：可能照抄未理解" in text and "需确认" in text
+    assert "**判分：对|回答与标准一致**" in text      # 判分本身没被改写
+
+
 def test_effort_passthrough(tmp_path, monkeypatch):
     """--effort 透传给 reader 与 judge 两次 chat()；不给时不出现在 kw 里
     （走 api_client 自己的 DEFAULT_EFFORT）。"""

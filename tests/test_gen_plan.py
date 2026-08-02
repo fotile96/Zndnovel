@@ -631,14 +631,59 @@ def test_main_segment_unknown_label_exits(tmp_path, monkeypatch):
         main(["--lane", "main", "--segment", "seg9-nope"])
 
 
-def test_main_segment_batches_override_wins(tmp_path, monkeypatch):
+def test_main_segment_batches_outside_segment_range_exits(tmp_path, monkeypatch):
+    """终审 I6：`--segment seg1-s2 --batches 6-7`（另一段的批号）曾 rc=0 静默
+    产出「标题是本段、内容是别段批次」的生产计划。段模式的批号由段表读出，
+    `--batches` 越界一律报错。（本用例此前断言的正是被推翻的旧行为。）"""
+    _repo_fixture(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit) as e:
+        main(["--lane", "main", "--segment", "seg1-s2",
+              "--batches", "6-7", "--label", "seg1-s2",
+              "--tools-root", "/tmp/prod"])
+    assert "越出段表" in str(e.value)
+    assert not (tmp_path / "docs" / "superpowers" / "plans" /
+                "translate-seg1-s2.md").exists()      # 越界时不落盘
+
+
+def test_main_segment_batches_partial_overlap_exits(tmp_path, monkeypatch):
+    # 一半在段内一半在段外同样是错配，不能只截取交集
+    _repo_fixture(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        main(["--lane", "main", "--segment", "seg1-s2",
+              "--batches", "4-7", "--tools-root", "/tmp/prod"])
+
+
+def test_main_segment_batches_true_subrange_allowed_and_annotated(tmp_path, monkeypatch):
+    # 合法用途：段内断点续跑。允许真子区间，但计划抬头必须写明只覆盖子区间，
+    # 免得「跑完本计划＝本段跑完」的默认理解连着段末流程一起被误触发。
     _repo_fixture(tmp_path, monkeypatch)
     assert main(["--lane", "main", "--segment", "seg1-s2",
-                 "--batches", "6-7", "--label", "seg1-s2",
-                 "--tools-root", "/tmp/prod"]) == 0
+                 "--batches", "4-5", "--tools-root", "/tmp/prod"]) == 0
     out = _plan(tmp_path, "seg1-s2")
-    assert "--batch 6" in out and "--batch 7" in out
-    assert "--batch 2" not in out
+    assert "--batch 4" in out and "--batch 5" in out
+    assert "--batch 2" not in out and "--batch 3" not in out
+    assert "本计划仅覆盖 seg1-s2 的子区间 4–5" in out
+
+
+def test_main_segment_full_range_batches_not_annotated(tmp_path, monkeypatch):
+    # 显式给出与段表完全相同的区间＝整段，不加子区间标注
+    _repo_fixture(tmp_path, monkeypatch)
+    assert main(["--lane", "main", "--segment", "seg1-s2",
+                 "--batches", "2-5", "--tools-root", "/tmp/prod"]) == 0
+    assert "本计划仅覆盖" not in _plan(tmp_path, "seg1-s2")
+
+
+def test_segment_tail_lists_ayano_test_as_step_3(tmp_path, monkeypatch):
+    """终审 I3：彩野测试此前只在 runbook 里，生产会话照做的却是这份渲染清单。
+    两份清单同为 1–5 编号，第 3 项必须是同一件事（彩野测试），第 4 项是打 tag。"""
+    _repo_fixture(tmp_path, monkeypatch)
+    assert main(["--lane", "main", "--segment", "seg1-s2",
+                 "--tools-root", "/tmp/prod"]) == 0
+    tail = _plan(tmp_path, "seg1-s2").split("## 段末流程")[1]
+    assert "tools/ayano_test.py --segment seg1-s2" in tail
+    assert "config/ayano_qa/seg1-s2.yaml" in tail
+    assert tail.index("3. （tag 前") < tail.index("4. 打段完成 tag")
+    assert "不得拿别段的题库顶替" in tail
 
 
 def test_main_segment_forwards_tools_root(tmp_path, monkeypatch):

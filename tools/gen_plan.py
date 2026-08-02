@@ -91,13 +91,19 @@ def _lane_block(lane_cfg, segment=None):
 - **中断恢复**：从 `{lane_cfg["lane_dir"]}/data/forward.jsonl` 已有的 id 对照 `data/batches.jsonl` **重新推导**第一个未完成的批次，不要信任任何进度文件或记忆——forward 是 append-only 的，它与实际完成状态不可能失同步。"""
 
 
-def _segment_head(segment, tools_root=""):
+def _segment_head(segment, tools_root="", segment_sub=None):
     tr = tools_root or "<生产worktree>"
+    # 子区间标注（终审 I6）：段模式给了 --batches 且是段表区间的真子集时，本计划
+    # 只覆盖段的一部分（断点续跑），抬头必须写明——否则「跑完本计划＝本段跑完」
+    # 这个默认理解会连着段末流程一起被误触发。
+    sub = (f"\n\n> ⚠ **本计划仅覆盖 {segment} 的子区间 {segment_sub[0]}–{segment_sub[1]}**"
+           f"（`--batches` 限定，断点续跑用）。本段其余批次不在本计划内；"
+           f"段末流程只在**整段**批次全部入线后才执行。" if segment_sub else "")
     return f"""
 
 ## 段开场自检（P3 生产会话必做，缺一不可）
 
-本计划属于检查段 **{segment}**（`config/segments.yaml`）。开工前逐项确认并把结果写进台账：
+本计划属于检查段 **{segment}**（`config/segments.yaml`）。开工前逐项确认并把结果写进台账：{sub}
 
 1. **cwd 与工具树划分**（本节全部命令、以及本计划的全部 git 操作，一律在**主仓**执行，cwd 恒为主仓，**不要 `cd` 到生产 worktree**）：
    - 按批四件套 `build_context` / `check_batch` / `detect_collapse` / `append_forward` 走**生产 worktree 的绝对路径**——各批 Task 的 Run 行已内嵌 `{tr}/tools/…`，逐字照抄，不要改回相对形态；
@@ -108,17 +114,22 @@ def _segment_head(segment, tools_root=""):
 
 
 def _segment_tail(segment):
+    # 本清单的编号与内容必须与 docs/ops/p3-production-runbook.md §5 的五项**逐项
+    # 对齐**（终审 I3）：生产会话实际照做的是这份渲染出来的清单（handoff 明写
+    # 「按计划最后一个任务的『段末流程』执行」），而 runbook 是操作依据；两边同为
+    # 1–5 编号却第 3 项含义不同时，段末会话会在「第 3 步」上产生歧义。改一边就改
+    # 另一边。
     return f"""
 
 ## 段末流程（本段全部批次入线后执行，缺一不可）
 
-以下命令与 git 操作全部在**主仓**执行（cwd 恒为主仓，工具用主仓 `tools/`）。
+以下命令与 git 操作全部在**主仓**执行（cwd 恒为主仓，工具用主仓 `tools/`）。本清单与 `docs/ops/p3-production-runbook.md` §5 逐项对齐。
 
 1. 机检复核：本计划各批 check/collapse 记录过一遍，hard 全零。
 2. 请用户按 `config/segments.yaml` 本段 `review_focus` 抽读关键场。
-3. 打段完成 tag：`git tag prod-opus-{segment}-done`。
-4. 提醒用户开**段末小裁决会话**：先跑 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`（**`--data-dir` 必须带**——漏传会读仓库根 `data/`，那里没有车道 forward.jsonl，结果是一张全列「滚存」的合理假表；工具会在表头前打印 `done=N 条已入线译文`，N 为 0 即说明漏传），可裁决词族当场裁，滚存词族聚类归档（runbook「段末小裁决」节）。
-5. 裁决产出新 glossary 版本时，按 runbook「段边界版本切换」执行车道再冻结 + 召回/patches。"""
+3. （tag 前，可选但强烈建议）跑**彩野测试**作额外验收：`uv run python tools/ayano_test.py --segment {segment} --qa config/ayano_qa/{segment}.yaml --lane-dir pilot/lanes/opus`（零订阅额度，走 deepseek API，需 `DEEPSEEK_API_KEY`；题库由开发轨按段提供，`config/ayano_qa/{segment}.yaml` 不存在就跳过并记台账。**不得拿别段的题库顶替**——题库自带 `segment` 绑定，段名不符工具会直接报错退出；上一段的题目其答案往往整张躺在本段前缀卡里，跑出来必是恒绿假信号）。报告落 `work/out/ayano-{segment}.md`，判「错」的题逐条人工核对是译文丢信息还是题目/判分问题，结论记进段末台账。
+4. 打段完成 tag：`git tag prod-opus-{segment}-done`。
+5. 提醒用户开**段末小裁决会话**：先跑 `uv run python tools/cluster_notes.py --lane-dir pilot/lanes/opus --out work/out/dossier-{segment}.md` 把本段提案按词族聚成卷宗，再对可裁词族跑 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`（**`--data-dir` 必须带**——漏传会读仓库根 `data/`，那里没有车道 forward.jsonl，结果是一张全列「滚存」的合理假表；工具会在表头前打印 `done=N 条已入线译文`，N 为 0 即说明漏传），可裁决词族当场裁，滚存词族聚类归档（runbook §5「裁决会话清单」）。裁决产出新 glossary 版本时，按 runbook「段边界版本切换」执行车道再冻结 + 召回/patches。"""
 
 
 def select(batches, *, lane, chapter=None, batch_range=None):
@@ -475,14 +486,14 @@ def _thresholds_arg(collapse_thresholds):
 
 def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
            lane_cfg=None, collapse_thresholds=None, segment=None,
-           tools_root="") -> str:
+           tools_root="", segment_sub=None) -> str:
     p = _paths(lane_cfg, tools_root)
     thresholds_arg = _thresholds_arg(collapse_thresholds)
     chapters_all = sorted({b["chapter"] for b in sel})
     parts = [_header(label, lane, every, len(sel), glossary_v, lane_cfg, chapters_all,
                      segment, tools_root)]
     if segment:
-        parts.append(_segment_head(segment, tools_root))
+        parts.append(_segment_head(segment, tools_root, segment_sub))
     if not sel:
         parts.append(f"（`data/batches.jsonl` 中没有选中的批次，无事可做。）")
         if segment:
@@ -559,12 +570,28 @@ def segment_entry(label, repo=None):
         f"{', '.join(s['label'] for s in segs)}")
 
 
-def segment_range(label, repo=None):
-    """config/segments.yaml 里 label 段的批号闭区间。终审 I3：`--segment` 曾是
-    纯文案插值的自由字符串，批号靠另外手传 `--batches`——`--batches 36-62
-    --segment seg2-s3` 这种错配会静默产出段名与批号不符的生产计划。"""
-    lo, hi = segment_entry(label, repo)["batches"]
-    return int(lo), int(hi)
+def segment_subrange(label, seg_lo, seg_hi, batches_arg):
+    """段模式下 `--batches` 的取值判定（终审 I6）。
+
+    段模式的批号本应由段表读出，但 `--batches` 仍能覆盖它且**无任何交叉校验**：
+    `--segment seg2-s3 --batches 36-62` 实测 rc=0，产出一份标题写着 seg2-s3、
+    内容却是 SEG-1 批次的生产计划。合法用途只有一个——段内断点续跑（只重生成
+    本段剩余批次的计划），故允许**真子区间**，越出段表区间一律报错。
+
+    返回 (rng, sub)：sub 为 None 表示整段，否则为被限定的子区间（供计划抬头标注）。
+    """
+    if not batches_arg:
+        return (seg_lo, seg_hi), None
+    lo, hi = _parse_range(batches_arg)
+    if lo < seg_lo or hi > seg_hi:
+        raise SystemExit(
+            f"--batches {lo}-{hi} 越出段表 {label} 的区间 {seg_lo}-{seg_hi}——"
+            f"段模式的批号由段表读出，`--batches` 只允许给出段内**子区间**"
+            f"（断点续跑用）。要跑别的批次请换 --segment，或用 --batches + --label "
+            f"的非段模式。")
+    if (lo, hi) == (seg_lo, seg_hi):
+        return (lo, hi), None
+    return (lo, hi), (lo, hi)
 
 
 def main(argv=None):
@@ -603,6 +630,7 @@ def main(argv=None):
         "model": args.model, "effort": args.effort,
         "append_model_id": args.append_model_id}
 
+    seg_sub = None
     if args.segment:
         if args.chapter:
             raise SystemExit("--segment 与 --chapter 互斥")
@@ -623,7 +651,7 @@ def main(argv=None):
                 "--segment 模式必须给 --tools-root（生产 worktree 绝对路径，见 "
                 "docs/ops/p3-production-runbook.md §3）——漏传会产出未钉死的计划")
         lo, hi = (int(x) for x in seg_entry["batches"])
-        rng = _parse_range(args.batches) if args.batches else (lo, hi)
+        rng, seg_sub = segment_subrange(args.segment, lo, hi, args.batches)
         sel = select(read_jsonl(DATA / "batches.jsonl"), lane=lane, batch_range=rng)
         label = args.label or args.segment
     elif args.batches:
@@ -652,7 +680,7 @@ def main(argv=None):
     md = render(sel, label=label, lane=lane, every=args.checkpoint_every,
                 glossary_v=glossary_version(REPO), lane_cfg=lane_cfg,
                 collapse_thresholds=collapse_thresholds, segment=args.segment,
-                tools_root=args.tools_root)
+                tools_root=args.tools_root, segment_sub=seg_sub)
     out_path = REPO / "docs" / "superpowers" / "plans" / f"translate-{label}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")

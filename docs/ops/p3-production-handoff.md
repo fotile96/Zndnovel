@@ -58,7 +58,7 @@ git status --short                                        # 应干净；若有�
 
 ### 段末
 
-全部 27 批入线后，按计划最后一个任务的「段末流程」执行：机检复核 → 请我按 `config/segments.yaml` 里 seg1-s2 的 `review_focus` 抽读关键场 → 打 tag `prod-opus-seg1-s2-done` → 提醒我开**段末小裁决会话**（用 `tools/saturation.py` 跑饱和度闸门，≥0.8 才裁决，其余滚存）。
+全部 27 批入线后，按计划最后一个任务的「段末流程」执行（该清单与 `docs/ops/p3-production-runbook.md` §5 逐项对齐，五步同编号同含义）：① 机检复核 → ② 请我按 `config/segments.yaml` 里 seg1-s2 的 `review_focus` 抽读关键场 → ③ **打 tag 前跑一次彩野测试**作额外验收（`uv run python tools/ayano_test.py --segment seg1-s2 --qa config/ayano_qa/seg1-s2.yaml --lane-dir pilot/lanes/opus`，零订阅额度走 deepseek API，需 `DEEPSEEK_API_KEY`；报告落 `work/out/ayano-seg1-s2.md`，判「错」的题逐条核对是译文丢信息还是题目/判分问题，结论记进台账；**不得拿别段的题库顶替**，题库自带 `segment` 绑定、不符即报错）→ ④ 打 tag `prod-opus-seg1-s2-done` → ⑤ 提醒我开**段末小裁决会话**（先 `tools/cluster_notes.py` 聚卷宗，再用 `tools/saturation.py` 跑饱和度闸门，≥0.8 才裁决，其余滚存）。
 
 **段末流程不自动放行**——人工评审通过了这一段才算完。
 

@@ -112,8 +112,12 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 时另含 `build_context`）。也就是说，**只有这三个工具的升级能被 canary 判定**。
 
 不在覆盖面内、必须人工判定的：`gen_plan`、`append_forward`、`lane_setup`、`resolve`、
-`build_ledger`、`ayano_test`（实际风险为零——advisory 工具，恒 exit 0，不写车道数据，
-只读不改），以及 §1 划入钉死面的 `prompts/`。这些东西改了，canary 照样输出
+`build_ledger`、`ayano_test`（对**车道数据**风险为零：只读车道，不写车道任何文件。
+但另两条常被以讹传讹的说法不成立——①**不是恒 exit 0**：未知段 label、缺
+`DEEPSEEK_API_KEY`、题库 segment 与 `--segment` 不符都 rc=1 退出；②**它会写仓库跟踪
+文件**：每次 API 调用向仓库跟踪的 `data/api_ledger.jsonl` 追加一行计费台账，且**没有
+CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）——跑完记得连它一起
+提交或确认无关改动），以及 §1 划入钉死面的 `prompts/`。这些东西改了，canary 照样输出
 「一致」——它根本没跑它们。
 
 - 判定方法：读 `git diff <旧tag> main -- tools/ prompts/`，逐文件问「这个改动会不会
@@ -128,19 +132,31 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 
 ## 五、段末流程与小裁决会话
 
-段末流程按生产计划内嵌清单执行：
+段末流程按生产计划内嵌清单执行。**下面五项与 `tools/gen_plan.py::_segment_tail`
+渲染进计划的那份清单逐项对齐**——生产会话实际照做的是计划里那份（handoff 明写
+「按计划最后一个任务的『段末流程』执行」），本节是它的操作依据；**改一边必须同步
+改另一边**，两边编号相同而含义不同会让段末会话在「第 N 步」上产生歧义。
 
 1. 机检复核。
 2. 用户按 `config/segments.yaml` review_focus 抽读。
 3. （tag 前，可选但强烈建议）跑彩野测试作额外验收：
    `uv run python tools/ayano_test.py --segment <label> --qa config/ayano_qa/<label>.yaml --lane-dir pilot/lanes/opus`
-   （零订阅额度，走 deepseek API；题库由开发轨按段提供；报告落 work/out/ayano-<label>.md，
+   （零订阅额度，走 deepseek API，需 `DEEPSEEK_API_KEY`；题库由开发轨按段提供，
+   `config/ayano_qa/<label>.yaml` 不存在就跳过并记台账；报告落 work/out/ayano-<label>.md，
    判「错」的题逐条人工核对是译文丢信息还是题目/判分问题，结论记进段末台账。）
+   **不得拿别段的题库顶替**：题库顶层带 `segment:` 绑定，与 `--segment` 不符工具直接
+   报错退出。理由是上一段的答案往往整张躺在本段前缀卡里（实测 seg1 的 6 张答案卡
+   41/44/45/46/58/134 全在 seg2 前缀内），受试模型一行译文不看即可全对——那是恒绿假信号。
 4. `git tag prod-opus-<label>-done`。
-5. 开裁决会话。
+5. 开裁决会话（先用 `tools/cluster_notes.py` 把本段提案聚成卷宗，见下）。
 
 裁决会话清单：
-1. 汇总本段 notes 提案 + 机器横扫结果，按词族聚类。
+1. 汇总本段 notes 提案 + 机器横扫结果，按词族聚类：
+   `uv run python tools/cluster_notes.py --lane-dir pilot/lanes/opus --out work/out/dossier-<label>.md`。
+   卷宗里判**「未匹配到该词键（可能提取不干净，请人工核对）」**的词族＝饱和度算出 0/0，
+   **不等于「原文里没这词」**——要么词键真没出现（如活用形/复合短语），要么标题没提干净；
+   两者外观相同，一律人工核对原标题后再定，不要当成「无证据可随便定名」。提取不干净的键
+   工具已自动降级进「（未归词）」段，那一段本来就是逐条人工过目的。
 2. `uv run python tools/saturation.py --terms-file <词表> --data-dir
    pilot/lanes/opus/data --gate 0.8`：可裁决当场裁，滚存归档到下段。
    **`--data-dir` 是这条命令里最容易漏抄的一节**（本行折行，第二行开头就是它）：

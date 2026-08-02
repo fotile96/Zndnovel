@@ -428,10 +428,13 @@ runbook，不读 SDD 报告** —— 这是定位错误。把链路补全后确�
 | `python tools/check_timeline.py --help` | **0** | 否 |
 | `python tools/check_timeline.py`（无参，正常用法） | 0，打印 `OK` | 否 |
 
-⚠ **一处 uv 的坑，值得记**：经 `uv run python tools/gen_timeline.py --help` 调用时得到
-**rc=2** 而非 0 —— 那是 **uv 自己拦截了 `--help`**（`uv run -- python … --help` 即恢复
-rc=0），**脚本行为不变、同样不写文件**。判定退出码时须区分是 uv 的还是脚本的。此点已一并
-写进 runbook，免得下一个人以为护栏坏了。
+> ~~⚠ **一处 uv 的坑，值得记**：经 `uv run python tools/gen_timeline.py --help` 调用时得到
+> **rc=2** 而非 0 —— 那是 **uv 自己拦截了 `--help`**（`uv run -- python … --help` 即恢复
+> rc=0），**脚本行为不变、同样不写文件**。判定退出码时须区分是 uv 的还是脚本的。此点已一并
+> 写进 runbook，免得下一个人以为护栏坏了。~~
+>
+> **🚫 上面这段是错的，已于第二轮评审后订正——见本报告末尾「订正轮：uv 归因不成立」。
+> 保留原文以留下更正过程。**
 
 **不需要再滚 tag** —— 理由（评审要求明确确认）：
 1. 这两个工具**不在按批四件套**（`build_context` / `check_batch` / `detect_collapse` /
@@ -497,3 +500,107 @@ $ git -C /Users/fotile96/Zndnovel-prod status --short
 `tests/test_gen_timeline.py`、`tests/test_check_timeline.py`、
 `docs/ops/p3-production-runbook.md`、本报告。未碰 `pilot/lanes/`、`prompts/`、
 `data/batches.jsonl`、seg1-s2 台账、在产计划。
+
+---
+
+# 订正轮：uv 归因不成立（2026-08-02，第二轮评审 1 Important）
+
+评审对上一轮修正给了**规格符合性 ✅**（护栏行为独立复现、不滚 tag 的理由核实成立、三条
+Minor 均落实、`data/timeline.jsonl` 最后改动仍是 `bb65909`、生产 tag 仍 v3），但指出
+**我写进 runbook 的那条 uv 排障说明是假的**。
+
+**评审是对的。我复核后确认该归因完全不成立，并已找到真正的根因。**
+
+## 1. 事实：`--help` 就是 rc=0
+
+同机、同 `uv 0.12.1 (Homebrew 2026-07-31 aarch64-apple-darwin)`，**不接管道**、直接读 `$?`：
+
+| 调用 | 实测 rc |
+|---|---|
+| `uv run python tools/gen_timeline.py --help` | **0** |
+| `uv run -- python tools/gen_timeline.py --help` | **0** |
+| `.venv/bin/python tools/gen_timeline.py --help` | **0** |
+| `uv run python tools/check_timeline.py --help` | **0** |
+| `uv run python tools/gen_timeline.py --nope` | **2** |
+| `uv run python tools/check_timeline.py --nope` | **2** |
+
+连测 5 次 `--help` 全部 rc=0，**不 flaky**。「uv 拦截 `--help` 导致 rc=2」「`uv run --`
+可恢复」**均不存在**，纯属我的错误归因。
+
+## 2. 根因：不是 uv，也不是管道，是 **zsh 不做词分割**
+
+我原先那次读数用的是这个循环：
+
+```zsh
+for cmd in "gen_timeline.py --help" …; do
+  out=$(uv run python tools/$cmd 2>&1); rc=$?     # ← 这里
+done
+```
+
+**本会话的 shell 是 zsh 5.9，而 zsh 默认对不加引号的参数展开<u>不做词分割</u>**（bash 会做）。
+于是 `tools/$cmd` 没有裂成两个参数，而是变成**单个文件名** `tools/gen_timeline.py --help`。
+Python 根本没跑到 argparse 就报错了：
+
+```
+can't open file '/Users/fotile96/Zndnovel/tools/gen_timeline.py --help': [Errno 2] No such file or directory
+```
+
+——`rc=2` 是 **Python 的「文件打不开」**，与 `--help`、与 uv 毫无关系。这也解释了当时
+**四条命令（含 `--nope`、含 `check_timeline`）全部返回 2** 这个本该刺眼的现象：它们的
+`$cmd` 里都有空格，于是全都「文件不存在」。
+
+用 zsh 的显式分词 `${=cmd}` 重跑，立刻恢复正常：`--help` → 0、`--nope` → 2。
+
+**教训（两次测量错误，我把第二次误当成了新发现）**：
+1. 第一次：`cmd 2>&1 | head -3; echo $?` —— 读到的是 `head` 的退出码；
+2. 第二次：zsh 不词分割 —— 命令压根没按预期构造，rc 是「文件不存在」。
+   **我没有去看 `$out` 里的报错原文**，直接把异常读数归因给了 uv。若当时打印一眼输出，
+   一秒就能看穿。
+
+## 3. 自查：还有别的结论靠那种读数吗？
+
+逐条复核本报告里所有出现过的退出码断言：
+
+| 出处 | 原先写法 | 是否受污染 | 复核结论 |
+|---|---|---|---|
+| canary `--out`（两次生成） | `… \| tail -20; echo "rc=$?"` | **是**（读到 `tail` 的码） | 重测真实 rc=**0**。结论不变——当时的判据本来就是输出文件与那句 `canary: 27 批判定已写 …`，不是 rc |
+| **canary `--diff`** | `… \| tail -60; echo "diff-rc=$?"` → 终端读数 `diff-rc=0` | **是** | **真实 rc 应为 1**。代码 `return 1 if msgs else 0`（canary.py:88），实测自比 rc=**0**、有差异 rc=**1**。所幸该错误读数**只停留在终端、从未写进本报告正文**（§3.2 只记了 `--diff` 的打印输出，未记 rc）——此处补记正确语义 |
+| `check_timeline` | `cmd && echo "rc=$?"` | 否（`&&` 短路，只在成功时执行） | 重测 rc=0；判据是打印的 `OK` |
+| `pytest` | `\| tail` | 否（判据是 `327 passed` 文本，非 rc） | 重测 rc=0 |
+| `cmp` / `diff -q` 逐字节比对 | `cmd && echo …` | 否（`&&` 语义真实） | 成立 |
+| `git hash-object` 前后比对 | 字符串比较 | 否 | 成立 |
+
+### 3.1 对「canary `--diff` 退出码」这处错误读数的实质影响：无
+
+`canary --diff` 的 rc 语义是「**有差异即 rc=1**」，不是「失败」。本次本来就**有** 2 批差异，
+所以 **rc=1 才是正确且预期的结果**。runbook §4 的闸门写的是「diff 一致（**或差异逐条经
+人工判定为预期改进**）」——我走的正是后一条路径，且判定依据是**独立的集合级比对脚本**
+（`Counter` 多重集差，逐条列出消失/新增），从不依赖 `--diff` 的退出码。故**放行结论不受影响**，
+该错误读数也**未污染报告正文**（§3.2 只记了 `--diff` 的打印输出「2 批有差异」，没记 rc），
+此处补记正确语义：**本次 `--diff` 的真实 rc = 1，含义是「存在差异」，符合预期**。
+
+## 4. 已做的订正
+
+1. **runbook**：删掉整段 uv 归因，改为实测事实（措辞见下）。
+   > 该工具已加 argparse（实测）：**未知参数 → rc=2 且不写任何文件**；**`--help` → rc=0**，
+   > 打印帮助后**不执行**展开。两者在 `uv run python …`、`uv run -- python …` 与
+   > `.venv/bin/python …` 三种调用下**行为相同**。
+2. **本报告**：上一轮那段 uv 说明就地划删除线并加显眼指引，**保留原文**以留下更正过程；
+   本节补齐真相与根因。
+3. **补记 `canary --diff` 的退出码语义**（rc=0 一致 / rc=1 有差异；本次为 1）。该项属
+   「终端读数错误但未进正文」，故为补记而非改写，见 §3.1。
+
+## 5. 本轮验证
+
+- **未改任何代码**（护栏本身经三方独立验证正确）；**未滚 tag**；**未再生成任何数据文件**。
+- 全量测试 **335 passed**（rc=0，不接管道实测）。
+
+  **关于测试数 332 → 335 的说明**（上一轮我报的是 332，评审报的是 335，两者都对）：
+  上一轮我提交后，**另一个会话**在 main 上又落了三个 commit——`89aed34`（彩野测试首次
+  全跑报告）、`cd4f4ce`（DeepSeek 默认档位改 effort=max/256K，**其中含 tests/ 改动**）、
+  `c0f8061`（上限实测台账）。差的 3 条测试来自 `cd4f4ce`，**与本次工具升级无关**。
+  我加的 5 条 CLI 护栏测试经 `--collect-only` 复核**均在**（计数 5）。这也再次印证
+  §1 那条纪律的必要性：main 是多会话共享工作树，`git add` 只能加自己的路径。
+- `git -C /Users/fotile96/Zndnovel-prod describe --tags` → `prod-run-v3`，生产树干净。
+- `data/timeline.jsonl` 最后改动仍是 `bb65909`。
+- 本轮 `git add` 路径：`docs/ops/p3-production-runbook.md` 与本报告，二者而已。

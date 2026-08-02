@@ -189,9 +189,9 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 按本节纪律**只许在段边界、且确认生产会话不在跑批时执行**。写盘走 `pipelib.write_jsonl`
 （truncate + 逐行写，**非**原子替换），重写期间若有并发读会读到**截断的 JSON**——与
 `ledger.jsonl` 同一类风险（见 §4「执行时机纪律」），故障模式同样是响亮崩溃而非静默污染。
-该工具已加 argparse：**未知参数 rc=2 退出且不写任何文件**，`--help` 打印帮助后即退出
-（直接 `python tools/gen_timeline.py --help` rc=0；经 `uv run python … --help` 会得 rc=2，
-那是 uv 自己拦截 `--help` 所致，脚本行为不变、同样不写文件）。此前它**从不读 `sys.argv`**，
+该工具已加 argparse（实测）：**未知参数 → rc=2 且不写任何文件**；**`--help` → rc=0**，
+打印帮助后**不执行**展开。两者在 `uv run python …`、`uv run -- python …` 与
+`.venv/bin/python …` 三种调用下**行为相同**。此前它**从不读 `sys.argv`**，
 `gen_timeline.py --help` 这类手误会被静默忽略并**照常重写主仓数据**。姊妹工具
 `check_timeline` 只读、无写盘风险，CLI 行为已一并对齐。
 

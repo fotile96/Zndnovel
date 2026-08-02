@@ -22,10 +22,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.agent_loop import run_with_tools
 from tools.agent_tools import call_tool
 
+# 区间分隔符全谱：语料实测只出现半角连字号 `-` 与 en dash `–`（`grep` 提案正文
+# 得 14 处，另有 36 处在 `## batch` 标题行里、被 `parse_notes` 跳过），但手记是
+# 人手写的、随时可能冒出全角减号/波浪号，故一次把常见写法全收进来——漏一种
+# 就等于把整族承诺静默截成首个 id（缺陷 1 的原始形态）。
+RANGE_DASHES = "-–—―‐‑‒−~〜～ー－ｰ"
+_D = re.escape(RANGE_DASHES)
 # 行内、非跨换行：提案是逐行罗列的「- id ...」，跨行会把下一条无关的行号吞进来。
-ID_RE = re.compile(r"\bid[ \t]*([0-9０-９、,， \t]+)")
+ID_RE = re.compile(rf"\bid[ \t]*([0-9０-９、,， \t{_D}]+)")
+# 单个 id 或一段区间；`finditer` 依次消费，天然保持正文里的出现顺序，且区间的
+# 两个端点不会被当成两个孤立 id 重复计入。
+_TOKEN_RE = re.compile(rf"([0-9]+)(?:[ \t]*[{_D}][ \t]*([0-9]+))?")
 NUM_RE = re.compile(r"[0-9]+")
 _Z2H_DIGITS = str.maketrans("０１２３４５６７８９", "0123456789")
+
+# 单条提案展开后的 id 总数上限。超限**截断并留痕**（`prewire_ids_detail` 的
+# `notes`），绝不静默丢弃——本项目反复吃过「静默丢弃」的亏。
+PREWIRE_ID_LIMIT = 100
+# 单个区间的物化上限：`id 1–99999999` 这类笔误若照直展开会把进程拖死。跨度
+# 超限的区间不展开、只保留两端并留痕（语料实测最大跨度 72，离这条线很远）。
+MAX_RANGE_SPAN = 10000
 
 PROMISE_SYS = """你在审计一份翻译项目的译者手记。你的任务**只有一个**：从提案正文里
 找出**已经作出的硬承诺**，不要找建议。
@@ -42,22 +58,62 @@ PROMISE_SYS = """你在审计一份翻译项目的译者手记。你的任务**�
 若该承诺不针对具体消息 id（如通则声明），"ids" 请显式给 []，不要省略该字段。"""
 
 
-def prewire_ids(proposal):
-    """从提案正文里抽出显式写明的 id（提案格式如 `- id 7327、7329、7332`）。
+def prewire_ids_detail(proposal, *, limit=PREWIRE_ID_LIMIT):
+    """从提案正文里抽出显式写明的 id，**区间写法照实展开**。
+
+    提案格式实况有两类：逐个罗列（`- id 7327、7329、7332`）与区间
+    （`- id 17050–17121 等`）。过去 `ID_RE` 的字符类不含破折号，区间只截到
+    首个 id——于是「19 个标签整族统一落笔」这种承诺，核对时材料里只有 1 行，
+    模型只能判「无法判断」。**那是工具制造的假「无法判断」，不是语料证据
+    不足**，会直接毒化报告顶部的可信度指标。
 
     只在单行内抽取（`ID_RE` 不含换行符），并把全角数字归一化为半角后再解析，
     避免把下一行缩进延续行的数字吞进来、或把 `７３２９` 这类全角写法静默丢弃。
+
+    返回 `{"ids", "notes", "truncated", "dropped"}`：
+    - `ids`: 去重后按正文出现顺序排列，长度 ≤ `limit`。
+    - `notes`: 留痕字符串列表（超上限截断、区间起止倒置、跨度过大拒绝展开）。
+      **凡是有 id 没被纳入 `ids`，这里必有一条对应的记录**——不允许静默丢弃。
+    - `truncated` / `dropped`: 是否触发上限、被挡在外面的 id 个数。
     """
-    ids = []
+    seen, out, notes = set(), [], []
+    dropped = 0
     for m in ID_RE.finditer(proposal.get("body", "")):
         normalized = m.group(1).translate(_Z2H_DIGITS)
-        ids += [int(x) for x in NUM_RE.findall(normalized)]
-    seen, out = set(), []
-    for i in ids:
-        if i not in seen:
-            seen.add(i)
-            out.append(i)
-    return out
+        for t in _TOKEN_RE.finditer(normalized):
+            a = int(t.group(1))
+            if t.group(2) is None:
+                candidates = (a,)
+            else:
+                b = int(t.group(2))
+                if b < a:
+                    # 起止倒置多半是笔误；照 range(a, b+1) 展开会得到空集，
+                    # 等于把两个写明的 id 一起吞掉——保留两端并留痕。
+                    notes.append(f"区间 {a}{RANGE_DASHES[0]}{b} 起止倒置，未展开，只保留两端")
+                    candidates = (a, b)
+                elif b - a + 1 > MAX_RANGE_SPAN:
+                    notes.append(f"区间 {a}{RANGE_DASHES[0]}{b} 跨度 {b - a + 1} 超过 "
+                                 f"{MAX_RANGE_SPAN}，拒绝展开，只保留两端")
+                    candidates = (a, b)
+                else:
+                    candidates = range(a, b + 1)
+            for v in candidates:
+                if v in seen:
+                    continue
+                if len(out) >= limit:
+                    dropped += 1
+                    continue
+                seen.add(v)
+                out.append(v)
+    if dropped:
+        notes.append(f"正文 id 展开后超过上限 {limit}，已截断：保留前 {len(out)} 个，"
+                     f"另有 {dropped} 个未纳入（不是没抽到，是被上限挡下）")
+    return {"ids": out, "notes": notes, "truncated": bool(dropped), "dropped": dropped}
+
+
+def prewire_ids(proposal, *, limit=PREWIRE_ID_LIMIT):
+    """`prewire_ids_detail` 的便捷形式，只取 `ids`（留痕见 detail 版）。"""
+    return prewire_ids_detail(proposal, limit=limit)["ids"]
 
 
 def _ask_json(runner, messages, **kw):
@@ -131,6 +187,8 @@ def extract_promises(proposal, *, runner=None):
         这里不做不可逆的合并）。
       - `ids_invalid`: 模型 `ids` 字段里被丢弃的非法项（留痕，非空即说明模型
         输出有杂质）。
+      - `prewire_note`: `prewire_ids_detail` 的留痕（区间截断/倒置等），空串
+        表示无异常；`render_report` 会把非空值印进报告。
       - `quote` / `quote_verified`：见 `_quote_found`。
     - `parse_ok`: 模型输出是否被成功解析为 JSON object（见 `_ask_json`）。
     - `stopped_reason`: 透传自 `run_with_tools`，`"finished"|"max_rounds"|"incomplete"`。
@@ -139,8 +197,12 @@ def extract_promises(proposal, *, runner=None):
       False` 时（解析失败，或轮次/输出被截断）无论 `promises` 是什么都应计入
       「无法判断」，不得当成 clean 计数。
     """
+    detail = prewire_ids_detail(proposal)
+    pre = detail["ids"]
+    prewire_note = "；".join(detail["notes"])
     body = (f"【提案标题】{proposal['title']}\n【提案正文】\n{proposal['body']}\n"
-            f"【正文里显式写明的 id】{prewire_ids(proposal)}")
+            f"【正文里显式写明的 id】{pre}"
+            + (f"\n【id 抽取留痕】{prewire_note}" if prewire_note else ""))
     data, res, parse_ok = _ask_json(
         runner, [{"role": "system", "content": PROMISE_SYS},
                  {"role": "user", "content": body}],
@@ -157,13 +219,13 @@ def extract_promises(proposal, *, runner=None):
         else:
             model_ids, invalid = None, []
             ids_source = "prewire"
-        pre = prewire_ids(proposal)
         out.append({
             "kind": p.get("kind", ""),
             "ids": model_ids if ids_source == "model" else pre,
             "ids_source": ids_source,
             "prewire_ids": pre,
             "ids_invalid": invalid,
+            "prewire_note": prewire_note,
             "quote": p.get("quote", ""),
             "quote_verified": _quote_found(p.get("quote", ""), proposal.get("body", "")),
         })
@@ -178,7 +240,10 @@ def extract_promises(proposal, *, runner=None):
 
 VERIFY_SYS = """你在核对一条**已经作出的翻译承诺**是否真的被执行。
 
-给你的材料是：承诺原话、以及相关行的日文原文与现行中文译文。
+给你的材料是：承诺原话、**该承诺所在提案的完整正文**、以及相关行的日文原文与
+现行中文译文。承诺的具体内容常常不在那句原话里，而在正文后面的表格/清单/逐条
+对照表里——判定前务必读完正文。若正文标注了「已截断」，说明你看到的不是全文，
+这种情况下若截断部分正是判据所在，请判「无法判断」并说明。
 
 判定只能是三者之一：
 - **已履行**：译文确实按承诺处理了
@@ -196,6 +261,25 @@ VERIFY_SYS = """你在核对一条**已经作出的翻译承诺**是否真的被
 TOOL_NAMES = ["get_lines", "search_lines", "get_anchor"]
 VALID_VERDICTS = {"已履行", "未履行", "无法判断"}
 
+# 拼进核对提示的提案正文长度上限（字符）。语料实测提案正文中位数约 400 字符、
+# 最长约 4k，故这条线在正常情形下不开火；它挡的是异常长的提案把单次请求撑爆。
+PROPOSAL_BODY_LIMIT = 6000
+
+
+def _clip_body(body, limit=PROPOSAL_BODY_LIMIT):
+    """按字符数截断提案正文，**超限时显式标注**而不是无声截掉。
+
+    静默截断在这里格外阴险：模型会拿着半截表格照常给出「已履行」，而报告里
+    没有任何痕迹说明它其实没看到后半段。标注之后，`VERIFY_SYS` 明确要求模型
+    在判据落在截断段时改判「无法判断」，人也能在 sidecar 里查到这一条。
+    """
+    body = body or ""
+    if len(body) <= limit:
+        return body, False
+    return (body[:limit] +
+            f"\n\n［⚠ 提案正文过长已截断：原 {len(body)} 字符，此处仅含前 {limit} 字符］",
+            True)
+
 
 def _forced_cannot_tell(promise, reason):
     """构造一条被机械闸强制降级的「无法判断」结果（T5 brief §1/§2）。
@@ -208,9 +292,11 @@ def _forced_cannot_tell(promise, reason):
     return {
         "verdict": "无法判断",
         "evidence_ids": [],
+        "evidence_ids_invalid": [],
         "reason": reason,
         "used_tools": False,
         "reasoning_text": "",
+        "body_truncated": False,
         "quote_verified": promise.get("quote_verified"),
         "ids_invalid": promise.get("ids_invalid") or [],
     }
@@ -273,9 +359,16 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
     else:
         ctx = "（提案未写明 id，请用工具自行查找相关行）"
         kw = {"tool_names": TOOL_NAMES, "lane_dir": lane_dir}
+    # 缺陷 2：提案正文过去根本不传，于是「承诺内容住在正文里」（表格、清单、
+    # 逐条对照表）的一律核不了——模型看得见 quote 那句「本批落笔如下」，却看
+    # 不见后面那张 19 行的译法表，判「无法判断」既正确又诚实，但那份不确定
+    # 完全是我们自己造成的。
+    body_text, body_truncated = _clip_body(proposal.get("body", ""))
     user = (f"【承诺】{promise.get('kind')}：{promise.get('quote')}\n"
             f"【出处】{proposal['chapter']} b{proposal['batch']} #{proposal['num']}"
-            f" —— {proposal['title']}\n【相关行】\n{ctx}")
+            f" —— {proposal['title']}\n"
+            f"【提案正文】\n{body_text}\n"
+            f"【相关行】\n{ctx}")
     data, res, parse_ok = _ask_json(
         runner, [{"role": "system", "content": VERIFY_SYS},
                  {"role": "user", "content": user}],
@@ -304,12 +397,24 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
         verdict = "无法判断"
         reason = gate
 
+    # 缺陷 3：过去这里用 `isinstance(i, int)` 过滤，会**静默丢弃**字符串型 id
+    # （模型给 `"7327"` 很常见），而抽取阶段的 `_clean_model_ids` 明明接受纯
+    # 数字字符串——同一个模块对同一种数据两套口径，结果是报告印出「依据行：
+    # （无）」而模型的 reason 里明明点了行号。这里复用同一个清洗函数统一口径，
+    # 非法项照样留痕（`evidence_ids_invalid`）而不是无声消失。
+    raw_ev = data.get("evidence_ids") or []
+    if not isinstance(raw_ev, list):
+        raw_ev = [raw_ev]
+    evidence_ids, evidence_invalid = _clean_model_ids(raw_ev)
+
     return {
         "verdict": verdict,
-        "evidence_ids": [i for i in (data.get("evidence_ids") or []) if isinstance(i, int)],
+        "evidence_ids": evidence_ids,
+        "evidence_ids_invalid": evidence_invalid,
         "reason": reason,
         "used_tools": tool_fallback_path or bool(tool_calls),
         "reasoning_text": res.get("reasoning_text", ""),
+        "body_truncated": body_truncated,
         # 决策（brief §4）：quote_verified/ids_invalid 不用于改变 verdict——
         # 它们是提案抽取阶段的留痕信号，不代表履行核对本身出了问题；这里
         # 原样透传，交给 render_report 在报告里作为「留痕不改判」的提示项，
@@ -371,6 +476,13 @@ def render_report(results, extraction_failures=None):
                   f"- 用了工具：{'是' if r['used_tools'] else '否'}"]
         if pr.get("ids_invalid"):
             lines.append(f"- ⚠ 模型给出的 id 含非法项已丢弃：{pr['ids_invalid']}")
+        if r.get("evidence_ids_invalid"):
+            lines.append(f"- ⚠ 模型给出的依据行含非法项已丢弃：{r['evidence_ids_invalid']}")
+        if pr.get("prewire_note"):
+            lines.append(f"- ⚠ id 抽取留痕：{pr['prewire_note']}")
+        if r.get("body_truncated"):
+            lines.append("- ⚠ 提案正文过长，送模型时已截断（判据若落在截断段，"
+                         "该条判定不可尽信）")
         lines.append("")
     return "\n".join(lines)
 

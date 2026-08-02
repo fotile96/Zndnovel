@@ -5,7 +5,8 @@
 """
 import json
 
-from tools.audit_notes_promises import extract_promises, prewire_ids, render_report
+from tools.audit_notes_promises import (extract_promises, prewire_ids,
+                                        prewire_ids_detail, render_report)
 
 HARD = {"chapter": "s1s", "batch": 4, "num": 1,
         "title": "寝癖 → 睡翘的头发",
@@ -168,6 +169,93 @@ def test_prewire_ids_does_not_cross_newline():
 def test_prewire_ids_normalizes_fullwidth_digits():
     proposal = {"body": "- id 7327、７３２９\n"}
     assert prewire_ids(proposal) == [7327, 7329]
+
+
+# --- 缺陷 1：区间写法（`id 17050–17121`）必须展开 -------------------------
+
+
+def test_prewire_ids_expands_ranges_with_each_dash_variant():
+    """语料实测只有 `-` 与 en dash `–`，但手记是人手写的：全角减号/波浪号
+    随时可能冒出，漏一种就等于把整族承诺静默截成首个 id。逐种钉死。
+    """
+    for dash in "-–—―‐‑‒−~〜～ー－ｰ":
+        proposal = {"body": f"- id 100{dash}104（本批 5 处）\n"}
+        assert prewire_ids(proposal) == [100, 101, 102, 103, 104], f"分隔符 {dash!r} 未被识别"
+
+
+def test_prewire_ids_expands_range_from_real_corpus_line():
+    """crd b10 #2 的实况写法：区间后面还跟着中文与反引号。"""
+    proposal = {"body": "- id 17050–17121 等；这些【】不是角色，是教程小标题。\n"}
+    ids = prewire_ids(proposal)
+    assert len(ids) == 72
+    assert ids[0] == 17050 and ids[-1] == 17121
+    assert 17118 in ids and 17121 in ids
+
+
+def test_prewire_ids_mixes_ranges_and_enumerations_in_order():
+    proposal = {"body": "- id 17193、17195–17197\n"}
+    assert prewire_ids(proposal) == [17193, 17195, 17196, 17197]
+
+
+def test_prewire_ids_does_not_join_adjacent_numbers_into_a_range():
+    """顿号/全角逗号分隔的相邻数字是**枚举**，不是区间——误连会凭空造出
+    从未写明的 id，把核对材料掺进无关行。
+    """
+    assert prewire_ids({"body": "- id 100、105\n"}) == [100, 105]
+    assert prewire_ids({"body": "- id 100，105\n"}) == [100, 105]
+    assert prewire_ids({"body": "- id 100 105\n"}) == [100, 105]
+    # 跨行更不该连：延续行本来就不属于同一个 id 列表。
+    assert prewire_ids({"body": "- id 100\n  105\n"}) == [100]
+
+
+def test_prewire_ids_truncates_at_limit_with_visible_trace():
+    """防区间爆炸：超上限必须**显式截断并留痕**，绝不静默丢弃。"""
+    d = prewire_ids_detail({"body": "- id 1–500\n"}, limit=100)
+    assert len(d["ids"]) == 100
+    assert d["ids"][0] == 1 and d["ids"][-1] == 100
+    assert d["truncated"] is True
+    assert d["dropped"] == 400
+    assert d["notes"] and "上限" in d["notes"][0] and "400" in d["notes"][0]
+
+
+def test_prewire_ids_no_trace_when_within_limit():
+    d = prewire_ids_detail({"body": "- id 7327、7329\n"})
+    assert d["ids"] == [7327, 7329]
+    assert d["notes"] == [] and d["truncated"] is False and d["dropped"] == 0
+
+
+def test_prewire_ids_reversed_range_keeps_both_ends_with_trace():
+    """起止倒置（笔误）照 `range(a, b+1)` 展开会得到空集，等于把两个写明的
+    id 一起吞掉。保留两端并留痕。"""
+    d = prewire_ids_detail({"body": "- id 200–100\n"})
+    assert d["ids"] == [200, 100]
+    assert any("倒置" in n for n in d["notes"])
+
+
+def test_prewire_ids_absurd_span_is_refused_not_materialized():
+    """`id 1–99999999` 这类笔误若照直展开会把进程拖死；拒绝展开并留痕。"""
+    d = prewire_ids_detail({"body": "- id 1–99999999\n"})
+    assert d["ids"] == [1, 99999999]
+    assert any("跨度" in n for n in d["notes"])
+
+
+def test_extract_promises_carries_prewire_note(monkeypatch):
+    """留痕要一路传到 promise 上，`render_report` 才印得出来。"""
+    prop = dict(HARD, body="- id 1–500\n- 本批已按上述译法统一。\n")
+    out = extract_promises(prop, runner=_runner(
+        {"promises": [{"kind": "已统一", "quote": "本批已按上述译法统一"}]}))
+    p = out["promises"][0]
+    assert p["ids_source"] == "prewire"
+    assert len(p["ids"]) == 100
+    assert "上限" in p["prewire_note"]
+
+
+def test_report_shows_prewire_note():
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1",
+                                       "prewire_note": "正文 id 展开后超过上限 100"},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}])
+    assert "id 抽取留痕" in md and "超过上限" in md
 
 
 # ---------------------------------------------------------------------------
@@ -401,9 +489,19 @@ def test_verify_does_not_fall_back_to_prewire_ids_when_model_says_none(monkeypat
     `prewire_ids`——尊重模型「本承诺不针对具体行」的判断，走工具兜底而不是
     静默接回同一提案里其他子句的 id（T4 已刻意避免的跨子句污染，T5 不得在
     这里重新引入，见 `test_explicit_empty_model_ids_is_not_overridden_by_prewire`）。
+
+    **断言口径随缺陷 2 的修复调整过**：原先断言的是「`"5001"` 这个字符串不出现
+    在整条 user 消息里」。加入提案正文后该字面必然出现——正文里就写着
+    `- id 5001、5002`，而让模型读到正文正是缺陷 2 要修的东西。真正要守住的
+    invariant 不是「字面不出现」，而是**工具没被绕过**：不得拿 `prewire_ids`
+    去 `call_tool` 预取行、把结果当成既定依据塞进【相关行】。下面按这个口径
+    断言（`call_tool` 零调用 + 【相关行】仍是兜底占位符），比原来更贴题。
     """
     from tools import audit_notes_promises as A
     seen = {}
+    fetched = {"n": 0}
+    monkeypatch.setattr(A, "call_tool",
+                        lambda *a, **k: fetched.__setitem__("n", fetched["n"] + 1))
 
     def fake_runner(messages, **kw):
         seen["tool_names"] = kw.get("tool_names")
@@ -416,7 +514,135 @@ def test_verify_does_not_fall_back_to_prewire_ids_when_model_says_none(monkeypat
                "prewire_ids": [5001, 5002], "quote": "全篇不消歧"}
     A.verify_promise(promise, MIXED, runner=fake_runner)
     assert seen["tool_names"]          # 走了工具兜底，不是预拼
-    assert "5001" not in seen["user"]  # 没有偷偷把 prewire_ids 接进上下文
+    assert fetched["n"] == 0           # 没有偷偷拿 prewire_ids 去预取行
+    ctx = seen["user"].split("【相关行】", 1)[1]
+    assert "请用工具自行查找相关行" in ctx
+    assert "5001" not in ctx           # 依据行区里没有被接回来的 prewire id
+
+
+# --- 缺陷 2：提案正文必须拼进核对提示 --------------------------------------
+
+
+def test_verify_passes_proposal_body_to_model(monkeypatch):
+    """承诺内容常常不在 quote 那句里，而在正文后面的表格/清单里。正文不传
+    等于让模型闭着眼判——它判「无法判断」是诚实的，但那份不确定是工具造的。
+    """
+    from tools import audit_notes_promises as A
+    seen = {}
+    prop = dict(HARD, body="- id 7327\n- 本批落笔如下：\n"
+                           "  | 原文 | 译法 |\n  | 寝癖 | 睡翘的头发 |\n")
+
+    def fake_runner(messages, **kw):
+        seen["user"] = messages[-1]["content"]
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "对得上表格"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "本批落笔如下"},
+                           prop, runner=fake_runner)
+    assert out["verdict"] == "已履行"
+    assert "【提案正文】" in seen["user"]
+    assert "| 寝癖 | 睡翘的头发 |" in seen["user"]
+    assert out["body_truncated"] is False
+
+
+def test_verify_passes_proposal_body_on_tool_fallback_path(monkeypatch):
+    """工具兜底路径（ids 为空）同样要给正文——那条路径的材料本来就更少。"""
+    from tools import audit_notes_promises as A
+    seen = {}
+
+    def fake_runner(messages, **kw):
+        seen["user"] = messages[-1]["content"]
+        return {"content": json.dumps({"verdict": "无法判断", "evidence_ids": [],
+                                       "reason": "x"}, ensure_ascii=False),
+                "rounds": 2, "tool_calls": [{"name": "search_lines"}],
+                "stopped_reason": "finished", "reasoning_text": "",
+                "prompt_tokens": 1, "completion_tokens": 1}
+    A.verify_promise({"kind": "通则", "ids": [], "quote": "全篇不消歧"},
+                     MIXED, runner=fake_runner)
+    assert "全篇「先生」一律不消歧" in seen["user"]
+
+
+def test_verify_truncates_overlong_body_with_explicit_marker(monkeypatch):
+    """超长正文要截断，但**必须带截断标记**——静默截断会让模型拿着半截表格
+    照常给出「已履行」，而报告里没有任何痕迹。"""
+    from tools import audit_notes_promises as A
+    seen = {}
+    long_body = "- id 7327\n" + ("正文很长" * 5000)
+    prop = dict(HARD, body=long_body)
+
+    def fake_runner(messages, **kw):
+        seen["user"] = messages[-1]["content"]
+        return {"content": json.dumps({"verdict": "无法判断", "evidence_ids": [],
+                                       "reason": "判据在截断段"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "q"},
+                           prop, runner=fake_runner)
+    assert out["body_truncated"] is True
+    assert "已截断" in seen["user"]
+    assert len(seen["user"]) < len(long_body)
+
+
+def test_report_flags_truncated_body():
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1",
+         "used_tools": False, "body_truncated": True}])
+    assert "提案正文过长" in md and "已截断" in md
+
+
+# --- 缺陷 3：evidence_ids 与抽取阶段口径一致 -------------------------------
+
+
+def test_verify_accepts_string_evidence_ids(monkeypatch):
+    """过去用 `isinstance(i, int)` 过滤，模型给 `"7327"` 会被**静默丢弃**，
+    报告印出「依据行：（无）」而 reason 里明明点了行号。复用
+    `_clean_model_ids`，与抽取阶段同一口径。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行",
+                                       "evidence_ids": ["7327", 7329, "007"],
+                                       "reason": "id 7327 译文含睡翘"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "q"},
+                           HARD, runner=fake_runner)
+    assert out["evidence_ids"] == [7327, 7329, 7]
+    assert out["evidence_ids_invalid"] == []
+
+
+def test_verify_traces_invalid_evidence_ids_instead_of_dropping_silently(monkeypatch):
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行",
+                                       "evidence_ids": [7327, "abc", True, 1.5],
+                                       "reason": "r"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "q"},
+                           HARD, runner=fake_runner)
+    assert out["evidence_ids"] == [7327]          # True 不得变成虚构的 id 1
+    assert "abc" in out["evidence_ids_invalid"]
+    assert True in out["evidence_ids_invalid"] and 1.5 in out["evidence_ids_invalid"]
+
+
+def test_report_flags_invalid_evidence_ids():
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+         "verdict": "已履行", "evidence_ids": [1], "evidence_ids_invalid": ["abc"],
+         "reason": "r1", "used_tools": False}])
+    assert "依据行含非法项" in md
 
 
 # --- 报告分母问题（brief §3，阻断级） -------------------------------------

@@ -41,3 +41,8 @@
 {"ts": "2026-08-02T16:00:30+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q14", "prompt_tokens": 462, "completion_tokens": 91, "cached_tokens": 0, "reasoning_tokens": 62}
 {"ts": "2026-08-02T16:00:34+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q15", "prompt_tokens": 32010, "completion_tokens": 284, "cached_tokens": 31872, "reasoning_tokens": 230}
 {"ts": "2026-08-02T16:00:36+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q15", "prompt_tokens": 376, "completion_tokens": 62, "cached_tokens": 0, "reasoning_tokens": 36}
+{"ts": "2026-08-02T16:06:17+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-65536", "prompt_tokens": 8, "completion_tokens": 86, "cached_tokens": 0, "reasoning_tokens": 84}
+{"ts": "2026-08-02T16:06:19+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-131072", "prompt_tokens": 8, "completion_tokens": 77, "cached_tokens": 0, "reasoning_tokens": 75}
+{"ts": "2026-08-02T16:06:21+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-262144", "prompt_tokens": 8, "completion_tokens": 58, "cached_tokens": 0, "reasoning_tokens": 56}
+{"ts": "2026-08-02T16:06:36+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-393216", "prompt_tokens": 8, "completion_tokens": 68, "cached_tokens": 0, "reasoning_tokens": 66}
+{"ts": "2026-08-02T16:07:32+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-max-393216", "prompt_tokens": 32035, "completion_tokens": 2854, "cached_tokens": 0, "reasoning_tokens": 2655}

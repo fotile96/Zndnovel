@@ -8282,3 +8282,4 @@
 {"id":17146,"zh":"然后――","batch":89,"backend":"cc","model":"claude-opus-5","ctx":"8aeb8fa9e17437e7232b28a3e7990f751d9d4a48494891440fd3f8ff46f22434","glossary_v":8,"ts":"2026-08-02T15:35:54+00:00"}
 {"id":17147,"zh":"……","batch":89,"backend":"cc","model":"claude-opus-5","ctx":"8aeb8fa9e17437e7232b28a3e7990f751d9d4a48494891440fd3f8ff46f22434","glossary_v":8,"ts":"2026-08-02T15:35:54+00:00"}
 {"id":17187,"zh":"部件。","batch":89,"backend":"cc","model":"claude-opus-5","ctx":"8aeb8fa9e17437e7232b28a3e7990f751d9d4a48494891440fd3f8ff46f22434","glossary_v":8,"ts":"2026-08-02T15:35:54+00:00"}
+{"id":514,"zh":"≪关键词卡片≫","batch":90,"backend":"cc","model":"claude-opus-5","ctx":"db0cbfec18be156eacbfc84004abd94dacd3fcea1c708cf5642209ae116fea2d","glossary_v":8,"ts":"2026-08-02T15:39:01+00:00"}

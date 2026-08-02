@@ -15,8 +15,12 @@ from tools.api_client import chat
 
 READER_SYS = ("你在听人讲一个故事。你只知道两部分信息：①此前剧情的卡片梗概；"
               "②最新一段正文。只根据给定文本回答问题，文本里没有的就答「不知道」，"
-              "不要编造，不要使用任何文本之外的知识。用中文简答，两三句以内。")
+              "不要编造，不要使用任何文本之外的知识。用中文作答：把问题涉及的每个点"
+              "都完整答到，但只写要点本身，不要逐句复述或大段抄录原文。")
 JUDGE_SYS = ("你是判分员。根据【问题】【标准答案】【受试回答】判定：对／部分对／错。"
+             "判定标准：受试回答答出了标准答案里的主要事实点，即使措辞不同也判「对」；"
+             "只答出部分主要事实点、或遗漏了次要细节，判「部分对」；关键事实错误、"
+             "答非所问、或答「不知道」而标准答案本可从文本推出，判「错」。"
              "只输出一行，格式：判定|一句话依据。")
 
 # P3（b36–339）开工前就已译完的章节白名单——这是唯一允许"确知早于全部段"的例外，
@@ -103,6 +107,9 @@ def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
     ap.add_argument("--repo", default=None, help="仅测试用：覆盖仓库根")
     ap.add_argument("--out", default=None)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--model", default=None, help="覆盖默认 provider 模型，如 deepseek-v4-flash")
+    ap.add_argument("--timeout", type=int, default=None, help="秒，透传给 api_client")
+    ap.add_argument("--max-tokens", type=int, default=None)
     a = ap.parse_args(argv)
     repo = Path(a.repo) if a.repo else REPO
     ctx, missing = assemble_context(a.segment, Path(a.lane_dir), repo=repo)
@@ -110,7 +117,10 @@ def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
     if a.dry_run:
         print(f"segment={a.segment} 上下文 {len(ctx)} 字符 缺译 {missing} 行 题数 {len(qa)}")
         return 0
-    kw = dict(transport=transport, api_key=api_key, ledger_path=ledger_path)
+    kw = dict(transport=transport, api_key=api_key, ledger_path=ledger_path,
+              model=a.model, timeout=a.timeout)
+    if a.max_tokens is not None:
+        kw["max_tokens"] = a.max_tokens
     rows = []
     for q in qa:
         ans = chat([{"role": "system", "content": READER_SYS},

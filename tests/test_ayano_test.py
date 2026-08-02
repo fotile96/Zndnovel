@@ -62,6 +62,28 @@ def test_main_writes_report_with_verdicts(tmp_path):
     assert len(calls) == 2                    # 一次作答 + 一次判分
 
 
+def test_model_and_timeout_passthrough(tmp_path, monkeypatch):
+    """P3 devwave1 task-9：main() 必须把 --model/--timeout 透传给两次 chat() 调用
+    （reader 与 judge），否则用户指定的 deepseek-v4-flash 进不去。"""
+    lane, repo = _mk_fixture(tmp_path)
+    captured = []
+
+    def fake_chat(messages, *, purpose="", **kw):
+        captured.append(kw)
+        return {"content": "游泳池的约定" if len(captured) == 1 else "对|一致"}
+
+    monkeypatch.setattr("tools.ayano_test.chat", fake_chat)
+    out = tmp_path / "report.md"
+    rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+               "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo),
+               "--model", "deepseek-v4-flash", "--timeout", "900"],
+              api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    assert rc == 0
+    assert len(captured) == 2
+    assert captured[0]["model"] == "deepseek-v4-flash" and captured[0]["timeout"] == 900
+    assert captured[1]["model"] == "deepseek-v4-flash" and captured[1]["timeout"] == 900
+
+
 def test_dry_run_zero_api_calls(tmp_path, capsys):
     lane, repo = _mk_fixture(tmp_path)
     rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),

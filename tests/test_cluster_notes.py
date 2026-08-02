@@ -1,5 +1,6 @@
 """提案预聚类：notes/*.md 散提案 → 按词族聚合的裁决卷宗（P3 spec §4 新工具）。"""
-from tools.cluster_notes import parse_notes, cluster, extract_terms, is_clean_key
+from tools.cluster_notes import parse_notes, cluster, extract_terms
+from tools.saturation import is_clean_key
 
 NOTES = """# 术语提案 · s1s（opus 车道）
 

@@ -8,7 +8,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import read_jsonl
 from tools.resolve import resolve_map
-from tools.saturation import saturation
+# is_clean_key（连同 ASCII_RE/WORDCHAR_RE/corpus_chars_from_ledger/脏键措辞）已
+# 搬去 tools/saturation.py（P3 devwave1）：判据本身回答的是「这个词键值不值得
+# 拿去 count」，语义上属于饱和度这一层，不是卷宗渲染层的事；saturation.py 的
+# main() 现在也用同一份判据挡同一个误读，两个消费方共用一份才不会再分家。
+from tools.saturation import (saturation, is_clean_key,
+                               corpus_chars_from_ledger, DIRTY_KEY_VERDICT)
 
 # 批次标题实况是 `## batch 33（scene_s2s_40「また、いつもの生活」＋ …）`——原先
 # 的 `\s*$` 锚死行尾，opus 车道 16 个带括注的标题全部失配，其后的提案要么丢批号
@@ -69,64 +74,6 @@ def cluster(proposals: list) -> dict:
     return c
 
 
-ASCII_RE = re.compile(r"[0-9A-Za-z]")
-# 假名或汉字——词键至少得有一个「字」。`★【（ヒント）】→【（提示）】` 被括号注
-# 规则吃掉内容后只剩 `【】`，那是标点不是词。
-WORDCHAR_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ々一-鿿]")
-
-
-def is_clean_key(key: str, corpus_chars: set, total: int) -> bool:
-    """这个词键看起来像「本作里真实存在的日文词」吗？
-
-    存在的意义：饱和度 0/0 有两种完全相反的含义——①这个词在全书原文里确实一次
-    也没出现（证据为零，可放心另定）②**词键根本没提干净**，拿一串残渣去 count
-    当然是 0。二者外观相同，而卷宗此前把两者一律写成「无出现」，于是「はい／
-    いいえ」「首译定名：意識」这类脏键被读成「原文没这词」，真词 はい 396 次、
-    意識 55 次（其中 10 个脏键的真词 ratio 甚至是 1.000、闸门本该当场放行）。
-
-    判据用的是**语料本身**而不是拍脑袋的字符表：ledger 的 jp 字段就是全书日文
-    原文，凡是键里出现语料中根本不存在的字符（简体中文字、空白、裸 ASCII id
-    数字），这个键就不可能是本作的日文词。不干净的键一律降级进「（未归词）」——
-    宁可明确待人工过目，也不要伪装成正常词族输出一个 0/0（task-1 修复确立的
-    原则，此处一致适用）。
-
-    `total > 0` 短路（P3 devwave1 复评 Important 2 收窄版——只对**部分**判据成立，
-    不能整体跳过）：`total > 0` 意味着这个键逐字命中了 ledger 里的原文，对
-    whitespace／WORDCHAR（至少一个假名或汉字）／语料外字符／长键零出现这四条
-    判据而言，歧义确实不存在了——它们要分辨的正是「0/0 是无出现还是没提干净」，
-    键既然有大于 0 的命中，这个问题已经有答案，不该再被外观判据错杀
-    （`いつか きみが みる お話。` 带空格是绘本标题原文如此；`ＴｒｕｅＣｏｌｕｒ`
-    全角拉丁也是原文书写形态，两者 total>0）。
-
-    但 **ASCII_RE 这一条不在短路范围内，是硬门，`total` 多大都不豁免**：它防的
-    是另一类脏键——纯 ASCII/数字/半角标点的提取残渣（裸 id 号、误吞的英文菜单
-    残片）。这类键完全可能 `total > 0` 而依然不是词：ledger 里混有半角数字组成
-    的时间/年龄表达（`17歳`「12時」「14分15秒」）甚至个别源码泄漏行，子串
-    `"12"` 在 ledger 里就能测出 `total=1`（命中「12時」）——若也豁免它，`12` 这种
-    一个字都不是词的裸 id 键会被判 clean、当成正常词族渲染进卷宗。「逐字命中
-    语料 ⇒ 歧义不存在」这条论证只对「含语料外字符」那一条成立（因为该判据本身
-    就是用「有没有出现在语料」来判定，与 total 的定义同源）；ASCII 门判的是
-    「这个键像不像日文词」，与它是否出现在语料里是两件事，因此不能用同一个
-    `total > 0` 去豁免。"""
-    if not key:
-        return False
-    if ASCII_RE.search(key):
-        return False
-    if total > 0:
-        return True
-    if any(ch.isspace() for ch in key):
-        return False
-    if not WORDCHAR_RE.search(key):
-        return False
-    if any(ch not in corpus_chars for ch in key):
-        return False
-    if len(key) > 8:
-        # 长键 + 零出现：即便逐字都是语料里的字，也更可能是被当成词键的整句
-        # 描述（如「千秋口中的彩野さん」），交人工。
-        return False
-    return True
-
-
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser()
@@ -152,9 +99,7 @@ def main(argv=None):
     c = cluster(props)
 
     # 脏键降级（见 is_clean_key）：先算饱和度，再判键干净与否，脏键整簇并进未归词。
-    corpus_chars = set()
-    for r in ledger:
-        corpus_chars.update(r.get("jp", ""))
+    corpus_chars = corpus_chars_from_ledger(ledger)
     sats, demoted = {}, []
     for key in [k for k in c if k != UNKEYED]:
         s = saturation(key, ledger, done)
@@ -183,7 +128,7 @@ def main(argv=None):
             # 「无出现」曾被读成「原文里没这词、可以随便定」——但 0/0 也可能是
             # 词键没提干净。脏键已在上面降级，能走到这里的键逐字都在语料字符集
             # 内，仍算不出出现次数的多是词形（活用形、复合短语）问题，措辞照实说。
-            verdict = ("未匹配到该词键（可能提取不干净，请人工核对）"
+            verdict = (DIRTY_KEY_VERDICT
                        if s["ratio"] is None
                        else "可裁决" if s["ratio"] >= a.gate else "滚存")
             ratio = "-" if s["ratio"] is None else f"{s['ratio']:.3f}"

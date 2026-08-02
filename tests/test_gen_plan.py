@@ -675,7 +675,13 @@ def test_main_segment_full_range_batches_not_annotated(tmp_path, monkeypatch):
 
 def test_segment_tail_lists_ayano_test_as_step_3(tmp_path, monkeypatch):
     """终审 I3：彩野测试此前只在 runbook 里，生产会话照做的却是这份渲染清单。
-    两份清单同为 1–5 编号，第 3 项必须是同一件事（彩野测试），第 4 项是打 tag。"""
+    两份清单同为 1–5 编号，第 3 项必须是同一件事（彩野测试），第 4 项是打 tag。
+
+    P3 devwave1 复评 Important 1：ayano_test 对缺题库的行为改成了「工具自身
+    打印跳过提示、rc=2 退出、不抛异常」（此前是裸 FileNotFoundError），runbook
+    §5 第 3 项已同步措辞——`_segment_tail` 渲染进*未来每一段新计划*的这份清单
+    必须跟着改，否则同一类「规则写在注释里、仍然漏改一边」的静默漂移原样复发。
+    这里钉住 rc=2 语义与「工具自身处理、不抛异常」两个关键词，防止再次漂移。"""
     _repo_fixture(tmp_path, monkeypatch)
     assert main(["--lane", "main", "--segment", "seg1-s2",
                  "--tools-root", "/tmp/prod"]) == 0
@@ -684,6 +690,9 @@ def test_segment_tail_lists_ayano_test_as_step_3(tmp_path, monkeypatch):
     assert "config/ayano_qa/seg1-s2.yaml" in tail
     assert tail.index("3. （tag 前") < tail.index("4. 打段完成 tag")
     assert "不得拿别段的题库顶替" in tail
+    assert "rc=2" in tail
+    assert "工具自身" in tail
+    assert "不抛异常" in tail
 
 
 def test_main_segment_forwards_tools_root(tmp_path, monkeypatch):

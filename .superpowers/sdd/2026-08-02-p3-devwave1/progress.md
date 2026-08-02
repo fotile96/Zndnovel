@@ -102,3 +102,9 @@ W1-FINAL: 明确未做（记账）：T7 L60 card_chapter.yaml 全量交叉校验
 - P3 `ayano_test --qa <不存在>` 抛 FileNotFoundError traceback，而新写进计划/runbook 的第 3 项明说「不存在就跳过并记台账」——文档与行为不符。裁定：修前即如此、非本波引入，但现在这条路径被文档指引了，宜补 try/except
 **parked（范围外，同类病可从另一扇门进来）**：`tools/saturation.py::main()` 仍把 ratio None 打成「无出现」且无脏键判据，而 runbook §5 裁决清单第 2 步正是让人手抄词表跑它。C1 的语义修复只落在 cluster_notes 一侧。裁定：风险已因卷宗词键变干净而大幅降低（手抄来源就是卷宗），但同一误读的入口仍在
 Final review: clean（1 Critical + 6 Important + 4 Minor 全 ADDRESSED，3+1 条 Minor 已 parked 并留裁定）
+
+## parked 三条清理（commit a6242b6）+ 复评
+P1 is_clean_key 加 `total>0` 短路、P2 ledger 空/缺失点名告警（含顺手修的未处理 FileNotFoundError）、P3 --qa 不存在改 rc=2（三态：0 通过 / 1 真配置错 / 2 跳过）；316 passed
+复评变异测试确认 P1 两条测试有真实拦截力（删短路→1 failed；写宽成 total>=0→3 failed，反向用例在防写宽）。**P1 在真实车道上是零覆盖空测试**——当前全车道没有任何键同时满足「pre-fix 判脏」且「total>0」，故 before/after diff 0 字节是必然结果而非验证通过；靠单测验证这两个具体例子，复评判定对该两例充分（单测用的 corpus/total 就是从真实 ledger 核实的值）
+复评 Important 1：`gen_plan._segment_tail` 文案未同步 runbook §5——而该函数正上方注释明写「必须逐项对齐（终审 I3），改一边就改另一边」。该文本会渲染进未来每一段新生成的生产计划，是同类静默漂移换身位重现，且**规则明写在代码里仍然漏了**
+复评 Important 2：P1 短路绕过了**全部**降级判据，但那些判据保护两类不同东西——「含语料外字符」被 total>0 绕过是严格正确的（有语料外字符则 count 必为 0），而 whitespace/WORDCHAR/**ASCII** 三条保护的是纯 ASCII/数字残渣，这类键**可以**有 total>0（实测子串 "12" 在 ledger total=1，命中 12時）。当前未触发只因现有三个无假名汉字键 882/2470/【】 的 total 恰为 0，是数据巧合非代码保证。裁定：短路收窄为只豁免 whitespace/WORDCHAR/语料外字符/长键四条，**ASCII 保持硬门**

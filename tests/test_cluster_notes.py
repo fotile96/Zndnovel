@@ -117,6 +117,32 @@ def test_is_clean_key_whitespace_key_zero_total_stays_dirty():
     assert is_clean_key("いつか きみが みる お話。", corpus, 0) is False
 
 
+def test_is_clean_key_ascii_gate_not_bypassed_by_total():
+    # P3 devwave1 复评 Important 2：total>0 短路不能整体跳过 is_clean_key 的
+    # 全部判据——ASCII_RE 保护的是「纯 ASCII/数字提取残渣」这另一类脏键，跟
+    # 「有没有出现在语料里」是两件事。评审实测：ledger 里混有半角数字表达
+    # （`12時`），子串 `"12"` 真能测出 total=1，若 ASCII 门也被豁免，`12` 这种
+    # 一个字都不是词的裸 id 键会被判 clean。这里不依赖真实车道数据，直接构造
+    # 「语料含半角数字、键是纯数字且 total>0」的最小复现。
+    corpus = set("12時ですね")  # 语料含半角数字（对应真实 ledger 的「12時」现象）
+    assert is_clean_key("12", corpus, 1) is False       # 命中「12時」的「12」，total>0 仍 dirty
+    assert is_clean_key("882", corpus, 0) is False
+    assert is_clean_key("2470", corpus, 0) is False
+
+
+def test_five_review_cases_shape_check():
+    # 复评点名的五个案例集中钉一遍，防止未来任何一次改动同时破坏其中几个。
+    corpus_a = set("いつかきみがみるお話。ＴｒｕｅＣｏｌｏｒ")
+    assert is_clean_key("いつか きみが みる お話。", corpus_a, 3) is True
+    assert is_clean_key("ＴｒｕｅＣｏｌｏｒ", corpus_a, 1) is True
+    corpus_b = set("12時ですね")
+    assert is_clean_key("12", corpus_b, 1) is False
+    assert is_clean_key("882", corpus_b, 0) is False
+    assert is_clean_key("2470", corpus_b, 0) is False
+    assert is_clean_key("【】", set("【】"), 0) is False
+    assert is_clean_key("いつか きみが みる お話。", corpus_a, 0) is False
+
+
 def test_batch_title_with_parenthetical_still_parsed():
     # 终审 I5：真实标题是 `## batch 33（scene_s2s_40「…」＋ …）`，锚死行尾会让
     # 提案丢批号，更坏的是**挂到上一个匹配上的批号**（外观正常但错）。

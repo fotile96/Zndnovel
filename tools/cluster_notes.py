@@ -90,24 +90,37 @@ def is_clean_key(key: str, corpus_chars: set, total: int) -> bool:
     宁可明确待人工过目，也不要伪装成正常词族输出一个 0/0（task-1 修复确立的
     原则，此处一致适用）。
 
-    最优先短路：`total > 0` 即判 clean，不再看后面任何形状判据。下面这些判据
-    要解决的全部是「饱和度 0/0 的两种相反含义」这一件事——键本身没有证据时，
-    才需要靠字符形状去猜它是真的「无出现」还是「没提干净」。而 total>0 意味着
-    这个键**逐字命中了 ledger 里的原文**，它就是本作里确实出现过的串，跟它像
-    不像"日文词"无关（`いつか きみが みる お話。` 带空格是绘本标题原文如此；
-    `ＴｒｕｅＣｏｌｕｒ` 全角拉丁也是原文书写形态）。既然逐字出现，歧义已经
-    不存在，没有降级的理由——降级反而会把有真实证据的合法键错杀。"""
-    if total > 0:
-        return True
-    if not key or any(ch.isspace() for ch in key):
-        return False
-    if not WORDCHAR_RE.search(key):
+    `total > 0` 短路（P3 devwave1 复评 Important 2 收窄版——只对**部分**判据成立，
+    不能整体跳过）：`total > 0` 意味着这个键逐字命中了 ledger 里的原文，对
+    whitespace／WORDCHAR（至少一个假名或汉字）／语料外字符／长键零出现这四条
+    判据而言，歧义确实不存在了——它们要分辨的正是「0/0 是无出现还是没提干净」，
+    键既然有大于 0 的命中，这个问题已经有答案，不该再被外观判据错杀
+    （`いつか きみが みる お話。` 带空格是绘本标题原文如此；`ＴｒｕｅＣｏｌｕｒ`
+    全角拉丁也是原文书写形态，两者 total>0）。
+
+    但 **ASCII_RE 这一条不在短路范围内，是硬门，`total` 多大都不豁免**：它防的
+    是另一类脏键——纯 ASCII/数字/半角标点的提取残渣（裸 id 号、误吞的英文菜单
+    残片）。这类键完全可能 `total > 0` 而依然不是词：ledger 里混有半角数字组成
+    的时间/年龄表达（`17歳`「12時」「14分15秒」）甚至个别源码泄漏行，子串
+    `"12"` 在 ledger 里就能测出 `total=1`（命中「12時」）——若也豁免它，`12` 这种
+    一个字都不是词的裸 id 键会被判 clean、当成正常词族渲染进卷宗。「逐字命中
+    语料 ⇒ 歧义不存在」这条论证只对「含语料外字符」那一条成立（因为该判据本身
+    就是用「有没有出现在语料」来判定，与 total 的定义同源）；ASCII 门判的是
+    「这个键像不像日文词」，与它是否出现在语料里是两件事，因此不能用同一个
+    `total > 0` 去豁免。"""
+    if not key:
         return False
     if ASCII_RE.search(key):
         return False
+    if total > 0:
+        return True
+    if any(ch.isspace() for ch in key):
+        return False
+    if not WORDCHAR_RE.search(key):
+        return False
     if any(ch not in corpus_chars for ch in key):
         return False
-    if total == 0 and len(key) > 8:
+    if len(key) > 8:
         # 长键 + 零出现：即便逐字都是语料里的字，也更可能是被当成词键的整句
         # 描述（如「千秋口中的彩野さん」），交人工。
         return False

@@ -680,3 +680,8 @@ def test_segment_mode_lane_from_table_and_mismatch_errors(tmp_path):
 def test_nonsegment_mode_still_requires_lane():
     with pytest.raises(SystemExit):
         main(["--batches", "1-2", "--label", "x"])
+
+
+def test_render_empty_sel_with_segment_has_head_and_tail():
+    md = render([], label="x", lane="main", segment="seg1-s2")
+    assert "段开场自检" in md and "段末流程" in md

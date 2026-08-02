@@ -50,3 +50,15 @@ def test_diff_detects_change(tmp_path):
     assert diff_verdicts(a, a) == []
     d = diff_verdicts(a, b)
     assert d and d[0].startswith("batch 1")
+
+
+def test_cli_diff_exit_codes(tmp_path):
+    import json, subprocess, sys
+    a = tmp_path / "a.json"; b = tmp_path / "b.json"
+    a.write_text(json.dumps({"1": {"check": {"hard": [], "warn": []}, "collapse": []}}),
+                 encoding="utf-8")
+    b.write_text(json.dumps({"1": {"check": {"hard": [], "warn": [{"id": 9}]}, "collapse": []}}),
+                 encoding="utf-8")
+    same = subprocess.run([sys.executable, "tools/canary.py", "--diff", str(a), str(a)])
+    diff = subprocess.run([sys.executable, "tools/canary.py", "--diff", str(a), str(b)])
+    assert same.returncode == 0 and diff.returncode == 1

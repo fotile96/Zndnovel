@@ -1,7 +1,8 @@
 """陷阱批回验：对已入线批次用当前工具树重算 check_batch + detect_collapse 判定，
-输出规范化 JSON。工具升级流程（P3 spec §3）：旧 tag worktree 与新 main 各跑一次
---out（同一车道数据），--diff 一致才允许滚动生产 tag。draft 取 forward.jsonl 中
-每 id 的末次出现（＝入线原稿；patches 不参与，判定对齐的是入线时刻）。"""
+输出规范化 JSON（`dumps` 输出确定性来自固定的字典插入顺序，非 sort_keys）。工具升级流程
+（P3 spec §3）：旧 tag worktree 与新 main 各跑一次 --out（同一车道数据），--diff 一致
+才允许滚动生产 tag。draft 取 forward.jsonl 中每 id 的末次出现（＝入线原稿；patches 不
+参与，判定对齐的是入线时刻）。"""
 import json
 import subprocess
 import sys

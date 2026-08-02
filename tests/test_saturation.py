@@ -54,3 +54,9 @@ def test_main_warns_loudly_when_forward_missing(tmp_path, capsys):
     assert "告警" in out
     assert "forward.jsonl" in out
     assert "done=0 条已入线译文" in out
+
+
+def test_extra_rows_use_key_field_not_id():
+    rows = [{"key": "snr_crd_0:35", "jp": "寝癖の話", "kind": "card_msg", "file": "snr_crd_0"}]
+    r = saturation("寝癖", rows, done_ids={"snr_crd_0:35"})
+    assert r["total"] == 1 and r["covered"] == 1

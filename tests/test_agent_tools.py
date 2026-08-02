@@ -90,8 +90,15 @@ def test_unknown_tool_raises():
 
 
 def test_module_has_no_write_operations():
-    """只读约束是自建 loop 的安全性来源：本模块不得出现任何写文件的调用。"""
+    """只读约束是自建 loop 的安全性来源：本模块不得出现任何写文件的调用。
+
+    黑名单要覆盖**本仓库真实存在的写路径**，不只是 stdlib 的常见形状：
+    `append_jsonl(` 是 pipelib 里现成的追加写函数，是这个代码库里最可能被误用的
+    一条（T1 评审发现原黑名单漏了它）。`shutil.` / `subprocess` 两条封的是「绕道
+    子进程去写」这类间接路径。"""
     src = (__import__("pathlib").Path(__file__).resolve().parent.parent
            / "tools" / "agent_tools.py").read_text(encoding="utf-8")
-    for bad in ("write_text(", "open(", "write_jsonl(", "mkdir(", "unlink("):
+    for bad in ("write_text(", "open(", "write_jsonl(", "append_jsonl(", "mkdir(",
+                "unlink(", "write_bytes(", "os.remove(", "os.rename(", "os.replace(",
+                "shutil.", "subprocess", ".touch(", "rmdir(", "os.makedirs("):
         assert bad not in src, f"agent_tools 出现写操作嫌疑：{bad}"

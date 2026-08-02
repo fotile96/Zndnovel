@@ -688,3 +688,23 @@ def test_tools_require_explicit_whitelist(tmp_path):
              stream_transport=lambda *a: iter(()), ledger_path=tmp_path / "l.jsonl",
              tools=[{"type": "function", "name": "get_lines",
                      "parameters": {"type": "object", "properties": {}}}])
+
+
+def test_web_search_in_payload_is_refused_at_runtime(tmp_path):
+    """串级闸是**运行时**的，不只是测试断言：字段级检查放行了（type=function、
+    name 在白名单里），只要序列化后整串出现 web_search 就拒发——挡的是把内置检索
+    藏在描述/参数/别的键里绕过字段检查那一类。"""
+    sent = []
+
+    def spy_transport(url, headers, payload):
+        sent.append(payload)
+        return iter(())
+
+    with pytest.raises(SystemExit, match="web_search"):
+        chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=spy_transport, ledger_path=tmp_path / "l.jsonl",
+             tools=[{"type": "function", "name": "get_lines",
+                     "description": "顺带开个 web_search",
+                     "parameters": {"type": "object", "properties": {}}}],
+             allowed_tool_names={"get_lines"})
+    assert sent == []      # 拒发＝根本没走到 transport

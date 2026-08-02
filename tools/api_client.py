@@ -436,6 +436,13 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
         payload["tools"] = tools
     if instructions:
         payload["instructions"] = instructions
+    # 串级兜底闸（运行时，不只是测试）：`_validate_tools` 按字段判 type/name，
+    # 挡不住「换个键名把内置工具塞进去」这类形状（历史上 `builtin_tools` 就是
+    # 这么绕过字段级检查的）。序列化之后整串查一次 `web_search`，把原本只活在
+    # tests/test_api_client.py 里的不变量升级成运行时不变量——成本一行，收益是
+    # 「彩野测试受试模型能上网」这个静默失效模式在真机上也发不出去。
+    if "web_search" in json.dumps(payload, ensure_ascii=False):
+        raise SystemExit("请求体里出现 web_search——服务端内置检索会让彩野测试静默失效，拒发")
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
     timeout = DEFAULT_IDLE_TIMEOUT if timeout is None else timeout
     retries = DEFAULT_RETRIES if retries is None else retries

@@ -690,6 +690,34 @@ def test_tools_require_explicit_whitelist(tmp_path):
                      "parameters": {"type": "object", "properties": {}}}])
 
 
+def test_status_key_exposes_incomplete_truncation(tmp_path):
+    """`response.incomplete` 在返回契约里必须可见。它走的是**正常返回**路径：
+    usage 齐全 → 台账行既无 partial 也无 estimated，与一次正常调用完全同形。
+    不透出 status，调用方就只能拿半截 content 当完整结论用（stderr 警告救不了程序）。"""
+    def truncated(url, headers, payload):
+        yield "response.output_text.delta", {"delta": "结论是：本次审计发现 3 处未履行，分别是"}
+        yield "response.incomplete", {"response": {"output": [], "usage": {
+            "input_tokens": 100, "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens": 20, "output_tokens_details": {"reasoning_tokens": 5}}}}
+
+    lp = tmp_path / "l.jsonl"
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=truncated, ledger_path=lp)
+    assert r["status"] == "response.incomplete"
+    assert r["content"].endswith("分别是")
+    row = json.loads(lp.read_text(encoding="utf-8").strip())
+    # 台账确实分不出来——这正是 status 键存在的理由，不是可以省略的冗余。
+    assert "partial" not in row and "estimated" not in row
+
+
+def test_status_key_is_completed_on_normal_finish(tmp_path):
+    """反向：正常收尾时 status 必须是 completed（防上一条断言恒真）。"""
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=lambda *a: iter_sse_events(_sse_lines()),
+             ledger_path=tmp_path / "l.jsonl")
+    assert r["status"] == "response.completed"
+
+
 def test_web_search_in_payload_is_refused_at_runtime(tmp_path):
     """串级闸是**运行时**的，不只是测试断言：字段级检查放行了（type=function、
     name 在白名单里），只要序列化后整串出现 web_search 就拒发——挡的是把内置检索

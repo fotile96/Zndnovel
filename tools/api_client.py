@@ -415,6 +415,7 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
     `tools`/`allowed_tool_names`（均默认 None＝一个工具都不发）：见 `_validate_tools`
     的守卫说明。返回 dict 另有 `output_items`（终止事件里的 `response.output` 原样）
     与 `function_calls`（其中 `type=="function_call"` 的项），供有界工具循环消费。
+    另有 `status`＝终止事件类型，`"response.incomplete"` 表示输出被截断（见下方注释）。
     """
     cfg = PROVIDERS[provider]
     model = model or cfg["default_model"]
@@ -441,6 +442,13 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
     # 这么绕过字段级检查的）。序列化之后整串查一次 `web_search`，把原本只活在
     # tests/test_api_client.py 里的不变量升级成运行时不变量——成本一行，收益是
     # 「彩野测试受试模型能上网」这个静默失效模式在真机上也发不出去。
+    #
+    # ⚠ **已知代价（不是 bug，是刻意的宁严勿松）**：查的是**整个 payload 序列化串**，
+    # `input`/`instructions` 里的正文也在扫描范围内。所以一条正文里写了 "web_search"
+    # 字面串的 prompt 会被直接拒发（实测：「作者提到 web_search 关键词」→ SystemExit）。
+    # 取这个取舍是因为字段级白名单挡不住改键名绕过，而串级扫描挡得住；本项目语料
+    # （日文台词 + 中译 + 术语表）不会出现该串，误伤概率约等于零。将来若真需要在正文里
+    # 谈论这个词，改的应该是「只扫描非正文字段」而不是删掉这道闸。
     if "web_search" in json.dumps(payload, ensure_ascii=False):
         raise SystemExit("请求体里出现 web_search——服务端内置检索会让彩野测试静默失效，拒发")
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
@@ -515,6 +523,13 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
            "cached_tokens": usage["cached_tokens"],
            "reasoning_tokens": usage["reasoning_tokens"],
            "model": model, "provider": provider,
+           # 终止事件类型原样透出（"response.completed" / "response.incomplete"）。
+           # **为什么必须透出**：incomplete 在 TERMINAL_EVENTS 里，_consume 正常返回、
+           # chat() 正常返回、usage 齐全 → 台账行与一次正常调用**完全同形**（既无
+           # partial 也无 estimated）。于是「输出被截断」这件事在返回契约里根本表达
+           # 不出来，调用方只能拿到半截 content 当完整结论用——stderr 的警告行救不了
+           # 程序，只能救人眼。有界工具循环据此把 stopped_reason 标成 "incomplete"。
+           "status": prog["status"],
            # 字段名以 2026-08-02 真实探针为准（见 .superpowers/sdd/
            # 2026-08-02-deepseek-audit-capability/task-2-report.md）：function_call
            # 项的键是 `call_id`（续轮 function_call_output 要回引的就是它，与 item

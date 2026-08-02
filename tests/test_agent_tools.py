@@ -94,11 +94,18 @@ def test_module_has_no_write_operations():
 
     黑名单要覆盖**本仓库真实存在的写路径**，不只是 stdlib 的常见形状：
     `append_jsonl(` 是 pipelib 里现成的追加写函数，是这个代码库里最可能被误用的
-    一条（T1 评审发现原黑名单漏了它）。`shutil.` / `subprocess` 两条封的是「绕道
-    子进程去写」这类间接路径。"""
+    一条（T1 评审发现原黑名单漏了它）。`shutil.` / `subprocess` / `os.system(` /
+    `os.popen(` 四条封的是「绕道子进程去写」这类间接路径。
+
+    ⚠ **这是回归绊线，不是安全边界**。它按子串扫源码，绕过方式一想就有：
+    `from os import makedirs` 之类的裸名导入不带 `os.` 前缀，`getattr(Path, "w"+"rite_text")`
+    这种拼接更是完全看不见。它的作用是「有人日后顺手加了写操作时会变红」，
+    **不能**当成「本模块不可能写文件」的证明——那个保证来自人工通读（T1 评审做过）
+    与只读的设计意图，不来自这条断言。"""
     src = (__import__("pathlib").Path(__file__).resolve().parent.parent
            / "tools" / "agent_tools.py").read_text(encoding="utf-8")
     for bad in ("write_text(", "open(", "write_jsonl(", "append_jsonl(", "mkdir(",
                 "unlink(", "write_bytes(", "os.remove(", "os.rename(", "os.replace(",
-                "shutil.", "subprocess", ".touch(", "rmdir(", "os.makedirs("):
+                "shutil.", "subprocess", ".touch(", "rmdir(", "os.makedirs(",
+                "os.system(", "os.popen("):
         assert bad not in src, f"agent_tools 出现写操作嫌疑：{bad}"

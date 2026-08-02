@@ -189,7 +189,10 @@ uv run python tools/gen_timeline.py
 # → scene2card=157 moves=226 unit=457 marker=76 covered_ids=16693
 ```
 
-（注：`gen_timeline.py` 与 `check_timeline.py` 均**无 argparse**，任何参数都会被忽略而直接执行。）
+（注：执行本步时 `gen_timeline.py` 与 `check_timeline.py` 均**无 argparse**，任何参数都会被
+忽略而直接执行 —— 我最初以 `--help` 探测 CLI 时它就这样直接跑了起来。**这个缺陷已在本报告
+末尾的「评审修正轮」里修掉**（两工具加 argparse，未知参数 rc=2 且不写文件），并已写进
+runbook §4.1；下文 §5.1–5.4 描述的是修复前的那次执行。）
 
 ### 5.2 差异核对：与台账预期逐项比对
 
@@ -333,7 +336,7 @@ nothing to commit, working tree clean
 
 **与开工时对照**：开工 clean（ahead by 3）→ 收工 clean（ahead by 7），净增 4 个 commit
 （3 个生产条件 + 1 个证据）。`prod-run-v3` 指向 `6ad593f`，即三件生产条件变更的末位 commit
-—— 证据 commit `f84f3f3` 落在 tag 之后，不属于生产条件，符合预期。
+—— 证据 commit `5ac043a` 落在 tag 之后，不属于生产条件，符合预期。
 
 **逐 commit 的 `git add` 路径**（全部显式，无 `-A` / `.`）：
 
@@ -342,7 +345,7 @@ nothing to commit, working tree clean
 | `18cc77c` | docs | `docs/ops/p3-production-runbook.md` |
 | `bb65909` | data | `data/timeline.jsonl` |
 | `6ad593f` | docs | `docs/ops/p3-production-runbook.md` `docs/ops/p3-production-handoff.md` |
-| （本报告） | docs | `.superpowers/sdd/2026-08-02-p3-devwave1/segment-boundary-v3-report.md`（`git add -f`，SDD 目录自忽略） |
+| `5ac043a` | docs | `.superpowers/sdd/2026-08-02-p3-devwave1/segment-boundary-v3-report.md`（本报告；`git add -f`，SDD 目录自忽略） |
 
 **确认未动生产会话在制品**：开工时工作树即为 clean，`glossary/` 下的 v8 相关改动已由裁决
 会话自行提交（`4b06979` / `e84ad0b` / `f0ed4c5`），本次全程未 `git add` 任何 `glossary/`、
@@ -375,3 +378,122 @@ $ uv run pytest -q
 3. **SEG-2 的彩野题库** `config/ayano_qa/seg2-s3.yaml` 若尚未产出，段末 `ayano_test` 会以
    **rc=2** 打印跳过提示（与 rc=1 的真失败刻意区分），照实记进段末台账即可。
 4. 本次未运行 `ayano_test`，故 `data/api_ledger.jsonl` 无改动。
+
+---
+
+# 附：评审修正轮（2026-08-02，Approved + 1 Important + 3 Minor）
+
+评审 **Approved**，四件事规格全符合，并独立复算了 canary 集合级差异、timeline 差异形态与
+逆序数（21→0）、以及 F9 留痕里的全部数字（中位 0.00000 / 最大 0.00913 @ batch 19 /
+52.5 倍 / 5.5 倍余量 / 9.6 倍冗余，全部吻合）；另补做了两项验证（生产树 v3 输出与新树
+逐字节相同、timeline 沙箱重跑逐字节可复现）。以下是本轮修正。
+
+## Important · `gen_timeline.py` 的无校验写入进 runbook
+
+### 问题复核（评审的定性属实，且比我原先自陈的更具体）
+
+我在上一轮只把「两个工具无 argparse」写进了**报告的顾虑段**，没进 runbook。**生产会话读
+runbook，不读 SDD 报告** —— 这是定位错误。把链路补全后确认：
+
+| 环节 | 实况（已逐条核实） |
+|---|---|
+| 入口形态 | 两个工具均为 `def main():`（**无形参**）+ `raise SystemExit(main())`，**从不读 `sys.argv`**，任何参数静默忽略 |
+| `check_timeline.py` | 只读（`read_jsonl` + `json.loads`），**无写盘**，无害 |
+| `gen_timeline.py` | `main()` 末尾无条件 `write_jsonl(DATA / "timeline.jsonl", timeline)`（另还写 `DATA/scene2card.json`） |
+| 生产姿势下的 DATA | `ZND_DATA=pilot/lanes/opus/data`，而 `ls -la` 实测：<br>`timeline.jsonl -> /Users/fotile96/Zndnovel/data/timeline.jsonl`（**符号链接**）<br>`readlink -f` 解析确认，`git ls-files --error-unmatch data/timeline.jsonl` 确认**该目标是 git 跟踪文件** |
+| 写盘原子性 | `pipelib.write_jsonl` = `open(path, "w")` truncate + 逐行 `f.write`，**非** tmp+rename；`open(...,"w")` **跟随符号链接**写到目标 |
+
+**故障剧本**：生产会话在跑批中途敲一句 `gen_timeline.py --help`（或任何带参调用）→ 参数被
+静默忽略 → **静默重写主仓 `data/timeline.jsonl`** —— 而这正是 runbook §4.0 自己定性为
+「生产条件变更、只许段边界做」的操作；且并发读会读到截断 JSON。§4.0 对 `ledger.jsonl`
+已写过同一段并发风险分析，**唯独漏了 timeline**；§4.1 那张表也已为 `ayano_test` 写
+`api_ledger.jsonl` 的同类边界留了「⚠ 注意」。缺口是文档定位问题，不是分析问题。
+
+### 修法 1：两个工具加 argparse
+
+- `tools/gen_timeline.py`：`def main(argv=None)` + `argparse.ArgumentParser(...)`，
+  **`ap.parse_args(argv)` 置于 main 最前、先于任何文件读写**。`description` 点名它重写
+  `data/timeline.jsonl`；`epilog` 写明符号链接、段边界纪律、非原子写盘与并发截断风险
+  —— 帮助文本本身即是护栏。
+- `tools/check_timeline.py`：同构（只读，故 epilog 从简），令姊妹工具 CLI 行为一致。
+
+**实测行为**（`git hash-object data/timeline.jsonl` 前后比对，确认零写入）：
+
+| 调用 | 退出码 | 是否写文件 |
+|---|---|---|
+| `python tools/gen_timeline.py --nope` | **2** | **否** |
+| `python tools/gen_timeline.py -x` | **2** | **否** |
+| `python tools/gen_timeline.py --help` | **0**（打印帮助后退出，不执行展开） | **否** |
+| `python tools/check_timeline.py --nope` | **2** | 否（本就只读） |
+| `python tools/check_timeline.py --help` | **0** | 否 |
+| `python tools/check_timeline.py`（无参，正常用法） | 0，打印 `OK` | 否 |
+
+⚠ **一处 uv 的坑，值得记**：经 `uv run python tools/gen_timeline.py --help` 调用时得到
+**rc=2** 而非 0 —— 那是 **uv 自己拦截了 `--help`**（`uv run -- python … --help` 即恢复
+rc=0），**脚本行为不变、同样不写文件**。判定退出码时须区分是 uv 的还是脚本的。此点已一并
+写进 runbook，免得下一个人以为护栏坏了。
+
+**不需要再滚 tag** —— 理由（评审要求明确确认）：
+1. 这两个工具**不在按批四件套**（`build_context` / `check_batch` / `detect_collapse` /
+   `append_forward`）之内，即不在 §1 定义的钉死面「段内必须不变的判定/产出面」上；
+2. **canary 也不覆盖**它们（canary 只重算 `check_batch.check` + `detect_collapse.scan`
+   ＋`--regen-ctx` 时的 `build_context`）；
+3. 四件套对它们的 **import 依赖为空**（上一轮已实测）；
+4. 本次改动是**纯 CLI 护栏**：`Expander` / `run_plan` / `check` / `_grant` 等所有产出逻辑
+   一行未动，无参数调用的行为与改动前**完全一致**（`check_timeline` 无参仍输出 `OK`）。
+
+故生产条件未变，`prod-run-v3` 继续有效，**未滚新 tag**。
+
+**补测试（新增 5 条）**：
+- `tests/test_gen_timeline.py`：`test_gen_timeline_unknown_arg_exits_nonzero_and_writes_nothing`
+  （核心断言——把 `DATA` monkeypatch 到空 tmp 目录，断言 rc=2 **且该目录下零新增文件**）、
+  `test_gen_timeline_help_exits_zero_and_writes_nothing`、
+  `test_gen_timeline_help_warns_about_symlinked_production_data`（帮助文本必须含「符号链接」
+  「段边界」——防止将来有人把警告删了）。
+- `tests/test_check_timeline.py`：`test_check_timeline_unknown_arg_exits_nonzero`、
+  `test_check_timeline_help_exits_zero_without_running`（并补了该文件缺失的 `import pytest`）。
+
+### 修法 2：runbook §4.1 补条目
+
+在 §4.1「不在覆盖面内、必须人工判定的……」之前插入一段 ⚠ 警示，与 `ayano_test` 那条同格式，
+写明：无条件重写 `$ZND_DATA/timeline.jsonl`、生产姿势下该路径是指向主仓 git 跟踪文件的
+**符号链接**、属生产条件变更**只许段边界执行**、`write_jsonl` 非原子导致**并发读截断**、
+以及新的 argparse 行为（含上面那条 uv `--help` 的坑）。
+
+## Minor 修正
+
+1. **报告失效 hash 已回填**：§7 的「证据 commit `f84f3f3`」→ **`5ac043a`**（`f84f3f3` 是
+   `--amend` 掉的悬空 commit，不在 main 历史里）；§7 表格里的「（本报告）」占位也换成
+   真实 hash `5ac043a`。
+2. **「27→8 消 19」补区间标注**：runbook §4.0 两处均改为明写「对**已入线的 b1–62 累计**
+   真实译文（测得时 6146 行；截至 SEG-1 完结为 **6278 行**）」，并各加一句
+   「**是累计口径，不是段内收益**」。收益侧那处还补了一句点名此前的实际误读
+   （曾被读成「P2 段 b1–35 的 A/B 实测」）。6278 行为本轮实测
+   （`wc -l` 与去重 id 数一致，均 6278）。
+3. **runbook 第 9 行的举例版本号**：`（钉死在 tag，如 prod-run-v2）` → 改为不带具体版本的
+   表述，并指向 §2 末尾的「当前生产 tag」行为唯一记录处 —— 这样以后滚 tag 只需改一处，
+   不会再留下过期的举例。
+
+## 本轮验证
+
+```
+$ uv run pytest -q
+332 passed
+```
+
+**327 → 332**（新增 5 条 CLI 护栏测试），全绿。
+
+```
+$ git -C /Users/fotile96/Zndnovel-prod describe --tags
+prod-run-v3                      ✅ 未滚新 tag
+$ git -C /Users/fotile96/Zndnovel-prod status --short
+                                 ✅ 空 —— 生产树干净
+```
+
+**`data/timeline.jsonl` 本轮未重新生成**（`git status` 全程无该文件；`git hash-object`
+前后一致 `abba04f2…`）；改完后跑了一次只读的 `check_timeline` → `OK`。
+
+**本轮 `git add` 路径**（全部显式）：`tools/gen_timeline.py`、`tools/check_timeline.py`、
+`tests/test_gen_timeline.py`、`tests/test_check_timeline.py`、
+`docs/ops/p3-production-runbook.md`、本报告。未碰 `pilot/lanes/`、`prompts/`、
+`data/batches.jsonl`、seg1-s2 台账、在产计划。

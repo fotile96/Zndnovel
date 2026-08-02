@@ -4,3 +4,10 @@
 {"ts": "2026-08-02T11:23:13+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q1", "prompt_tokens": 338, "completion_tokens": 60}
 {"ts": "2026-08-02T11:23:19+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q4", "prompt_tokens": 21143, "completion_tokens": 397}
 {"ts": "2026-08-02T11:23:20+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q4", "prompt_tokens": 361, "completion_tokens": 58}
+{"ts": "2026-08-02T11:46:54+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "responses-smoke", "prompt_tokens": 87, "completion_tokens": 14, "cached_tokens": 0, "reasoning_tokens": 12}
+{"ts": "2026-08-02T11:47:24+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "cache-probe-1", "prompt_tokens": 23551, "completion_tokens": 1024, "cached_tokens": 15232, "reasoning_tokens": 883}
+{"ts": "2026-08-02T11:47:38+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "cache-probe-2", "prompt_tokens": 23551, "completion_tokens": 1024, "cached_tokens": 23424, "reasoning_tokens": 862}
+{"ts": "2026-08-02T11:48:00+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q1", "prompt_tokens": 23566, "completion_tokens": 473, "cached_tokens": 23424, "reasoning_tokens": 417}
+{"ts": "2026-08-02T11:48:02+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q1", "prompt_tokens": 355, "completion_tokens": 70, "cached_tokens": 256, "reasoning_tokens": 41}
+{"ts": "2026-08-02T11:48:07+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q4", "prompt_tokens": 23557, "completion_tokens": 287, "cached_tokens": 23424, "reasoning_tokens": 234}
+{"ts": "2026-08-02T11:48:09+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q4", "prompt_tokens": 350, "completion_tokens": 111, "cached_tokens": 256, "reasoning_tokens": 83}

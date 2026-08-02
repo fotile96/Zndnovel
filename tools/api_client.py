@@ -20,6 +20,10 @@ deepseek-v4-pro will be available starting early August 2026」）。将来若�
 台账（含 cached_tokens / reasoning_tokens——缓存是否命中直接决定成本差一个量级）。
 `stream_transport` 可注入以便离线测试。
 提供商无关的扩展点是 PROVIDERS 表——加第二家只需加一条记录。
+
+**默认档位政策（用户长期口径，2026-08-02）**：走 `deepseek-v4-flash` 的调用
+一律用 `reasoning.effort=max`，除非调用方显式指定其他档。`DEFAULT_EFFORT` 即此
+政策的落点，改动它等于改政策。
 """
 import functools
 import json
@@ -59,9 +63,24 @@ DEFAULT_IDLE_TIMEOUT = 120
 DEFAULT_RETRIES = 3
 # reasoning.effort 合法取值（实测 400 报文列举）：
 # none / minimal / low / medium / high / xhigh / max。
-# 默认取 medium：彩野测试要看 CoT 是"读出来的还是猜的"，需要有实质推理内容，
-# 但又不该为此把 reasoning_tokens（计费的输出 token）烧到 high/max 的量级。
-DEFAULT_EFFORT = "medium"
+# 默认取 max：用户长期口径（2026-08-02，见模块 docstring）——除非调用方显式指定
+# 其他档，走 deepseek-v4-flash 的调用一律用最高推理力度。代价已实测：真实 q5
+# （48,294 字符上下文）推理 tokens 从 medium 的 1,699 涨到 max 的 2,655，输出
+# 从 1,815 涨到 2,854，单次墙钟从约 9s 涨到 27.9s——换来的是更扎实的 CoT（彩野
+# 测试要看受试模型是"读出来的还是猜的"）。
+DEFAULT_EFFORT = "max"
+
+# max_output_tokens 上限实测（小 prompt 逐档探，2026-08-02）：
+#   65,536 / 131,072 / 262,144 / 393,216   → OK
+#   524,288 / 1,000,000                    → HTTP 400 Bad Request
+# 且用真实 32,035 token 输入测过 393,216 仍 OK——说明这个上限不作用在
+# 「输入＋输出」之和上，是独立的输出上限；实际边界在 384K–512K 之间，未精确探到。
+# 取 262,144（256K，比确认可行的 393,216 保守一档）留出约 1.5 倍余量，不贴着
+# 这个未精确探到的边界走——万一 deepseek 将来收紧这个上限，贴着走会整批失败。
+# 观测到的实际最大输出（含 reasoning，effort=max）仅 2,854 tokens，256K 相对
+# 它有约 90 倍冗余，所以 max_output_tokens 今后不会成为截断原因（真出现
+# response.incomplete 说明是别的地方出了问题，不是这个值不够大）。
+DEFAULT_MAX_OUTPUT_TOKENS = 262144
 
 # 终止事件的 data 里带完整 response 与 usage。
 TERMINAL_EVENTS = {"response.completed", "response.incomplete", "response.failed"}
@@ -289,13 +308,20 @@ def _usage_of(prog):
             "estimated": True}
 
 
-def _write_ledger(lp, *, provider, model, purpose, usage, partial=False, attempt=1):
+def _write_ledger(lp, *, provider, model, purpose, usage, effort=None, partial=False, attempt=1):
     row = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "provider": provider,
            "model": model, "purpose": purpose,
            "prompt_tokens": usage["prompt_tokens"],
            "completion_tokens": usage["completion_tokens"],
            "cached_tokens": usage["cached_tokens"],
            "reasoning_tokens": usage["reasoning_tokens"]}
+    if effort is not None:
+        # 历史行（本字段加入之前写下的）没有这一列——这正是本次要补的缺口：
+        # 上一轮 SEG-1 全跑走的是 medium 档，账上却查不出档位，将来解释不了
+        # 「为什么那次推理 token 少」。只在有值时写入，与 partial/estimated
+        # 两个可选列同样的写法；旧行缺键由 summarize_ledger/ledger_token 那套
+        # 缺键即未知的机制兜底，不需要回填。
+        row["effort"] = effort
     if partial:
         # 失败的尝试也要入账：流式重试意味着丢弃已收到的部分 CoT 并整段重来，
         # 那些 token 是真金白银花掉的；不记就会系统性低估实际花费。
@@ -344,7 +370,7 @@ def summarize_ledger(rows, keys=LEDGER_TOKEN_KEYS) -> dict:
 
 
 def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
-         max_tokens=4096, purpose="", stream_transport=None, ledger_path=None,
+         max_tokens=None, purpose="", stream_transport=None, ledger_path=None,
          api_key=None, timeout=None, retries=None, sleeper=None,
          effort=DEFAULT_EFFORT, on_delta=None) -> dict:
     """对外契约与旧的 chat/completions 版**保持不变**：入参 `messages` 仍是
@@ -356,9 +382,13 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
     `timeout` 现在是**逐 chunk 静默超时**（默认 DEFAULT_IDLE_TIMEOUT），不再是
     整次请求的总时长上限——参数名沿用是为了不动调用方，语义见常量注释。
     `on_delta(kind, text)` 可选回调，kind ∈ {"text", "reasoning"}，用于实时打印。
+    `max_tokens=None`（默认）时取 `DEFAULT_MAX_OUTPUT_TOKENS`；`effort` 不传时
+    走参数默认值 `DEFAULT_EFFORT`——两者均为模块级长期默认档位（见模块 docstring
+    「默认档位政策」一节），调用方显式传值总是优先。
     """
     cfg = PROVIDERS[provider]
     model = model or cfg["default_model"]
+    max_tokens = DEFAULT_MAX_OUTPUT_TOKENS if max_tokens is None else max_tokens
     key = api_key or os.environ.get(cfg["key_env"]) or load_env().get(cfg["key_env"])
     if not key:
         raise SystemExit(
@@ -403,7 +433,8 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
                 #    一个事件都没有（4xx / 连不上）仍不入账：那次确实没发生也没计费。
                 if partial["event_types"]:
                     _write_ledger(lp, provider=provider, model=model, purpose=purpose,
-                                  usage=_usage_of(partial), partial=True, attempt=attempt)
+                                  usage=_usage_of(partial), effort=effort,
+                                  partial=True, attempt=attempt)
             retryable = _is_retryable(exc)
             # ② 已经开始吐字的流不整体重试：重试要丢弃已收到的部分 CoT 并整段
             #    重来，重复消耗计费 token（彩野测试单次输入约 2.35 万 token）。而
@@ -444,7 +475,8 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
            "cached_tokens": usage["cached_tokens"],
            "reasoning_tokens": usage["reasoning_tokens"],
            "model": model, "provider": provider}
-    _write_ledger(lp, provider=provider, model=model, purpose=purpose, usage=usage)
+    _write_ledger(lp, provider=provider, model=model, purpose=purpose,
+                  usage=usage, effort=effort)
     return out
 
 
@@ -457,7 +489,9 @@ def main(argv=None):
     ap.add_argument("--purpose", default="cli-smoke")
     ap.add_argument("--timeout", type=int, default=None,
                      help=f"逐 chunk 静默超时（秒），默认 {DEFAULT_IDLE_TIMEOUT}")
-    ap.add_argument("--max-tokens", type=int, default=4096)
+    ap.add_argument("--max-tokens", type=int, default=None,
+                     help=f"max_output_tokens，默认 DEFAULT_MAX_OUTPUT_TOKENS="
+                          f"{DEFAULT_MAX_OUTPUT_TOKENS}")
     ap.add_argument("--retries", type=int, default=None,
                      help=f"默认 {DEFAULT_RETRIES}")
     ap.add_argument("--effort", default=DEFAULT_EFFORT,

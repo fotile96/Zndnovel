@@ -66,6 +66,36 @@ def test_chat_exposes_reasoning_and_cache_fields(tmp_path):
     assert row["cached_tokens"] == 0 and row["reasoning_tokens"] == 7
 
 
+def test_ledger_records_effort(tmp_path):
+    """台账缺口：上一轮 SEG-1 全跑（medium 档）的台账查不出档位，将来解释不了
+    「为什么那次推理 token 少」。effort 现在与 cached_tokens/reasoning_tokens 同批
+    写入；显式传档时台账如实记录该档，不是写死的 DEFAULT_EFFORT。"""
+    lp = tmp_path / "l.jsonl"
+    chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+         stream_transport=_fake_transport, ledger_path=lp, purpose="u",
+         effort="low")
+    row = json.loads(lp.read_text(encoding="utf-8").splitlines()[0])
+    assert row["effort"] == "low"
+
+
+def test_dirty_summary_tolerates_rows_missing_effort_key():
+    """`effort` 是本次新加的列，历史行（本字段加入之前写下的）没有它。
+    汇总入口（ledger_token/summarize_ledger）按列名读取，旧行缺 `effort` 键不该
+    让任何汇总炸掉——即便有人把 "effort" 传进 keys 也一样按缺键即未知处理
+    （不是数值列，恒不可求和，但绝不能 KeyError）。"""
+    from tools.api_client import ledger_token, summarize_ledger
+
+    old = {"prompt_tokens": 10, "completion_tokens": 5}                 # 无 effort 键
+    new = {"prompt_tokens": 20, "completion_tokens": 6,
+           "cached_tokens": 0, "reasoning_tokens": 3, "effort": "max"}  # 有 effort 键
+
+    assert ledger_token(old, "effort") is None   # 缺键：非数值/None，安全返回未知
+    assert ledger_token(new, "effort") is None   # 字符串同样不是可求和的计数列
+
+    s = summarize_ledger([old, new])  # 默认 LEDGER_TOKEN_KEYS 不含 effort，不受影响
+    assert s["prompt_tokens"] == {"sum": 30, "n": 2, "unknown": 0}
+
+
 def test_missing_key_exits_with_guidance(tmp_path, monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     monkeypatch.setattr("tools.api_client.load_env", lambda path=None: {})
@@ -208,10 +238,11 @@ def test_default_transport_receives_configured_timeout(tmp_path, monkeypatch):
 
 def test_default_idle_timeout_and_max_output_tokens_when_unset(tmp_path, monkeypatch):
     """默认值闸：timeout 未指定时走 DEFAULT_IDLE_TIMEOUT（逐 chunk 静默超时，
-    urlopen 的 socket 超时对流式响应本就是每次 read 各自计时）；max_tokens 默认
-    4096 且映射到 Responses 的 `max_output_tokens`（不是 chat/completions 的
-    `max_tokens`）。"""
-    from tools.api_client import DEFAULT_IDLE_TIMEOUT
+    urlopen 的 socket 超时对流式响应本就是每次 read 各自计时）；max_tokens 未传时
+    走 DEFAULT_MAX_OUTPUT_TOKENS（256K，实测 393,216 OK / 524,288 400，取比可行
+    值保守一档），映射到 Responses 的 `max_output_tokens`（不是 chat/completions
+    的 `max_tokens`）。"""
+    from tools.api_client import DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_OUTPUT_TOKENS
 
     captured = {}
 
@@ -224,8 +255,33 @@ def test_default_idle_timeout_and_max_output_tokens_when_unset(tmp_path, monkeyp
     r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
              ledger_path=tmp_path / "l.jsonl")
     assert captured["timeout"] == DEFAULT_IDLE_TIMEOUT
-    assert captured["payload"]["max_output_tokens"] == 4096
+    assert captured["payload"]["max_output_tokens"] == DEFAULT_MAX_OUTPUT_TOKENS
+    assert DEFAULT_MAX_OUTPUT_TOKENS == 262144
     assert r["content"] == "ok" and r["cached_tokens"] == 2
+
+    # 显式传值时以传入为准，不被默认值覆盖。
+    captured.clear()
+    chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+         ledger_path=tmp_path / "l2.jsonl", max_tokens=999)
+    assert captured["payload"]["max_output_tokens"] == 999
+
+
+def test_default_effort_is_max(tmp_path, monkeypatch):
+    """默认值闸（用户长期口径，2026-08-02）：effort 未指定时 payload 里
+    `reasoning.effort == "max"`——除非调用方显式传别的档。"""
+    from tools.api_client import DEFAULT_EFFORT
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["payload"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResp(_sse_lines())
+
+    monkeypatch.setattr("tools.api_client.urllib.request.urlopen", fake_urlopen)
+    chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+         ledger_path=tmp_path / "l.jsonl")
+    assert DEFAULT_EFFORT == "max"
+    assert captured["payload"]["reasoning"] == {"effort": "max"}
 
 
 # ---------------------------------------------------------------- 新增行为

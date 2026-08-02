@@ -135,26 +135,64 @@ def test_main_warns_on_empty_ledger_file(tmp_path, capsys):
 # ── 并列词串探测：`はい／いいえ` 是当初那个 Critical 的头号例子 ──
 # is_clean_key 本身逐字检查会放行「はい／いいえ」（全角 ／ 本身也出现在游戏
 # 原文标点里，所以在 corpus_chars 内）——但 total==0 被读成「无出现、可以随便
-# 定」，而 はい 单独查在 opus 车道真实是 396 次（覆盖 167）、いいえ 是 18 次
-# （覆盖 13）。main() 现在会在 total==0 时按并列分隔符拆开子串各查一次，只要
-# 有子串 total>0 就报「疑似并列词串」并摆出真实数字，不再报「无出现」。
+# 定」，而真实 はい/いいえ 各自都有几十到几百次出现。main() 现在会在 total==0
+# 时按并列分隔符拆开子串各查一次，只要有子串 total>0 就报「疑似并列词串」并
+# 摆出真实数字，不再报「无出现」。
+#
+# P3 devwave1 复评 Important：此前这里直接断言了真实 opus 车道 forward.jsonl
+# 里 はい/いいえ 的精确 covered 数（167/13）——covered 来自持续增长的生产译文，
+# 车道每推进一段这两个数字就可能变、测试会红在与被测逻辑无关的原因上（并列
+# 探测本身没坏，只是生产又译了几批）。改用合成 fixture：与
+# test_main_compound_split_all_zero_falls_back_to_existing_verdict 同一手法，
+# 让子串各自有由 fixture 数据现算出来、可复现的命中次数，断言的 ratio 直接
+# 来自这份固定 fixture，不随生产推进变化。
 PILOT_OPUS_DATA = Path(__file__).resolve().parent.parent / "pilot/lanes/opus/data"
 
 
-def test_main_flags_compound_term_with_real_lane_evidence(capsys):
-    # 不编造数字：直接读真实 opus 车道数据（只读，不修改），用实测的
-    # はい=167/396=0.422、いいえ=13/18=0.722 钉住输出。全角 ／ 与半角 / 两种
-    # 抄法都要能被识别成并列词串——识别与否不该取决于抄词表的人用了哪个斜杠
-    # （这正是原判据的巧合漏洞：分隔符本身是否出现在语料标点里）。
+def test_main_flags_compound_term_with_synthetic_lane_evidence(tmp_path, capsys):
+    # 合成 fixture：子串「アイ」命中 2 次（1 覆盖/1 未覆盖，done_ids 只含 id=1）、
+    # 「ウエ」命中 1 次（未覆盖）；拼起来的整词「アイ／ウエ」本身从不以连续
+    # 子串出现在任何一行里，total==0。断言的 ratio 由这份固定数据现算得出
+    # （アイ=1/2=0.500、ウエ=0/1=0.000），与生产数据完全解耦。
+    import json
+    ledger = [
+        {"id": 1, "jp": "アイスをたべる", "chapter": "s1s"},   # 「アイ」命中 1 次（覆盖）
+        {"id": 2, "jp": "アイコンを押す", "chapter": "s1s"},   # 「アイ」再命中 1 次（未覆盖）
+        {"id": 3, "jp": "ウエストが痛い", "chapter": "s2s"},   # 「ウエ」命中 1 次（未覆盖）
+    ]
+    (tmp_path / "ledger.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in ledger), encoding="utf-8")
+    (tmp_path / "forward.jsonl").write_text(
+        json.dumps({"id": 1, "zh": "x"}), encoding="utf-8")
+    rc = main(["--term", "アイ／ウエ", "--data-dir", str(tmp_path), "--gate", "0.8"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    expected = f"{COMPOUND_VERDICT_PREFIX}（アイ=1/2=0.500、ウエ=0/1=0.000）"
+    assert expected in out
+    assert "无出现" not in out
+    assert "未匹配到该词键" not in out
+
+
+def test_main_compound_detection_structural_on_real_lane_data(capsys):
+    # 独立价值（P3 devwave1 复评认可保留）：至少一条测试真的踩过真实车道数据，
+    # 确认拆分/子串查询/全角半角等价这条管线在真实数据形状上真的能跑通——但
+    # 只断言**结构性质**（前缀出现、含两个子串词名、全角/半角两种抄法输出
+    # 完全相同），不断言任何具体分子分母，这三条都不随生产推进变化。
     assert (PILOT_OPUS_DATA / "ledger.jsonl").exists(), "需要真实 opus 车道数据"
     rc = main(["--term", "はい／いいえ", "--term", "はい/いいえ",
                "--data-dir", str(PILOT_OPUS_DATA), "--gate", "0.8"])
     out = capsys.readouterr().out
     assert rc == 0
-    expected = "疑似并列词串，请拆开分别查（はい=167/396=0.422、いいえ=13/18=0.722）"
-    assert out.count(expected) == 2   # 全角/半角两行都命中同一条真实证据
-    assert "无出现" not in out
-    assert "未匹配到该词键" not in out
+    lines = [l for l in out.splitlines()
+             if l.startswith("| はい／いいえ ") or l.startswith("| はい/いいえ ")]
+    assert len(lines) == 2
+    for line in lines:
+        assert COMPOUND_VERDICT_PREFIX in line
+        assert "はい=" in line and "いいえ=" in line
+    # 全角/半角两种抄法要得到完全相同的判定——去掉最前的词名列后逐字比对，
+    # 不比较具体数字是不是某个值，只比较两者*彼此*是否一致。
+    cols = [line.split("|", 2)[2] for line in lines]   # 去掉开头空列与词名列
+    assert cols[0] == cols[1]
 
 
 def test_main_compound_split_all_zero_falls_back_to_existing_verdict(tmp_path, capsys):

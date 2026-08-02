@@ -248,3 +248,100 @@ uv run python tools/cluster_notes.py                          --lane-dir pilot/l
   之后又有新的 ledger 行落入这两个词（不太可能——ledger 建自已冻结的原文
   lua 脚本、不随译文进度变化，但若段表/车道范围扩大仍有微小可能），这条
   测试需要同步更新计数。
+
+  **【追加修正见下】这条顾虑被协调者复评判为 Important 并指出了分析缺口
+  （只想到了 total 的分母冻结，没想到 covered 的分子在持续增长）——已在
+  本轮替换掉该测试，见下方追加章节。**
+
+---
+
+## 追加修正（三轮）：`covered` 是移动靶，改用合成 fixture
+
+### 问题
+
+协调者复评指出：`test_main_flags_compound_term_with_real_lane_evidence`
+断言的 `はい=167/396`、`いいえ=13/18` 里，**分母 396/18（ledger 里的原文出
+现次数）确实冻结不变**（ledger 建自已冻结的原文 lua 脚本），但**分子
+167/13（covered，来自 `pilot/lanes/opus/data/forward.jsonl`）是持续增长的
+生产数据**——`はい` 的未覆盖分布横跨 `crd/e1f/e1s/e2f/e2s/s3fa/.../s8f`
+几乎全部尚未完成翻译的章节，生产会话继续推进任何一段这两个数字就会变，
+测试会**红在与被测逻辑（并列词串探测）完全无关的原因上**：探测本身没坏，
+只是生产又译了几批。这类测试会训练人看到红灯就先怀疑"是不是环境/数据变了"
+而不是先怀疑代码——反而削弱了测试的信号价值。
+
+`・`（顿号变体）没有被建议加入 `COMPOUND_SPLIT_RE` 这一判断，协调者复评
+支持维持原状：实测 `・` 在 ledger 里出现 22 次，全部是 `です・ます`、
+`オ・ト・ナ` 这类原文书写惯例本身自带的中点，不是提案标题里"并列多个词"
+的分隔符，加进去会把这些固定搭配拆开产生噪音而非价值。
+
+### 修法
+
+替换 `test_main_flags_compound_term_with_real_lane_evidence` 为两条：
+
+1. **`test_main_flags_compound_term_with_synthetic_lane_evidence`**（合成
+   fixture，与既有 `test_main_compound_split_all_zero_falls_back_to_existing_verdict`
+   同一手法）：构造一个 3 行的小型 ledger——`アイス` 出现让子串 `アイ` 命中
+   2 次（`{"id":1,...}` 覆盖、`{"id":2,...}` 未覆盖）、`ウエスト` 让子串
+   `ウエ` 命中 1 次（未覆盖）；拼起来的整词 `アイ／ウエ` 本身从不以连续
+   子串出现在任何一行，`total==0`。断言的输出是
+   `疑似并列词串，请拆开分别查（アイ=1/2=0.500、ウエ=0/1=0.000）`——
+   这个 ratio 直接由这份固定 fixture 现算得出，与生产数据完全解耦，
+   `forward.jsonl` 只有一行手写的 `{"id":1}`，不受车道推进影响。
+2. **`test_main_compound_detection_structural_on_real_lane_data`**（保留
+   "至少一条测试真的踩过真实车道数据"这条独立价值，协调者认可保留）：
+   仍读真实 `pilot/lanes/opus/data`（只读），但**只断言结构性质**——
+   `疑似并列词串` 前缀出现、判定文字里含 `はい=`/`いいえ=` 两个子串词名、
+   全角 `／` 与半角 `/` 两种抄法在**去掉词名列之后逐字相同**（比较两行输出
+   彼此是否一致，不比较任何一行是不是等于某个写死的数字）。这三条性质
+   —— 前缀、子串词名齐全、全角半角等价——都不随生产推进变化。
+
+### `docs/ops/p3-production-runbook.md` 示例数字同步整改
+
+上一轮追加的说明段落里把 `はい=167/396=0.422、いいえ=13/18=0.722` 写成了
+具体示例数字——它不是断言、不会让测试红，但同样会随生产推进过时，读到的
+人可能误当成当前基准。改为不带精确数字的格式示意
+（`词A=覆盖/出现=比值、词B=覆盖/出现=比值`）并加一句「具体数字为示意格式、
+非当前基准」的说明。检查过上一轮加的回归闸
+（`test_runbook_step2_wording_matches_compound_verdict_constant`）：它只钉
+`COMPOUND_VERDICT_PREFIX` 常量字符串在 step2 附近 800 字符内出现，不涉及
+任何具体数字，本次改动不影响该闸的成立性，无需调整。
+
+### cluster_notes.py 零回归比对（三次验证，改用任务开始前的真实基线）
+
+本轮没有改动 `cluster_notes.py`/`is_clean_key` 一行，但仍重新核实：这次用
+本次整个任务开始前的提交 `39a4a95`（`223f728` 的父提交）取
+`cluster_notes.py`/`saturation.py`/`pipelib.py`/`resolve.py`/`__init__.py`
+的隔离副本（因为最初两轮用的 scratchpad 临时文件已被环境回收），在真实
+opus 车道分别跑：
+
+```
+uv run python <scratchpad>/orig_tools2/tools/cluster_notes.py --lane-dir pilot/lanes/opus --out dossier_baseline.md
+uv run python tools/cluster_notes.py                          --lane-dir pilot/lanes/opus --out dossier_current.md
+```
+
+`dossier_baseline.md` 与 `dossier_current.md` **md5 仍完全一致**
+（`f21c2451e074ab1d4247cc52f90e4675`）。**结论：对着任务开始前的原始基线
+三次验证，cluster_notes.py 零回归。**
+
+### 五案例判定（未变）
+
+`is_clean_key` 本轮未改动一行，五个基准案例判定与前两轮报告一致：
+`いつか きみが みる お話。`(3)→clean、`ＴｒｕｅＣｏｌｕｒ`(1)→clean、
+`12`(1)→dirty、`882`/`2470`/`【】`(0)→dirty、含空白+total0→dirty，
+`test_five_review_cases_shape_check` 断言未动，全绿。
+
+### 测试结果
+
+`uv run python -m pytest -q` → **327 passed**（326 − 1 条被替换 + 2 条新增）。
+
+### 顾虑（三轮）
+
+- 并列分隔符集合仍是启发式列举（`/ ／ 、 |｜`），非穷举；`・` 经复评实测
+  确认不该加入（22 次实况全是原文书写惯例的固定搭配，不是并列分隔符）。
+  若未来再发现新的真实并列分隔符实况，按同样思路加进 `COMPOUND_SPLIT_RE`
+  即可。
+- `test_main_compound_detection_structural_on_real_lane_data` 虽然不再断言
+  具体数字，但仍依赖真实车道数据里 `はい`/`いいえ` 各自"确实有至少一个
+  子串命中"这一事实性质（否则会落回"并列拆开全零"分支、断言会落空）。
+  这个性质极难被生产推进打破（两词都是高频常用词，覆盖度增长不会让
+  `total` 归零），风险远小于断言精确计数，可接受。

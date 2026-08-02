@@ -1206,7 +1206,13 @@ warn 共 **7 条**，逐条已判定为工装误报或有理由的保留：
 
 `git tag prod-opus-seg1-s2-done` —— **已执行**（2026-08-02，见下方 commit 记录）。
 
-### 第 4 步：段末小裁决会话（提醒用户另开）
+### 第 4 步：段末小裁决会话 —— **已执行完毕（2026-08-02）**
+
+> **裁决结果与全部证据见同目录 [`ruling-seg1-s2.md`](./ruling-seg1-s2.md)。**
+> 产出：`glossary/glossary.v8.yaml` + 召回令（commit `4b06979`）｜4 条回改 patches（commit `e84ad0b`）｜
+> 双车道版本切换（manifest 四项哈希更新，`--verify` 两条车道均无漂移）。
+> **D 组（工装升级四项）本会话未执行，原样移交工装会话**，附带输入见 ruling §4 D 组。
+> 下面这份清单是**裁决前的输入**，保持原样不改（它是 ruling 的来源材料）。
 
 `uv run python tools/saturation.py --terms-file <本段提案词表> --data-dir pilot/lanes/opus/data --gate 0.8`
 （**`--data-dir` 必须带**；工具会在表头前打印 `done=N 条已入线译文`，N=0 即漏传）

@@ -19,13 +19,25 @@ READER_SYS = ("你在听人讲一个故事。你只知道两部分信息：①�
 JUDGE_SYS = ("你是判分员。根据【问题】【标准答案】【受试回答】判定：对／部分对／错。"
              "只输出一行，格式：判定|一句话依据。")
 
+# P3（b36–339）开工前就已译完的章节白名单——这是唯一允许"确知早于全部段"的例外，
+# 不是 fallback 默认值。config/segments.yaml 的 9 段 chapters 只覆盖 P3 范围内的
+# 章节，s0f/s1s/s1f（对应 pilot/lanes/opus/data/batches.jsonl 的 b1–32，序章+第1章
+# 故事层/现实层）早于 b36 就已入线，故 segments.yaml 里查不到它们——这与"查不到
+# 章节=未知/无法判定"是两回事，必须显式列出来区分（P3 devwave1 task-7 复评 M1
+# 修复：之前 `chapter_max_seg.get(ch, 0)` 的 fallback 把"查不到"和"确知最早"混为
+# 一谈，若未来某个真正未知/晚期的章节短码意外没被 segments.yaml 收录，会被这条
+# fallback 静默当作段 0 纳入前缀——方向反了）。任何不在这个白名单、也不在
+# segments.yaml chapters 里的章节短码，一律按"未知→默认排除"处理。
+PRE_P3_CHAPTERS = {"s0f", "s1s", "s1f"}
+
 
 def _chapter_max_seg(segs) -> dict:
     """章节短码 → 该章节出现过的最晚段号。同一章节可能横跨多段（如 s3s 横跨
     seg2/seg4、s4s 横跨 seg3/seg6，剧情来回跳章的实况），保守取最晚——宁可让
     卡组前缀薄一点，也不把还没轮到的段落错纳成"此前"（P3 devwave1 task-7
-    Critical 修复：反剧透闸）。未出现在任何段 chapters 里的章节由调用方按 0
-    处理（P3 范围外、开工前已译完，恒早于全部段）。"""
+    Critical 修复：反剧透闸）。这里只登记 segments.yaml 里实际出现过的章节；
+    没出现的章节不在这个表里——是否"早于全部段"由 PRE_P3_CHAPTERS 白名单单独
+    判定，不用这张表的 fallback 值（见 PRE_P3_CHAPTERS 注释）。"""
     out = {}
     for s in segs:
         for ch in s.get("chapters", []):
@@ -66,7 +78,12 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
         ch = card_chapter.get(card_num)
         if ch is None:
             return False  # 无法归章 → 默认排除
-        return chapter_max_seg.get(ch, 0) < cur_seg
+        if ch in chapter_max_seg:
+            return chapter_max_seg[ch] < cur_seg
+        # 章节没出现在 segments.yaml 任何段的 chapters 里：只有显式白名单里的
+        # "确知早于全部段"章节才算通过，其余一律按"未知→默认排除"（安全方向，
+        # 不再用 .get(ch, 0) 那种把"查不到"悄悄当"最早"的 fallback）。
+        return ch in PRE_P3_CHAPTERS
 
     cards = yaml.safe_load((repo / "skeleton" / "cards.zh.yaml").read_text(encoding="utf-8"))
     prior_cards = [c for c in cards if is_before_cur_seg(c["card"])]

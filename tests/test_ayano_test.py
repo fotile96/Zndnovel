@@ -4,6 +4,7 @@ import json
 import yaml
 
 from tools.ayano_test import assemble_context, main
+from tools.pipelib import REPO
 
 
 def _mk_fixture(tmp_path):
@@ -105,3 +106,56 @@ def test_assemble_context_prefix_not_emptied_by_filter(tmp_path):
     tail = ctx.index("最新一段正文")
     prefix_section = ctx[head:tail]
     assert "卡一梗概正文" in prefix_section
+
+
+def test_real_card_chapter_data_gate():
+    """数据闸（P3 devwave1 task-7 复评修复：F1/M1 之外的必修项）。上面几条测试全
+    用合成 fixture（自造 segments.yaml + card_chapter.yaml），只守住了过滤代码本
+    身，没守住它依赖的 config/card_chapter.yaml 这份 196 条手工推导数据——复评的
+    变异测试证明了这点：把仓库里真实的 `41: s2s` 改成 `41: s1s`（把 seg1-s2 自己
+    的谜题答案卡塞回它自己的前缀），或者把 card_chapter.yaml 整个清空成 `{}`，上面
+    的合成测试全绿放过。本测试直接读仓库现行的 config/card_chapter.yaml +
+    config/segments.yaml + skeleton/cards.zh.yaml + pilot/lanes/opus 车道数据
+    （只读，不写），三件事都验：
+      1) 全覆盖：card_chapter.yaml 的卡号集合 == cards.zh.yaml 的卡号集合（196 条，
+         无缺无多）——防止 D 这类"整表被清空/漏项"的回归。
+      2) 反剧透：seg1-s2 的前缀不含这些卡——它们是 Critical 的原始证据，写死在
+         这里当活文档：
+           41       ナゾトキ迷宫正确答案（s2s，本段自己的谜题答案）
+           44/45/46 周末去处三选：出去玩地点/游泳池的约定/天文馆的约定（s2s，
+                    本段自己的伏笔，s2s_390 判定条件之一）
+           58       s2s_390 夜晚是否成立的判定（s2s，本段自己的判定）
+           134      章节 2 梗概全文（s2f，本段收尾闭包授予，即本段的『あらすじ』
+                    本体，最直接的"整段剧透"）
+           141      s7f 全盘揭示（"故事里的ユウイチ其实是直哉"）——更晚段的核心
+                    真相，五年前真相章节
+           142      s8f 黎明结局——更晚段
+         防止 C 这类"某一条映射被误改成更早的段"的回归。
+      3) 每段非空：对 segments.yaml 全部 9 段各跑一遍 assemble_context，断言过滤
+         后前缀卡数 > 0——防止过滤/白名单写过头把某段前缀清空（工具从"恒绿"变
+         "恒错"同样无用）。
+    """
+    card_chapter = yaml.safe_load(
+        (REPO / "config" / "card_chapter.yaml").read_text(encoding="utf-8"))
+    cards = yaml.safe_load((REPO / "skeleton" / "cards.zh.yaml").read_text(encoding="utf-8"))
+    segs = yaml.safe_load((REPO / "config" / "segments.yaml").read_text(encoding="utf-8"))
+    lane = REPO / "pilot" / "lanes" / "opus"
+
+    # 1) 全覆盖
+    assert set(card_chapter) == {c["card"] for c in cards}
+
+    # 2) 反剧透：seg1-s2 前缀不含 Critical 原始证据里的这几张卡
+    ctx, _ = assemble_context("seg1-s2", lane, repo=REPO)
+    by_card = {c["card"]: c for c in cards}
+    for card_num in (41, 44, 45, 46, 58, 134, 141, 142):
+        body = by_card[card_num].get("body_zh", "")
+        assert body, f"卡{card_num} 在 cards.zh.yaml 里没有 body_zh，测不出泄露"
+        assert body not in ctx, f"卡{card_num} 泄进了 seg1-s2 前缀（回归到 Critical）"
+
+    # 3) 每段非空
+    for s in segs:
+        seg_ctx, _ = assemble_context(s["label"], lane, repo=REPO)
+        head = seg_ctx.index("此前剧情的卡片梗概")
+        tail = seg_ctx.index("最新一段正文")
+        n = seg_ctx[head:tail].count("【卡")
+        assert n > 0, f"{s['label']}（seg={s['seg']}）前缀被滤空"

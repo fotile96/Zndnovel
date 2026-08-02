@@ -1,4 +1,5 @@
 """route_plan DSL → data/timeline.jsonl 展开器。"""
+import argparse
 import fnmatch
 import json
 import re
@@ -268,7 +269,22 @@ def run_plan(ex, moves):
                               f"合法键：{MOVE_KEYS}")
 
 
-def main():
+def main(argv=None):
+    # 先解析参数、后碰任何文件。本工具无选项，但**必须**有 argparse：它会重写
+    # DATA/timeline.jsonl，而生产姿势 ZND_DATA=pilot/lanes/opus/data 下该路径是
+    # 指向主仓 git 跟踪文件 data/timeline.jsonl 的**符号链接**（open(path,"w")
+    # 跟随符号链接）。从前 main() 不读 sys.argv，`gen_timeline.py --help` 这类
+    # 手误会被静默忽略并**照常重写**主仓数据——而重生 timeline 是 runbook §4.0
+    # 自己定性为「生产条件变更、只许在段边界做」的操作。现在未知参数由 argparse
+    # 拦下（exit 2），`--help` 打印帮助后即退出，两者都**不会**写文件。
+    ap = argparse.ArgumentParser(
+        description="route_plan DSL → data/timeline.jsonl 展开器（无选项）。",
+        epilog="⚠ 本工具会重写 $ZND_DATA/timeline.jsonl（生产姿势下即主仓 "
+               "data/timeline.jsonl 的符号链接目标，git 跟踪）。属生产条件变更，"
+               "只许在段边界、且确认生产会话不在跑批时执行；写盘非原子"
+               "（truncate + 逐行写），并发读会读到截断的 JSON。见 runbook §4。")
+    ap.parse_args(argv)
+
     import yaml
     route_plan = yaml.safe_load((REPO / "config" / "route_plan.yaml").read_text(encoding="utf-8")) or []
     unit_funcs = yaml.safe_load((REPO / "config" / "unit_funcs.yaml").read_text(encoding="utf-8")) or {}

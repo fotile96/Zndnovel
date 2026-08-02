@@ -558,3 +558,47 @@ def test_ids_fall_back_to_id_order_when_line_absent():
     ex.story("f_10", {}, until=None)
     unit = next(u for u in ex.timeline if u["type"] == "unit")
     assert unit["ids"] == [100, 200]
+
+
+# --- CLI 护栏（未知参数不得被静默忽略，且绝不能写文件）-------------------------
+# 背景：main() 从前不读 sys.argv，`gen_timeline.py --help` 这类手误会被静默忽略并
+# **照常重写** DATA/timeline.jsonl；而生产姿势 ZND_DATA=pilot/lanes/opus/data 下
+# 该路径是指向主仓 git 跟踪文件的符号链接，重生 timeline 又是 runbook §4.0 定性为
+# 「生产条件变更、只许段边界做」的操作。故未知参数必须非零退出且不产生任何写入。
+
+def _run_main_isolated(argv, tmp_path, monkeypatch):
+    """在隔离的 DATA 目录里调 main(argv)，返回 (SystemExit码, 该目录下新增的文件名集合)。
+    DATA 指向空的 tmp 目录：若 main 真的走到了写盘那一步，会先在读输入时炸开或落下
+    文件——两者都能把「参数没拦住」这件事暴露出来。"""
+    import tools.gen_timeline as gt
+    monkeypatch.setattr(gt, "DATA", tmp_path)
+    before = {p.name for p in tmp_path.iterdir()}
+    code = None
+    try:
+        gt.main(argv)
+    except SystemExit as e:
+        code = e.code
+    after = {p.name for p in tmp_path.iterdir()}
+    return code, after - before
+
+
+def test_gen_timeline_unknown_arg_exits_nonzero_and_writes_nothing(tmp_path, monkeypatch):
+    code, written = _run_main_isolated(["--nope"], tmp_path, monkeypatch)
+    assert code == 2, f"未知参数应由 argparse 拦下（rc=2），实得 {code!r}"
+    assert written == set(), f"未知参数不得产生任何写入，却落下了 {written}"
+
+
+def test_gen_timeline_help_exits_zero_and_writes_nothing(tmp_path, monkeypatch, capsys):
+    code, written = _run_main_isolated(["--help"], tmp_path, monkeypatch)
+    assert code == 0, f"--help 应打印帮助后 rc=0 退出，实得 {code!r}"
+    assert written == set(), f"--help 不得执行展开、不得写文件，却落下了 {written}"
+    out = capsys.readouterr().out
+    assert "timeline.jsonl" in out, "帮助文本应点名它会重写的那个文件"
+
+
+def test_gen_timeline_help_warns_about_symlinked_production_data(tmp_path, monkeypatch, capsys):
+    """帮助里必须写明生产姿势下的符号链接与段边界纪律——生产会话读的是这段。"""
+    _run_main_isolated(["--help"], tmp_path, monkeypatch)
+    out = capsys.readouterr().out
+    assert "符号链接" in out
+    assert "段边界" in out

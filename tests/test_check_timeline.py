@@ -1,3 +1,5 @@
+import pytest
+
 from tools.check_timeline import check, _grant
 from tests.test_gen_timeline import DAG2, LEDGER2, S2C
 from tools.gen_timeline import Expander
@@ -159,3 +161,24 @@ def test_grant_ignores_card_unit_with_no_scene2card_mapping():
     _grant(held, unit, {"crds": {}}, {}, {}, {})
     assert None not in held
     assert held == set()
+
+
+# --- CLI 护栏（与 gen_timeline 对称；本工具只读，故只断言退出码与不执行）--------
+
+def test_check_timeline_unknown_arg_exits_nonzero(tmp_path, monkeypatch):
+    """未知参数应由 argparse 拦下（rc=2），而不是被静默忽略后照常跑一遍校验。"""
+    import tools.check_timeline as ct
+    monkeypatch.setattr(ct, "DATA", tmp_path)   # 空目录：真跑起来会因缺输入而炸
+    with pytest.raises(SystemExit) as ei:
+        ct.main(["--nope"])
+    assert ei.value.code == 2
+
+
+def test_check_timeline_help_exits_zero_without_running(tmp_path, monkeypatch, capsys):
+    """--help 打印帮助后 rc=0 退出，且不执行校验（DATA 是空目录，真跑会抛 FileNotFound）。"""
+    import tools.check_timeline as ct
+    monkeypatch.setattr(ct, "DATA", tmp_path)
+    with pytest.raises(SystemExit) as ei:
+        ct.main(["--help"])
+    assert ei.value.code == 0
+    assert "三组断言" in capsys.readouterr().out

@@ -1,4 +1,5 @@
 """timeline 三组断言：覆盖 / crd 合法 / 门控表。独立于展开器重放验证。"""
+import argparse
 import json
 import sys
 from collections import Counter
@@ -119,7 +120,16 @@ def check(timeline, ledger_rows, dag, scene2card, gates):
     return errs
 
 
-def main():
+def main(argv=None):
+    # 与 gen_timeline 同理：从前 main() 不读 sys.argv，任何参数都被静默忽略。
+    # 本工具只读（不写任何文件），故风险远小于 gen_timeline；加 argparse 是为了
+    # 让这对姊妹工具的 CLI 行为一致——手误传参立即报错，而不是让人误以为
+    # 「参数生效了」。
+    ap = argparse.ArgumentParser(
+        description="timeline 三组断言：覆盖 / crd 合法 / 门控表（只读，无选项）。"
+                    "全部通过打印 OK 并 rc=0；有错逐条打印并 rc=1。")
+    ap.parse_args(argv)
+
     import yaml
     timeline = read_jsonl(DATA / "timeline.jsonl")
     ledger = read_jsonl(DATA / "ledger.jsonl")

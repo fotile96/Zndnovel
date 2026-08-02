@@ -69,11 +69,25 @@ KANA_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]")
 ZH_LOOP_MIN_UNIT = 4
 JP_LOOP_MIN_UNIT = 2
 LOOP_RE = re.compile(r"(.{4,}?)\1{2,}")   # ≡ _max_repeat_run(zh, ZH_LOOP_MIN_UNIT) >= 3
+# `_max_repeat_run` 的扫描窗口（字符）。实测增长约 n^2.4–n^3（内层比较是 L 字符的
+# 切片相等，不是 O(1)）：200→0.001s、512→0.013s、1000→0.064s、2000→0.30s、8000→5.9s。
+# 上限必须是**代码保证**而非经验事实：本规则的目标形态正是"模型退化吐出几千字重复
+# 文本"，真出现时不设限会让探测器在它最该工作的那一刻卡几秒到几十秒。
+# 512 的依据：全 ledger 16749 行原文最长 95 字、已入线 6278 行译文最长 78 字（p99=53），
+# 512 ≈ 观测最长行的 5–6 倍，正常语料永远碰不到；而窗口内最坏 0.013s，即便每行都命中
+# 也只是全库 +80s 的量级上限，不会失控。
+RUN_SCAN_WINDOW = 512
 
 
-def _max_repeat_run(s: str, min_unit: int) -> int:
-    """s 中任一长度≥min_unit 的子串「连续重复」的最大次数（无重复时为 1）。
-    只在 LOOP_RE 已命中（全库 6278 行仅 1 行）时才调用，故 O(n²) 可接受。"""
+def _max_repeat_run(s: str, min_unit: int, window: int = RUN_SCAN_WINDOW) -> int:
+    """s 的**前 window 字符**中任一长度≥min_unit 的子串「连续重复」的最大次数
+    （无重复时为 1）。
+    截断的方向性影响（两侧都偏向"多报不少报"，与顾问工具的成本非对称一致）：
+      - jp 侧：超长原文若把重复放在窗口外，jr 被低估 → 可能多报一条。
+      - zh 侧：调用点用 `max(..., 3)` 兜底——LOOP_RE 已命中即保证真实 zr≥3，
+        防止重复段落落在窗口外时 zr 被低估成 1 而**静默漏报**（那正是目标形态）。
+    """
+    s = s[:window]
     best, n = 1, len(s)
     for L in range(min_unit, n // 2 + 1):
         for i in range(n - 2 * L + 1):
@@ -160,6 +174,9 @@ def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
     src = {r["id"]: r["jp"] for r in source_rows}
     hits = []
     # 两个计数器必须建在**同一批行**上（有对应原文的那些），否则 zh/jp 次数不可比。
+    # 与 v1 不严格等价：v1 的 zh_counts 建在全部 draft_rows 上，draft 里若有源中
+    # 不存在的 id，其重复会计入 zh 次数；现在不计。实务上 check_batch 会对未知 id
+    # 硬报，这类行不该走到这里，影响可忽略——但它是行为差异，不是纯重构。
     paired = [r for r in draft_rows if r["id"] in src]
     zh_counts = Counter(r["zh"] for r in paired)
     jp_counts = Counter(src[r["id"]] for r in paired)
@@ -180,7 +197,9 @@ def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
         # ——原文自己就重复到同样次数时（拟声词「ぱつ、ぱつ、ぱつ」）是忠实翻译。
         looped = False
         if LOOP_RE.search(zh):
-            zr = _max_repeat_run(zh, ZH_LOOP_MIN_UNIT)
+            # max(...,3)：LOOP_RE 已命中 ⇒ 真实次数必≥3；扫描窗口截断只会低估，
+            # 兜底后超长退化行不会因重复段落落在窗口外而被静默压掉。
+            zr = max(_max_repeat_run(zh, ZH_LOOP_MIN_UNIT), 3)
             jr = _max_repeat_run(jp, JP_LOOP_MIN_UNIT)
             if zr > jr:
                 looped = True

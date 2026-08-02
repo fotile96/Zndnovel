@@ -207,6 +207,36 @@ def test_c3_inline_loop_amplified_beyond_source_is_flagged():
     assert len(c3) == 1 and "重复 6 次" in c3[0]["msg"]
 
 
+def test_c3_long_degenerate_line_is_flagged_and_bounded_in_time():
+    """本规则的目标形态就是"模型吐出几千字重复文本"。`_max_repeat_run` 实测
+    随长度按 ~n^2.4–n^3 增长（8000 字 ≈5.9s），故入口有 RUN_SCAN_WINDOW 截断
+    ——上限必须是代码保证，不能靠"历史最长行 78 字"这一经验事实。
+    时限取 2s：全量 342 例总耗时约 2s，无截断时本例单条就要 5s 以上，
+    余量足够，不会因机器负载抖动误报红。"""
+    import time
+    from tools.detect_collapse import RUN_SCAN_WINDOW
+    src = [{"id": 1, "jp": "彼女はゆっくりと窓の外へ視線を移した。"}]
+    drf = [{"id": 1, "zh": "她把视线移向窗外" * 1000}]           # 8000 字
+    t = time.perf_counter()
+    c3 = [h for h in scan(src, drf) if h["rule"] == "C3"]
+    assert time.perf_counter() - t < 2.0, "扫描窗口失效——超长退化行会拖垮探测器"
+    assert len(c3) == 1
+    # 截断后窗口内仍有 512//8 = 64 次重复，报出的次数取自窗口，不是全行真值。
+    assert f"重复 {RUN_SCAN_WINDOW // 8} 次" in c3[0]["msg"]
+
+
+def test_c3_loop_beyond_scan_window_is_not_silently_dropped():
+    """重复段落整个落在扫描窗口之外时，窗口内算出的 zr 会是 1；调用点的
+    `max(..., 3)` 兜底必须让它仍然报出——否则截断会在目标形态上制造静默漏报。"""
+    # 填充段每句带不同编号，本身零重复（实测 _max_repeat_run=1），
+    # 保证窗口内确实算不出重复、报出的 3 次只可能来自兜底。
+    zh = "".join(f"第{i}段没有重复的叙述内容。" for i in range(50)) + "她把视线移向窗外" * 3
+    assert len(zh) > 512
+    src = [{"id": 1, "jp": "".join(f"第{i}の文がここに続いている。" for i in range(20))}]
+    c3 = [h for h in scan(src, [{"id": 1, "zh": zh}]) if h["rule"] == "C3"]
+    assert len(c3) == 1 and "重复 3 次" in c3[0]["msg"]
+
+
 def test_c3_suppressed_inline_loop_still_eligible_for_batch_dup():
     """行内那半边被原文对比压掉后，同一行仍要过批内同句这一关（旧码是
     if/elif，压掉即整条 C3 静默）。"""

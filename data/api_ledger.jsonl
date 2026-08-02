@@ -46,3 +46,5 @@
 {"ts": "2026-08-02T16:06:21+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-262144", "prompt_tokens": 8, "completion_tokens": 58, "cached_tokens": 0, "reasoning_tokens": 56}
 {"ts": "2026-08-02T16:06:36+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-cap-393216", "prompt_tokens": 8, "completion_tokens": 68, "cached_tokens": 0, "reasoning_tokens": 66}
 {"ts": "2026-08-02T16:07:32+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "probe-max-393216", "prompt_tokens": 32035, "completion_tokens": 2854, "cached_tokens": 0, "reasoning_tokens": 2655}
+{"ts": "2026-08-02T18:39:38+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "agent-loop-cli", "prompt_tokens": 478, "completion_tokens": 79, "cached_tokens": 0, "reasoning_tokens": 33, "effort": "max"}
+{"ts": "2026-08-02T18:39:41+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "agent-loop-cli", "prompt_tokens": 770, "completion_tokens": 343, "cached_tokens": 384, "reasoning_tokens": 37, "effort": "max"}

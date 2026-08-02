@@ -498,3 +498,45 @@ def test_on_delta_callback_sees_reasoning_and_text(tmp_path):
          on_delta=lambda kind, t: seen.append((kind, t)))
     assert seen[0] == ("reasoning", "先看看文本里怎么说")
     assert [t for k, t in seen if k == "text"] == list("回答内容")
+
+
+def test_ledger_token_and_summary_tolerate_dirty_rows():
+    """终审 M7：`data/api_ledger.jsonl` 是 append-only 历史账本，混着两种行形态
+    （Responses 改造前的 6 行没有 cached/reasoning 两列）与 -1 哨兵（远端没下发
+    usage）。历史行不改，消费侧靠这两个函数安全汇总：缺键与负哨兵都当「未知」，
+    不参与求和、单独计数；真实的 0 仍算已知值。"""
+    from tools.api_client import ledger_token, summarize_ledger
+
+    old = {"prompt_tokens": 87, "completion_tokens": 24}                  # 缺两列
+    new = {"prompt_tokens": 100, "completion_tokens": 10,
+           "cached_tokens": 0, "reasoning_tokens": 12}                    # 0 是真值
+    est = {"prompt_tokens": -1, "completion_tokens": 5,
+           "cached_tokens": -1, "reasoning_tokens": 5, "estimated": True}  # 哨兵
+
+    assert ledger_token(old, "cached_tokens") is None      # 缺键不 KeyError
+    assert ledger_token(est, "prompt_tokens") is None      # 哨兵不当 0、更不当 -1
+    assert ledger_token(new, "cached_tokens") == 0         # 真 0 是已知值
+    assert ledger_token({"prompt_tokens": True}, "prompt_tokens") is None  # bool 不是计数
+
+    s = summarize_ledger([old, new, est])
+    assert s["prompt_tokens"] == {"sum": 187, "n": 2, "unknown": 1}
+    assert s["cached_tokens"] == {"sum": 0, "n": 1, "unknown": 2}
+    assert s["reasoning_tokens"] == {"sum": 17, "n": 2, "unknown": 1}
+    # 朴素 sum() 会把哨兵减掉：这正是本函数要挡住的静默低估
+    assert sum(r.get("prompt_tokens", 0) for r in [old, new, est]) == 186
+
+
+def test_summarize_real_repo_ledger_has_both_row_shapes():
+    """数据闸：仓库现行台账确实混着两种形态（否则本测试就是同义反复）。
+    只读，不改历史行。"""
+    import json
+    from tools.api_client import REPO, summarize_ledger
+
+    p = REPO / "data" / "api_ledger.jsonl"
+    if not p.exists():
+        return
+    rows = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert any("cached_tokens" not in r for r in rows), "缺键行没了，本用例可退休"
+    s = summarize_ledger(rows)
+    assert s["prompt_tokens"]["n"] + s["prompt_tokens"]["unknown"] == len(rows)
+    assert s["cached_tokens"]["unknown"] >= 1

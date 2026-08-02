@@ -310,6 +310,39 @@ def _write_ledger(lp, *, provider, model, purpose, usage, partial=False, attempt
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+LEDGER_TOKEN_KEYS = ("prompt_tokens", "completion_tokens",
+                     "cached_tokens", "reasoning_tokens")
+
+
+def ledger_token(row, key):
+    """台账某个 token 列的**可汇总值**；取不到就返回 None（下游据此跳过该行）。
+
+    `data/api_ledger.jsonl` 是 append-only 的历史账本，里面混着两种行形态、两种
+    脏值，**历史行一律不改**（改了就不是台账了），故消费侧必须有个统一入口：
+      · **缺键**：Responses 改造（task-10）之前写下的前 6 行根本没有
+        `cached_tokens`/`reasoning_tokens` 两列——`row["cached_tokens"]` 会
+        KeyError，`sum(r["cached_tokens"] for r in rows)` 直接崩。
+      · **负哨兵 -1**：远端没下发 usage 时用 -1 表示「不知道」（见 _usage_of）。
+        它不是 0，直接 sum() 会把总量**减**掉——一个静默的低估，且行数越多越错。
+    两者都返回 None，与真实的 0（如 cached_tokens=0＝确实没命中缓存）区分开。"""
+    v = row.get(key)
+    if not isinstance(v, (int, float)) or isinstance(v, bool) or v < 0:
+        return None
+    return v
+
+
+def summarize_ledger(rows, keys=LEDGER_TOKEN_KEYS) -> dict:
+    """按列汇总台账，脏值不参与求和但会被计数：
+    `{key: {"sum": 已知值合计, "n": 已知行数, "unknown": 缺键或哨兵的行数}}`。
+    汇总时报告 unknown 的意义：让「这个总数少统计了几行」一眼可见，而不是把
+    未知悄悄当成 0。"""
+    out = {}
+    for k in keys:
+        vals = [v for v in (ledger_token(r, k) for r in rows) if v is not None]
+        out[k] = {"sum": sum(vals), "n": len(vals), "unknown": len(rows) - len(vals)}
+    return out
+
+
 def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
          max_tokens=4096, purpose="", stream_transport=None, ledger_path=None,
          api_key=None, timeout=None, retries=None, sleeper=None,

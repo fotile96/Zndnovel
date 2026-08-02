@@ -145,14 +145,33 @@ def test_retries_zero_disables_retry(tmp_path):
 
 
 def _sse_lines(text="ok", reasoning="想一下", input_tokens=5, output_tokens=3):
-    """真实 SSE 线格式（event: / data: / 空行分隔），用于验默认 transport 通路。"""
+    """真实 SSE 线格式（event: / data: / 空行分隔），用于验默认 transport 通路。
+
+    事件序列照 2026-08-02 对 `https://api.deepseek.com/v1/responses` 的实测抄写：
+    reasoning item 先完整走完一遍（output_item.added → content_part.added →
+    delta* → done → content_part.done → output_item.done），然后才开第二个 item
+    出正文。**保留这些 item/part 边界事件**——复评 I-2 指出，测试侧只造单 part 的
+    裸 delta 正是「`.done` 覆盖而非追加」那个 bug 漏网的直接原因。"""
     def ev(t, d):
         return [f"event: {t}\n", f"data: {json.dumps(d, ensure_ascii=False)}\n", "\n"]
     out = []
     out += ev("response.created", {"type": "response.created", "response": {}})
+    out += ev("response.in_progress", {"type": "response.in_progress", "response": {}})
+    out += ev("response.output_item.added", {"item": {"type": "reasoning"}, "output_index": 0})
+    out += ev("response.content_part.added", {"part": {"type": "reasoning_text", "text": ""},
+                                              "output_index": 0})
     out += ev("response.reasoning_text.delta", {"delta": reasoning})
+    out += ev("response.reasoning_text.done", {"text": reasoning})
+    out += ev("response.content_part.done", {"part": {"type": "reasoning_text",
+                                                      "text": reasoning}})
+    out += ev("response.output_item.done", {"item": {"type": "reasoning"}, "output_index": 0})
+    out += ev("response.output_item.added", {"item": {"type": "message"}, "output_index": 1})
+    out += ev("response.content_part.added", {"part": {"type": "output_text", "text": ""},
+                                              "output_index": 1})
     out += ev("response.output_text.delta", {"delta": text})
     out += ev("response.output_text.done", {"text": text})
+    out += ev("response.content_part.done", {"part": {"type": "output_text", "text": text}})
+    out += ev("response.output_item.done", {"item": {"type": "message"}, "output_index": 1})
     out += ev("response.completed", {"response": {"usage": {
         "input_tokens": input_tokens, "input_tokens_details": {"cached_tokens": 2},
         "output_tokens": output_tokens,
@@ -332,10 +351,16 @@ def test_started_stream_is_not_retried(tmp_path):
     assert len(calls) == 1                    # 明明可重试的错误类型，但没重试
 
 
-def test_timeout_before_any_delta_is_retried(tmp_path):
-    """②的另一半：首个 delta 之前超时（＝远端还在 prefill/长思考）**要**重试。"""
+def test_timeout_before_any_delta_is_retried_and_is_ledgered(tmp_path):
+    """②的另一半：首个 delta 之前超时（＝远端还在 prefill/长思考）**要**重试。
+
+    复评 I-1：这条路径**同时**是①的重点——它是唯一会触发重试的路径，若入账门槛
+    按「已吐出 delta」算，最该记账的失败反而永远零留痕。`response.created` 到了就
+    证明远端已接受请求并开始 prefill，而彩野测试的成本主导项正是输入侧（约 2.35
+    万 in vs 数百 out）。所以这里要连台账一起断言，不能只断言重试次数。"""
     calls = []
     sleeps = []
+    lp = tmp_path / "l.jsonl"
 
     def slow_start(url, headers, payload):
         calls.append(1)
@@ -345,10 +370,89 @@ def test_timeout_before_any_delta_is_retried(tmp_path):
         yield from _events()
 
     r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
-             stream_transport=slow_start, ledger_path=tmp_path / "l.jsonl",
-             sleeper=sleeps.append)
+             stream_transport=slow_start, ledger_path=lp, sleeper=sleeps.append)
     assert r["content"] == "回答内容"
     assert len(calls) == 2 and sleeps == [2]
+    rows = [json.loads(x) for x in lp.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 2                      # 失败那次 + 成功那次
+    assert rows[0]["partial"] is True and rows[0]["attempt"] == 1
+    assert rows[0]["estimated"] is True
+    assert rows[0]["prompt_tokens"] == -1 and rows[0]["completion_tokens"] == 0
+    assert "partial" not in rows[1] and rows[1]["prompt_tokens"] == 100
+
+
+def test_zero_event_failure_is_not_ledgered(tmp_path):
+    """入账门槛的另一侧：一个事件都没到（4xx / 连不上）不入账——那次确实没发生、
+    也没计费。避免把 I-1 的修法修过头变成给每次连接失败都记一笔。"""
+    lp = tmp_path / "l.jsonl"
+
+    def nothing(url, headers, payload):
+        raise urllib.error.HTTPError("u", 401, "Unauthorized", {}, None)
+        yield  # pragma: no cover - 让它是生成器
+
+    with pytest.raises(urllib.error.HTTPError):
+        chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=nothing, ledger_path=lp, retries=0)
+    assert not lp.exists() or lp.read_text(encoding="utf-8").strip() == ""
+
+
+def test_estimated_flag_is_decoupled_from_partial(tmp_path):
+    """复评顺手项①：终止事件到了但远端没下发 usage —— 这行不是 partial，却同样
+    是估算值。不标 estimated 就会出现「prompt_tokens 是 -1 却看不出是估的」。"""
+    lp = tmp_path / "l.jsonl"
+
+    def no_usage(url, headers, payload):
+        yield "response.output_text.delta", {"delta": "ok"}
+        yield "response.output_text.done", {"text": "ok"}
+        yield "response.completed", {"response": {}}      # usage 缺失
+
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=no_usage, ledger_path=lp)
+    assert r["content"] == "ok" and r["prompt_tokens"] == -1
+    row = json.loads(lp.read_text(encoding="utf-8").splitlines()[0])
+    assert row["estimated"] is True
+    assert "partial" not in row                # 不是部分失败，是完成但计数不全
+
+
+def test_multiple_parts_are_concatenated_not_overwritten(tmp_path):
+    """复评 I-2：一次响应可能有**多个** content part / output item（长推理常被拆
+    成多段）。`.done` 必须追加而不是替换累加器——否则前面的段被静默丢弃，报告里
+    拿到半截答案 + 半截 CoT，判分员照常打分，失败完全无声。"""
+    def multi(url, headers, payload):
+        yield "response.content_part.added", {"part": {"type": "reasoning_text"}}
+        yield "response.reasoning_text.delta", {"delta": "AAA"}
+        yield "response.reasoning_text.done", {"text": "AAA"}
+        yield "response.content_part.added", {"part": {"type": "reasoning_text"}}
+        yield "response.reasoning_text.delta", {"delta": "BBB"}
+        yield "response.reasoning_text.done", {"text": "BBB"}
+        yield "response.content_part.added", {"part": {"type": "output_text"}}
+        yield "response.output_text.delta", {"delta": "111"}
+        yield "response.output_text.done", {"text": "111"}
+        yield "response.content_part.added", {"part": {"type": "output_text"}}
+        yield "response.output_text.delta", {"delta": "222"}
+        yield "response.output_text.done", {"text": "222"}
+        yield "response.completed", {"response": {"usage": {"input_tokens": 1,
+                                                            "output_tokens": 1}}}
+
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=multi, ledger_path=tmp_path / "l.jsonl")
+    assert r["content"] == "111222"
+    assert r["reasoning_text"] == "AAABBB"
+
+
+def test_part_without_done_is_not_lost_when_next_part_starts(tmp_path):
+    """同上的边角：某一段没等到 `.done` 就换段时，缓冲要先收进已完成列表，不能被
+    下一段的 delta 冲掉。"""
+    def sloppy(url, headers, payload):
+        yield "response.content_part.added", {"part": {"type": "output_text"}}
+        yield "response.output_text.delta", {"delta": "前"}
+        yield "response.content_part.added", {"part": {"type": "output_text"}}
+        yield "response.output_text.delta", {"delta": "后"}
+        yield "response.completed", {"response": {"usage": {}}}
+
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=sloppy, ledger_path=tmp_path / "l.jsonl")
+    assert r["content"] == "前后"
 
 
 def test_429_honours_retry_after_header(tmp_path):

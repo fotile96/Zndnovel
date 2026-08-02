@@ -53,7 +53,7 @@ PROVIDERS = {
 # 才触发。这正是本次改造要的语义，不需要额外的看门狗线程。
 # 取值理由：门槛量级是「**单次事件间隔**」而非「总时长」。稳定吐字时事件间隔是
 # 毫秒级；实际最长的一次静默是「请求发出 → 首个 response.created」之间的远端
-# prefill（彩野测试单次 prompt 约 2.1 万 token），量级几十秒。120s 给它留了数倍
+# prefill（彩野测试单次 prompt 实测约 2.35 万 token），量级几十秒。120s 给它留了数倍
 # 余量，同时把「连接已死」的检出时间从旧的 600s 压到 2 分钟。
 DEFAULT_IDLE_TIMEOUT = 120
 DEFAULT_RETRIES = 3
@@ -207,28 +207,46 @@ def _consume(events, on_delta=None):
 
     正常收尾要求见到 TERMINAL_EVENTS 之一；否则抛 StreamAborted（带进度快照）。
     """
-    prog = {"text": [], "reasoning": [], "text_deltas": 0, "reasoning_deltas": 0,
+    # 一次响应可能出现**多个** content part / output item（Responses 对长推理常
+    # 把 reasoning 拆成多段）。所以 `.done` 必须**追加**已完成的这一段，而不是拿它
+    # 整体替换累加器——后者会把前面几段静默丢掉（半截答案 + 半截 CoT 照样能跑完
+    # 判分，失败完全无声）。结构：done[kind] 存已收尾的各段，buf[kind] 存当前段的
+    # delta 缓冲；最终文本 = 各已完成段 + 尚未收尾的缓冲。
+    prog = {"text_done": [], "reasoning_done": [], "text_buf": [], "reasoning_buf": [],
+            "text_deltas": 0, "reasoning_deltas": 0,
             "usage": None, "status": None, "event_types": []}
     try:
         for etype, data in events:
             prog["event_types"].append(etype)
             if etype == "response.output_text.delta":
                 d = data.get("delta", "")
-                prog["text"].append(d)
+                prog["text_buf"].append(d)
                 prog["text_deltas"] += 1
                 if on_delta:
                     on_delta("text", d)
             elif etype == "response.reasoning_text.delta":
                 d = data.get("delta", "")
-                prog["reasoning"].append(d)
+                prog["reasoning_buf"].append(d)
                 prog["reasoning_deltas"] += 1
                 if on_delta:
                     on_delta("reasoning", d)
             elif etype == "response.output_text.done":
-                # .done 带完整 text——以它为准，防 delta 漏拼。
-                prog["text"] = [data.get("text", "".join(prog["text"]))]
+                # .done 带这一段的完整 text——以它为准（防 delta 漏拼），追加而非替换。
+                prog["text_done"].append(data.get("text", "".join(prog["text_buf"])))
+                prog["text_buf"] = []
             elif etype == "response.reasoning_text.done":
-                prog["reasoning"] = [data.get("text", "".join(prog["reasoning"]))]
+                prog["reasoning_done"].append(data.get("text", "".join(prog["reasoning_buf"])))
+                prog["reasoning_buf"] = []
+            elif etype == "response.content_part.added":
+                # 新的一段开始。上一段若没等到 .done 就换段（异常/未来协议变化），
+                # 把缓冲先收进已完成列表，别让它被下一段的 delta 冲掉。
+                kind = ((data.get("part") or {}).get("type") or "")
+                if kind == "output_text" and prog["text_buf"]:
+                    prog["text_done"].append("".join(prog["text_buf"]))
+                    prog["text_buf"] = []
+                elif kind == "reasoning_text" and prog["reasoning_buf"]:
+                    prog["reasoning_done"].append("".join(prog["reasoning_buf"]))
+                    prog["reasoning_buf"] = []
             elif etype in TERMINAL_EVENTS:
                 resp = data.get("response") or {}
                 prog["usage"] = resp.get("usage") or {}
@@ -246,6 +264,11 @@ def _consume(events, on_delta=None):
         raise StreamAborted(f"远端返回 response.failed：{json.dumps(prog['usage'], ensure_ascii=False)}",
                             partial=prog)
     return prog
+
+
+def _joined(prog, kind):
+    """把某一路（"text" / "reasoning"）的各已完成段 + 未收尾缓冲拼成完整文本。"""
+    return "".join(prog[f"{kind}_done"]) + "".join(prog[f"{kind}_buf"])
 
 
 def _usage_of(prog):
@@ -278,8 +301,11 @@ def _write_ledger(lp, *, provider, model, purpose, usage, partial=False, attempt
         # 那些 token 是真金白银花掉的；不记就会系统性低估实际花费。
         row["partial"] = True
         row["attempt"] = attempt
-        if usage["estimated"]:
-            row["estimated"] = True
+    if usage["estimated"]:
+        # 与 partial 解耦：终止事件到了但 usage 缺失（远端没下发）也走估算分支，
+        # 那种行不是 partial，却同样是估算值——不标出来就会出现「prompt_tokens
+        # 是 -1 却看不出这行是估的」。
+        row["estimated"] = True
     with open(lp, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
@@ -334,14 +360,20 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
             produced = 0
             if partial is not None:
                 produced = partial["text_deltas"] + partial["reasoning_deltas"]
-                # ① 已产生的部分 token 先记账，再决定重不重试。一个字节都没回来的
-                #    失败（4xx/连不上）不入账——那次没有产出、也没有计费。
-                if produced or partial["usage"]:
+                # ① 失败的尝试也要记账，再决定重不重试。
+                #    入账门槛是「**有任何事件到达**」而不是「已吐出 delta」：唯一会
+                #    触发重试的路径恰恰是 delta 之前就断（见 ② 的理由），若按 delta
+                #    计门槛，那条最该被记账的路径将永远零留痕。只要
+                #    `response.created` 到了，就证明远端已接受请求并开始 prefill，
+                #    而彩野测试的成本主导项正是输入侧（约 2.35 万 in vs 数百 out）
+                #    ——这笔钱花了却在账上不可见，正是「系统性低估」本身。
+                #    一个事件都没有（4xx / 连不上）仍不入账：那次确实没发生也没计费。
+                if partial["event_types"]:
                     _write_ledger(lp, provider=provider, model=model, purpose=purpose,
                                   usage=_usage_of(partial), partial=True, attempt=attempt)
             retryable = _is_retryable(exc)
             # ② 已经开始吐字的流不整体重试：重试要丢弃已收到的部分 CoT 并整段
-            #    重来，重复消耗计费 token（彩野测试单次输入约 2.1 万 token）。而
+            #    重来，重复消耗计费 token（彩野测试单次输入约 2.35 万 token）。而
             #    「远端长思考被误杀」这个我们真正想救的场景发生在**首个 delta 之
             #    前**——一旦稳定吐字，静默超时（120s）远大于事件间隔，此时再超时
             #    就是连接真死了，重来一遍只会再烧一次钱。故只重试「尚未产出任何
@@ -372,8 +404,8 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
         print("[api_client] ⚠ response.incomplete：输出被截断（多半是 max_output_tokens "
               "打满），内容仍按已收到的部分返回", file=sys.stderr)
     usage = _usage_of(prog)
-    out = {"content": "".join(prog["text"]),
-           "reasoning_text": "".join(prog["reasoning"]),
+    out = {"content": _joined(prog, "text"),
+           "reasoning_text": _joined(prog, "reasoning"),
            "prompt_tokens": usage["prompt_tokens"],
            "completion_tokens": usage["completion_tokens"],
            "cached_tokens": usage["cached_tokens"],
@@ -402,7 +434,15 @@ def main(argv=None):
                      help="把 CoT 与正文 delta 实时打到 stderr")
     a = ap.parse_args(argv)
 
+    # 两股流（CoT 与正文）在同一个 stderr 上必须分得开，否则混排成一团看不出
+    # 哪句是推理、哪句是答案。切换 kind 时打一次段头。
+    seen_kind = [None]
+
     def on_delta(kind, text):
+        if kind != seen_kind[0]:
+            label = "【CoT】" if kind == "reasoning" else "【正文】"
+            print(f"\n{label} ", end="", file=sys.stderr, flush=True)
+            seen_kind[0] = kind
         print(text, end="", file=sys.stderr, flush=True)
 
     r = chat([{"role": "user", "content": a.prompt}], provider=a.provider,

@@ -7,6 +7,18 @@ from tools.ayano_test import assemble_context, main
 from tools.pipelib import REPO
 
 
+def _fake_events(content, reasoning=""):
+    """最小 Responses 事件序列（task-10：stream_transport 注入点的形状）。"""
+    if reasoning:
+        yield "response.reasoning_text.delta", {"delta": reasoning}
+        yield "response.reasoning_text.done", {"text": reasoning}
+    yield "response.output_text.delta", {"delta": content}
+    yield "response.output_text.done", {"text": content}
+    yield "response.completed", {"response": {"usage": {
+        "input_tokens": 10, "input_tokens_details": {"cached_tokens": 0},
+        "output_tokens": 5, "output_tokens_details": {"reasoning_tokens": 2}}}}
+
+
 def _mk_fixture(tmp_path):
     lane = tmp_path / "lane"
     (lane / "data").mkdir(parents=True)
@@ -46,15 +58,16 @@ def test_assemble_context_cards_plus_zh_no_jp(tmp_path):
 def test_main_writes_report_with_verdicts(tmp_path):
     lane, repo = _mk_fixture(tmp_path)
     calls = []
+    # task-10：注入点由 transport（一次调用→一次完整 dict）改为 stream_transport
+    # （yield Responses 事件序列），断言不变。
     def fake(url, headers, payload):
         calls.append(payload)
         content = "游泳池的约定" if len(calls) == 1 else "对|回答与标准一致"
-        return {"choices": [{"message": {"content": content}}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+        return _fake_events(content, "文本里说周末要一起去买东西")
     out = tmp_path / "report.md"
     rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
                "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo)],
-              transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+              stream_transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
     assert rc == 0
     text = out.read_text(encoding="utf-8")
     assert "q1" in text and "游泳池的约定" in text and "对|" in text
@@ -84,11 +97,63 @@ def test_model_and_timeout_passthrough(tmp_path, monkeypatch):
     assert captured[1]["model"] == "deepseek-v4-flash" and captured[1]["timeout"] == 900
 
 
+def test_report_includes_cot_excerpt(tmp_path):
+    """task-10 核心增值：受试者的 CoT 摘要要进报告——人一眼就能看出它是从译文里
+    读出来的（引用了给定文本）还是猜的。过长要截断，缺 CoT 要显式说明。"""
+    from tools.ayano_test import COT_EXCERPT_CHARS, _cot_excerpt
+
+    lane, repo = _mk_fixture(tmp_path)
+    long_cot = "文本里提到" + "啊" * 500
+    calls = []
+
+    def fake(url, headers, payload):
+        calls.append(payload)
+        content = "游泳池的约定" if len(calls) == 1 else "对|一致"
+        return _fake_events(content, long_cot if len(calls) == 1 else "比对事实点")
+
+    out = tmp_path / "report.md"
+    main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+          "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo)],
+         stream_transport=fake, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    text = out.read_text(encoding="utf-8")
+    assert "CoT 摘要：文本里提到" in text
+    assert "已截断" in text
+    # 只放 reader 的 CoT（受试者），judge 的不进报告
+    assert "比对事实点" not in text
+    # 摘要单行（不被换行打断 markdown 列表），且不超过截断上限太多
+    line = next(x for x in text.splitlines() if x.startswith("- CoT 摘要："))
+    assert len(line) < COT_EXCERPT_CHARS + 60
+    assert _cot_excerpt("") == "（无 CoT：模型未返回 reasoning_text）"
+
+
+def test_effort_passthrough(tmp_path, monkeypatch):
+    """--effort 透传给 reader 与 judge 两次 chat()；不给时不出现在 kw 里
+    （走 api_client 自己的 DEFAULT_EFFORT）。"""
+    lane, repo = _mk_fixture(tmp_path)
+    captured = []
+
+    def fake_chat(messages, *, purpose="", **kw):
+        captured.append(kw)
+        return {"content": "游泳池的约定" if len(captured) == 1 else "对|一致",
+                "reasoning_text": "r"}
+
+    monkeypatch.setattr("tools.ayano_test.chat", fake_chat)
+    base = ["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+            "--lane-dir", str(lane), "--out", str(tmp_path / "r.md"),
+            "--repo", str(repo)]
+    main(base + ["--effort", "high"], api_key="sk-test",
+         ledger_path=tmp_path / "l.jsonl")
+    assert [c["effort"] for c in captured] == ["high", "high"]
+    captured.clear()
+    main(base, api_key="sk-test", ledger_path=tmp_path / "l.jsonl")
+    assert all("effort" not in c for c in captured)
+
+
 def test_dry_run_zero_api_calls(tmp_path, capsys):
     lane, repo = _mk_fixture(tmp_path)
     rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
                "--lane-dir", str(lane), "--dry-run", "--repo", str(repo)],
-              transport=lambda *a: (_ for _ in ()).throw(AssertionError("不该调 API")))
+              stream_transport=lambda *a: (_ for _ in ()).throw(AssertionError("不该调 API")))
     assert rc == 0
     assert "题数 1" in capsys.readouterr().out
 

@@ -98,7 +98,23 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
     return ctx, missing
 
 
-def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
+# 报告里 CoT 摘要的截断长度。目的是「一眼看出受试者是从译文里读出来的还是猜的」
+# ——开头这几百字通常就是它在定位/引用原文的过程，够判断了；全文动辄数千字，贴进
+# 报告反而淹没作答与判分。
+COT_EXCERPT_CHARS = 300
+
+
+def _cot_excerpt(text: str, limit: int = COT_EXCERPT_CHARS) -> str:
+    """CoT 摘要：压掉换行（报告里是单行列表项），超长截断并标注原始长度。"""
+    if not text:
+        return "（无 CoT：模型未返回 reasoning_text）"
+    flat = " ".join(text.split())
+    if len(flat) <= limit:
+        return flat
+    return f"{flat[:limit]}……（共 {len(flat)} 字，已截断）"
+
+
+def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--segment", required=True)
@@ -108,8 +124,12 @@ def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--model", default=None, help="覆盖默认 provider 模型，如 deepseek-v4-flash")
-    ap.add_argument("--timeout", type=int, default=None, help="秒，透传给 api_client")
+    ap.add_argument("--timeout", type=int, default=None,
+                    help="逐 chunk 静默超时（秒），透传给 api_client")
     ap.add_argument("--max-tokens", type=int, default=None)
+    ap.add_argument("--effort", default=None,
+                    choices=["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+                    help="reasoning.effort，透传给 api_client（默认走其 DEFAULT_EFFORT）")
     a = ap.parse_args(argv)
     repo = Path(a.repo) if a.repo else REPO
     ctx, missing = assemble_context(a.segment, Path(a.lane_dir), repo=repo)
@@ -117,10 +137,12 @@ def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
     if a.dry_run:
         print(f"segment={a.segment} 上下文 {len(ctx)} 字符 缺译 {missing} 行 题数 {len(qa)}")
         return 0
-    kw = dict(transport=transport, api_key=api_key, ledger_path=ledger_path,
-              model=a.model, timeout=a.timeout)
+    kw = dict(stream_transport=stream_transport, api_key=api_key,
+              ledger_path=ledger_path, model=a.model, timeout=a.timeout)
     if a.max_tokens is not None:
         kw["max_tokens"] = a.max_tokens
+    if a.effort is not None:
+        kw["effort"] = a.effort
     rows = []
     for q in qa:
         ans = chat([{"role": "system", "content": READER_SYS},
@@ -131,18 +153,22 @@ def main(argv=None, *, transport=None, api_key=None, ledger_path=None):
                          f"【问题】{q['question']}\n【标准答案】{q['reference']}\n"
                          f"【受试回答】{ans['content']}"}],
                        purpose=f"ayano-judge:{a.segment}:{q['id']}", **kw)
-        rows.append((q, ans["content"], verdict["content"]))
+        rows.append((q, ans["content"], verdict["content"], ans.get("reasoning_text", "")))
     out = Path(a.out) if a.out else repo / "work" / "out" / f"ayano-{a.segment}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 彩野测试报告 · {a.segment}（{len(rows)} 题）", ""]
     if missing:
         lines.append(f"> ⚠ 本段**缺译 {missing} 行**（段未译完，结论仅供参考）。")
         lines.append("")
-    for q, ans, verdict in rows:
+    for q, ans, verdict, cot in rows:
         lines += [f"## {q['id']}：{q['question']}",
                   f"- 信息点：{q.get('info_point', '-')}",
                   f"- 标准答案：{q['reference']}",
                   f"- 受试回答：{ans}",
+                  # CoT 摘要是本工具判「真读出来 vs 猜」的关键证据：受试者若在推理里
+                  # 引用了给定文本的具体句子，说明信息确实从译文传达到了；若它在
+                  # 凭常识/剧情套路补全，摘要里一眼可见。
+                  f"- CoT 摘要：{_cot_excerpt(cot)}",
                   f"- **判分：{verdict}**", ""]
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"报告已写 {out}")

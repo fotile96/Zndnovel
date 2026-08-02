@@ -4,7 +4,8 @@
   C1 残留假名——译文里出现（剔除术语表规定原样保留的片假名人名后的）假名，
      典型成因是整行原文照抄；这类行的长度比恰好正常，只有本规则抓得住。
   C2 中日长度比离群——译文相对原文过短/过长。
-  C3 复读循环——行内子串连续重复，或同一句译文在批内重复出现。
+  C3 复读循环——行内子串连续重复，或同一句译文在批内重复出现；两个半边都
+     **以原文的重复程度为基线**，只报「译文比原文更重复」的行（见 C3 一节）。
 
 阈值初值由已定稿语料实测得出（见 spec §6.3 与本文件常量注释），batch 1–2
 硬停时用真实译文重新标定。
@@ -31,7 +32,33 @@ from tools.pipelib import REPO, WORK, dumps, read_jsonl
 #     假名字符，残留假名比相应偏低、C1 灵敏度略降；方向与本次 F12 的目标
 #     （不把标点当假名）一致，代价可接受，此处留痕。
 KANA_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]")
-# 行内连续重复：长度≥4 的子串连续出现≥3 次（即总重复跨度≥12 字符）。
+# ── C3 判据（v2，F4 重做）─────────────────────────────────────────────
+# 原则：**拿译文的重复程度对比原文的重复程度**。原文自己就重复到同样程度的，
+# 是忠实翻译；只有译文比原文更重复才可疑。
+# 重做动机（SEG-1 b36–62 实测）：旧判据只看译文，该段 53 条 collapse 里 C3 占
+# 46 条（87%），逐条核查后 43 条（93%）是「原文在分支重演里本就以同样次数重复、
+# 译者给出同样译文」的纯误报；行内重复那半边全库 6278 行只命中 1 条（id 6242
+# 「ぱつ、_nぱつ、_nぱつ、_n」→「啪嗒、_n啪嗒、_n啪嗒、_n」），同样是拟声词的
+# 忠实复现。顾问工具一旦这种比例的误报，人就不再看它了。
+#
+# 行内重复的对比方式（为什么不能比子串本身）：原文与译文的重复单元必然字面不同
+# （「ぱつ、」↔「啪嗒、」），无从对齐；所以比的是**重复这一性质的强度**——两侧
+# 各取「任一子串连续重复的最大次数」（`_max_repeat_run`），仅当 zh 的最大次数
+# **严格大于** jp 的最大次数才报。取「次数」而非「有无」，是为了仍能抓住"原文
+# 重复 3 次、译文滚成 8 次"的放大型退化（要求 2：不得削弱对真退化的探测）。
+# 两侧的最小单元长度**故意不同**：
+#   - zh 侧沿用 4（LOOP_RE，见下方定值依据），它决定「这行值不值得考察」；
+#   - jp 侧放宽到 2（JP_LOOP_MIN_UNIT），它只决定「原文是否也在重复」。原文的
+#     重复单元可能比译文短（拟声词「ぺた」、应答「はい、」），若两侧同用 4，
+#     原文侧会系统性漏检"原文本就重复"，对比也就形同虚设。
+#     标定（6278 行已入线原文实测）：max_run≥3 的行占比 min_unit=1 → 0.99%、
+#     2 → 0.11%、3 → 0.03%、4 → 0.02%。取 1 会把「……………………」这类省略号/
+#     长音连排整片判成"原文重复"（近 1% 的行成为盲区，且正是译文合法镜像的
+#     地方）；取 2 只让 0.11% 的原文行获得豁免资格，盲区可忽略。
+#     方向性偏差是有意的：顾问工具成本非对称——把"原文本身就重复"判宽一点，
+#     最多少报一条本就忠实的行；反之（43 条误报）会让整个规则被无视。
+#
+# 行内连续重复（zh 侧门槛）：长度≥4 的子串连续出现≥3 次（即总重复跨度≥12 字符）。
 # 定值依据（控制器+评审实测三类语料对比，见 task-6-report.md 修复记录）：
 # {2,}/{3,} 都会把视觉小说里合法的情绪表达（"哈哈哈哈哈哈""……………………"、
 # 本作大量的"对不起对不起对不起""为什么为什么为什么"式三字/双字复读台词）
@@ -39,7 +66,22 @@ KANA_RE = re.compile(r"[぀-ゟァ-ヺヽ-ヿ]")
 # 样本（LLM 复读循环，通常整句/长短语级）、视觉小说常见叠字表达、本作三字
 # 情绪重复台词、120+194 条已定稿语料四类样本上都零误报、且仍 4/4 抓住退化
 # 样本的取值。
-LOOP_RE = re.compile(r"(.{4,}?)\1{2,}")
+ZH_LOOP_MIN_UNIT = 4
+JP_LOOP_MIN_UNIT = 2
+LOOP_RE = re.compile(r"(.{4,}?)\1{2,}")   # ≡ _max_repeat_run(zh, ZH_LOOP_MIN_UNIT) >= 3
+
+
+def _max_repeat_run(s: str, min_unit: int) -> int:
+    """s 中任一长度≥min_unit 的子串「连续重复」的最大次数（无重复时为 1）。
+    只在 LOOP_RE 已命中（全库 6278 行仅 1 行）时才调用，故 O(n²) 可接受。"""
+    best, n = 1, len(s)
+    for L in range(min_unit, n // 2 + 1):
+        for i in range(n - 2 * L + 1):
+            u, k, j = s[i:i + L], 1, i + L
+            while s[j:j + L] == u:
+                k, j = k + 1, j + L
+            best = max(best, k)
+    return best
 
 # 实测依据（skeleton/anchors.yaml 120 对 + cards.jp/zh 194 对已定稿语料）：
 # zh/jp 字符比锚点 0.48–1.20（中位 0.85）、卡面 p5 0.62–p95 1.00 → 阈值取更宽的
@@ -48,7 +90,9 @@ LOOP_RE = re.compile(r"(.{4,}?)\1{2,}")
 RATIO_LO = 0.40
 RATIO_HI = 1.50
 KANA_MAX = 0.02
-# 批内完全相同且长度≥8 的译文出现≥3 次即视为复读
+# 批内同句的**纳入门槛**：完全相同且长度≥8 的译文出现≥3 次才进入考察；
+# 纳入后还须过「zh 出现次数 > 对应 jp 出现次数」这一关（v2）。本作大量场景在
+# 分支重演里原样重播同一句台词，同一批内原文重复 3–5 次是常态而非退化。
 DUP_MIN_LEN = 8
 DUP_MIN_COUNT = 3
 
@@ -115,8 +159,10 @@ def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
          dup_min_len=DUP_MIN_LEN, dup_min_count=DUP_MIN_COUNT) -> list:
     src = {r["id"]: r["jp"] for r in source_rows}
     hits = []
-    zh_counts = Counter(r["zh"] for r in draft_rows
-                        if len(r["zh"]) >= dup_min_len)
+    # 两个计数器必须建在**同一批行**上（有对应原文的那些），否则 zh/jp 次数不可比。
+    paired = [r for r in draft_rows if r["id"] in src]
+    zh_counts = Counter(r["zh"] for r in paired)
+    jp_counts = Counter(src[r["id"]] for r in paired)
     for r in draft_rows:
         i, zh = r["id"], r["zh"]
         jp = src.get(i)
@@ -130,11 +176,26 @@ def scan(source_rows, draft_rows, names=(), kana_max=KANA_MAX,
         if not (ratio_lo <= ratio <= ratio_hi):
             hits.append({"id": i, "rule": "C2",
                          "msg": f"中日长度比 {ratio:.2f} 越界 [{ratio_lo}, {ratio_hi}]"})
+        # C3 上半：行内重复。译文的最大连续重复次数须严格超过原文的，才算可疑
+        # ——原文自己就重复到同样次数时（拟声词「ぱつ、ぱつ、ぱつ」）是忠实翻译。
+        looped = False
         if LOOP_RE.search(zh):
-            hits.append({"id": i, "rule": "C3", "msg": "行内子串连续重复≥3 次"})
-        elif zh_counts[zh] >= dup_min_count:
+            zr = _max_repeat_run(zh, ZH_LOOP_MIN_UNIT)
+            jr = _max_repeat_run(jp, JP_LOOP_MIN_UNIT)
+            if zr > jr:
+                looped = True
+                hits.append({"id": i, "rule": "C3",
+                             "msg": f"行内子串连续重复 {zr} 次，而对应原文最多"
+                                    f"只连续重复 {jr} 次"})
+        # C3 下半：批内同句。同理，仅当译文的批内重复次数超过其原文的批内重复
+        # 次数时才报——次数相等意味着"相同原文给出相同译文"，是忠实而非复读。
+        # 两个次数都写进消息，让人一眼看出可疑点在哪（次数相同则根本不到这里）。
+        if (not looped and len(zh) >= dup_min_len
+                and zh_counts[zh] >= dup_min_count
+                and zh_counts[zh] > jp_counts[jp]):
             hits.append({"id": i, "rule": "C3",
-                         "msg": f"同一句译文在批内出现 {zh_counts[zh]} 次"})
+                         "msg": f"同一句译文在批内出现 {zh_counts[zh]} 次，"
+                                f"而对应原文只出现 {jp_counts[jp]} 次"})
     return hits
 
 

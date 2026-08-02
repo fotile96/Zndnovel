@@ -145,11 +145,79 @@ def test_f9_known_recall_gap_copy_wrapped_in_chinese_phrases():
 
 
 def test_f4_dup_thresholds_via_params():
-    src = [{"id": i, "jp": "x" * 10} for i in (1, 2)]
+    """两个 CLI 开关仍是「多长/多少次才**纳入考察**」的门槛。
+    夹具的 jp 刻意互不相同（C3 v2 起，jp 相同 = 忠实重译 = 不报，见
+    test_c3_faithful_repeat_of_repeated_source_is_not_flagged），否则本用例
+    测的就不是阈值而是原文对比那一关了。"""
+    src = [{"id": i, "jp": f"原文{i}" + "x" * 10} for i in (1, 2)]
     drf = [{"id": i, "zh": "同样的八字译文"} for i in (1, 2)]   # 7 字 ×2 次：默认不报
     assert [h for h in scan(src, drf) if h["rule"] == "C3"] == []
     hits = scan(src, drf, dup_min_len=6, dup_min_count=2)       # 收紧后报
     assert len([h for h in hits if h["rule"] == "C3"]) == 2
+
+
+# ── C3 v2（F4 重做）：以原文的重复程度为基线 ──────────────────────────
+
+def test_c3_faithful_repeat_of_repeated_source_is_not_flagged():
+    """分支重演里原文本就以同样次数重复，译者给出同样译文——完全忠实。
+    这是旧判据最大的误报源（SEG-1 46 条 C3 里 43 条属此类）。"""
+    jp = "【アヤノ】「ううん！ そんなこと、全然っ！」"
+    zh = "【アヤノ】「哪有！ 那种事，完全没有的！」"
+    src = [{"id": i, "jp": jp} for i in (1, 2, 3)]
+    drf = [{"id": i, "zh": zh} for i in (1, 2, 3)]
+    assert [h for h in scan(src, drf) if h["rule"] == "C3"] == []
+
+
+def test_c3_distinct_sources_collapsed_into_one_translation_is_flagged():
+    """真信号（车道实测 id 9441/9460/9483）：原文在分支重演里有书写形态差异
+    （漢字「事」vs かな「こと」），译者把它们压成同一句——正是项目纪律
+    「原作故意的字面不一致保留不修复」要盯的东西。消息须同时给出两个次数。"""
+    src = [{"id": 1, "jp": "【アヤノ】「人の事言えるほど――」"},
+           {"id": 2, "jp": "【アヤノ】「人のこと言えるほど――」"},
+           {"id": 3, "jp": "【アヤノ】「人の事言えるほど――」"}]
+    zh = "【アヤノ】「我也没到能说别人的地步――」"
+    drf = [{"id": i, "zh": zh} for i in (1, 2, 3)]
+    c3 = [h for h in scan(src, drf) if h["rule"] == "C3"]
+    assert {h["id"] for h in c3} == {1, 2, 3}
+    assert "出现 3 次" in c3[0]["msg"] and "只出现 2 次" in c3[0]["msg"]
+    assert "只出现 1 次" in [h for h in c3 if h["id"] == 2][0]["msg"]
+
+
+def test_c3_inline_loop_mirroring_source_onomatopoeia_is_not_flagged():
+    """车道实测 id 6242：原文自己就是拟声词三连，译文照做——忠实，不报。"""
+    src = [{"id": 6242, "jp": "ぱつ、_nぱつ、_nぱつ、_nとスリッパの音が響いている。"}]
+    drf = [{"id": 6242, "zh": "啪嗒、_n啪嗒、_n啪嗒、_n拖鞋发出的声音在回响。"}]
+    assert [h for h in scan(src, drf) if h["rule"] == "C3"] == []
+
+
+def test_c3_inline_loop_absent_in_source_is_flagged():
+    """反方向：译文行内复读而原文毫无重复 → 仍报，且消息给出两侧次数。"""
+    src = [{"id": 1, "jp": "彼女はゆっくりと窓の外へ視線を移した。"}]
+    drf = [{"id": 1, "zh": "她把视线移向窗外她把视线移向窗外她把视线移向窗外"}]
+    c3 = [h for h in scan(src, drf) if h["rule"] == "C3"]
+    assert len(c3) == 1 and "重复 3 次" in c3[0]["msg"] and "只连续重复 1 次" in c3[0]["msg"]
+
+
+def test_c3_inline_loop_amplified_beyond_source_is_flagged():
+    """放大型退化：原文重复 3 次，译文滚成 6 次——次数对比（而非有无对比）
+    才抓得住这一档，故 C3 上半比的是最大连续重复次数。"""
+    src = [{"id": 1, "jp": "ぱつ、_nぱつ、_nぱつ、_nと音がした。"}]
+    drf = [{"id": 1, "zh": "啪嗒、_n" * 6 + "响了一声。"}]
+    c3 = [h for h in scan(src, drf) if h["rule"] == "C3"]
+    assert len(c3) == 1 and "重复 6 次" in c3[0]["msg"]
+
+
+def test_c3_suppressed_inline_loop_still_eligible_for_batch_dup():
+    """行内那半边被原文对比压掉后，同一行仍要过批内同句这一关（旧码是
+    if/elif，压掉即整条 C3 静默）。"""
+    src = [{"id": 1, "jp": "ぱつ、_nぱつ、_nぱつ、_nと音がした。"},
+           {"id": 2, "jp": "ぺた、_nぺた、_nぺた、_nと足音が続く。"},
+           {"id": 3, "jp": "とん、_nとん、_nとん、_nと窓を叩く。"}]
+    zh = "啪嗒、_n啪嗒、_n啪嗒、_n地响着。"
+    drf = [{"id": i, "zh": zh} for i in (1, 2, 3)]
+    c3 = [h for h in scan(src, drf) if h["rule"] == "C3"]
+    assert {h["id"] for h in c3} == {1, 2, 3}
+    assert all("批内出现 3 次" in h["msg"] for h in c3)
 
 
 def test_retained_names_reads_glossary_characters(tmp_path):

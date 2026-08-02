@@ -5,7 +5,7 @@
 """
 import json
 
-from tools.audit_notes_promises import extract_promises, prewire_ids
+from tools.audit_notes_promises import extract_promises, prewire_ids, render_report
 
 HARD = {"chapter": "s1s", "batch": 4, "num": 1,
         "title": "寝癖 → 睡翘的头发",
@@ -168,3 +168,266 @@ def test_prewire_ids_does_not_cross_newline():
 def test_prewire_ids_normalizes_fullwidth_digits():
     proposal = {"body": "- id 7327、７３２９\n"}
     assert prewire_ids(proposal) == [7327, 7329]
+
+
+# ---------------------------------------------------------------------------
+# Task 5：verify_promise / render_report / main
+# ---------------------------------------------------------------------------
+
+
+def test_verify_uses_prewired_context_when_ids_present(monkeypatch):
+    """id 齐全时走预拼上下文，不开工具（便宜、可预测）。"""
+    from tools import audit_notes_promises as A
+    seen = {}
+
+    def fake_runner(messages, **kw):
+        seen["tool_names"] = kw.get("tool_names")
+        seen["user"] = messages[-1]["content"]
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "译文含睡翘"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "已履行" and out["used_tools"] is False
+    assert not seen["tool_names"]          # 未给工具
+    assert "头发睡翘了" in seen["user"]     # 上下文已预拼
+
+
+def test_verify_opens_tools_when_ids_missing(monkeypatch):
+    """id 缺失时才给工具兜底。"""
+    from tools import audit_notes_promises as A
+    seen = {}
+
+    def fake_runner(messages, **kw):
+        seen["tool_names"] = kw.get("tool_names")
+        return {"content": json.dumps({"verdict": "无法判断", "evidence_ids": [],
+                                       "reason": "找不到对应行"}, ensure_ascii=False),
+                "rounds": 2, "tool_calls": [{"name": "search_lines"}],
+                "stopped_reason": "finished", "reasoning_text": "",
+                "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "保留歧义", "ids": [], "quote": "保留歧义"},
+                           {"chapter": "s1s", "batch": 4, "num": 9, "title": "t",
+                            "body": "本段 8 处"}, runner=fake_runner)
+    assert out["used_tools"] is True
+    assert set(seen["tool_names"]) == {"get_lines", "search_lines", "get_anchor"}
+
+
+def test_unparseable_verdict_becomes_cannot_tell(monkeypatch):
+    """模型没给合法 JSON —— 记「无法判断」，绝不硬判成「已履行」（spec §4.4）。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {"lines": []})
+    out = A.verify_promise({"kind": "x", "ids": [1], "quote": "q"}, HARD,
+                           runner=_runner_raw("我觉得应该没问题"))
+    assert out["verdict"] == "无法判断"
+
+
+def test_report_puts_unfulfilled_first_and_shows_cannot_tell_ratio():
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False},
+        {"proposal": HARD, "promise": {"kind": "b", "quote": "q2"},
+         "verdict": "未履行", "evidence_ids": [2], "reason": "r2", "used_tools": False},
+        {"proposal": HARD, "promise": {"kind": "c", "quote": "q3"},
+         "verdict": "无法判断", "evidence_ids": [], "reason": "r3", "used_tools": True},
+    ])
+    assert md.index("未履行") < md.index("已履行")
+    assert "无法判断占比" in md and "33" in md
+
+
+# --- 三条机械闸（brief §2，本任务核心要求） -------------------------------
+
+
+def test_gate_stopped_reason_not_finished_forces_cannot_tell(monkeypatch):
+    """机械闸①：stopped_reason 非 finished——纵使模型给出「已履行」也要强制降级。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "看起来没问题"}, ensure_ascii=False),
+                "rounds": 6, "tool_calls": [], "stopped_reason": "max_rounds",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "无法判断"
+    assert "机械闸" in out["reason"] and "max_rounds" in out["reason"]
+
+
+def test_gate_tool_errors_forces_cannot_tell(monkeypatch):
+    """机械闸②：tool_errors 非 0——模型看到的是报错文本，纵使它照样自信作答。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "看起来没问题"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [{"name": "get_lines"}], "tool_errors": 1,
+                "stopped_reason": "finished", "reasoning_text": "",
+                "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "无法判断"
+    assert "tool_errors" in out["reason"]
+
+
+def test_gate_missing_tool_errors_key_defaults_to_zero(monkeypatch):
+    """假 runner 没给 `tool_errors` 键时按 0 处理（`.get(..., 0)`），不因缺键
+    崩溃、也不误判为闸②生效——plan 给的假 runner 就没有这个键。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "ok"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "已履行"
+
+
+def test_gate_tools_opened_but_never_called_forces_cannot_tell():
+    """机械闸③：ids 缺失→开了工具，但模型一次都没调用——判断是凭空作答。"""
+    from tools import audit_notes_promises as A
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [],
+                                       "reason": "我觉得应该统一了"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "保留歧义", "ids": [], "quote": "保留歧义"},
+                           {"chapter": "s1s", "batch": 4, "num": 9, "title": "t",
+                            "body": "本段 8 处"}, runner=fake_runner)
+    assert out["verdict"] == "无法判断"
+    assert "一次都没调用" in out["reason"]
+
+
+def test_gate3_does_not_fire_when_ids_prewired_even_if_no_tool_calls(monkeypatch):
+    """边界：预拼路径（ids 齐全）本来就不给工具，`tool_calls` 为空是正常状态，
+    不得被闸③误伤（brief §2 明确点名的边界）。"""
+    from tools import audit_notes_promises as A
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+    def fake_runner(messages, **kw):
+        return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                       "reason": "译文含睡翘"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                           HARD, runner=fake_runner)
+    assert out["verdict"] == "已履行"
+
+
+def test_verify_does_not_fall_back_to_prewire_ids_when_model_says_none(monkeypatch):
+    """决策（brief §4）：`ids_source == "model"` 且 `ids == []` 时不回退到
+    `prewire_ids`——尊重模型「本承诺不针对具体行」的判断，走工具兜底而不是
+    静默接回同一提案里其他子句的 id（T4 已刻意避免的跨子句污染，T5 不得在
+    这里重新引入，见 `test_explicit_empty_model_ids_is_not_overridden_by_prewire`）。
+    """
+    from tools import audit_notes_promises as A
+    seen = {}
+
+    def fake_runner(messages, **kw):
+        seen["tool_names"] = kw.get("tool_names")
+        seen["user"] = messages[-1]["content"]
+        return {"content": json.dumps({"verdict": "无法判断", "evidence_ids": [],
+                                       "reason": "无具体行"}, ensure_ascii=False),
+                "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+    promise = {"kind": "通则不消歧", "ids": [], "ids_source": "model",
+               "prewire_ids": [5001, 5002], "quote": "全篇不消歧"}
+    A.verify_promise(promise, MIXED, runner=fake_runner)
+    assert seen["tool_names"]          # 走了工具兜底，不是预拼
+    assert "5001" not in seen["user"]  # 没有偷偷把 prewire_ids 接进上下文
+
+
+# --- 报告分母问题（brief §3，阻断级） -------------------------------------
+
+
+def test_extraction_failures_are_visible_and_not_counted_as_clean():
+    fail_prop = {"chapter": "s2s", "batch": 1, "num": 5, "title": "坏提案"}
+    md = render_report(
+        [{"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+          "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}],
+        extraction_failures=[{"proposal": fail_prop,
+                               "reason": "parse_ok=False stopped_reason=finished"}])
+    assert "抽取失败提案 1 条" in md
+    assert "s2s" in md and "坏提案" in md
+    # 抽取失败不得计入「已履行」——已履行仍只有 1（来自那条真实结果）
+    assert "已履行 1" in md
+
+
+def test_render_report_defaults_extraction_failures_to_empty():
+    """无 extraction_failures 参数时按 0 条处理，向后兼容旧调用方式（plan
+    给的 Step 1 测试就是这样调用的）。"""
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}])
+    assert "抽取失败提案 0 条" in md
+
+
+def test_report_warns_when_quote_not_verified():
+    """决策（brief §4）：`quote_verified` 不用于过滤/改判，只在明确为 False
+    时于报告里加一句留痕提示——读者能看见但不影响判定。"""
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1", "quote_verified": False},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}])
+    assert "未在提案正文中逐字核验" in md
+
+
+def test_report_does_not_warn_when_quote_verified_field_missing():
+    """缺 `quote_verified` 字段（旧数据/最小测试桩）不应被当成核验失败误报警告。"""
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}])
+    assert "未在提案正文中逐字核验" not in md
+
+
+def test_report_flags_invalid_ids_from_promise():
+    """决策（brief §4）：`ids_invalid` 非空即说明模型输出有杂质，在报告里
+    逐条列出供人复核，同样不用于改判。"""
+    md = render_report([
+        {"proposal": HARD, "promise": {"kind": "a", "quote": "q1", "ids_invalid": ["abc"]},
+         "verdict": "已履行", "evidence_ids": [1], "reason": "r1", "used_tools": False}])
+    assert "abc" in md and "非法项" in md
+
+
+def test_main_records_extraction_failures_separately(monkeypatch, tmp_path):
+    """main() 的循环要捕获抽取阶段的失败，而不是 `for pr in extract_promises(prop)`
+    一笔带过（brief §3）。"""
+    from tools import audit_notes_promises as A
+    lane = tmp_path / "lane"
+    (lane / "data" / "notes").mkdir(parents=True)
+    (lane / "data" / "notes" / "s1s.md").write_text(
+        "## batch 1\n### 1. 提案甲\n- id 1\n- 本批已按 X 统一。\n"
+        "### 2. 提案乙\n- id 2\n- 本批已按 Y 统一。\n",
+        encoding="utf-8")
+
+    def fake_extract(prop, runner=None):
+        if prop["num"] == 1:
+            return {"promises": [], "parse_ok": False, "stopped_reason": "finished", "ok": False}
+        return {"promises": [{"kind": "已统一", "ids": [2], "ids_source": "model",
+                              "prewire_ids": [2], "ids_invalid": [], "quote": "已统一",
+                              "quote_verified": True}],
+                "parse_ok": True, "stopped_reason": "finished", "ok": True}
+
+    def fake_verify(pr, prop, lane_dir=None, runner=None):
+        return {"verdict": "已履行", "evidence_ids": [2], "reason": "ok", "used_tools": False}
+
+    monkeypatch.setattr(A, "extract_promises", fake_extract)
+    monkeypatch.setattr(A, "verify_promise", fake_verify)
+
+    out_path = tmp_path / "report.md"
+    rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
+    assert rc == 0
+    md = out_path.read_text(encoding="utf-8")
+    assert "抽取失败提案 1 条" in md
+    assert "提案甲" in md
+    assert "已履行 1" in md

@@ -112,7 +112,8 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 时另含 `build_context`）。也就是说，**只有这三个工具的升级能被 canary 判定**。
 
 不在覆盖面内、必须人工判定的：`gen_plan`、`append_forward`、`lane_setup`、`resolve`、
-`build_ledger`，以及 §1 划入钉死面的 `prompts/`。这些东西改了，canary 照样输出
+`build_ledger`、`ayano_test`（实际风险为零——advisory 工具，恒 exit 0，不写车道数据，
+只读不改），以及 §1 划入钉死面的 `prompts/`。这些东西改了，canary 照样输出
 「一致」——它根本没跑它们。
 
 - 判定方法：读 `git diff <旧tag> main -- tools/ prompts/`，逐文件问「这个改动会不会

@@ -20,12 +20,26 @@ JUDGE_SYS = ("你是判分员。根据【问题】【标准答案】【受试回
              "只输出一行，格式：判定|一句话依据。")
 
 
+def _chapter_max_seg(segs) -> dict:
+    """章节短码 → 该章节出现过的最晚段号。同一章节可能横跨多段（如 s3s 横跨
+    seg2/seg4、s4s 横跨 seg3/seg6，剧情来回跳章的实况），保守取最晚——宁可让
+    卡组前缀薄一点，也不把还没轮到的段落错纳成"此前"（P3 devwave1 task-7
+    Critical 修复：反剧透闸）。未出现在任何段 chapters 里的章节由调用方按 0
+    处理（P3 范围外、开工前已译完，恒早于全部段）。"""
+    out = {}
+    for s in segs:
+        for ch in s.get("chapters", []):
+            out[ch] = max(out.get(ch, 0), s["seg"])
+    return out
+
+
 def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
     segs = yaml.safe_load((repo / "config" / "segments.yaml").read_text(encoding="utf-8"))
     hit = next((s for s in segs if s["label"] == label), None)
     if hit is None:
         raise SystemExit(f"未知段 label：{label}")
     lo, hi = hit["batches"]
+    cur_seg = hit["seg"]
     data = Path(lane_dir) / "data"
     batches = {r["batch"]: r for r in read_jsonl(data / "batches.jsonl")}
     fwd = read_jsonl(data / "forward.jsonl") if (data / "forward.jsonl").exists() else []
@@ -40,9 +54,24 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
                 lines.append(zh[i])
             else:
                 missing += 1
+
+    # 反剧透闸：卡组前缀只取「严格早于当前段」的卡——不是"当前段及之前"。
+    # card_chapter.yaml 是 card→章节短码 的静态映射（推导过程见该文件头注释，
+    # 不在运行时解析 lua）；查不到章节的卡默认排除（安全方向，见该文件说明）。
+    chapter_max_seg = _chapter_max_seg(segs)
+    card_chapter = yaml.safe_load(
+        (repo / "config" / "card_chapter.yaml").read_text(encoding="utf-8")) or {}
+
+    def is_before_cur_seg(card_num) -> bool:
+        ch = card_chapter.get(card_num)
+        if ch is None:
+            return False  # 无法归章 → 默认排除
+        return chapter_max_seg.get(ch, 0) < cur_seg
+
     cards = yaml.safe_load((repo / "skeleton" / "cards.zh.yaml").read_text(encoding="utf-8"))
+    prior_cards = [c for c in cards if is_before_cur_seg(c["card"])]
     prefix = "\n\n".join(f"【卡{c['card']}·{c.get('title_zh', '')}】\n{c.get('body_zh', '')}"
-                         for c in cards)
+                         for c in prior_cards)
     ctx = ("＝＝ 此前剧情的卡片梗概 ＝＝\n\n" + prefix
            + "\n\n＝＝ 最新一段正文 ＝＝\n\n" + "\n".join(lines))
     return ctx, missing

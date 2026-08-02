@@ -1,0 +1,6 @@
+{"ts": "2026-08-02T11:22:39+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "connectivity-smoke", "prompt_tokens": 87, "completion_tokens": 24}
+{"ts": "2026-08-02T11:22:47+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "connectivity-smoke", "prompt_tokens": 87, "completion_tokens": 15}
+{"ts": "2026-08-02T11:23:11+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q1", "prompt_tokens": 21152, "completion_tokens": 285}
+{"ts": "2026-08-02T11:23:13+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q1", "prompt_tokens": 338, "completion_tokens": 60}
+{"ts": "2026-08-02T11:23:19+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano:seg1-s2:q4", "prompt_tokens": 21143, "completion_tokens": 397}
+{"ts": "2026-08-02T11:23:20+0800", "provider": "deepseek", "model": "deepseek-v4-flash", "purpose": "ayano-judge:seg1-s2:q4", "prompt_tokens": 361, "completion_tokens": 58}

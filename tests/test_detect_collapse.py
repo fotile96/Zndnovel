@@ -114,6 +114,36 @@ def test_f9_approx_copy_with_punct_swap_still_caught():
     assert any(h["rule"] == "C1" and h["id"] == 2 for h in hits)
 
 
+def test_f9_known_recall_gap_copy_wrapped_in_chinese_phrases():
+    """**已知召回缺口，非期望行为**——见 `docs/ops/p3-production-runbook.md` §4
+    的 A/B 召回表。
+
+    「整行照抄 + 前后各加一句中文」是 LLM 最自然的偷懒形态，也正是 F9 豁免
+    （JP_QUOTE_BUDGET/JP_QUOTE_MIN_NOVEL）净损最大的一档：全 ledger 16101 行
+    含假名原文的伪装集实测，旧码 C1 召回 98.5%，新码约 50–54%（净损 ≈ −44～
+    −48pp，随包裹短语长短浮动）。包裹的中文既拉低了「被豁免假名 / len(zh)」的
+    预算占比，又把「换新率」抬到门槛之上，于是整行漏译被当成「作品内引用」放掉。
+
+    本用例断言的是**当前的实际行为**（漏报），目的是让这个缺口在 CI 上可见而
+    不是隐形。**不要为了让它变绿去改实现或放宽阈值**——F9 的收益侧是真实的
+    （已入线 6146 行真实译文 C1 命中 27→8、消 19 新增 0），召回与误报之间的
+    取舍必须由人显式做出并留痕（runbook §4），canary 结构上看不到这一侧。
+    若哪天它失败了，说明有人改了取舍：请同步更新 runbook §4 的 A/B 表和本注释。
+
+    jp 取自真实 ledger（探索场景 アヤノ 的到场台词），不是为了复现数字而捏造的
+    夹具。"""
+    jp = "【アヤノ】「靴を履き替えて、中庭に出たよ」"
+    wrapped = "他沉默了一会儿，" + jp + "，语气里带着落寞。"
+    assert [h for h in scan([{"id": 1, "jp": jp}], [{"id": 1, "zh": wrapped}])
+            if h["rule"] == "C1"] == [], "召回缺口已变化——请重跑 A/B 并更新 runbook §4"
+    # 对照组：同一行不加中文包裹时照样抓得住（F9 的 zh==jp 短路与预算 gate 仍在），
+    # 证明上面的漏报确实来自「中文包裹」这一维，而不是这行本身就抓不到。
+    assert [h["id"] for h in scan([{"id": 1, "jp": jp}], [{"id": 1, "zh": jp}])
+            if h["rule"] == "C1"] == [1]
+    assert [h["id"] for h in scan([{"id": 1, "jp": jp}], [{"id": 1, "zh": jp + "。"}])
+            if h["rule"] == "C1"] == [1]
+
+
 def test_f4_dup_thresholds_via_params():
     src = [{"id": i, "jp": "x" * 10} for i in (1, 2)]
     drf = [{"id": i, "zh": "同样的八字译文"} for i in (1, 2)]   # 7 字 ×2 次：默认不报

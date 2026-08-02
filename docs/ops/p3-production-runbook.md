@@ -127,8 +127,16 @@ canary 只重算两件事：`check_batch.check` 与 `detect_collapse.scan`（加
 
 ## 五、段末流程与小裁决会话
 
-段末流程按生产计划内嵌清单执行（机检复核 → 用户按 `config/segments.yaml`
-review_focus 抽读 → `git tag prod-opus-<label>-done` → 开裁决会话）。
+段末流程按生产计划内嵌清单执行：
+
+1. 机检复核。
+2. 用户按 `config/segments.yaml` review_focus 抽读。
+3. （tag 前，可选但强烈建议）跑彩野测试作额外验收：
+   `uv run python tools/ayano_test.py --segment <label> --qa config/ayano_qa/<label>.yaml --lane-dir pilot/lanes/opus`
+   （零订阅额度，走 deepseek API；题库由开发轨按段提供；报告落 work/out/ayano-<label>.md，
+   判「错」的题逐条人工核对是译文丢信息还是题目/判分问题，结论记进段末台账。）
+4. `git tag prod-opus-<label>-done`。
+5. 开裁决会话。
 
 裁决会话清单：
 1. 汇总本段 notes 提案 + 机器横扫结果，按词族聚类。

@@ -48,7 +48,8 @@ worktree。** 命令按用途分两类：
 3. 确认本周订阅额度余量足够本段预算（生产目标 ≤50%/周，每周 1–2 段；不够就停，
    宁可跨周不要挤占 dev/裁决份额）。
 
-**当前生产 tag：`prod-run-v2`**（升级时更新本行并在 git log 留痕）。
+**当前生产 tag：`prod-run-v3`**（升级时更新本行并在 git log 留痕）。
+（v2 → v3 的 canary 结论与非覆盖面工具逐个判定见 §4.1 的「判定记录」。）
 
 ## 三、跑批要点（沿用 P2 机制）
 
@@ -198,6 +199,47 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
   `check_batch.check` / `detect_collapse.scan` / `build_context` 三者之内，对已入线
   批次的判定与产出**恒等**；`prompts/` 零改动。故免跑 canary，留痕于此。
 
+#### 判定记录：`prod-run-v2` → `prod-run-v3`（2026-08-02，SEG-1 完结 / SEG-2 开工前）
+
+**漂移面**：`git diff prod-run-v2 main -- tools/ prompts/` = 9 文件 +1303/−37 行；
+**`prompts/` 零改动**（钉死面守住）。按批四件套中**只有 `detect_collapse` 变了**——
+与 canary 的覆盖面（`check_batch` + `detect_collapse`）恰好吻合，故本次**跑** canary。
+
+**canary 结论（跑了，不是免跑）**：`--batches 36-62`（SEG-1 全段 27 批）、双树同一车道数据、
+`--lane-dir` 均指主仓 `pilot/lanes/opus`；**不加 `--regen-ctx`**（本次不触及 `build_context`）。
+
+- `check` 半边（hard/warn）：27 批**逐批深比较完全恒等**——与 `check_batch` 零改动相符。
+- `collapse` 半边：27 批总命中 **53 → 51**，仅 2 批有差异，**全部为消失方向，新增 0 条**：
+
+| 批次 | rule | 消失的命中 | 原文 | 判定 |
+|---|---|---|---|---|
+| 45 | C1 | id 9719 残留假名比 0.026 > 0.02 | 【アヤノ】「ゆ、ユウイチこそ、今日は…」 | 误报：残留假名是**结巴重复的片假名人名** `ユ、ユウイチ`（保留名词），非未译原文 |
+| 56 | C1 | id 10041 残留假名比 0.045 > 0.02 | 【アヤノ】「ゆ、ユウイチ……だ、大丈夫？」 | 同上，同一形态 |
+
+**人工判定**：两条消失的均为 F9 目标形态的**真误报**（保留人名的结巴重复被算进残留假名比），
+消失方向正确、零信息损失；**新增命中 0 条**（集合级比对，非仅比计数）。放行。
+召回侧的代价不由 canary 判定——见 §4.0 的用户签字裁决。
+
+**canary 覆盖不到、须人工判定的 7 个工具**（逐个点名，不笼统带过）：
+
+| 工具 | 是否有行为变更 | 对**在产批次**的影响判定 | 依据 |
+|---|---|---|---|
+| `build_ledger` | 有（F7：新增 `line` 字段） | **无影响**——纯增字段，`build()` 全局排序仍按 id | 台账已留痕的 A/B 实验：生产树 `build_context` 在只差 ledger 的两个镜像仓上跑 batch 100，`context.md`/`source.jsonl`/`manifest.json` **逐字节相同**（devwave1 task-3 报告） |
+| `gen_timeline` | 有（F7：单元内 id 改按 `(file, line)` 排） | **有影响且已随本次一并落地**——前缀正文顺序会变，故本段边界同步再生 `data/timeline.jsonl` | 本次再生核对：533 行不变、14 unit 差异且差异字段恒为 `ids`、id 集合逐行不变、seq 清单与台账预期逐项一致；逆序数 21/16248 → **0/16248**，`check_timeline` OK |
+| `gen_plan` | 有（段子区间 `segment_entry`/`segment_subrange`、段头/段尾文案） | **不影响在产批次**——只在**生成计划时**运行，产出的是 md 计划文件；在产计划不重新生成 | 改动全在 `_segment_head`/`segment_entry`/`segment_subrange`/`main`，四件套均不 import 它 |
+| `saturation` | 有（脏键判据 `is_clean_key`、并列词串探测） | **不参与批次生产**——段末裁决会话的证据表工具；饱和度算法本身未动 | 改动全为新增 helper + `main` 输出；四件套均不 import 它 |
+| `cluster_notes` | 新增工具 | **不参与批次生产**——裁决会话聚卷宗用 | `prod-run-v2` 时不存在，四件套不 import |
+| `api_client` | 新增工具 | **不参与批次生产**——彩野测试走 deepseek 的 HTTP 客户端 | 同上 |
+| `ayano_test` | 新增工具 | **不参与批次生产**，对车道数据风险为零（只读车道、不写车道任何文件） | 同上；注意它会向仓库跟踪的 `data/api_ledger.jsonl` 追加计费台账（见 §4.1 正文） |
+
+**四件套对上述 7 者的依赖为空**（实测 `grep import`：`build_context`/`check_batch`/
+`detect_collapse`/`append_forward` 均不 import 其中任何一个），故「不参与批次生产」不是
+推断而是可核验的事实。
+
+**全量测试**：327 passed（与基线一致）。**执行时机**：SEG-1 已完结、SEG-2 未开工，生产会话
+不在跑批，符合本节「数据再生成只在段边界做」的纪律。
+详细证据见 `.superpowers/sdd/2026-08-02-p3-devwave1/segment-boundary-v3-report.md`。
+
 ## 五、段末流程与小裁决会话
 
 段末流程按生产计划内嵌清单执行。**下面五项与 `tools/gen_plan.py::_segment_tail`
@@ -205,9 +247,11 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
 「按计划最后一个任务的『段末流程』执行」），本节是它的操作依据；**改一边必须同步
 改另一边**，两边编号相同而含义不同会让段末会话在「第 N 步」上产生歧义。
 
-> ⚠ **seg1-s2 的例外**：在产计划 `translate-seg1-s2.md` 生成于彩野测试进入
-> `_segment_tail` 之前（在产计划不重新生成），其内嵌清单是旧五项、第 3 项是打 tag、
-> 无彩野测试。**本段以本节五步为准**，下一段起两边自动一致。
+> 📌 **历史注记（已失效，仅备查）**：seg1-s2 曾有一条编号例外——其在产计划
+> `translate-seg1-s2.md` 生成于彩野测试进入 `_segment_tail` 之前（在产计划不重新生成），
+> 内嵌清单是旧五项、第 3 项是打 tag、无彩野测试，故编号从第 3 项起与本节差一位。
+> **seg1-s2 已于 2026-08-02 完结，该例外随之失效**；SEG-2 起计划由新版 `gen_plan`
+> 生成，与本节五步自动一致，**不再有编号歧义**。
 
 1. 机检复核。
 2. 用户按 `config/segments.yaml` review_focus 抽读。

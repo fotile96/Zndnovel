@@ -26,7 +26,7 @@
 全部在**主仓** `/Users/fotile96/Zndnovel` 执行（cwd 恒为主仓）：
 
 ```bash
-git -C /Users/fotile96/Zndnovel-prod describe --tags     # 应为 prod-run-v2（与 runbook「当前生产 tag」行一致）
+git -C /Users/fotile96/Zndnovel-prod describe --tags     # 应为 prod-run-v3（与 runbook「当前生产 tag」行一致）
 uv run python tools/lane_setup.py --lane opus --verify    # 应输出「冻结校验：无漂移」
 git status --short                                        # 应干净；若有他人在制品，只管自己的路径
 ```
@@ -62,7 +62,7 @@ git status --short                                        # 应干净；若有�
 
 **段末流程不自动放行**——人工评审通过了这一段才算完。
 
-> ⚠ **本段（seg1-s2）的例外**：`docs/superpowers/plans/translate-seg1-s2.md` 是在彩野测试进入 `gen_plan` 段末清单**之前**生成的（在产计划不重新生成），它内嵌的那份清单是旧五项（1 机检 / 2 抽读 / **3 打 tag** / 4 开裁决会话 + saturation / 5 glossary 切换），**没有彩野测试**，编号也因此从第 3 项起与上面差一位。**本段以上面这五步为准**（彩野测试仍在打 tag 前跑）；下一段起计划与 runbook 自动一致。
+> 📌 **历史注记（已失效，仅备查）**：seg1-s2 曾有一条编号例外——`docs/superpowers/plans/translate-seg1-s2.md` 生成于彩野测试进入 `gen_plan` 段末清单**之前**（在产计划不重新生成），内嵌清单是旧五项（1 机检 / 2 抽读 / **3 打 tag** / 4 开裁决会话 + saturation / 5 glossary 切换）、没有彩野测试，编号从第 3 项起差一位。**seg1-s2 已于 2026-08-02 完结，该例外随之失效**：SEG-2 起的计划由新版 `gen_plan` 生成，段末清单与 runbook §5 逐项对齐，**照计划执行即可，无需再做编号换算**。
 
 ### 已知的工装噪声（不要为了让它变绿去改规则）
 

@@ -7,42 +7,49 @@
 # 这是实况，不是可以省略的装饰。
 - seg: 1
   label: seg1-s2
+  lane: main
   batches: [36, 62]
   chapters: [s2s, s2f, crd]
   jp_chars: 53183
   review_focus: "ナゾトキ多层选择迷宫（答对/答错影响 s2s_260_sel 选项集）；s2s_390 夜晚成立判定三条件；周末プール/プラネタリウム伏笔；s2f 章终框架剧情"
 - seg: 2
   label: seg2-s3
+  lane: main
   batches: [63, 90]
   chapters: [s3s, s3fa, crd]
   jp_chars: 49685
   review_focus: "楼梯怪谈线；s3s_50_sel→s6、s3s_300_sel→s4 跨章门控句；s3s_620/641_sel 的 3A 分支（ユウイチとキス）；s3fa 现实层"
 - seg: 3
   label: seg3-s4
+  lane: main
   batches: [91, 117]
   chapters: [s4s, s4fa, s4fb, crd]
   jp_chars: 61226
   review_focus: "ユウイチ视点开场的人称与口吻；s4s_30_sel「私じゃない」回 s3s_340；s4s_100_sel→e1、s4s_490_sel→s8 门控；4A（消えたサクラ）/4B（サクラを待つ）双结局"
 - seg: 4
   label: seg4-s3tail-s5
+  lane: main
   batches: [118, 138]
   chapters: [s3s, s3fb, s3fc, s5s, s5f, crd]
   jp_chars: 47299
   review_focus: "s3fc_90 绘本『总有一天你会看到的故事。』全文（童谣体，全篇最高难度润色位）；s5 日记体日期格式（9/13→2/13 + 返信）；「发作」选择 GAMEOVER 支线；s5s_680→e2 门控"
 - seg: 5
   label: seg5-s6-s7f
+  lane: main
   batches: [139, 154]
   chapters: [s6s, s6f, s7f, crd]
   jp_chars: 36767
   review_focus: "s6『True Color』大谜题与中庭の雪；s7f 全盘揭示章＝全知纪律最危险段（递卡段逐张核对、雪乃名字首次揭示位）；第一次 staff roll"
 - seg: 6
   label: seg6-s8-e1
+  lane: main
   batches: [155, 166]
   chapters: [s8s, s8f, s4s, e1s, e1f, crd]
   jp_chars: 30037
   review_focus: "s8 黎明结局：坠落抓手句族与 anchors 逐字核对；五年后尾声与『True Color，』逗号；e1 ユカリ第一人称 25 连场的语域"
 - seg: 7
   label: seg7-e2
+  lane: main
   batches: [167, 173]
   chapters: [e2s, e2f, crd]
   jp_chars: 36440
@@ -52,6 +59,7 @@
 # 产出 165 批、漏掉 b339（终审 I4）。段内 lane 必须唯一，故拆两段。
 - seg: 8
   label: seg8-extra
+  lane: extra
   batches: [174, 338]
   chapters: [snr_common,snr_crd_0,snr_crd_10,snr_crd_100,snr_crd_101,snr_crd_102,snr_crd_103,
     snr_crd_104,snr_crd_108,snr_crd_11,snr_crd_110,snr_crd_118,snr_crd_12,snr_crd_13,snr_crd_14,
@@ -79,6 +87,7 @@
   review_focus: "extra 车道 UI/系统/tr_line 串（str id，chapter＝源 lua 脚本名）：cHan2Zen 全角渲染、数字形制跟随原文、菜单词英日对版式；机械段，抽读以形制一致性为主"
 - seg: 9
   label: seg9-ambient
+  lane: ambient
   batches: [339, 339]
   chapters: [sys]
   jp_chars: 1363

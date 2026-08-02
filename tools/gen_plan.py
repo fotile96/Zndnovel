@@ -543,26 +543,36 @@ def _parse_range(s):
     return lo, hi
 
 
-def segment_range(label, repo=None):
-    """config/segments.yaml 里 label 段的批号闭区间。终审 I3：`--segment` 曾是
-    纯文案插值的自由字符串，批号靠另外手传 `--batches`——`--batches 36-62
-    --segment seg2-s3` 这种错配会静默产出段名与批号不符的生产计划。"""
+def segment_entry(label, repo=None):
+    """config/segments.yaml 里 label 段的完整条目（含 batches/lane 等字段）。
+    终审 devwave1 task 4：`--lane` 与 `--segment` 曾无交叉校验，错配只会静默
+    产出空计划（select() 按 lane 过滤，段号对但车道错时选中的批次恰好是空集）；
+    这里把段表条目整个交出来，供 main() 既读批号又读 lane 做交叉校验。"""
     import yaml
     p = Path(repo or REPO) / "config" / "segments.yaml"
     segs = yaml.safe_load(p.read_text(encoding="utf-8")) or []
     for s in segs:
         if s["label"] == label:
-            lo, hi = s["batches"]
-            return int(lo), int(hi)
+            return s
     raise SystemExit(
         f"{p} 中没有 label={label!r} 的检查段；已有："
         f"{', '.join(s['label'] for s in segs)}")
 
 
+def segment_range(label, repo=None):
+    """config/segments.yaml 里 label 段的批号闭区间。终审 I3：`--segment` 曾是
+    纯文案插值的自由字符串，批号靠另外手传 `--batches`——`--batches 36-62
+    --segment seg2-s3` 这种错配会静默产出段名与批号不符的生产计划。"""
+    lo, hi = segment_entry(label, repo)["batches"]
+    return int(lo), int(hi)
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lane", required=True)
+    ap.add_argument("--lane", required=False,
+                    help="非段模式必填；段模式可省略——省略时取 config/segments.yaml "
+                         "段表登记的 lane，显式给出且与段表不符时报错")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--chapter")
     g.add_argument("--batches", help="连续段批号闭区间，形如 1-35；"
@@ -596,17 +606,40 @@ def main(argv=None):
     if args.segment:
         if args.chapter:
             raise SystemExit("--segment 与 --chapter 互斥")
-        rng = _parse_range(args.batches) if args.batches else segment_range(args.segment)
-        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane, batch_range=rng)
+        seg_entry = segment_entry(args.segment)
+        seg_lane = seg_entry.get("lane")
+        if args.lane is None:
+            if seg_lane is None:
+                raise SystemExit(
+                    f"--lane 必填（段表 {args.segment} 未登记 lane，无法从段表推导）")
+            lane = seg_lane
+        else:
+            if seg_lane is not None and args.lane != seg_lane:
+                raise SystemExit(
+                    f"--lane {args.lane} 与段表 {args.segment} 的 lane={seg_lane} 不符")
+            lane = args.lane
+        if not args.tools_root:
+            raise SystemExit(
+                "--segment 模式必须给 --tools-root（生产 worktree 绝对路径，见 "
+                "docs/ops/p3-production-runbook.md §3）——漏传会产出未钉死的计划")
+        lo, hi = (int(x) for x in seg_entry["batches"])
+        rng = _parse_range(args.batches) if args.batches else (lo, hi)
+        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=lane, batch_range=rng)
         label = args.label or args.segment
     elif args.batches:
+        if args.lane is None:
+            raise SystemExit("--lane 必填")
+        lane = args.lane
         if not args.label:
             raise SystemExit("--batches 模式必须同时给 --label")
-        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane,
+        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=lane,
                      batch_range=_parse_range(args.batches))
         label = args.label
     elif args.chapter:
-        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=args.lane,
+        if args.lane is None:
+            raise SystemExit("--lane 必填")
+        lane = args.lane
+        sel = select(read_jsonl(DATA / "batches.jsonl"), lane=lane,
                      chapter=args.chapter)
         label = args.chapter
     else:
@@ -616,7 +649,7 @@ def main(argv=None):
                                              ("ratio_lo", args.ratio_lo),
                                              ("ratio_hi", args.ratio_hi))
                           if v is not None} or None
-    md = render(sel, label=label, lane=args.lane, every=args.checkpoint_every,
+    md = render(sel, label=label, lane=lane, every=args.checkpoint_every,
                 glossary_v=glossary_version(REPO), lane_cfg=lane_cfg,
                 collapse_thresholds=collapse_thresholds, segment=args.segment,
                 tools_root=args.tools_root)

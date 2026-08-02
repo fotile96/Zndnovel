@@ -618,7 +618,8 @@ def _plan(tmp_path, label):
 
 def test_main_segment_derives_batches_from_segments_yaml(tmp_path, monkeypatch):
     _repo_fixture(tmp_path, monkeypatch)
-    assert main(["--lane", "main", "--segment", "seg1-s2"]) == 0
+    assert main(["--lane", "main", "--segment", "seg1-s2",
+                 "--tools-root", "/tmp/prod"]) == 0
     out = _plan(tmp_path, "seg1-s2")
     assert "--batch 2" in out and "--batch 5" in out
     assert "--batch 1" not in out and "--batch 6" not in out
@@ -633,7 +634,8 @@ def test_main_segment_unknown_label_exits(tmp_path, monkeypatch):
 def test_main_segment_batches_override_wins(tmp_path, monkeypatch):
     _repo_fixture(tmp_path, monkeypatch)
     assert main(["--lane", "main", "--segment", "seg1-s2",
-                 "--batches", "6-7", "--label", "seg1-s2"]) == 0
+                 "--batches", "6-7", "--label", "seg1-s2",
+                 "--tools-root", "/tmp/prod"]) == 0
     out = _plan(tmp_path, "seg1-s2")
     assert "--batch 6" in out and "--batch 7" in out
     assert "--batch 2" not in out
@@ -655,3 +657,26 @@ def test_main_requires_one_of_chapter_batches_segment(tmp_path, monkeypatch):
     _repo_fixture(tmp_path, monkeypatch)
     with pytest.raises(SystemExit):
         main(["--lane", "main"])
+
+
+# ---- P3 devwave1 task 4：段模式收口 parked 两项 ----
+
+
+def test_segment_mode_requires_tools_root(tmp_path):
+    with pytest.raises(SystemExit, match="tools-root"):
+        main(["--segment", "seg1-s2", "--label", "x",
+              "--lane-dir", str(tmp_path), "--model", "opus",
+              "--effort", "max", "--append-model-id", "claude-opus-5"])
+
+
+def test_segment_mode_lane_from_table_and_mismatch_errors(tmp_path):
+    with pytest.raises(SystemExit, match="lane"):
+        main(["--segment", "seg1-s2", "--lane", "extra", "--label", "x",
+              "--tools-root", "/tmp/prod", "--lane-dir", str(tmp_path),
+              "--model", "opus", "--effort", "max",
+              "--append-model-id", "claude-opus-5"])
+
+
+def test_nonsegment_mode_still_requires_lane():
+    with pytest.raises(SystemExit):
+        main(["--batches", "1-2", "--label", "x"])

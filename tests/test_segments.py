@@ -61,3 +61,11 @@ def test_segments_labels_unique_and_ordered():
     assert len(labels) == len(set(labels))
     assert [s["seg"] for s in segs] == list(range(1, len(segs) + 1))
     assert all(s["review_focus"].strip() for s in segs)
+
+
+def test_segments_lane_field_matches_batches():
+    segs, by = _load()
+    for s in segs:
+        lo, hi = s["batches"]
+        lanes = {by[b]["lane"] for b in range(lo, hi + 1)}
+        assert lanes == {s["lane"]}, s["label"]

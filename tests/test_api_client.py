@@ -596,3 +596,95 @@ def test_summarize_real_repo_ledger_has_both_row_shapes():
     s = summarize_ledger(rows)
     assert s["prompt_tokens"]["n"] + s["prompt_tokens"]["unknown"] == len(rows)
     assert s["cached_tokens"]["unknown"] >= 1
+
+
+# ---------------------------------------------- function tools（守卫收紧非删除）
+
+def _events_with_tool_call(call_id="call_00_zpQBBijfbGNniXO4rgfM2256",
+                           item_id="ff61a12a-18a2-4793-8510-7c285157ef61",
+                           name="get_lines", arguments='{"ids": [11]}'):
+    """带 function_call 的事件序列——**字段名与顺序照 2026-08-02 真实探针抄写**
+    （probe：POST /v1/responses + tools=[{type:function,...}]，见 task-2-report.md）。
+
+    实测要点：function_call 项走 `response.output_item.added`（item 里已带
+    `call_id`/`name`，`arguments` 初值为空串）→ `response.function_call_arguments
+    .delta`* → `.done`（带完整 arguments **字符串**）→ `response.output_item.done`
+    （item 带完整 arguments），终止事件的 `response.output` 里同样有这一项。
+    注意 function_call **不发 content_part 事件**，且 `arguments` 是 JSON 字符串
+    不是对象——解析侧不能想当然当 dict 用。"""
+    fc_partial = {"type": "function_call", "id": item_id, "status": "in_progress",
+                  "arguments": "", "call_id": call_id, "name": name}
+    fc_done = {"type": "function_call", "id": item_id, "status": "completed",
+               "arguments": arguments, "call_id": call_id, "name": name}
+    reasoning = {"type": "reasoning", "id": "1cbd9161", "status": "completed",
+                 "content": [{"type": "reasoning_text", "text": "查一下"}], "summary": []}
+    yield "response.created", {"type": "response.created", "response": {}}
+    yield "response.in_progress", {"type": "response.in_progress", "response": {}}
+    yield "response.output_item.added", {"item": {"type": "reasoning"}, "output_index": 0}
+    yield "response.content_part.added", {"part": {"type": "reasoning_text", "text": ""}}
+    yield "response.reasoning_text.delta", {"delta": "查一下"}
+    yield "response.reasoning_text.done", {"text": "查一下"}
+    yield "response.content_part.done", {"part": {"type": "reasoning_text", "text": "查一下"}}
+    yield "response.output_item.done", {"item": reasoning, "output_index": 0}
+    yield "response.output_item.added", {"item": fc_partial, "output_index": 1}
+    for ch in arguments:
+        yield "response.function_call_arguments.delta", {"delta": ch, "item_id": item_id,
+                                                         "output_index": 1}
+    yield "response.function_call_arguments.done", {"arguments": arguments,
+                                                    "item_id": item_id, "output_index": 1}
+    yield "response.output_item.done", {"item": fc_done, "output_index": 1}
+    yield "response.completed", {"response": {
+        "output": [reasoning, fc_done],
+        "usage": {"input_tokens": 393, "input_tokens_details": {"cached_tokens": 384},
+                  "output_tokens": 71, "output_tokens_details": {"reasoning_tokens": 25}}}}
+
+
+def test_tools_are_sent_when_whitelisted(tmp_path):
+    """白名单内的 function 工具照发；返回值把 output_items / function_calls 透出。
+    ⚠ 原始 JSON 串里仍不得出现 web_search（那条防线不因本功能松动）。"""
+    captured = {}
+
+    def fake_transport(url, headers, payload):
+        captured["payload"] = payload
+        captured["raw"] = json.dumps(payload, ensure_ascii=False)
+        return _events_with_tool_call()
+
+    tools = [{"type": "function", "name": "get_lines", "description": "d",
+              "parameters": {"type": "object", "properties": {}}}]
+    r = chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=fake_transport, ledger_path=tmp_path / "l.jsonl",
+             tools=tools, allowed_tool_names={"get_lines"})
+    assert captured["payload"]["tools"] == tools
+    assert "web_search" not in captured["raw"]
+    # 实测字段名：call_id（不是 id——id 是 item 自身的标识）、name、arguments 为字符串
+    assert [it["type"] for it in r["output_items"]] == ["reasoning", "function_call"]
+    assert len(r["function_calls"]) == 1
+    fc = r["function_calls"][0]
+    assert fc["name"] == "get_lines"
+    assert fc["call_id"].startswith("call_")
+    assert json.loads(fc["arguments"]) == {"ids": [11]}
+
+
+def test_non_function_tool_type_is_rejected(tmp_path):
+    with pytest.raises(SystemExit, match="function"):
+        chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=lambda *a: iter(()), ledger_path=tmp_path / "l.jsonl",
+             tools=[{"type": "web_search"}], allowed_tool_names={"get_lines"})
+
+
+def test_tool_name_outside_whitelist_is_rejected(tmp_path):
+    with pytest.raises(SystemExit, match="白名单"):
+        chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=lambda *a: iter(()), ledger_path=tmp_path / "l.jsonl",
+             tools=[{"type": "function", "name": "rm_rf",
+                     "parameters": {"type": "object", "properties": {}}}],
+             allowed_tool_names={"get_lines"})
+
+
+def test_tools_require_explicit_whitelist(tmp_path):
+    """不给白名单就传 tools —— 拒绝。防止「忘了传白名单」变成事实上的无限制。"""
+    with pytest.raises(SystemExit, match="白名单"):
+        chat([{"role": "user", "content": "hi"}], api_key="sk-test",
+             stream_transport=lambda *a: iter(()), ledger_path=tmp_path / "l.jsonl",
+             tools=[{"type": "function", "name": "get_lines",
+                     "parameters": {"type": "object", "properties": {}}}])

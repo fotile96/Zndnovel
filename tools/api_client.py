@@ -232,7 +232,7 @@ def _consume(events, on_delta=None):
     # 判分，失败完全无声）。结构：done[kind] 存已收尾的各段，buf[kind] 存当前段的
     # delta 缓冲；最终文本 = 各已完成段 + 尚未收尾的缓冲。
     prog = {"text_done": [], "reasoning_done": [], "text_buf": [], "reasoning_buf": [],
-            "text_deltas": 0, "reasoning_deltas": 0,
+            "text_deltas": 0, "reasoning_deltas": 0, "output_items": [],
             "usage": None, "status": None, "event_types": []}
     try:
         for etype, data in events:
@@ -269,6 +269,12 @@ def _consume(events, on_delta=None):
             elif etype in TERMINAL_EVENTS:
                 resp = data.get("response") or {}
                 prog["usage"] = resp.get("usage") or {}
+                # 终止事件的 `response.output` 是完整 output item 数组（实测
+                # 2026-08-02：`[{type:"reasoning",…},{type:"function_call", id,
+                # call_id, name, arguments:"<JSON 字符串>", status}]`）。整段原样
+                # 留着——工具循环续轮时要把这些项**原样回填**进下一次的 `input`，
+                # 任何字段级重建都可能丢掉远端要的东西。
+                prog["output_items"] = resp.get("output") or []
                 prog["status"] = etype
                 break
     except Exception as exc:
@@ -369,10 +375,30 @@ def summarize_ledger(rows, keys=LEDGER_TOKEN_KEYS) -> dict:
     return out
 
 
+def _validate_tools(tools, allowed_tool_names):
+    """守卫（spec §2.2）：由「禁一切 tools」收紧为「只允许白名单内的 function」。
+
+    ⚠ 不要放宽这里。Responses API 内置服务端 web_search——彩野测试里一旦启用即
+    灾难：受试模型可上网查《セカンドノベル》剧情，不看译文也能答对，测试静默失效。
+    历史上原始 JSON 串级的 `web_search` 子串断言捕获过 `builtin_tools` 这类改名
+    绕过，那条断言在 test_payload_never_sends_tools_or_web_search 里，保留不动。
+    """
+    if not tools:
+        return
+    if not allowed_tool_names:
+        raise SystemExit("传 tools 必须同时给 allowed_tool_names 白名单（缺省即拒绝）")
+    for t in tools:
+        if t.get("type") != "function":
+            raise SystemExit(f"只允许 type=function 的工具，收到 {t.get('type')!r}")
+        if t.get("name") not in allowed_tool_names:
+            raise SystemExit(f"工具 {t.get('name')!r} 不在白名单内")
+
+
 def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
          max_tokens=None, purpose="", stream_transport=None, ledger_path=None,
          api_key=None, timeout=None, retries=None, sleeper=None,
-         effort=DEFAULT_EFFORT, on_delta=None) -> dict:
+         effort=DEFAULT_EFFORT, on_delta=None,
+         tools=None, allowed_tool_names=None) -> dict:
     """对外契约与旧的 chat/completions 版**保持不变**：入参 `messages` 仍是
     `[{role, content}]`，返回 dict 的 `content`/`prompt_tokens`/`completion_tokens`
     /`model`/`provider` 语义与名字都不变（`prompt_tokens` ← `usage.input_tokens`，
@@ -385,6 +411,10 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
     `max_tokens=None`（默认）时取 `DEFAULT_MAX_OUTPUT_TOKENS`；`effort` 不传时
     走参数默认值 `DEFAULT_EFFORT`——两者均为模块级长期默认档位（见模块 docstring
     「默认档位政策」一节），调用方显式传值总是优先。
+
+    `tools`/`allowed_tool_names`（均默认 None＝一个工具都不发）：见 `_validate_tools`
+    的守卫说明。返回 dict 另有 `output_items`（终止事件里的 `response.output` 原样）
+    与 `function_calls`（其中 `type=="function_call"` 的项），供有界工具循环消费。
     """
     cfg = PROVIDERS[provider]
     model = model or cfg["default_model"]
@@ -394,13 +424,16 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
         raise SystemExit(
             f"缺 {cfg['key_env']}：设环境变量，或写进仓库根 .env（已 gitignore）")
     instructions, input_turns = _split_messages(messages)
-    # ⚠ 绝不发送 `tools` 字段。Responses API 内置服务端 web_search——在彩野测试里
-    # 一旦启用即灾难：受试模型可以直接上网查《セカンドノベル》的剧情，不看译文也
-    # 能答对，测试静默失效（与本轮踩过的「恒绿关卡」是同一类病）。
-    # tests/test_api_client.py 有一条断言守着 payload 里没有 tools/web_search。
+    # ⚠ 只发白名单内的 function 工具，**永不**发服务端内置工具（web_search）。
+    # 理由与历史绕过案例见 _validate_tools 的 docstring；`tools` 为空时 payload
+    # 里根本不出现该键——tests/test_api_client.py 的
+    # test_payload_never_sends_tools_or_web_search 靠这一点守着默认路径。
+    _validate_tools(tools, allowed_tool_names)
     payload = {"model": model, "input": input_turns, "stream": True,
                "max_output_tokens": max_tokens, "temperature": temperature,
                "reasoning": {"effort": effort}}
+    if tools:
+        payload["tools"] = tools
     if instructions:
         payload["instructions"] = instructions
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
@@ -474,7 +507,14 @@ def chat(messages, *, provider="deepseek", model=None, temperature=0.2,
            "completion_tokens": usage["completion_tokens"],
            "cached_tokens": usage["cached_tokens"],
            "reasoning_tokens": usage["reasoning_tokens"],
-           "model": model, "provider": provider}
+           "model": model, "provider": provider,
+           # 字段名以 2026-08-02 真实探针为准（见 .superpowers/sdd/
+           # 2026-08-02-deepseek-audit-capability/task-2-report.md）：function_call
+           # 项的键是 `call_id`（续轮 function_call_output 要回引的就是它，与 item
+           # 自身的 `id` 不同），`name`，`arguments` 是 **JSON 字符串**不是对象。
+           "output_items": prog.get("output_items", []),
+           "function_calls": [it for it in prog.get("output_items", [])
+                              if it.get("type") == "function_call"]}
     _write_ledger(lp, provider=provider, model=model, purpose=purpose,
                   usage=usage, effort=effort)
     return out

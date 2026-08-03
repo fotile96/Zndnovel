@@ -172,7 +172,16 @@ def _clean_model_ids(raw):
     return ids, invalid
 
 
-def extract_promises(proposal, *, runner=None):
+def _rounds_kw(max_rounds):
+    """把 `--max-rounds` 折成传给 `run_with_tools` 的 kwargs。
+
+    `None` → **不传**，保持 `run_with_tools` 自己的默认（6）不变——默认行为
+    不因为多了这个参数而改变。
+    """
+    return {} if max_rounds is None else {"max_rounds": max_rounds}
+
+
+def extract_promises(proposal, *, runner=None, max_rounds=None):
     """步骤 1（无工具）：从单条提案抽硬承诺。
 
     返回 dict，供下游（T5）区分三态：
@@ -207,7 +216,8 @@ def extract_promises(proposal, *, runner=None):
         runner, [{"role": "system", "content": PROMISE_SYS},
                  {"role": "user", "content": body}],
         purpose=f"audit-promise-extract:{proposal['chapter']}"
-                f":b{proposal['batch']}:#{proposal['num']}")
+                f":b{proposal['batch']}:#{proposal['num']}",
+        **_rounds_kw(max_rounds))
     stopped_reason = res.get("stopped_reason", "finished")
 
     out = []
@@ -302,8 +312,15 @@ def _forced_cannot_tell(promise, reason):
     }
 
 
-def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
+def verify_promise(promise, proposal, *, lane_dir=None, runner=None, max_rounds=None):
     """步骤 2：预拼为主、工具兜底。
+
+    `max_rounds`：透传给 `run_with_tools` 的轮次预算，`None` 即沿用它自己的
+    默认（6）。**提高它只是给模型更多预算，四条机械闸的语义一分不变**——
+    首轮全量审计里 110 条「无法判断」中有 48 条的 reason 是
+    `stopped_reason=max_rounds`，那是预算耗尽而非证据不足，混进「无法判断
+    占比」这项可信度指标里会让它高估语料的问题、低估工具的可调空间。正确的
+    处置是把预算调大后**定点重跑**（`--rerun-from`），而不是放松闸。
 
     **三条机械闸**（brief §2）：模型的结论在被采信前，先过三条能机械验证的
     检查；踩中任一条就强制把 `verdict` 降为「无法判断」——`VERIFY_SYS` 里
@@ -374,7 +391,7 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None):
                  {"role": "user", "content": user}],
         purpose=f"audit-promise-verify:{proposal['chapter']}"
                 f":b{proposal['batch']}:#{proposal['num']}",
-        **kw)
+        **kw, **_rounds_kw(max_rounds))
 
     stopped_reason = res.get("stopped_reason", "finished")
     tool_errors = res.get("tool_errors", 0)
@@ -499,6 +516,133 @@ def _append_jsonl(path, obj):
         f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
+# --- 定点重跑（rerun）：只重验上一轮被机械闸拦下的条目 --------------------
+#
+# 全量重跑一章 s3s 要 2 小时 48 分，而待重验的只有几十条；更重要的是全量重跑
+# 会把上一轮**判出来的结论**一并丢掉重来（既多花钱，又让两轮不可比）。定点重跑
+# 读上一轮的 sidecar，只对选中的条目再调一次模型，其余条目原样搬运。
+
+# 机械闸①（`stopped_reason != finished`）留下的 reason 形如
+# 「机械闸：stopped_reason=max_rounds，结论不完整」。这里按**字面**匹配，
+# 与 `verify_promise` 里生成该字符串的那行是一对；改其一必须改其二。
+GATE_MARK = "机械闸"
+BUDGET_MARK = "max_rounds"
+
+
+def load_sidecar(path):
+    """读回上一轮 sidecar，返回 `(results, extraction_failures)`。
+
+    非法行（截断的最后一行等）**跳过并留痕到 stderr**，不静默吞掉也不让整个
+    重跑因为一行坏 JSON 而拒绝启动——sidecar 本来就是「进程可能中途死亡」的
+    产物，末行半截是可预期的。
+    """
+    results, fails = [], []
+    for n, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except Exception as e:
+            print(f"⚠ sidecar 第 {n} 行无法解析，已跳过：{e}", file=sys.stderr)
+            continue
+        data = row.get("data")
+        if row.get("type") == "result":
+            results.append(data)
+        elif row.get("type") == "extraction_failure":
+            fails.append(data)
+        else:
+            print(f"⚠ sidecar 第 {n} 行 type={row.get('type')!r} 未知，已跳过",
+                  file=sys.stderr)
+    return results, fails
+
+
+def is_gated(row, *, gates="max_rounds"):
+    """这一条是否是「被机械闸拦下」而非「证据不足」。
+
+    `gates="max_rounds"`（默认）只选轮次预算耗尽的那一族——它们是**工具的**
+    问题，调大预算就可能收敛；`gates="all"` 放宽到四条机械闸全部（工具报错、
+    开了工具没调用、预拼取材失败/全无译文），适合修完取材侧问题后重跑。
+    模型自己判出的「无法判断」永远不入选：那是证据不足，重跑无非再花一次钱。
+    """
+    if (row or {}).get("verdict") != "无法判断":
+        return False
+    reason = row.get("reason") or ""
+    if GATE_MARK not in reason:
+        return False
+    return True if gates == "all" else BUDGET_MARK in reason
+
+
+def rerun_gated(results, *, lane_dir=None, max_rounds=None, gates="max_rounds",
+                verify=None, on_result=None):
+    """重验选中的条目，返回 `(merged, reran)`。
+
+    **合并不丢条目**：`merged` 与 `results` 等长、同序，未选中的条目原样搬运
+    （连同 `proposal`/`promise`），选中的用新结果替换并补回 `proposal`/`promise`。
+    单条重验抛异常照旧降级成一条可见的「无法判断」（`_forced_cannot_tell`），
+    不允许因为重跑而让一条已存在的记录凭空消失。
+    `on_result(row)` 每产出一条（含原样搬运的）调用一次，供调用方增量落盘。
+    """
+    fn = verify or verify_promise
+    merged, reran = [], 0
+    for row in results:
+        if is_gated(row, gates=gates):
+            pr, prop = row.get("promise") or {}, row.get("proposal") or {}
+            try:
+                new = fn(pr, prop, lane_dir=lane_dir, max_rounds=max_rounds)
+            except Exception as e:
+                new = _forced_cannot_tell(
+                    pr, f"重跑核对阶段异常：{type(e).__name__}: {e}")
+            new.update({"proposal": prop, "promise": pr,
+                        "rerun_of": row.get("verdict"),
+                        "rerun_prev_reason": row.get("reason")})
+            row = new
+            reran += 1
+        merged.append(row)
+        if on_result:
+            on_result(row)
+    return merged, reran
+
+
+def _main_rerun(a, lane):
+    """`--rerun-from` 分支：读旧 sidecar → 定点重验 → 合并 → 新报告 + 新 sidecar。
+
+    **原 sidecar 绝不被覆盖**：`main()` 每次开跑都会把 `--out` 同名的 `.jsonl`
+    截断成空文件，若 `--out` 指回上一轮那份，原始证据在第一行写入之前就已经
+    没了（控制器今天是先手工备份才敢重跑）。这里在动任何文件之前先比对绝对
+    路径，撞上就拒绝执行——不靠人记得换文件名。
+    """
+    src = Path(a.rerun_from)
+    out = Path(a.out)
+    sidecar = out.with_suffix(".jsonl")
+    if not src.exists():
+        raise SystemExit(f"拒绝执行：--rerun-from 指定的 sidecar 不存在：{src}")
+    if src.resolve() == sidecar.resolve():
+        raise SystemExit(
+            f"拒绝执行：--out 推出的新 sidecar（{sidecar}）就是 --rerun-from 那份"
+            f"（{src}）。\n本次运行开跑就会把它截断，上一轮的原始证据将永久丢失。\n"
+            f"请给 --out 换一个文件名（如 {out.with_name(out.stem + '-rerun' + out.suffix)}）。")
+
+    results, extraction_failures = load_sidecar(src)
+    n_gated = sum(1 for r in results if is_gated(r, gates=a.rerun_gates))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text("", encoding="utf-8")
+    for f in extraction_failures:
+        _append_jsonl(sidecar, {"type": "extraction_failure", "data": f})
+
+    merged, reran = rerun_gated(
+        results, lane_dir=lane, max_rounds=a.max_rounds, gates=a.rerun_gates,
+        on_result=lambda r: _append_jsonl(sidecar, {"type": "result", "data": r}))
+    assert len(merged) == len(results)  # 合并不丢条目（护栏，非防御性编程）
+    flipped = sum(1 for r in merged if r.get("rerun_of") and r["verdict"] != "无法判断")
+
+    out.write_text(render_report(merged, extraction_failures), encoding="utf-8")
+    print(f"定点重跑完成 → {out}（源 {src}：{len(results)} 条结果 / "
+          f"{len(extraction_failures)} 条抽取失败；命中闸 {n_gated} 条，"
+          f"实重验 {reran} 条，其中 {flipped} 条这次判出了结论；"
+          f"新增量结果见 {sidecar}，原 sidecar 未改动）")
+    return 0
+
+
 def main(argv=None):
     """入口：抽取 → 核对 → 报告，附**逐条异常隔离**与**增量落盘**。
 
@@ -522,8 +666,22 @@ def main(argv=None):
     ap.add_argument("--chapter", default=None, help="只审某一章，省略则全部")
     ap.add_argument("--limit", type=int, default=0, help="只审前 N 条提案（0=不限）")
     ap.add_argument("--out", default="work/out/audit-notes-promises.md")
+    ap.add_argument("--max-rounds", type=int, default=None,
+                    help="透传给 run_with_tools 的轮次预算（省略=沿用其默认 6）。"
+                         "调大只是给模型更多预算，机械闸语义不变")
+    ap.add_argument("--rerun-from", default=None, metavar="SIDECAR.jsonl",
+                    help="定点重跑：读上一轮的 sidecar，只重验被机械闸拦下的条目，"
+                         "其余原样搬运；不重新解析手记，不覆盖原 sidecar")
+    ap.add_argument("--rerun-gates", choices=["max_rounds", "all"],
+                    default="max_rounds",
+                    help="重跑选谁：max_rounds=只选轮次预算耗尽的（默认）；"
+                         "all=四条机械闸拦下的全选")
     a = ap.parse_args(argv)
     lane = Path(a.lane_dir)
+
+    if a.rerun_from:
+        return _main_rerun(a, lane)
+
     props = []
     for p in sorted((lane / "data" / "notes").glob("*.md")):
         if a.chapter and p.stem != a.chapter:
@@ -540,7 +698,7 @@ def main(argv=None):
     results, extraction_failures = [], []
     for prop in props:
         try:
-            extracted = extract_promises(prop)
+            extracted = extract_promises(prop, max_rounds=a.max_rounds)
         except Exception as e:
             # (a) 抽取阶段异常隔离：这一条提案没读懂，但不能拖垮整个循环。
             failure = {"proposal": prop,
@@ -560,7 +718,8 @@ def main(argv=None):
             continue
         for pr in extracted["promises"]:
             try:
-                r = verify_promise(pr, prop, lane_dir=lane)
+                r = verify_promise(pr, prop, lane_dir=lane,
+                                   max_rounds=a.max_rounds)
             except Exception as e:
                 # (a) 核对阶段异常隔离：单条 promise 处理失败必须变成一条
                 # 可见结果、归入「无法判断」侧，绝不能静默消失或被误计入

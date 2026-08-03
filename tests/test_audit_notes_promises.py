@@ -707,7 +707,7 @@ def test_main_records_extraction_failures_separately(monkeypatch, tmp_path):
         "### 2. 提案乙\n- id 2\n- 本批已按 Y 统一。\n",
         encoding="utf-8")
 
-    def fake_extract(prop, runner=None):
+    def fake_extract(prop, runner=None, max_rounds=None):
         if prop["num"] == 1:
             return {"promises": [], "parse_ok": False, "stopped_reason": "finished", "ok": False}
         return {"promises": [{"kind": "已统一", "ids": [2], "ids_source": "model",
@@ -715,7 +715,7 @@ def test_main_records_extraction_failures_separately(monkeypatch, tmp_path):
                               "quote_verified": True}],
                 "parse_ok": True, "stopped_reason": "finished", "ok": True}
 
-    def fake_verify(pr, prop, lane_dir=None, runner=None):
+    def fake_verify(pr, prop, lane_dir=None, runner=None, max_rounds=None):
         return {"verdict": "已履行", "evidence_ids": [2], "reason": "ok", "used_tools": False}
 
     monkeypatch.setattr(A, "extract_promises", fake_extract)
@@ -752,14 +752,14 @@ def test_main_survives_verify_promise_raising_and_still_writes_report(monkeypatc
     from tools import audit_notes_promises as A
     lane = _lane_with_two_proposals(tmp_path)
 
-    def fake_extract(prop, runner=None):
+    def fake_extract(prop, runner=None, max_rounds=None):
         return {"promises": [{"kind": "已统一", "ids": [prop["num"]],
                               "ids_source": "model", "prewire_ids": [prop["num"]],
                               "ids_invalid": [], "quote": "已统一",
                               "quote_verified": True}],
                 "parse_ok": True, "stopped_reason": "finished", "ok": True}
 
-    def fake_verify(pr, prop, lane_dir=None, runner=None):
+    def fake_verify(pr, prop, lane_dir=None, runner=None, max_rounds=None):
         if prop["num"] == 1:
             return {"verdict": "已履行", "evidence_ids": [1], "reason": "ok",
                     "used_tools": False}
@@ -788,7 +788,7 @@ def test_main_survives_extract_promises_raising(monkeypatch, tmp_path):
     from tools import audit_notes_promises as A
     lane = _lane_with_two_proposals(tmp_path)
 
-    def fake_extract(prop, runner=None):
+    def fake_extract(prop, runner=None, max_rounds=None):
         if prop["num"] == 1:
             raise ValueError("解析崩了")
         return {"promises": [], "parse_ok": True, "stopped_reason": "finished", "ok": True}
@@ -813,14 +813,14 @@ def test_main_writes_incremental_jsonl_sidecar_surviving_later_crash(monkeypatch
     from tools import audit_notes_promises as A
     lane = _lane_with_two_proposals(tmp_path)
 
-    def fake_extract(prop, runner=None):
+    def fake_extract(prop, runner=None, max_rounds=None):
         return {"promises": [{"kind": "已统一", "ids": [prop["num"]],
                               "ids_source": "model", "prewire_ids": [prop["num"]],
                               "ids_invalid": [], "quote": "已统一",
                               "quote_verified": True}],
                 "parse_ok": True, "stopped_reason": "finished", "ok": True}
 
-    def fake_verify(pr, prop, lane_dir=None, runner=None):
+    def fake_verify(pr, prop, lane_dir=None, runner=None, max_rounds=None):
         if prop["num"] == 1:
             return {"verdict": "已履行", "evidence_ids": [1], "reason": "ok",
                     "used_tools": False}
@@ -858,3 +858,257 @@ def test_main_sidecar_truncated_at_start_of_run(tmp_path):
     rc = A.main(["--lane-dir", str(lane), "--out", str(out_path)])
     assert rc == 0
     assert sidecar.read_text(encoding="utf-8") == ""
+
+
+# --- --max-rounds 透传 + 定点重跑（首轮全量审计暴露：110 条「无法判断」里 48 条
+# 的 reason 是 stopped_reason=max_rounds，那是预算耗尽而非证据不足）-----------
+
+
+def _spy_runner(seen, payload, **res_kw):
+    def fake(messages, **kw):
+        seen.append(kw)
+        base = {"content": json.dumps(payload, ensure_ascii=False), "rounds": 1,
+                "tool_calls": [], "stopped_reason": "finished", "reasoning_text": "",
+                "prompt_tokens": 1, "completion_tokens": 1}
+        base.update(res_kw)
+        return base
+    return fake
+
+
+def test_verify_passes_max_rounds_to_run_with_tools(monkeypatch):
+    """判别性用例：`--max-rounds` 必须真的落到 `run_with_tools` 的 kwargs 上。
+    只加 CLI 参数而没接到底（很容易发生）时本测试必红。"""
+    from tools import audit_notes_promises as A
+    seen = []
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+    A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"}, HARD,
+                     runner=_spy_runner(seen, {"verdict": "已履行",
+                                               "evidence_ids": [7327], "reason": "r"}),
+                     max_rounds=16)
+    assert seen[0]["max_rounds"] == 16
+
+
+def test_verify_max_rounds_reaches_tool_fallback_path_too(monkeypatch):
+    """工具兜底那条路（`ids` 为空）才是 max_rounds 真正开火的地方，
+    别只接了预拼路径。"""
+    from tools import audit_notes_promises as A
+    seen = []
+    A.verify_promise({"kind": "通则", "ids": [], "quote": "q"},
+                     {"chapter": "s1s", "batch": 4, "num": 9, "title": "t", "body": "b"},
+                     runner=_spy_runner(seen, {"verdict": "已履行", "evidence_ids": [],
+                                               "reason": "r"},
+                                        tool_calls=[{"name": "get_lines"}]),
+                     max_rounds=16)
+    assert seen[0]["max_rounds"] == 16
+    assert set(seen[0]["tool_names"]) == {"get_lines", "search_lines", "get_anchor"}
+
+
+def test_max_rounds_omitted_keeps_run_with_tools_default(monkeypatch):
+    """默认行为不变：不给 `--max-rounds` 时**不传**该 kwarg，
+    由 `run_with_tools` 自己的默认（6）说了算——传 None 会把默认覆写成 None
+    并让 `while rounds < None` 直接抛 TypeError。"""
+    from tools import audit_notes_promises as A
+    seen = []
+    monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+        "lines": [{"id": 1, "jp": "j", "zh": "z", "chapter": "s1s"}]})
+    A.verify_promise({"kind": "k", "ids": [1], "quote": "q"}, HARD,
+                     runner=_spy_runner(seen, {"verdict": "已履行",
+                                               "evidence_ids": [1], "reason": "r"}))
+    assert "max_rounds" not in seen[0]
+    seen.clear()
+    A.extract_promises(HARD, runner=_spy_runner(seen, {"promises": []}))
+    assert "max_rounds" not in seen[0]
+
+
+def test_extract_promises_passes_max_rounds():
+    """抽取阶段同样会撞轮次预算（首轮里就有），一并可调。"""
+    from tools import audit_notes_promises as A
+    seen = []
+    A.extract_promises(HARD, runner=_spy_runner(seen, {"promises": []}), max_rounds=12)
+    assert seen[0]["max_rounds"] == 12
+
+
+# --- 定点重跑：筛选 ---------------------------------------------------------
+
+def _row(verdict, reason, num=1):
+    return {"verdict": verdict, "reason": reason, "evidence_ids": [],
+            "used_tools": True,
+            "proposal": {"chapter": "s3s", "batch": 1, "num": num, "title": "t",
+                         "body": "- id 1\n- 本批已按 X 统一。"},
+            "promise": {"kind": "已统一", "ids": [], "quote": "已统一"}}
+
+
+def test_is_gated_selects_only_budget_exhaustion_by_default():
+    """判别性用例：默认只选轮次预算耗尽的那一族。模型自判的「无法判断」是
+    证据不足，重跑只是再花一次钱；工具报错等其它机械闸是另一类问题，
+    默认不混进来（要的话 gates="all"）。"""
+    from tools.audit_notes_promises import is_gated
+    budget = _row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整")
+    tool_err = _row("无法判断", "机械闸：tool_errors=2，模型基于报错信息作答")
+    evidence = _row("无法判断", "材料里没有可比对的译文")
+    done = _row("已履行", "译文含睡翘")
+    assert is_gated(budget) is True
+    assert is_gated(tool_err) is False
+    assert is_gated(evidence) is False
+    assert is_gated(done) is False
+    assert is_gated(tool_err, gates="all") is True
+    assert is_gated(evidence, gates="all") is False
+    assert is_gated(done, gates="all") is False
+
+
+def test_load_sidecar_splits_results_and_extraction_failures(tmp_path):
+    from tools.audit_notes_promises import load_sidecar
+    p = tmp_path / "s.jsonl"
+    p.write_text(
+        json.dumps({"type": "result", "data": _row("已履行", "ok")}, ensure_ascii=False)
+        + "\n"
+        + json.dumps({"type": "extraction_failure",
+                      "data": {"proposal": {"chapter": "s3s", "batch": 1, "num": 2,
+                                            "title": "甲"}, "reason": "parse_ok=False"}},
+                     ensure_ascii=False) + "\n"
+        + '{"type": "result", "data": {"verdict"\n',   # 半截行（进程被杀）
+        encoding="utf-8")
+    results, fails = load_sidecar(p)
+    assert len(results) == 1 and len(fails) == 1
+
+
+def test_rerun_merges_without_losing_any_row():
+    """合并不丢条目：重跑后条目数、顺序与原来完全一致，未选中的原样搬运。"""
+    from tools.audit_notes_promises import rerun_gated
+    rows = [_row("已履行", "ok", 1),
+            _row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整", 2),
+            _row("未履行", "与承诺矛盾", 3),
+            _row("无法判断", "材料不足", 4)]
+
+    def fake_verify(pr, prop, lane_dir=None, max_rounds=None):
+        return {"verdict": "已履行", "evidence_ids": [9], "reason": "重跑后判出",
+                "used_tools": True}
+
+    merged, reran = rerun_gated(rows, verify=fake_verify)
+    assert reran == 1
+    assert len(merged) == len(rows)
+    assert [m["proposal"]["num"] for m in merged] == [1, 2, 3, 4]
+    assert [m["verdict"] for m in merged] == ["已履行", "已履行", "未履行", "无法判断"]
+    # 被重跑那条保留了上一轮的判定与理由，两轮可对比。
+    assert merged[1]["rerun_of"] == "无法判断"
+    assert "max_rounds" in merged[1]["rerun_prev_reason"]
+    # 未选中的条目原样搬运，连对象都没被改写。
+    assert merged[0] is rows[0] and merged[3] is rows[3]
+
+
+def test_rerun_passes_max_rounds_to_verify():
+    from tools.audit_notes_promises import rerun_gated
+    seen = {}
+
+    def fake_verify(pr, prop, lane_dir=None, max_rounds=None):
+        seen["max_rounds"], seen["lane_dir"] = max_rounds, lane_dir
+        return {"verdict": "已履行", "evidence_ids": [], "reason": "r", "used_tools": True}
+
+    rerun_gated([_row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整")],
+                lane_dir="LANE", max_rounds=16, verify=fake_verify)
+    assert seen == {"max_rounds": 16, "lane_dir": "LANE"}
+
+
+def test_rerun_survives_verify_raising():
+    """重跑里单条抛异常，仍变成一条可见的「无法判断」，条目不消失。"""
+    from tools.audit_notes_promises import rerun_gated
+
+    def boom(pr, prop, lane_dir=None, max_rounds=None):
+        raise RuntimeError("网络异常")
+
+    merged, reran = rerun_gated(
+        [_row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整")],
+        verify=boom)
+    assert len(merged) == 1 and reran == 1
+    assert merged[0]["verdict"] == "无法判断"
+    assert "RuntimeError" in merged[0]["reason"] and "网络异常" in merged[0]["reason"]
+
+
+# --- 定点重跑：main() 端到端 -------------------------------------------------
+
+def _write_sidecar(path, rows, fails=()):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps({"type": "result", "data": r}, ensure_ascii=False) + "\n")
+        for x in fails:
+            f.write(json.dumps({"type": "extraction_failure", "data": x},
+                               ensure_ascii=False) + "\n")
+
+
+def test_main_rerun_from_sidecar_end_to_end(monkeypatch, tmp_path):
+    """定点重跑不解析手记（不需要 notes/ 存在）、只重验被闸拦下的条目，
+    合并成一份完整报告；原 sidecar 一个字节都没动。"""
+    from tools import audit_notes_promises as A
+    src = tmp_path / "audit-s3s.jsonl"
+    fails = [{"proposal": {"chapter": "s3s", "batch": 1, "num": 9, "title": "提案戊"},
+              "reason": "parse_ok=False stopped_reason=finished"}]
+    _write_sidecar(src, [
+        _row("已履行", "ok", 1),
+        _row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整", 2),
+        _row("无法判断", "材料不足以判定", 3)], fails)
+    before = src.read_bytes()
+
+    calls = []
+
+    def fake_verify(pr, prop, lane_dir=None, max_rounds=None):
+        calls.append((prop["num"], max_rounds))
+        return {"verdict": "未履行", "evidence_ids": [1], "reason": "重跑判出矛盾",
+                "used_tools": True}
+
+    monkeypatch.setattr(A, "verify_promise", fake_verify)
+    out = tmp_path / "rerun.md"
+    rc = A.main(["--rerun-from", str(src), "--out", str(out),
+                 "--max-rounds", "16", "--lane-dir", str(tmp_path / "lane")])
+    assert rc == 0
+    # 只重验了被闸拦下的那一条，且 max_rounds 透传到底。
+    assert calls == [(2, 16)]
+    # 原 sidecar 未被覆盖/截断。
+    assert src.read_bytes() == before
+    md = out.read_text(encoding="utf-8")
+    # 3 条硬承诺一条不少，抽取失败条目也跟着搬进新报告。
+    assert "（3 条硬承诺）" in md
+    assert "已履行 1" in md and "未履行 **1**" in md and "无法判断 1" in md
+    assert "抽取失败提案 1 条" in md and "提案戊" in md
+    # 新 sidecar 完整（3 结果 + 1 抽取失败），可作为下一轮重跑的输入。
+    new_rows = [json.loads(l) for l in
+                out.with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()]
+    assert sum(1 for r in new_rows if r["type"] == "result") == 3
+    assert sum(1 for r in new_rows if r["type"] == "extraction_failure") == 1
+
+
+def test_main_rerun_refuses_to_overwrite_source_sidecar(tmp_path):
+    """判别性用例：`--out` 推出的新 sidecar 若正是源文件，必须在**截断之前**
+    拒绝。main() 开跑就 write_text("") ——撞上就等于原始证据永久丢失。"""
+    import pytest
+    from tools import audit_notes_promises as A
+    out = tmp_path / "audit.md"
+    src = out.with_suffix(".jsonl")
+    _write_sidecar(src, [_row("已履行", "ok", 1)])
+    before = src.read_bytes()
+    with pytest.raises(SystemExit) as e:
+        A.main(["--rerun-from", str(src), "--out", str(out)])
+    assert "拒绝执行" in str(e.value.code)
+    assert src.read_bytes() == before
+
+
+def test_main_rerun_gates_all_widens_selection(monkeypatch, tmp_path):
+    """`--rerun-gates all` 把四条机械闸拦下的全选上；模型自判的「无法判断」
+    仍然不入选。"""
+    from tools import audit_notes_promises as A
+    src = tmp_path / "src.jsonl"
+    _write_sidecar(src, [
+        _row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整", 1),
+        _row("无法判断", "机械闸：tool_errors=2，模型基于报错信息作答", 2),
+        _row("无法判断", "材料不足以判定", 3)])
+    calls = []
+
+    def fake_verify(pr, prop, lane_dir=None, max_rounds=None):
+        calls.append(prop["num"])
+        return {"verdict": "已履行", "evidence_ids": [], "reason": "r", "used_tools": True}
+
+    monkeypatch.setattr(A, "verify_promise", fake_verify)
+    rc = A.main(["--rerun-from", str(src), "--out", str(tmp_path / "o.md"),
+                 "--rerun-gates", "all"])
+    assert rc == 0 and calls == [1, 2]

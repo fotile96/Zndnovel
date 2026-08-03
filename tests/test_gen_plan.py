@@ -739,3 +739,97 @@ def test_nonsegment_mode_still_requires_lane():
 def test_render_empty_sel_with_segment_has_head_and_tail():
     md = render([], label="x", lane="main", segment="seg1-s2")
     assert "段开场自检" in md and "段末流程" in md
+
+
+# ---- 长对话会话模式（spec 2026-08-03-long-conversation-batching-design）----
+
+
+def test_session_size_1_is_byte_identical_to_before():
+    """默认值必须与改造前逐字相同——现有 62 条测试是回归闸，这条是显式断言。"""
+    from tools.gen_plan import render
+    sel = [{"batch": 1, "chapter": "s1s", "ids": [1, 2], "jp_chars": 50, "lane": "main"},
+           {"batch": 2, "chapter": "s1s", "ids": [3], "jp_chars": 20, "lane": "main"}]
+    assert render(sel, label="x", lane="main") == render(sel, label="x", lane="main",
+                                                         session_size=1)
+
+
+def test_session_size_groups_batches_into_one_task():
+    from tools.gen_plan import render
+    sel = [{"batch": n, "chapter": "s1s", "ids": [n], "jp_chars": 10, "lane": "main"}
+           for n in range(1, 5)]
+    md = render(sel, label="x", lane="main", session_size=2)
+    assert md.count("### Task") < 4          # 4 批被并成更少的任务
+    assert "会话组" in md
+
+
+def test_session_task_first_batch_reads_full_ctx_rest_read_delta():
+    from tools.gen_plan import _session_task, _paths
+    p = _paths({"lane": "opus", "lane_dir": "pilot/lanes/opus", "model": "opus",
+                "effort": "max", "append_model_id": "claude-opus-5"})
+    bs = [{"batch": 7, "chapter": "s1s", "ids": [1], "jp_chars": 10, "lane": "main"},
+          {"batch": 8, "chapter": "s1s", "ids": [2], "jp_chars": 10, "lane": "main"}]
+    t = _session_task(1, bs, "none", 9, p)
+    assert "batch_7/context.md" in t                    # 首批读全量
+    assert "batch_8/source.jsonl" in t                  # 后续批只读增量
+    assert "batch_8/context.md" not in t                # 后续批不读全量
+    assert "glossary/style.md" in t                     # 每批重投退化最快的部分
+    assert "glossary/active.json" in t
+
+
+def test_session_task_keeps_per_batch_verification():
+    """校验仍逐批：每批各有 check_batch / detect_collapse / append_forward。"""
+    from tools.gen_plan import _session_task, _paths
+    p = _paths({"lane": "opus", "lane_dir": "pilot/lanes/opus", "model": "opus",
+                "effort": "max", "append_model_id": "claude-opus-5"})
+    bs = [{"batch": 7, "chapter": "s1s", "ids": [1], "jp_chars": 10, "lane": "main"},
+          {"batch": 8, "chapter": "s1s", "ids": [2], "jp_chars": 10, "lane": "main"}]
+    t = _session_task(1, bs, "none", 9, p)
+    assert t.count("check_batch.py --batch 7") >= 1
+    assert t.count("check_batch.py --batch 8") >= 1
+    assert t.count("append_forward.py --batch 7") >= 1
+    assert t.count("append_forward.py --batch 8") >= 1
+
+
+def test_session_size_over_10_is_refused():
+    """spec §5.6：单条对话不超过 10 批。上限必须在工具层拦，不能靠人自觉。"""
+    import pytest
+    from tools.gen_plan import main
+    with pytest.raises(SystemExit) as e:
+        main(["--lane", "main", "--batches", "1-2", "--label", "x", "--session-size", "11"])
+    assert "10" in str(e.value)
+
+
+def test_line_cap_splits_before_batch_cap():
+    """行数上限先于批数上限生效——这是双重上限存在的理由。
+
+    本语料批量差 200 倍（2 行 vs 407 行）：只按批数封顶时，「10 批」可能是
+    20 行也可能是 3000 行，而 spec §5.6 的实测包络（585 行）是按行给的。
+    """
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": n, "chapter": "s4s", "ids": list(range(300)), "jp_chars": 9000,
+            "lane": "main"} for n in range(1, 6)]          # 5 批 × 300 行
+    g = _group_sessions(sel, size=10, lines_cap=600)
+    assert [len(x) for x in g] == [2, 2, 1]                # 按行切，没等到 10 批
+    assert all(sum(len(b["ids"]) for b in x) <= 600 for x in g)
+
+
+def test_single_oversized_batch_becomes_its_own_group():
+    """单批就超行上限时独占一组——批不可再分，不能因此死循环或丢批。"""
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": 1, "chapter": "s4s", "ids": list(range(700)), "jp_chars": 20000,
+            "lane": "main"},
+           {"batch": 2, "chapter": "s4s", "ids": [1, 2], "jp_chars": 20, "lane": "main"}]
+    g = _group_sessions(sel, size=10, lines_cap=600)
+    assert [b["batch"] for x in g for b in x] == [1, 2]    # 一批不丢、顺序不变
+    assert len(g[0]) == 1 and g[0][0]["batch"] == 1
+
+
+def test_group_sessions_never_drops_or_reorders():
+    """任何参数下批次全集与顺序恒等——分组只是切片，不是筛选。"""
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": n, "chapter": "s4s", "ids": list(range(n * 7)), "jp_chars": n * 20,
+            "lane": "main"} for n in range(1, 12)]
+    for size in (1, 3, 10):
+        for cap in (50, 600, 10**9):
+            flat = [b["batch"] for x in _group_sessions(sel, size, cap) for b in x]
+            assert flat == [b["batch"] for b in sel], (size, cap)

@@ -258,6 +258,116 @@ git commit -m "data: {ch} 批次{n} 译文入线"
 ```"""
 
 
+SESSION_MAX = 10          # spec §5.6：单条对话批数上限
+SESSION_LINES_MAX = 600   # 同节：行数上限（实测包络 b63–72 = 10 批 / 585 行）
+
+
+def _group_sessions(sel, size, lines_cap):
+    """按**双重上限**切会话组：批数 ≤ size 且行数 ≤ lines_cap。
+
+    为什么不能只按批数：本语料批量差 200 倍（`data/batches.jsonl` 最小 2 行、
+    最大 407 行）。只按批数封顶时「10 批」在不同段落可能是 20 行也可能是
+    3000 行，而 spec §5.6 的实测包络（585 行）是**按行**给出的——单位错了，
+    上限就形同虚设。SEG-3 剩余批次即为实例：b111=364 行、b115=374 行，单批
+    就逼近整个实测组的规模。
+
+    单批自身超 lines_cap 时独占一组（批不可再分）。
+    """
+    if size <= 1:
+        return [[b] for b in sel]
+    groups, cur, n = [], [], 0
+    for b in sel:
+        L = len(b["ids"])
+        if cur and (len(cur) >= size or n + L > lines_cap):
+            groups.append(cur)
+            cur, n = [], 0
+        cur.append(b)
+        n += L
+    if cur:
+        groups.append(cur)
+    return groups
+
+
+def _session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="",
+                  segment=None):
+    """会话组任务：一条对话连做多批。
+
+    首批读全量 `context.md`；后续批**只**读该批 `source.jsonl` + 车道
+    `glossary/style.md` + `glossary/active.json`。
+
+    分档依据（spec §4.1，b63–72 十批实测）：骨架 8442 + 锚点 9439 + voices
+    21887 三项共 39.8K 字符占固定开销 81%，且**各批逐字相同**，只投一次；
+    退化最快的是 style.md 那类「低频触发 + 无机械兜底」的长散文规则，故每批
+    重投（仅约 5KB）。
+
+    校验仍逐批——本函数只改「模型看到什么」，不改校验语义。
+    """
+    first, rest = batches[0], batches[1:]
+    ns = ", ".join(str(b["batch"]) for b in batches)
+    lines = sum(len(b["ids"]) for b in batches)
+    chars = sum(b["jp_chars"] for b in batches)
+    chs = sorted({b["chapter"] for b in batches})
+    # 车道根：非车道模式（lane_dir_arg 为空）退回仓库相对形态 "."，不要拼出
+    # "/glossary/style.md" 这种看着像绝对路径的东西。
+    lane_root = p["lane_dir_arg"].strip().replace("--lane-dir ", "") or "."
+    # 后续批的增量材料**逐批点名**（不写 batch_N 通配）：派发方要照抄这行注入
+    # 子代理，通配符会让它自己去猜批号，而这正是本模式最不该留的自由度。
+    rest_srcs = "、".join(f"`{p['ctx']}/batch_{b['batch']}/source.jsonl`"
+                          for b in rest) or "（无）"
+    head = f"""### Task {tnum}: 会话组 批次 {ns}（{len(batches)} 批 / {lines} 条 / 约 {chars} 日文字）
+
+**Files:**
+- Produces: 各批 `{p["ctx"]}/batch_N/{{context.md,source.jsonl,manifest.json}}`、`{p["out"]}/batch_N.draft.jsonl`、`{p["forward"]}` 追加共 {lines} 行
+
+**Interfaces:**
+- Consumes: `data/batches.jsonl` 的批次 {ns}（章别 {"/".join(chs)}）
+- Produces: `{p["forward"]}` 里这些 id 的正向译文行
+
+> **本任务是一条长对话连做 {len(batches)} 批**，不是 {len(batches)} 个独立子代理。
+> 省的是每批重投 44.7K 字符固定材料；代价是规则遵守会从「查表」滑向「自洽」
+> （spec §3.3），故后续批仍每批重投 `style.md`+`active.json`，并由 W4 机械闸
+> 兜住复现句族一致性。
+
+- [ ] **Step 1: 生成全部批次的上下文包**
+
+Run（逐批执行，ctx 照常入档）：
+"""
+    for b in batches:
+        head += (f"\n`uv run python {p['tools']}/build_context.py --batch {b['batch']}"
+                 f" --profile cc --baseline {baseline}{p['repo_arg']}`")
+    head += f"""
+
+Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每批 `manifest.json` 的 `ctx_sha`（入库要用）。
+
+**开工前硬检查**：确认 {ns} 各批 `manifest.json` 的 `glossary_v` **全部相同**。不同即说明本组跨越了 glossary 版本变更，**必须拆组重生成**（spec §4.3：对话里规则书只投一次，跨版本即过期）。
+
+- [ ] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 {len(batches)} 批**
+
+注入：车道根、批次序列 {ns}、以及「首批 {first['batch']} 读全量 `{p['ctx']}/batch_{first['batch']}/context.md`，其余批只读 {rest_srcs} + `{lane_root}/glossary/style.md` + `{lane_root}/glossary/active.json`」。
+
+每批译完即走 Step 3 的三件校验并入库，再进入下一批。
+"""
+    for b in batches:
+        n = b["batch"]
+        collapse = (f"\n`{p['env']}uv run python {p['tools']}/detect_collapse.py "
+                    f"--batch {n}{p['lane_dir_arg']}{thresholds_arg}`"
+                    if p["lane_dir_arg"] else "")
+        head += f"""
+- [ ] **Step 3.{n}: 批次 {n} 校验与入库**
+
+Run: `{p["env"]}uv run python {p["tools"]}/check_batch.py --batch {n}{p["lane_dir_arg"]}`
+Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。{collapse}
+
+Run: `{p["env"]}uv run python {p["tools"]}/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {glossary_v}`
+
+```bash
+git add {p["forward"]}
+git commit -m "data: {b["chapter"]} 批次{n} 译文入线"
+```
+"""
+    return head.rstrip()
+
+
 def _checkpoint_task(tnum, first, last, chapters, p, lane_mode=False, segment=None):
     """chapters：本 chunk 涉及的真实章别（去重、升序），不是计划的 label——
     连续段模式下一个 chunk 可能横跨多章，label 拼出的笔记文件路径在这种场景下
@@ -486,7 +596,8 @@ def _thresholds_arg(collapse_thresholds):
 
 def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
            lane_cfg=None, collapse_thresholds=None, segment=None,
-           tools_root="", segment_sub=None) -> str:
+           tools_root="", segment_sub=None, session_size=1,
+           session_lines=SESSION_LINES_MAX) -> str:
     p = _paths(lane_cfg, tools_root)
     thresholds_arg = _thresholds_arg(collapse_thresholds)
     chapters_all = sorted({b["chapter"] for b in sel})
@@ -502,11 +613,16 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
     tnum = 1
     chunk = []
     batch_task_count = 0
-    for b in sel:
-        parts.append(_batch_task(tnum, b, baseline, glossary_v, p, thresholds_arg,
-                                 segment=segment))
+    groups = _group_sessions(sel, session_size, session_lines)
+    for grp in groups:
+        if len(grp) == 1:
+            parts.append(_batch_task(tnum, grp[0], baseline, glossary_v, p,
+                                     thresholds_arg, segment=segment))
+        else:
+            parts.append(_session_task(tnum, grp, baseline, glossary_v, p,
+                                       thresholds_arg, segment=segment))
         tnum += 1
-        batch_task_count += 1
+        batch_task_count += len(grp)
         # 硬停：车道模式下生效，非车道模式（lane_cfg is None）零改动——
         # 终审 C1 item 3，位置紧跟第 1、第 2 个批次任务（不是全局 batch id
         # 恰好为 1/2，而是本计划里的第 1、第 2 个批次任务，语义上等价——但
@@ -516,15 +632,20 @@ def render(sel, label, lane, every=5, baseline="none", glossary_v=GLOSSARY_V,
         # 批（比如 SEG-1 的 36）开始，这些字面量会指向不相关批次，检查必然
         # 失败。段模式因此不生成这两个硬停任务——段计划有自己的门（段开场
         # 自检/段末流程，_segment_head/_segment_tail），P2 试点模式行为不变。
-        if segment is None and lane_cfg is not None and batch_task_count == 1:
+        #
+        # 硬停任务只在 P2 试点（segment is None）且逐批模式下生成——它们的模板里
+        # 硬编码了 batch_1/2 字面量，会话组模式下不适用。
+        if session_size <= 1 and segment is None and lane_cfg is not None \
+                and batch_task_count == 1:
             parts.append(_hardstop_after_batch1(tnum, lane_cfg, p))
             tnum += 1
-        elif segment is None and lane_cfg is not None and batch_task_count == 2:
+        elif session_size <= 1 and segment is None and lane_cfg is not None \
+                and batch_task_count == 2:
             parts.append(_hardstop_after_batch2(tnum, lane_cfg, p, label,
                                                 sel[0]["batch"], sel[-1]["batch"]))
             tnum += 1
-        chunk.append(b)
-        if len(chunk) == every:
+        chunk.extend(grp)
+        if len(chunk) >= every:
             chapters = sorted({c["chapter"] for c in chunk})
             parts.append(_checkpoint_task(tnum, chunk[0]["batch"], chunk[-1]["batch"],
                                           chapters, p, lane_mode=lane_cfg is not None,
@@ -620,7 +741,22 @@ def main(argv=None):
                     help="按批四件套（build_context/check_batch/detect_collapse/"
                          "append_forward）的工具树根（生产 worktree 绝对路径）；"
                          "留空＝主仓相对 tools/（非段模式行为不变）")
+    ap.add_argument("--session-size", type=int, default=1,
+                    help="一条对话连做几批（spec §5.6 上限 10）；1=逐批模式，"
+                         "输出与改造前逐字相同")
+    ap.add_argument("--session-lines", type=int, default=SESSION_LINES_MAX,
+                    help=f"一条对话的行数上限（默认 {SESSION_LINES_MAX}，实测包络 585）；"
+                         f"与 --session-size 是**双重上限**，任一超限即切组")
     args = ap.parse_args(argv)
+
+    if args.session_size < 1:
+        raise SystemExit("--session-size 必须 ≥1")
+    if args.session_size > SESSION_MAX:
+        raise SystemExit(
+            f"--session-size {args.session_size} 超过上限 {SESSION_MAX}"
+            f"（spec §5.6：10 批/585 行是已验过的范围，更长未测）")
+    if args.session_lines < 1:
+        raise SystemExit("--session-lines 必须 ≥1")
 
     lane_params = [args.lane_dir, args.model, args.effort, args.append_model_id]
     if any(lane_params) and not all(lane_params):
@@ -680,7 +816,8 @@ def main(argv=None):
     md = render(sel, label=label, lane=lane, every=args.checkpoint_every,
                 glossary_v=glossary_version(REPO), lane_cfg=lane_cfg,
                 collapse_thresholds=collapse_thresholds, segment=args.segment,
-                tools_root=args.tools_root, segment_sub=seg_sub)
+                tools_root=args.tools_root, segment_sub=seg_sub,
+                session_size=args.session_size, session_lines=args.session_lines)
     out_path = REPO / "docs" / "superpowers" / "plans" / f"translate-{label}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")

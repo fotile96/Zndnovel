@@ -292,12 +292,15 @@ def _clip_body(body, limit=PROPOSAL_BODY_LIMIT):
 
 
 def _forced_cannot_tell(promise, reason):
-    """构造一条被机械闸强制降级的「无法判断」结果（T5 brief §1/§2）。
+    """构造一条强制降级的「无法判断」结果（T5 brief §1/§2）。
 
-    供 `verify_promise` 内部的早退闸（取材异常、材料为空）与 `main()` 里
-    对单条 promise 处理异常的兜底共用同一形状，保证无论在哪个环节被拦下，
-    下游（`render_report`）看到的结果结构都一致：不会因为字段缺失而在
-    统计/展示时被跳过或误判。
+    供 `verify_promise` 内部的机械闸早退（取材异常、材料为空）与
+    `main()`/`rerun_gated()` 里对单条 promise 处理异常的兜底共用同一形状，
+    保证无论在哪个环节被拦下，下游（`render_report`）看到的结果结构都一致：
+    不会因为字段缺失而在统计/展示时被跳过或误判。**两类调用方的 `reason`
+    文案不同**（机械闸带 `GATE_MARK`、异常兜底带 `EXC_MARK`，见二者定义处
+    的说明）——本函数只管结果形状，不替调用方决定文案，语义上的「主动判定
+    vs 崩溃兜底」区分完全由调用方传入的 `reason` 承载。
     """
     return {
         "verdict": "无法判断",
@@ -316,7 +319,10 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None, max_rounds=
     """步骤 2：预拼为主、工具兜底。
 
     `max_rounds`：透传给 `run_with_tools` 的轮次预算，`None` 即沿用它自己的
-    默认（6）。**提高它只是给模型更多预算，四条机械闸的语义一分不变**——
+    默认（6）。**提高它只是给模型更多预算，五条机械闸的语义一分不变**——
+    （3 条在本函数主体：stopped_reason/tool_errors/工具未调用；2 条是预拼
+    路径的早退闸——见下方「预拼路径的两条早退闸」；总数见 `is_gated` 附近
+    的核对，`--rerun-gates` 帮助文本与本处口径必须一致）
     首轮全量审计里 110 条「无法判断」中有 48 条的 reason 是
     `stopped_reason=max_rounds`，那是预算耗尽而非证据不足，混进「无法判断
     占比」这项可信度指标里会让它高估语料的问题、低估工具的可调空间。正确的
@@ -604,17 +610,34 @@ def _append_jsonl(path, obj):
         f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
-# --- 定点重跑（rerun）：只重验上一轮被机械闸拦下的条目 --------------------
+# --- 定点重跑（rerun）：只重验上一轮被机械闸拦下/核对阶段异常崩溃的条目 ----
 #
 # 全量重跑一章 s3s 要 2 小时 48 分，而待重验的只有几十条；更重要的是全量重跑
 # 会把上一轮**判出来的结论**一并丢掉重来（既多花钱，又让两轮不可比）。定点重跑
 # 读上一轮的 sidecar，只对选中的条目再调一次模型，其余条目原样搬运。
 
-# 机械闸①（`stopped_reason != finished`）留下的 reason 形如
-# 「机械闸：stopped_reason=max_rounds，结论不完整」。这里按**字面**匹配，
-# 与 `verify_promise` 里生成该字符串的那行是一对；改其一必须改其二。
+# 五条机械闸（`verify_promise` 内 3 条主体闸 + 预拼路径 2 条早退闸）留下的
+# reason 都形如「机械闸：stopped_reason=max_rounds，结论不完整」。这里按
+# **字面**匹配，与 `verify_promise` 里生成这些字符串的那 5 行是一对多；
+# 改其一必须回来核对 `GATE_MARK` 是否仍然覆盖。
 GATE_MARK = "机械闸"
 BUDGET_MARK = "max_rounds"
+
+# 复评（T10）：`main()`/`rerun_gated()` 对 `verify_promise` 抛出的未预见异常
+# 用 `_forced_cannot_tell` 兜底时，reason 唯独**不带** `GATE_MARK`——这不是
+# 疏漏该补上前缀，而是有意为之：机械闸是「模型给出结论、但结构性证据不足，
+# 主动把它降级」；异常兜底是「核对流程本身崩溃，压根没跑出结论」，两者性质
+# 不同，硬套同一个前缀等于把「崩溃」谎报成「主动判定」（复评原话：不是静默
+# 丢弃，是可见但打不动——这条修复要解决的正是「打不动」，不能顺手再把标注
+# 也搞错）。但两者又都属于「系统/流程问题，值得重跑」而非「模型看过材料后
+# 认为证据不足」——一次真实的 `TimeoutError` 就是最典型的样本，重试大概率
+# 就好——所以 `is_gated(gates="all")` 要把两者都选中。
+# `EXC_MARK` 是这条判据的锚点：`main()` 里的「核对阶段异常：...」与
+# `rerun_gated()` 里的「重跑核对阶段异常：...」都以此为公共子串（后者是前者
+# 前面加了「重跑」两个字，`in` 匹配天然兼容）。改任一处异常兜底的文案，必须
+# 确保 `EXC_MARK` 仍是其子串，否则该条目会从「all」里静默漏选——重演本次
+# 要修的这同一种缺陷。
+EXC_MARK = "核对阶段异常"
 
 
 def load_sidecar(path):
@@ -645,19 +668,31 @@ def load_sidecar(path):
 
 
 def is_gated(row, *, gates="max_rounds"):
-    """这一条是否是「被机械闸拦下」而非「证据不足」。
+    """这一条是否是「被机械闸拦下 / 核对阶段异常崩溃」而非「证据不足」。
 
     `gates="max_rounds"`（默认）只选轮次预算耗尽的那一族——它们是**工具的**
-    问题，调大预算就可能收敛；`gates="all"` 放宽到四条机械闸全部（工具报错、
-    开了工具没调用、预拼取材失败/全无译文），适合修完取材侧问题后重跑。
+    问题，调大预算就可能收敛；`gates="all"` 放宽到**所有非语料原因**的
+    「无法判断」：五条机械闸全部（`verify_promise` 主体 3 条——工具报错、
+    开了工具没调用、stopped_reason 未 finished；预拼路径 2 条早退闸——取材
+    失败、全无译文）**加上**核对阶段异常兜底（`EXC_MARK`，见其定义处的
+    说明）。异常兜底不是机械闸的主动判定而是流程崩溃，语义上不归入
+    `GATE_MARK`，但同样值得重跑——`gates="all"` 把两者并列选中，正是本次
+    修复要打通的路径（复评样本：一条 `TimeoutError` 曾经连 `gates="all"`
+    都捞不到）。
     模型自己判出的「无法判断」永远不入选：那是证据不足，重跑无非再花一次钱。
     """
     if (row or {}).get("verdict") != "无法判断":
         return False
     reason = row.get("reason") or ""
-    if GATE_MARK not in reason:
+    is_gate = GATE_MARK in reason
+    is_exc = EXC_MARK in reason
+    if not is_gate and not is_exc:
         return False
-    return True if gates == "all" else BUDGET_MARK in reason
+    if gates == "all":
+        return True
+    # max_rounds：维持只选轮次预算耗尽——异常兜底与「工具报错」等其它机械闸
+    # 一样，不是预算问题，默认档不选。
+    return is_gate and BUDGET_MARK in reason
 
 
 def rerun_gated(results, *, lane_dir=None, max_rounds=None, gates="max_rounds",
@@ -678,6 +713,8 @@ def rerun_gated(results, *, lane_dir=None, max_rounds=None, gates="max_rounds",
             try:
                 new = fn(pr, prop, lane_dir=lane_dir, max_rounds=max_rounds)
             except Exception as e:
+                # 异常兜底：reason 含 `EXC_MARK`（"核对阶段异常"）而非
+                # `GATE_MARK`——改这行文案前先看 `EXC_MARK` 定义处的说明。
                 new = _forced_cannot_tell(
                     pr, f"重跑核对阶段异常：{type(e).__name__}: {e}")
             new.update({"proposal": prop, "promise": pr,
@@ -763,7 +800,8 @@ def main(argv=None):
     ap.add_argument("--rerun-gates", choices=["max_rounds", "all"],
                     default="max_rounds",
                     help="重跑选谁：max_rounds=只选轮次预算耗尽的（默认）；"
-                         "all=四条机械闸拦下的全选")
+                         "all=五条机械闸 + 核对阶段异常兜底 全选"
+                         "（即所有非语料原因的无法判断）")
     a = ap.parse_args(argv)
     lane = Path(a.lane_dir)
 
@@ -814,6 +852,10 @@ def main(argv=None):
                 # 「已履行」，也绝不能让异常继续往上冒杀掉整个循环——这正是
                 # 复评复现的场景（第 2 条提案的 verify_promise 抛异常导致
                 # rc=None、报告不存在、连第 1 条已算出的结果都一起没了）。
+                # T10 复评：reason 含 `EXC_MARK`（"核对阶段异常"）而非
+                # `GATE_MARK`——这不是疏漏，改这行文案前先看 `EXC_MARK`
+                # 定义处的说明，否则这条又会从 `is_gated` 的可重跑集合里
+                # 静默漏选。
                 r = _forced_cannot_tell(
                     pr, f"核对阶段异常：{type(e).__name__}: {e}")
             r.update({"proposal": prop, "promise": pr})

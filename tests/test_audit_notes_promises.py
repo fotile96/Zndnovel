@@ -939,22 +939,124 @@ def _row(verdict, reason, num=1):
             "promise": {"kind": "已统一", "ids": [], "quote": "已统一"}}
 
 
-def test_is_gated_selects_only_budget_exhaustion_by_default():
-    """判别性用例：默认只选轮次预算耗尽的那一族。模型自判的「无法判断」是
-    证据不足，重跑只是再花一次钱；工具报错等其它机械闸是另一类问题，
-    默认不混进来（要的话 gates="all"）。"""
+def _verify_reason(monkeypatch, scenario):
+    """跑一次真实的 `verify_promise`（或 `_forced_cannot_tell` 的真实调用现场），
+    返回它在 `scenario` 对应路径下产出的 `reason` 原文。
+
+    T10 根因修复：`is_gated` 的测试过去全部喂手写的 `"机械闸：..."` 字符串，
+    从没验证过生产者（`verify_promise`）真实产出的 reason 真的能被认出——
+    这正是本任务要修的缺陷本身没被测出来的原因（复评原话：拿手写的仿制品去
+    测生产者的输出，永远测不出生产者跑偏）。这里五个 scenario 对应五条机械闸，
+    每个都通过实际调用 `verify_promise` 触发，不手写判定文案。
+    """
+    from tools import audit_notes_promises as A
+
+    def _no_call_runner(messages, **kw):
+        raise AssertionError("这条早退闸生效时不应调用模型")
+
+    if scenario == "stopped_reason":
+        monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+            "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+        def fake_runner(messages, **kw):
+            return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                           "reason": "看起来没问题"}, ensure_ascii=False),
+                    "rounds": 6, "tool_calls": [], "stopped_reason": "max_rounds",
+                    "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+        out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                               HARD, runner=fake_runner)
+    elif scenario == "tool_errors":
+        monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+            "lines": [{"id": 7327, "jp": "寝癖", "zh": "头发睡翘了", "chapter": "s1s"}]})
+
+        def fake_runner(messages, **kw):
+            return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [7327],
+                                           "reason": "看起来没问题"}, ensure_ascii=False),
+                    "rounds": 1, "tool_calls": [{"name": "get_lines"}], "tool_errors": 1,
+                    "stopped_reason": "finished", "reasoning_text": "",
+                    "prompt_tokens": 1, "completion_tokens": 1}
+        out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                               HARD, runner=fake_runner)
+    elif scenario == "no_tool_call":
+        def fake_runner(messages, **kw):
+            return {"content": json.dumps({"verdict": "已履行", "evidence_ids": [],
+                                           "reason": "我觉得应该统一了"}, ensure_ascii=False),
+                    "rounds": 1, "tool_calls": [], "stopped_reason": "finished",
+                    "reasoning_text": "", "prompt_tokens": 1, "completion_tokens": 1}
+        out = A.verify_promise({"kind": "保留歧义", "ids": [], "quote": "保留歧义"},
+                               {"chapter": "s1s", "batch": 4, "num": 9, "title": "t",
+                                "body": "本段 8 处"}, runner=fake_runner)
+    elif scenario == "prewire_call_tool_raises":
+        def boom(name, args, lane_dir=None):
+            raise RuntimeError("ledger 文件缺失")
+        monkeypatch.setattr(A, "call_tool", boom)
+        out = A.verify_promise({"kind": "已统一", "ids": [7327], "quote": "已统一"},
+                               HARD, runner=_no_call_runner)
+    elif scenario == "prewire_all_empty":
+        monkeypatch.setattr(A, "call_tool", lambda name, args, lane_dir=None: {
+            "lines": [{"id": 9999, "jp": None, "zh": None, "chapter": None}]})
+        out = A.verify_promise({"kind": "已统一", "ids": [9999], "quote": "已统一"},
+                               HARD, runner=_no_call_runner)
+    else:
+        raise ValueError(scenario)
+    return out["reason"]
+
+
+def test_is_gated_recognizes_all_five_real_gate_reasons(monkeypatch):
+    """判别性用例：默认只选轮次预算耗尽的那一族；`gates="all"` 放宽到五条
+    机械闸全部；模型自己判出的「无法判断」（没有任何机械闸标记）在两档下都
+    不入选——那是证据不足，重跑无非再花一次钱。
+
+    五个 reason 全部来自 `_verify_reason`（真实调用 `verify_promise`），不是
+    本测试手写的仿制字符串。"""
     from tools.audit_notes_promises import is_gated
-    budget = _row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整")
-    tool_err = _row("无法判断", "机械闸：tool_errors=2，模型基于报错信息作答")
-    evidence = _row("无法判断", "材料里没有可比对的译文")
-    done = _row("已履行", "译文含睡翘")
-    assert is_gated(budget) is True
-    assert is_gated(tool_err) is False
-    assert is_gated(evidence) is False
-    assert is_gated(done) is False
-    assert is_gated(tool_err, gates="all") is True
-    assert is_gated(evidence, gates="all") is False
-    assert is_gated(done, gates="all") is False
+    stopped = _verify_reason(monkeypatch, "stopped_reason")
+    tool_err = _verify_reason(monkeypatch, "tool_errors")
+    no_call = _verify_reason(monkeypatch, "no_tool_call")
+    prewire_exc = _verify_reason(monkeypatch, "prewire_call_tool_raises")
+    prewire_empty = _verify_reason(monkeypatch, "prewire_all_empty")
+    # 模型自判「无法判断」的真实 reason（见 test_unparseable_verdict_becomes_
+    # cannot_tell）：不含任何机械闸标记，是纯粹的「证据不足/解析失败」。
+    model_judged = "（模型未给出可解析的判定，或输出不是合法 JSON）"
+
+    assert is_gated(_row("无法判断", stopped)) is True
+    assert is_gated(_row("无法判断", tool_err)) is False
+    assert is_gated(_row("无法判断", no_call)) is False
+    assert is_gated(_row("无法判断", prewire_exc)) is False
+    assert is_gated(_row("无法判断", prewire_empty)) is False
+    assert is_gated(_row("无法判断", model_judged)) is False
+
+    assert is_gated(_row("无法判断", stopped), gates="all") is True
+    assert is_gated(_row("无法判断", tool_err), gates="all") is True
+    assert is_gated(_row("无法判断", no_call), gates="all") is True
+    assert is_gated(_row("无法判断", prewire_exc), gates="all") is True
+    assert is_gated(_row("无法判断", prewire_empty), gates="all") is True
+    assert is_gated(_row("无法判断", model_judged), gates="all") is False
+
+
+def test_is_gated_recognizes_real_exception_fallback_reason():
+    """T10 复评核心缺陷：`rerun_gated`/`main()` 对 `verify_promise` 抛出的
+    未预见异常用 `_forced_cannot_tell` 兜底时，reason 唯独不带 `GATE_MARK`，
+    过去连 `gates="all"` 都捞不到——「可见但打不动」，恒绿闸的近亲。
+
+    这里的 reason 来自 `rerun_gated` 真实抛出异常时的产出（不是手写字符串），
+    异常类型用 `TimeoutError`，与复评点名的真实样本
+    （`"核对阶段异常：TimeoutError: The read operation timed out"`）同型。
+    """
+    from tools.audit_notes_promises import rerun_gated, is_gated
+
+    def boom(pr, prop, lane_dir=None, max_rounds=None):
+        raise TimeoutError("The read operation timed out")
+
+    merged, _ = rerun_gated(
+        [_row("无法判断", "机械闸：stopped_reason=max_rounds，结论不完整")],
+        verify=boom)
+    exc_reason = merged[0]["reason"]
+    assert "TimeoutError" in exc_reason
+    # 区分而非误标：异常兜底不是主动判定，reason 不应含「机械闸」三字。
+    assert "机械闸" not in exc_reason
+    assert is_gated(_row("无法判断", exc_reason)) is False           # 默认档不选
+    assert is_gated(_row("无法判断", exc_reason), gates="all") is True  # all 必须选中
 
 
 def test_load_sidecar_splits_results_and_extraction_failures(tmp_path):
@@ -1094,7 +1196,7 @@ def test_main_rerun_refuses_to_overwrite_source_sidecar(tmp_path):
 
 
 def test_main_rerun_gates_all_widens_selection(monkeypatch, tmp_path):
-    """`--rerun-gates all` 把四条机械闸拦下的全选上；模型自判的「无法判断」
+    """`--rerun-gates all` 把五条机械闸拦下的全选上；模型自判的「无法判断」
     仍然不入选。"""
     from tools import audit_notes_promises as A
     src = tmp_path / "src.jsonl"
@@ -1112,6 +1214,61 @@ def test_main_rerun_gates_all_widens_selection(monkeypatch, tmp_path):
     rc = A.main(["--rerun-from", str(src), "--out", str(tmp_path / "o.md"),
                  "--rerun-gates", "all"])
     assert rc == 0 and calls == [1, 2]
+
+
+def test_main_rerun_gates_all_reaches_real_exception_fallback_row(monkeypatch, tmp_path):
+    """T10 复评核心场景，端到端复现：先让 `main()` 真的跑一遍——第 2 条提案的
+    `verify_promise` 抛 `TimeoutError`（与复评点名的真实样本同一异常类型），
+    产出的 sidecar 里那条「无法判断」用的是 `main()` 生产代码路径自己写出的
+    reason，不是本测试手写的仿制品。再对这份真实 sidecar 跑
+    `--rerun-gates all`，验证异常兜底那一条确实被选中重验——这正是修复前
+    "可见但打不动" 的那条路径。
+    """
+    from tools import audit_notes_promises as A
+    lane = _lane_with_two_proposals(tmp_path)
+
+    def fake_extract(prop, runner=None, max_rounds=None):
+        return {"promises": [{"kind": "已统一", "ids": [prop["num"]],
+                              "ids_source": "model", "prewire_ids": [prop["num"]],
+                              "ids_invalid": [], "quote": "已统一",
+                              "quote_verified": True}],
+                "parse_ok": True, "stopped_reason": "finished", "ok": True}
+
+    def fake_verify_first_run(pr, prop, lane_dir=None, runner=None, max_rounds=None):
+        if prop["num"] == 1:
+            return {"verdict": "已履行", "evidence_ids": [1], "reason": "ok",
+                    "used_tools": False}
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(A, "extract_promises", fake_extract)
+    monkeypatch.setattr(A, "verify_promise", fake_verify_first_run)
+
+    first_out = tmp_path / "first.md"
+    rc = A.main(["--lane-dir", str(lane), "--out", str(first_out)])
+    assert rc == 0
+    sidecar = first_out.with_suffix(".jsonl")
+    rows = [json.loads(l) for l in sidecar.read_text(encoding="utf-8").splitlines()]
+    exc_row = next(r["data"] for r in rows
+                   if r["type"] == "result" and r["data"]["verdict"] == "无法判断")
+    assert "TimeoutError" in exc_row["reason"]
+    assert "机械闸" not in exc_row["reason"]
+
+    from tools.audit_notes_promises import is_gated
+    assert is_gated(exc_row) is False              # 默认档：不是预算问题
+    assert is_gated(exc_row, gates="all") is True  # all：必须能捞到
+
+    calls = []
+
+    def fake_verify_rerun(pr, prop, lane_dir=None, max_rounds=None):
+        calls.append(prop["num"])
+        return {"verdict": "已履行", "evidence_ids": [], "reason": "重跑后判出",
+                "used_tools": True}
+
+    monkeypatch.setattr(A, "verify_promise", fake_verify_rerun)
+    rerun_out = tmp_path / "rerun.md"
+    rc2 = A.main(["--rerun-from", str(sidecar), "--out", str(rerun_out),
+                 "--rerun-gates", "all"])
+    assert rc2 == 0 and calls == [2]
 
 
 # ---------------------------------------------------------------------------

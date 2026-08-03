@@ -12,7 +12,7 @@
 
 - `data/batches.jsonl` **已冻结，绝不可重新生成**（CLAUDE.md）。
 - `prompts/` 属**钉死面**：改动后滚生产 tag 须过 canary 闸（runbook §4），且 `prod-run-v3→v4` 的判定记录里「`prompts/` 零改动」是被显式核对过的一项——本计划会打破它，须在判定记录中显式说明。
-- **单条对话不超过 10 批**（spec §5.6）。
+- **单条对话不超过 10 批 且 不超过 600 行**（spec §5.6 的实测包络是 b63–72 = 10 批 / **585 行**）。**双重上限缺一不可**：本语料批量差 200 倍（最小 2 行、最大 407 行），只按批数封顶会让「10 批」在不同段落意味着 20 行或 3000 行，上限形同虚设。
 - **一条长对话不得跨越 glossary 版本变更**（spec §4.3）；该约束天然与段边界对齐。
 - **默认 `--session-size 1` 必须与改造前逐字相同**——现有 62 条 `tests/test_gen_plan.py` 测试是回归闸，一条都不许改。
 - 校验仍逐批：`check_batch` hard 修到 0 才 `append_forward`（spec §4.2）。
@@ -41,7 +41,7 @@
 
 **Interfaces:**
 - Consumes: 既有 `_paths(lane_cfg, tools_root) -> dict`（键 `ctx/out/forward/notes/repo_arg/env/lane_dir_arg/tools`）、`_batch_task(tnum, batch, baseline, glossary_v, p, thresholds_arg="", segment=None) -> str`、`select(batches, *, lane, chapter=None, batch_range=None) -> list`
-- Produces: `_session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="", segment=None) -> str`；`render(..., session_size=1)`；`main` 的 `--session-size`
+- Produces: `_session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="", segment=None) -> str`；`_group_sessions(sel, size, lines_cap) -> list[list[dict]]`；`render(..., session_size=1, session_lines=SESSION_LINES_MAX)`；`main` 的 `--session-size` 与 `--session-lines`
 
 - [ ] **Step 1: 写失败测试**
 
@@ -101,6 +101,42 @@ def test_session_size_over_10_is_refused():
     with pytest.raises(SystemExit) as e:
         main(["--lane", "main", "--batches", "1-2", "--label", "x", "--session-size", "11"])
     assert "10" in str(e.value)
+
+
+def test_line_cap_splits_before_batch_cap():
+    """行数上限先于批数上限生效——这是双重上限存在的理由。
+
+    本语料批量差 200 倍（2 行 vs 407 行）：只按批数封顶时，「10 批」可能是
+    20 行也可能是 3000 行，而 spec §5.6 的实测包络（585 行）是按行给的。
+    """
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": n, "chapter": "s4s", "ids": list(range(300)), "jp_chars": 9000,
+            "lane": "main"} for n in range(1, 6)]          # 5 批 × 300 行
+    g = _group_sessions(sel, size=10, lines_cap=600)
+    assert [len(x) for x in g] == [2, 2, 1]                # 按行切，没等到 10 批
+    assert all(sum(len(b["ids"]) for b in x) <= 600 for x in g)
+
+
+def test_single_oversized_batch_becomes_its_own_group():
+    """单批就超行上限时独占一组——批不可再分，不能因此死循环或丢批。"""
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": 1, "chapter": "s4s", "ids": list(range(700)), "jp_chars": 20000,
+            "lane": "main"},
+           {"batch": 2, "chapter": "s4s", "ids": [1, 2], "jp_chars": 20, "lane": "main"}]
+    g = _group_sessions(sel, size=10, lines_cap=600)
+    assert [b["batch"] for x in g for b in x] == [1, 2]    # 一批不丢、顺序不变
+    assert len(g[0]) == 1 and g[0][0]["batch"] == 1
+
+
+def test_group_sessions_never_drops_or_reorders():
+    """任何参数下批次全集与顺序恒等——分组只是切片，不是筛选。"""
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": n, "chapter": "s4s", "ids": list(range(n * 7)), "jp_chars": n * 20,
+            "lane": "main"} for n in range(1, 12)]
+    for size in (1, 3, 10):
+        for cap in (50, 600, 10**9):
+            flat = [b["batch"] for x in _group_sessions(sel, size, cap) for b in x]
+            assert flat == [b["batch"] for b in sel], (size, cap)
 ```
 
 - [ ] **Step 2: 跑测试确认失败**
@@ -113,7 +149,34 @@ Expected: FAIL（`render() got an unexpected keyword argument 'session_size'`）
 在 `tools/gen_plan.py` 的 `_batch_task` 之后加：
 
 ```python
-SESSION_MAX = 10   # spec §5.6：单条对话批次上限
+SESSION_MAX = 10          # spec §5.6：单条对话批数上限
+SESSION_LINES_MAX = 600   # 同节：行数上限（实测包络 b63–72 = 10 批 / 585 行）
+
+
+def _group_sessions(sel, size, lines_cap):
+    """按**双重上限**切会话组：批数 ≤ size 且行数 ≤ lines_cap。
+
+    为什么不能只按批数：本语料批量差 200 倍（`data/batches.jsonl` 最小 2 行、
+    最大 407 行）。只按批数封顶时「10 批」在不同段落可能是 20 行也可能是
+    3000 行，而 spec §5.6 的实测包络（585 行）是**按行**给出的——单位错了，
+    上限就形同虚设。SEG-3 剩余批次即为实例：b111=364 行、b115=374 行，单批
+    就逼近整个实测组的规模。
+
+    单批自身超 lines_cap 时独占一组（批不可再分）。
+    """
+    if size <= 1:
+        return [[b] for b in sel]
+    groups, cur, n = [], [], 0
+    for b in sel:
+        L = len(b["ids"])
+        if cur and (len(cur) >= size or n + L > lines_cap):
+            groups.append(cur)
+            cur, n = [], 0
+        cur.append(b)
+        n += L
+    if cur:
+        groups.append(cur)
+    return groups
 
 
 def _session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="",
@@ -191,14 +254,13 @@ git commit -m "data: {b["chapter"]} 批次{n} 译文入线"
 
 - [ ] **Step 4: 接进 `render()` 与 `main()`**
 
-`render()` 签名加 `session_size=1`（放在 `segment_sub=None` 之后），并把批次循环改为：
+`render()` 签名加 `session_size=1, session_lines=SESSION_LINES_MAX`（放在 `segment_sub=None` 之后），并把批次循环改为：
 
 ```python
     tnum = 1
     chunk = []
     batch_task_count = 0
-    groups = ([[b] for b in sel] if session_size <= 1
-              else [sel[i:i + session_size] for i in range(0, len(sel), session_size)])
+    groups = _group_sessions(sel, session_size, session_lines)
     for grp in groups:
         if len(grp) == 1:
             parts.append(_batch_task(tnum, grp[0], baseline, glossary_v, p,
@@ -230,6 +292,9 @@ git commit -m "data: {b["chapter"]} 批次{n} 译文入线"
     ap.add_argument("--session-size", type=int, default=1,
                     help="一条对话连做几批（spec §5.6 上限 10）；1=逐批模式，"
                          "输出与改造前逐字相同")
+    ap.add_argument("--session-lines", type=int, default=SESSION_LINES_MAX,
+                    help=f"一条对话的行数上限（默认 {SESSION_LINES_MAX}，实测包络 585）；"
+                         f"与 --session-size 是**双重上限**，任一超限即切组")
 ```
 
 并在 `args = ap.parse_args(argv)` 之后立即校验：
@@ -241,26 +306,28 @@ git commit -m "data: {b["chapter"]} 批次{n} 译文入线"
         raise SystemExit(
             f"--session-size {args.session_size} 超过上限 {SESSION_MAX}"
             f"（spec §5.6：10 批/585 行是已验过的范围，更长未测）")
+    if args.session_lines < 1:
+        raise SystemExit("--session-lines 必须 ≥1")
 ```
 
-最后把 `session_size=args.session_size` 传进 `render(...)` 调用。
+最后把 `session_size=args.session_size, session_lines=args.session_lines` 传进 `render(...)` 调用。
 
 - [ ] **Step 5: 跑测试确认通过**
 
 Run: `uv run pytest tests/test_gen_plan.py -v`
-Expected: 全部通过（既有 62 条 + 新增 5 条 = 67）
+Expected: 全部通过（既有 62 条 + 新增 8 条 = 70）
 
 - [ ] **Step 6: 变异自检（本项目已栽过八次恒绿闸）**
 
-把 `session_size > SESSION_MAX` 的上限判断改成 `if False:`，跑 `uv run pytest tests/test_gen_plan.py -k over_10 -v` → 必须精确变红；改回。把 `groups` 的分组三元表达式改成恒 `[[b] for b in sel]`，跑 `-k session` → 必须变红；改回。**两次变异结果写进报告**。
+把 `session_size > SESSION_MAX` 的上限判断改成 `if False:`，跑 `uv run pytest tests/test_gen_plan.py -k over_10 -v` → 必须精确变红；改回。把 `_group_sessions` 的行数判断 `n + L > lines_cap` 改成恒假，跑 `uv run pytest tests/test_gen_plan.py -k line_cap -v` → 必须变红；改回。**两次变异结果写进报告**。
 
 - [ ] **Step 7: 全量测试 + 提交**
 
-Run: `uv run pytest -q` → 463 + 5 = 468 passed
+Run: `uv run pytest -q` → 477 + 8 = 485 passed
 
 ```bash
 git add tools/gen_plan.py tests/test_gen_plan.py
-git commit -m "feat: gen_plan 支持会话组（--session-size，默认 1 行为不变）"
+git commit -m "feat: gen_plan 支持会话组（--session-size/--session-lines 双重上限，默认 1 行为不变）"
 ```
 
 ---
@@ -321,7 +388,7 @@ Run: `grep -n "开工前：读三件材料\|长对话会话模式\|## " prompts/
 Expected: 新节出现在「开工前：读三件材料」之后、且不打断既有节序。
 
 Run: `uv run pytest -q`
-Expected: 468 passed（本任务不改代码，测试数不变——若变红说明有测试钉住了 prompts 内容，需查明）
+Expected: 485 passed（本任务不改代码，测试数不变——若变红说明有测试钉住了 prompts 内容，需查明）
 
 - [ ] **Step 3: 提交**
 
@@ -443,6 +510,6 @@ git commit -m "ops: 生产树升级 prod-run-v4→v5（会话组 + 长对话契�
 
 **占位符**：无 TBD/TODO。Task 4 Step 2 的「判定差异」是人工裁决步骤，已给出具体判据（集合级比对、hard 变化即停、至少复算 3 条）而非泛泛「检查一下」。
 
-**类型一致性**：`_session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="", segment=None) -> str` 在 Task 1 Step 3 定义、Step 4 调用，参数序与 `_batch_task` 对齐（后者是 `batch` 单数、前者 `batches` 复数）；`p` 恒为 `_paths()` 返回值；`SESSION_MAX` 在 Step 3 定义、Step 4 使用。测试计数链 463→468。
+**类型一致性**：`_group_sessions(sel, size, lines_cap) -> list[list[dict]]` 在 Task 1 Step 3 定义、Step 4 调用；`_session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="", segment=None) -> str` 在 Task 1 Step 3 定义、Step 4 调用，参数序与 `_batch_task` 对齐（后者是 `batch` 单数、前者 `batches` 复数）；`p` 恒为 `_paths()` 返回值；`SESSION_MAX` 在 Step 3 定义、Step 4 使用。测试计数链 477→485（基线随 W4/四分类/异常兜底三轮落地而上移，写计划时的 463 已过期）。
 
 **风险点已内嵌**：Task 1 Step 6 的双变异自检；Task 2 Step 2 的「测试变红即说明有测试钉住 prompts」；Task 4 Step 2 的「hard 变化即停」与 prompts 钉死面破例的人工核对条款。

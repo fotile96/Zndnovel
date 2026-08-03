@@ -10,6 +10,96 @@ def test_add_patch_appends(tmp_path):
     rows = read_jsonl(d / "data" / "patches.jsonl")
     assert [r["zh"] for r in rows] == ["新译", "更新译"]
 
+# ---------------------------------------------------------------------------
+# 车道模式护栏（2026-08-02 生产事故）：4 条回改被静默写进主仓 data/patches.jsonl，
+# 命令零报错、退出码 0，生产车道一条都没生效。缺省路径在车道模式下几乎总是错的，
+# 且写错完全静默——本项目的原则是「静默写错比报错更坏」。
+# ---------------------------------------------------------------------------
+
+def _fake_repo_with_lane(tmp_path, monkeypatch, *, lanes=("opus",)):
+    """造一个含 pilot/lanes/<lane>/data/ 的假仓库，并把 add_patch 的 REPO/DATA
+    指过去（DATA 指主仓 data/，即事故里被误写的那个目录）。"""
+    import tools.add_patch as A
+    for name in lanes:
+        (tmp_path / "pilot" / "lanes" / name / "data").mkdir(parents=True)
+    (tmp_path / "data").mkdir()
+    monkeypatch.setattr(A, "REPO", tmp_path)
+    monkeypatch.setattr(A, "DATA", tmp_path / "data")
+    monkeypatch.delenv("ZND_DATA", raising=False)
+    return A
+
+
+def test_add_patch_refuses_in_lane_mode_without_data_dir(tmp_path, monkeypatch):
+    """判别性用例：车道存在且未给 --data-dir 时必须拒绝，且**不写任何文件**。
+    改前这条命令会静默创建并写入主仓 data/patches.jsonl，退出码 0。"""
+    import pytest
+    A = _fake_repo_with_lane(tmp_path, monkeypatch)
+    before = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+    with pytest.raises(SystemExit) as e:
+        A.main(["--id", "7327", "--zh", "新译", "--reason", "review",
+                "--glossary-v", "9"])
+    # 退出码非 0，且提示里给出可直接照抄的车道路径。
+    assert e.value.code != 0
+    assert "pilot/lanes/opus/data" in str(e.value.code)
+    # 一个文件都没有新增——尤其没有凭空造出 data/patches.jsonl。
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
+    assert not (tmp_path / "data" / "patches.jsonl").exists()
+
+
+def test_add_patch_writes_when_data_dir_explicit_in_lane_mode(tmp_path, monkeypatch):
+    """显式给了 --data-dir 就正常写入车道，且不碰主仓 data/。"""
+    A = _fake_repo_with_lane(tmp_path, monkeypatch)
+    lane_data = tmp_path / "pilot" / "lanes" / "opus" / "data"
+    rc = A.main(["--id", "7327", "--zh", "新译", "--reason", "review",
+                 "--glossary-v", "9", "--data-dir", str(lane_data)])
+    assert rc == 0
+    rows = read_jsonl(lane_data / "patches.jsonl")
+    assert [r["id"] for r in rows] == [7327] and rows[0]["zh"] == "新译"
+    assert not (tmp_path / "data" / "patches.jsonl").exists()
+
+
+def test_add_patch_accepts_znd_data_as_explicit_choice(tmp_path, monkeypatch):
+    """生产命令形态是 `ZND_DATA=<lane>/data uv run python tools/...`——环境变量
+    同样是「显式选定」，不得被护栏挡下。"""
+    A = _fake_repo_with_lane(tmp_path, monkeypatch)
+    lane_data = tmp_path / "pilot" / "lanes" / "opus" / "data"
+    monkeypatch.setenv("ZND_DATA", str(lane_data))
+    monkeypatch.setattr(A, "DATA", lane_data)  # 进程启动时 pipelib 已据此解析
+    assert A.main(["--id", "1", "--zh", "z", "--reason", "review",
+                   "--glossary-v", "9"]) == 0
+    assert read_jsonl(lane_data / "patches.jsonl")[0]["id"] == 1
+
+
+def test_add_patch_non_lane_repo_keeps_default_behaviour(tmp_path, monkeypatch):
+    """非车道仓库（没有 pilot/lanes/*/data/）行为完全不变：缺省照旧落 DATA。
+    护栏不得把历史用法弄坏。"""
+    import tools.add_patch as A
+    (tmp_path / "data").mkdir()
+    monkeypatch.setattr(A, "REPO", tmp_path)
+    monkeypatch.setattr(A, "DATA", tmp_path / "data")
+    monkeypatch.delenv("ZND_DATA", raising=False)
+    assert A.main(["--id", "9", "--zh", "z", "--reason", "polish",
+                   "--glossary-v", "9"]) == 0
+    assert read_jsonl(tmp_path / "data" / "patches.jsonl")[0]["id"] == 9
+
+
+def test_add_patch_lane_dirs_listed_in_refusal(tmp_path, monkeypatch):
+    """多车道时提示里列出全部候选，控制器不用自己去猜路径。"""
+    import pytest
+    A = _fake_repo_with_lane(tmp_path, monkeypatch, lanes=("fable", "opus"))
+    with pytest.raises(SystemExit) as e:
+        A.main(["--id", "1", "--zh", "z", "--reason", "review", "--glossary-v", "9"])
+    msg = str(e.value.code)
+    assert "fable" in msg and "opus" in msg
+
+
+def test_add_patch_library_add_unaffected_by_guard(tmp_path, monkeypatch):
+    """闸只在 CLI 层：库函数 add() 的既有语义（含默认落 DATA）不变。"""
+    A = _fake_repo_with_lane(tmp_path, monkeypatch)
+    A.add(3, "z", "review", 9, ts="t", data=tmp_path / "data")
+    assert read_jsonl(tmp_path / "data" / "patches.jsonl")[0]["id"] == 3
+
+
 def test_recall_finds_stale_rows(tmp_path):
     d = tmp_path; (d / "data").mkdir()
     write_jsonl(d / "data" / "ledger.jsonl", [

@@ -1112,3 +1112,138 @@ def test_main_rerun_gates_all_widens_selection(monkeypatch, tmp_path):
     rc = A.main(["--rerun-from", str(src), "--out", str(tmp_path / "o.md"),
                  "--rerun-gates", "all"])
     assert rc == 0 and calls == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# Task 9：「未履行」的四类归因 —— 只呈现车道 patches.jsonl 的机械证据，
+# 不据此改判/自动归类（spec §4.5）。合成数据，不钉活的生产 patches.jsonl。
+# ---------------------------------------------------------------------------
+
+
+def _write_patches(lane, rows):
+    (lane / "data").mkdir(parents=True, exist_ok=True)
+    (lane / "data" / "patches.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+        encoding="utf-8")
+
+
+def _unfulfilled_result(evidence_ids):
+    return {"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+            "verdict": "未履行", "evidence_ids": evidence_ids, "reason": "r1",
+            "used_tools": False}
+
+
+def test_report_shows_manual_classification_template():
+    """报告顶部始终给出四类判据的一句话模板，供人抽核时照填——与
+    lane_dir/patches 是否可用无关（不依赖任何车道数据）。"""
+    md = render_report([_unfulfilled_result([1])])
+    assert "人工分类清单模板" in md
+    for kw in ("真违约", "比对过严", "手记过时", "措辞过宽"):
+        assert kw in md
+
+
+def test_report_annotates_recall_hit(tmp_path):
+    """依据行命中 reason=recall → 标注「手记过时」候选证据，带 glossary_v。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 7576, "zh": "...", "reason": "recall",
+                          "glossary_v": 8, "ts": "2026-08-02T07:17:31+00:00"}])
+    md = render_report([_unfulfilled_result([7576])], lane_dir=lane)
+    assert "曾因术语裁定被召回" in md
+    assert "glossary_v=8" in md
+    assert "手记过时" in md
+
+
+def test_report_annotates_review_hit(tmp_path):
+    """依据行命中 reason=review → 标注「可能已被处理」，带 glossary_v。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 2782, "zh": "...", "reason": "review",
+                          "glossary_v": 9, "ts": "2026-08-03T01:44:14+00:00"}])
+    md = render_report([_unfulfilled_result([2782])], lane_dir=lane)
+    assert "已有 review 回改" in md
+    assert "glossary_v=9" in md
+    assert "可能已被处理" in md
+
+
+def test_report_no_annotation_when_no_patch_hit(tmp_path):
+    """依据行不在 patches.jsonl 里 → 不加任何标注（车道存在、但无命中）。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 99999, "zh": "...", "reason": "recall",
+                          "glossary_v": 8, "ts": "t"}])
+    md = render_report([_unfulfilled_result([1])], lane_dir=lane)
+    assert "曾因术语裁定被召回" not in md
+    assert "已有 review 回改" not in md
+
+
+def test_report_ignores_polish_reason(tmp_path):
+    """reason=polish 不在两类标注范围内，不生成标注（不是「过时」也不是
+    「已处理」的机械信号，强行归类是伪造证据）。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 1, "zh": "...", "reason": "polish",
+                          "glossary_v": 5, "ts": "t"}])
+    md = render_report([_unfulfilled_result([1])], lane_dir=lane)
+    assert "曾因术语裁定被召回" not in md
+    assert "已有 review 回改" not in md
+
+
+def test_report_explicitly_flags_missing_patches_file(tmp_path):
+    """`lane_dir` 传了但 patches.jsonl 不存在 —— 必须显式播报「未检查」，
+    不能悄悄跳过（同 check_batch.py 里 W4 未启用时的播报纪律，commit
+    3c0ab9c）。"""
+    lane = tmp_path / "lane-no-data"
+    md = render_report([_unfulfilled_result([1])], lane_dir=lane)
+    assert "未执行" in md
+    assert "patches.jsonl" in md
+
+
+def test_report_no_missing_file_flag_when_lane_dir_not_given():
+    """`lane_dir=None`（默认，调用方没要求做这项核对）——不是「查过没查到」，
+    不应播报「未检查」，向后兼容旧调用方式（既有测试大量这样调用）。"""
+    md = render_report([_unfulfilled_result([1])])
+    assert "未执行" not in md
+
+
+def test_report_does_not_change_verdict_on_recall_hit(tmp_path):
+    """只呈现证据，不据此改判——命中 recall 后 verdict 仍是「未履行」，
+    统计里的「未履行」计数不受影响。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 7576, "zh": "...", "reason": "recall",
+                          "glossary_v": 8, "ts": "t"}])
+    md = render_report([_unfulfilled_result([7576])], lane_dir=lane)
+    assert "未履行 **1**" in md
+    assert "[未履行]" in md
+
+
+def test_report_only_annotates_unfulfilled_verdict(tmp_path):
+    """标注只针对「未履行」条目——「已履行」条目即便依据行命中 patches
+    也不标注（spec §4.5 明确只审「未履行」）。"""
+    lane = tmp_path / "lane"
+    _write_patches(lane, [{"id": 7576, "zh": "...", "reason": "recall",
+                          "glossary_v": 8, "ts": "t"}])
+    md = render_report(
+        [{"proposal": HARD, "promise": {"kind": "a", "quote": "q1"},
+          "verdict": "已履行", "evidence_ids": [7576], "reason": "r1",
+          "used_tools": False}],
+        lane_dir=lane)
+    assert "曾因术语裁定被召回" not in md
+
+
+def test_load_patches_returns_none_when_file_missing(tmp_path):
+    from tools.audit_notes_promises import load_patches
+    assert load_patches(tmp_path / "no-such-lane") is None
+
+
+def test_load_patches_returns_none_when_lane_dir_none():
+    from tools.audit_notes_promises import load_patches
+    assert load_patches(None) is None
+
+
+def test_load_patches_indexes_by_id(tmp_path):
+    from tools.audit_notes_promises import load_patches
+    lane = tmp_path / "lane"
+    _write_patches(lane, [
+        {"id": 1, "zh": "a", "reason": "recall", "glossary_v": 1, "ts": "t"},
+        {"id": 1, "zh": "b", "reason": "review", "glossary_v": 2, "ts": "t2"},
+        {"id": 2, "zh": "c", "reason": "polish", "glossary_v": 1, "ts": "t"}])
+    idx = load_patches(lane)
+    assert len(idx[1]) == 2
+    assert idx[2][0]["reason"] == "polish"

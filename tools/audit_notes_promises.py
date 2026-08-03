@@ -443,8 +443,78 @@ def verify_promise(promise, proposal, *, lane_dir=None, runner=None, max_rounds=
 
 ORDER = {"未履行": 0, "无法判断": 1, "已履行": 2}
 
+# 「未履行」的人工分类模板（Task 9，spec §4.5）：四类判据各一句话，供抽核
+# 的人照着填。**机器不做归类**——审计模型刚下完「未履行」判定，再让它自我
+# 质疑是否过严，等于同一口气里既下判定又推翻判定，不可靠；这里只把机械可
+# 得的证据（车道 `patches.jsonl` 回改记录）摆出来，分类判断留给人。
+CLASSIFICATION_TEMPLATE = """## 人工分类清单模板（抽核时逐条填写，机器不做归类）
 
-def render_report(results, extraction_failures=None):
+「未履行」实际混着四类性质不同的情形，抽核时请对每条选定其一：
+
+- **真违约**：译文没有落实手记声称已做的事——需要改译文。
+- **比对过严**：模型字面匹配过死，其实已满足承诺（如趋向补语/近义替换已
+  蕴含承诺内容）——无需改动，是误报。
+- **手记过时**：该承诺已被后续 glossary 版本裁定取代，译文才是对的——
+  该改的是手记而非译文。下方若某条依据行带⚠标注（回改车道 recall 记录），
+  是这一类的机械线索（前提：手记写于该裁定之前）。
+- **措辞过宽**：手记写「一律」但实指某句族，非真正通则——酌情澄清手记
+  措辞，译文不必因此改动。
+
+"""
+
+
+def load_patches(lane_dir):
+    """读车道 `<lane_dir>/data/patches.jsonl`（回改车道，spec §4.5）。
+
+    返回 `{id: [patch, ...]}`；`lane_dir` 为 `None`（调用方未要求做这项核对）
+    或文件不存在时返回 `None`。**调用方必须把 `None` 与「检查过、无命中」的
+    空字典区分开**——`render_report` 据此决定是否显式播报「未检查」，同
+    `check_batch.load_siblings` 的「W4 未启用」纪律（不静默假装检查过）。
+    单条 patch 记录形如 `{"id": 7576, "zh": "...", "reason": "review|recall|polish",
+    "glossary_v": 8, "ts": "..."}`；同一 id 可能有多条记录，全部保留。
+    """
+    if lane_dir is None:
+        return None
+    path = Path(lane_dir) / "data" / "patches.jsonl"
+    if not path.exists():
+        return None
+    idx = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        idx.setdefault(row.get("id"), []).append(row)
+    return idx
+
+
+def _patch_annotations(evidence_ids, patches):
+    """对一条「未履行」结果的依据行，呈现车道回改车道的机械证据（不改判）。
+
+    命中 `reason=recall`：该行曾因术语裁定被正式召回——若手记写于裁定之前，
+    这条「未履行」可能是「手记过时」而非译文违约。
+    命中 `reason=review`：该发现已有 review 回改——本条可能已被处理，构成
+    闭环。
+    `reason=polish` 等其他值不在这两类标注范围内，不生成标注（既不是
+    「过时」也不是「已处理」的机械信号）。
+    """
+    out = []
+    for i in evidence_ids or []:
+        for patch in patches.get(i, []):
+            v = patch.get("glossary_v")
+            if patch.get("reason") == "recall":
+                out.append(f"- ⚠ 依据行 {i} 曾因术语裁定被召回（glossary_v={v}）——"
+                           f"若本手记写于该裁定之前，此条属「手记过时」而非译文违约")
+            elif patch.get("reason") == "review":
+                out.append(f"- ✅ 依据行 {i} 已有 review 回改（glossary_v={v}）——"
+                           f"本条可能已被处理")
+    return out
+
+
+def render_report(results, extraction_failures=None, lane_dir=None):
     """步骤 3（无模型）：未履行优先，无法判断单列，顶部显示可信度指标。
 
     `extraction_failures`：抽取阶段 `not ok`（模型没读懂那条提案）的提案列表，
@@ -459,6 +529,14 @@ def render_report(results, extraction_failures=None):
     是哪个阶段出的问题），而是在报告最顶部单独给一行计数、并列出具体是
     哪些提案，做到「一眼看出有多少提案根本没被审到」，同时明确标注它们
     不计入已履行。
+
+    `lane_dir`（Task 9，spec §4.5）：车道根，用于读 `<lane_dir>/data/
+    patches.jsonl` 交叉核对「未履行」条目的依据行是否被回改车道覆盖过。
+    `None`（默认，向后兼容旧调用方式）＝不做这项核对，不呈现任何相关标注、
+    也不播报——调用方没要求，不是「查过没查到」。传了 `lane_dir` 但文件
+    不存在，则**显式播报**未检查（不静默假装检查过，见 `check_batch.py`
+    里 W4 未启用时的做法，同一纪律）。只呈现证据，**不据此改判 verdict、
+    不自动归类**——分类判断留给人（见 `CLASSIFICATION_TEMPLATE`）。
     """
     n = len(results)
     cnt = {v: sum(1 for r in results if r["verdict"] == v) for v in VALID_VERDICTS}
@@ -470,7 +548,15 @@ def render_report(results, extraction_failures=None):
              f"零条承诺，不计入下面任何一项三态统计",
              f"- 未履行 **{cnt['未履行']}** ｜ 已履行 {cnt['已履行']} ｜ 无法判断 {cnt['无法判断']}",
              f"- **无法判断占比 {pct}%**（相对已成功抽取的 {n} 条硬承诺）—— "
-             f"该比例本身是可信度指标，偏高说明材料或判据不足", ""]
+             f"该比例本身是可信度指标，偏高说明材料或判据不足", "",
+             CLASSIFICATION_TEMPLATE]
+
+    patches = load_patches(lane_dir)
+    if lane_dir is not None and patches is None:
+        lines.append(f"⚠ 回改车道证据核对未执行：`{Path(lane_dir) / 'data' / 'patches.jsonl'}` "
+                     f"不存在，下面「未履行」条目**未与回改车道交叉核对**（本次报告不含"
+                     f"「手记过时」/「已处理」标注，不代表核对过、无命中）")
+        lines.append("")
 
     if fails:
         lines.append("## 抽取失败提案（未被审到）")
@@ -500,6 +586,8 @@ def render_report(results, extraction_failures=None):
         if r.get("body_truncated"):
             lines.append("- ⚠ 提案正文过长，送模型时已截断（判据若落在截断段，"
                          "该条判定不可尽信）")
+        if r["verdict"] == "未履行" and patches:
+            lines += _patch_annotations(r.get("evidence_ids"), patches)
         lines.append("")
     return "\n".join(lines)
 
@@ -635,7 +723,7 @@ def _main_rerun(a, lane):
     assert len(merged) == len(results)  # 合并不丢条目（护栏，非防御性编程）
     flipped = sum(1 for r in merged if r.get("rerun_of") and r["verdict"] != "无法判断")
 
-    out.write_text(render_report(merged, extraction_failures), encoding="utf-8")
+    out.write_text(render_report(merged, extraction_failures, lane_dir=lane), encoding="utf-8")
     print(f"定点重跑完成 → {out}（源 {src}：{len(results)} 条结果 / "
           f"{len(extraction_failures)} 条抽取失败；命中闸 {n_gated} 条，"
           f"实重验 {reran} 条，其中 {flipped} 条这次判出了结论；"
@@ -734,7 +822,7 @@ def main(argv=None):
             # 立刻写盘，不等全循环跑完才落地。
             _append_jsonl(sidecar, {"type": "result", "data": r})
 
-    out.write_text(render_report(results, extraction_failures), encoding="utf-8")
+    out.write_text(render_report(results, extraction_failures, lane_dir=lane), encoding="utf-8")
     print(f"审计报告已写 {out}（{len(props)} 条提案 → {len(results)} 条硬承诺，"
           f"{len(extraction_failures)} 条提案抽取阶段失败未被审到；"
           f"增量结果见 {sidecar}）")

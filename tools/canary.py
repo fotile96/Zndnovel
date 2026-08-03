@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import dumps, read_jsonl
-from tools.check_batch import check
+from tools.check_batch import check, load_siblings
 from tools.detect_collapse import _glossary_max, retained_names, scan
 
 
@@ -40,11 +40,18 @@ def batch_verdicts(lane_dir: Path, nums, regen_ctx: bool = False) -> dict:
     glossary = json.loads(
         (lane_dir / "glossary" / "active.json").read_text(encoding="utf-8"))
     names = retained_names(_glossary_max(lane_dir))
+    # W4（复现句族一致性）只在传了 siblings 时才判。canary 此前直调 check() 而
+    # 不传它，于是**结构上看不见 W4**——升级判定闸对自己该判定的那次升级失明，
+    # 报「一致」不是因为无差异，而是因为压根没跑。这与 check_batch CLI 缺
+    # --lane-dir 时静默不判是同一个洞的另一个入口（后者已由 3c0ab9c 加播报修
+    # 掉），故此处补齐；`load_siblings` 返回 None 时 check() 自然退回旧行为。
+    siblings = load_siblings(lane_dir)
     out = {}
     for n in nums:
         source = read_jsonl(_ensure_ctx(lane_dir, n, regen_ctx))
         draft = _draft_from_forward(fwd, [r["id"] for r in source])
-        out[str(n)] = {"check": check(source, draft, speakers, glossary),
+        out[str(n)] = {"check": check(source, draft, speakers, glossary,
+                                      siblings=siblings),
                        "collapse": scan(source, draft, names)}
     return out
 

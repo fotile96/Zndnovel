@@ -147,3 +147,108 @@ def test_lane_dir_does_not_fall_back_to_repo_root(tmp_path, monkeypatch):
     check_batch_main(["--batch", "1", "--lane-dir", str(empty_lane)])
     result = json.loads((work / "out" / "batch_1.check.json").read_text(encoding="utf-8"))
     assert not any(v["rule"] == "W2" for v in result["warn"]), result
+
+
+# ---- Task 8：W4 复现句族内逐字一致（顾问级）----
+# 背景：glossary/style.md 把「复现句族内逐字一致」明写为不放宽的边界，却是该
+# 文件里唯一一条没有机器兜底的硬规则——实测长对话/逐批两种模式在 5 组 jp 逐字
+# 相同的句子上给出不同中文，其中 2 组两种模式都错，说明是系统性漏网。W4 归
+# warn 不归 hard：同一句日文在不同语境下偶有正当的不同处理，且本项目吃过
+# 「谓词过严制造噪声淹没真信号」的亏。
+#
+# 全部命中/不命中用例走合成数据（不把活的生产译文钉进测试）。
+
+from tools.check_batch import build_sibling_index
+
+SIB_LEDGER = [
+    {"id": 100, "jp": "【彩野】「おかえり」"},
+    {"id": 200, "jp": "【彩野】「おかえり」"},     # 100 的兄弟
+    {"id": 300, "jp": "【彩野】「おかえりっ」"},   # 只差一字 → 不同族
+    {"id": 400, "jp": "夕焼けが見えた。"},        # 未译，不入族
+]
+
+
+def _sib(zh_map):
+    return build_sibling_index(SIB_LEDGER, zh_map)
+
+
+def test_w4_same_jp_different_zh_is_warn_with_sibling_id_and_zh():
+    """jp 逐字相同、zh 不同 → W4，且消息必须写明兄弟行 id 与它的 zh。"""
+    sib = _sib({200: "【彩野】「你回来了」"})
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None, siblings=sib)
+    hits = [v for v in r["warn"] if v["rule"] == "W4"]
+    assert len(hits) == 1 and r["hard"] == []
+    assert "200" in hits[0]["msg"] and "你回来了" in hits[0]["msg"]
+
+
+def test_w4_same_jp_same_zh_is_clean():
+    sib = _sib({200: "【彩野】「欢迎回来」"})
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None, siblings=sib)
+    assert not any(v["rule"] == "W4" for v in r["warn"])
+
+
+def test_w4_one_char_different_jp_is_not_a_family():
+    """jp 差一字即不同族：不得因「像」而报（谓词过严会淹没真信号）。"""
+    sib = _sib({300: "【彩野】「你回来啦」"})
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None, siblings=sib)
+    assert not any(v["rule"] == "W4" for v in r["warn"])
+
+
+def test_w4_catches_duplicates_inside_the_same_batch():
+    """同一 jp 在本批出现两次、译法不同 → 两行都报（兄弟尚未进 forward）。"""
+    sib = _sib({})
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"},
+               {"id": 200, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"},
+               {"id": 200, "zh": "【彩野】「你回来了」"}],
+              speakers=None, glossary=None, siblings=sib)
+    hits = [v for v in r["warn"] if v["rule"] == "W4"]
+    assert {v["id"] for v in hits} == {100, 200}
+    assert "200" in next(v for v in hits if v["id"] == 100)["msg"]
+
+
+def test_w4_silent_when_sibling_untranslated():
+    """兄弟行还没译 → 无从比较，不报。"""
+    sib = _sib({})  # 200 未译
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None, siblings=sib)
+    assert not any(v["rule"] == "W4" for v in r["warn"])
+
+
+def test_w4_own_stale_forward_zh_is_not_a_sibling():
+    """本批 id 在车道里已有旧译文时，新草稿不得与自己的旧版本互报。"""
+    sib = _sib({100: "【彩野】「旧译文」", 200: "【彩野】「欢迎回来」"})
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None, siblings=sib)
+    assert not any(v["rule"] == "W4" for v in r["warn"])
+
+
+def test_w4_absent_siblings_arg_keeps_old_behaviour():
+    """不传 siblings（既有调用方）→ 完全不判 W4，行为逐字不变。"""
+    r = check([{"id": 100, "jp": "【彩野】「おかえり」"}],
+              [{"id": 100, "zh": "【彩野】「欢迎回来」"}],
+              speakers=None, glossary=None)
+    assert r["warn"] == [] and r["hard"] == []
+
+
+def test_w4_real_lane_structure(tmp_path):
+    """真实车道上的结构性自检（不钉具体数字——本项目吃过「测试钉住活的生产
+    数据、因无关原因变红」的亏，见 test_saturation.py 同类改造）。只断言恒真
+    结构 + 非空性：族索引读得出来、异译族 ⊆ 多成员族 ⊆ 全部族，且多成员族
+    非空（否则这条测试就是「恒绿的安全闸」，什么都没验）。"""
+    from tools.check_batch import load_siblings
+    from tools.pipelib import REPO
+    idx = load_siblings(REPO / "pilot" / "lanes" / "opus")
+    assert idx is not None
+    fam = {jp: v for jp, v in idx.items() if len(v) > 1}
+    bad = {jp: v for jp, v in fam.items() if len({z for _, z in v}) > 1}
+    assert 0 < len(fam) <= len(idx)
+    assert len(bad) <= len(fam)

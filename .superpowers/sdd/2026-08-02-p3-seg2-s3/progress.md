@@ -1362,7 +1362,24 @@ uv run python tools/ayano_test.py --segment seg2-s3 --qa config/ayano_qa/seg2-s3
 
 `git tag prod-opus-seg2-s3-done` —— 待执行。
 
-### 第 5 步：段末小裁决会话（待提醒用户另开）
+### 第 5 步：段末小裁决会话 —— **已执行完毕（2026-08-03）**
+
+> **裁决结果与全部证据见同目录 [`ruling-seg2-s3.md`](./ruling-seg2-s3.md)。**
+> 产出：`glossary/glossary.v9.yaml` + 召回令（commit `c45ae5d`）｜9 条回改 patches +
+> `notes/s3s.md` 维护者回填（commit `e2da47e`）｜runbook §5 第 7 项 + 双车道版本切换。
+> **D 组（工装四项）本会话未执行，原样移交开发轨**；另**新发现一条冻结面缺口**
+> （`freeze_hashes` 不含 speakers/style/voices，`--verify` 检测不到它们的漂移）一并移交，见 ruling §6。
+>
+> **三处本节记载的事实经裁决会话 grep 复核后更正**（详见 ruling §3）：
+> ① `屋台`（1 处，现译「摊子」）与 `出店`（8 处，现译「小摊」）是**两个词**，
+>    用户据此选定「只改 `屋台`」，且『出店の親父』**不连带调整**（该摊是钓水气球摊）；
+> ② `水風船` **本来就已正确分写**（10547/10558 钓水气球、10610/10647/10702 水气球）→ **零 patch**；
+> ③ 复议①的「三词三义」**不成立**（三词共用两个中文词、映射未稳定），
+>    但「不合并」的结论仍成立，依据换为 6130 的同句并现。
+>
+> 下面这份清单是**裁决前的输入**，保持原样不改（它是 ruling 的来源材料）。
+
+### 第 5 步（原始交接材料，供回查）
 
 ```
 uv run python tools/cluster_notes.py --lane-dir pilot/lanes/opus --out work/out/dossier-seg2-s3.md

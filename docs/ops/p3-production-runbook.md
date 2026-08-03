@@ -330,7 +330,36 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
    车道 forward，并把一份空的 `final.jsonl` 写进仓库根 `data/`）。
 5. **段边界版本切换**：漂移预检（确认漂移恰为本次召回令文件）→ 双车道
    `lane_setup --force` → `--verify` 无漂移 → 冻结内容抽验 → commit manifest+台账。
+   ⚠ **两条实操陷阱（seg1-s2 与 seg2-s3 各踩出一条）**：
+   ① **漂移预检必须用 `diff -rq 仓库侧 车道拷贝`，不能用 `--verify` 代替**——`--verify`
+      比对的是「车道拷贝 vs manifest」，**看不见仓库侧的改动**，此时它照报「无漂移」。
+   ② **`--force` 单独给不够**：`lane_setup` 建/重建车道要求同时给
+      `--lane/--model/--effort/--append-model-id`，取值照抄各车道现有 `lane.json`
+      （opus: opus/max/claude-opus-5；fable: fable/high/claude-fable-5），否则直接报错退出。
+   ⚠ **冻结面缺口（seg2-s3 新发现，未修，属开发轨待办）**：`lane_setup.freeze_hashes()`
+   只哈希 5 项（`batches`/`cards_zh`/`anchors`/`active`/`glossary_max`），而
+   `COPIED_DIRS=("skeleton","glossary")` 会把 **`speakers.json`、`style.md`、`voices/*.md`
+   一并拷进车道冻结**——**这三类被冻结却不在 manifest 里，`--verify` 结构上检测不到它们的漂移**。
+   v9 起这不再是纸面问题：`speakers.json` 是 **R2b 硬规则的数据源**、`style.md` 是译者唯一
+   看得到的口径面，改了它们而忘记 `--force`，`--verify` 会照报「无漂移」且无任何信号。
+   **在修好之前，凡召回令触及这三类文件，段边界的抽验步骤必须显式读车道拷贝确认内容**
+   （而不是只看 `--verify` 的绿字）。
 6. 顺手筛「裁决后逐批批注」（tr_note 候选，P4 fable 输入）归档到裁决记录。
+7. **每条回改必须落在「译者看得见的面」上**（v9 新体例 `recall-must-be-visible`，
+   落码 `glossary/glossary.v9.yaml` 的 conventions 节）。
+   起因：`forward.jsonl` 是 append-only、**patches 只是覆盖层不回写前缀**，于是被否决的旧译法
+   仍会在下游批次的**前缀正文**里现身，可能被当成先例照抄。seg2-s3 两处验收（10639、10454）
+   **均未兑现**该风险，因为 `context.md` 第四节整篇内嵌 `active.json` + `style.md` + 7 份 `voices/`，
+   **冻结骨架压过了前缀里的历史文本**——但这层保护依赖「旧译法恰好被 glossary 覆盖」，
+   一旦某条回改的理由是纯语感/纯本地化（产生不了任何可登记词条），保护就不存在。
+   译者看得见的面**只有三个**：`active.json`、`style.md`、`voices/*.md`
+   （`build_context._render` 的注入面；`glossary.vN.yaml` 与 anchors 之外的 skeleton **不**进 context.md）。
+   三面都无处安放的回改，**须在 `pilot/lanes/<lane>/data/notes/<chapter>.md` 追加显式记录**
+   （id、旧译、新译、一句话理由，并注明「旧文本作废、勿沿用」）。
+   先例：SEG-1 的 `裏技`→作弊；seg2-s3 的 11565／12244／12166／12128／12129（已回填 `notes/s3s.md`）。
+   注：这类维护者记录用 `##` 段落 + 表格写，**不要**用 `### 序号. 词 → 译` 形式——
+   后者是 `cluster_notes.py` 的提案标题格式，会把维护者记录算成新提案
+   （已实测：回填后卷宗仍是 558 提案 / 137 词族，与回填前逐字相同）。
 
 ## 六、额度软政策
 

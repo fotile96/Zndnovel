@@ -157,8 +157,13 @@ def main(argv=None):
         speakers = json.loads(sp.read_text(encoding="utf-8"))
     if gl.exists():
         glossary = json.loads(gl.read_text(encoding="utf-8"))
-    result = check(source, draft, speakers, glossary,
-                   siblings=load_siblings(groot))
+    siblings = load_siblings(groot)
+    # 「闸没跑」必须与「闸跑了没报」在输出上可区分：两者都打 warn=0，人眼
+    # 无从分辨，正是本项目反复吃亏的恒绿闸形态（见 spec §6）。故显式播报。
+    if siblings is None:
+        print(f"⚠ W4 未启用：{groot}/data 下无 ledger.jsonl 或无任何译文，"
+              f"复现句族一致性**未被检查**（本次 warn 数不含 W4）")
+    result = check(source, draft, speakers, glossary, siblings=siblings)
     (WORK / "out").mkdir(parents=True, exist_ok=True)
     (WORK / "out" / f"batch_{n}.check.json").write_text(
         dumps(result), encoding="utf-8")

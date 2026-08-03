@@ -252,3 +252,27 @@ def test_w4_real_lane_structure(tmp_path):
     bad = {jp: v for jp, v in fam.items() if len({z for _, z in v}) > 1}
     assert 0 < len(fam) <= len(idx)
     assert len(bad) <= len(fam)
+
+
+def test_w4_disabled_is_announced_not_silent(tmp_path, monkeypatch, capsys):
+    """W4 未启用时必须**显式播报**，不得与「跑了没报」同形。
+
+    没有这条播报，「闸没跑」和「闸跑了没报」都打 `warn=0`，人眼无从分辨——
+    正是本项目反复吃亏的恒绿闸形态。本测试钉住播报本身，防它在日后重构里
+    悄悄消失、把问题原样带回来。
+    """
+    work = tmp_path / "work"
+    (work / "ctx" / "batch_1").mkdir(parents=True)
+    (work / "out").mkdir(parents=True)
+    (work / "ctx" / "batch_1" / "source.jsonl").write_text(
+        '{"id": 1, "jp": "【彩野】「おかえり」"}\n', encoding="utf-8")
+    (work / "out" / "batch_1.draft.jsonl").write_text(
+        '{"id": 1, "zh": "【彩野】「欢迎回来」"}\n', encoding="utf-8")
+    monkeypatch.setattr("tools.check_batch.WORK", work)
+    # 车道根指向一个没有 data/ 的空目录 → load_siblings 返回 None
+    empty = tmp_path / "nolane"
+    empty.mkdir()
+    assert check_batch_main(["--batch", "1", "--lane-dir", str(empty)]) == 0
+    out = capsys.readouterr().out
+    assert "W4 未启用" in out, "W4 未启用时必须播报，否则与「跑了没报」不可区分"
+    assert "未被检查" in out

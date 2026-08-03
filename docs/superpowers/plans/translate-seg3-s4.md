@@ -90,8 +90,10 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 - [ ] **Step 3.99: 批次 99 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 99 --lane-dir pilot/lanes/opus`
-Expected: `batch_99: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 99 --lane-dir pilot/lanes/opus`
+Expected: `batch_99: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_99.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 99 --lane-dir pilot/lanes/opus`
+Expected: `batch_99: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_99.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 99 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -103,8 +105,10 @@ git commit -m "data: s4s 批次99 译文入线"
 - [ ] **Step 3.100: 批次 100 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 100 --lane-dir pilot/lanes/opus`
-Expected: `batch_100: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 100 --lane-dir pilot/lanes/opus`
+Expected: `batch_100: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_100.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 100 --lane-dir pilot/lanes/opus`
+Expected: `batch_100: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_100.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 100 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -116,8 +120,10 @@ git commit -m "data: crd 批次100 译文入线"
 - [ ] **Step 3.101: 批次 101 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 101 --lane-dir pilot/lanes/opus`
-Expected: `batch_101: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 101 --lane-dir pilot/lanes/opus`
+Expected: `batch_101: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_101.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 101 --lane-dir pilot/lanes/opus`
+Expected: `batch_101: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_101.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 101 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -129,8 +135,10 @@ git commit -m "data: s4s 批次101 译文入线"
 - [ ] **Step 3.102: 批次 102 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 102 --lane-dir pilot/lanes/opus`
-Expected: `batch_102: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 102 --lane-dir pilot/lanes/opus`
+Expected: `batch_102: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_102.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 102 --lane-dir pilot/lanes/opus`
+Expected: `batch_102: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_102.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 102 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -142,8 +150,10 @@ git commit -m "data: s4s 批次102 译文入线"
 - [ ] **Step 3.103: 批次 103 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 103 --lane-dir pilot/lanes/opus`
-Expected: `batch_103: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 103 --lane-dir pilot/lanes/opus`
+Expected: `batch_103: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_103.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 103 --lane-dir pilot/lanes/opus`
+Expected: `batch_103: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_103.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 103 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -155,8 +165,10 @@ git commit -m "data: crd 批次103 译文入线"
 - [ ] **Step 3.104: 批次 104 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 104 --lane-dir pilot/lanes/opus`
-Expected: `batch_104: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 104 --lane-dir pilot/lanes/opus`
+Expected: `batch_104: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_104.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 104 --lane-dir pilot/lanes/opus`
+Expected: `batch_104: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_104.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 104 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -168,8 +180,10 @@ git commit -m "data: s4s 批次104 译文入线"
 - [ ] **Step 3.105: 批次 105 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 105 --lane-dir pilot/lanes/opus`
-Expected: `batch_105: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 105 --lane-dir pilot/lanes/opus`
+Expected: `batch_105: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_105.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 105 --lane-dir pilot/lanes/opus`
+Expected: `batch_105: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_105.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 105 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -181,8 +195,10 @@ git commit -m "data: crd 批次105 译文入线"
 - [ ] **Step 3.106: 批次 106 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 106 --lane-dir pilot/lanes/opus`
-Expected: `batch_106: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 106 --lane-dir pilot/lanes/opus`
+Expected: `batch_106: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_106.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 106 --lane-dir pilot/lanes/opus`
+Expected: `batch_106: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_106.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 106 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -194,8 +210,10 @@ git commit -m "data: s4s 批次106 译文入线"
 - [ ] **Step 3.107: 批次 107 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 107 --lane-dir pilot/lanes/opus`
-Expected: `batch_107: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 107 --lane-dir pilot/lanes/opus`
+Expected: `batch_107: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_107.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 107 --lane-dir pilot/lanes/opus`
+Expected: `batch_107: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_107.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 107 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -207,8 +225,10 @@ git commit -m "data: crd 批次107 译文入线"
 - [ ] **Step 3.108: 批次 108 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 108 --lane-dir pilot/lanes/opus`
-Expected: `batch_108: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 108 --lane-dir pilot/lanes/opus`
+Expected: `batch_108: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_108.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 108 --lane-dir pilot/lanes/opus`
+Expected: `batch_108: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_108.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 108 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -269,8 +289,10 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 - [ ] **Step 3.109: 批次 109 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 109 --lane-dir pilot/lanes/opus`
-Expected: `batch_109: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 109 --lane-dir pilot/lanes/opus`
+Expected: `batch_109: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_109.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 109 --lane-dir pilot/lanes/opus`
+Expected: `batch_109: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_109.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 109 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -282,8 +304,10 @@ git commit -m "data: s4s 批次109 译文入线"
 - [ ] **Step 3.110: 批次 110 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 110 --lane-dir pilot/lanes/opus`
-Expected: `batch_110: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 110 --lane-dir pilot/lanes/opus`
+Expected: `batch_110: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_110.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 110 --lane-dir pilot/lanes/opus`
+Expected: `batch_110: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_110.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 110 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -295,8 +319,10 @@ git commit -m "data: crd 批次110 译文入线"
 - [ ] **Step 3.111: 批次 111 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 111 --lane-dir pilot/lanes/opus`
-Expected: `batch_111: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 111 --lane-dir pilot/lanes/opus`
+Expected: `batch_111: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_111.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 111 --lane-dir pilot/lanes/opus`
+Expected: `batch_111: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_111.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 111 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -340,8 +366,10 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 - [ ] **Step 3.112: 批次 112 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 112 --lane-dir pilot/lanes/opus`
-Expected: `batch_112: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 112 --lane-dir pilot/lanes/opus`
+Expected: `batch_112: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_112.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 112 --lane-dir pilot/lanes/opus`
+Expected: `batch_112: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_112.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 112 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -353,8 +381,10 @@ git commit -m "data: s4fa 批次112 译文入线"
 - [ ] **Step 3.113: 批次 113 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 113 --lane-dir pilot/lanes/opus`
-Expected: `batch_113: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 113 --lane-dir pilot/lanes/opus`
+Expected: `batch_113: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_113.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 113 --lane-dir pilot/lanes/opus`
+Expected: `batch_113: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_113.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 113 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -366,8 +396,10 @@ git commit -m "data: s4s 批次113 译文入线"
 - [ ] **Step 3.114: 批次 114 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 114 --lane-dir pilot/lanes/opus`
-Expected: `batch_114: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 114 --lane-dir pilot/lanes/opus`
+Expected: `batch_114: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_114.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 114 --lane-dir pilot/lanes/opus`
+Expected: `batch_114: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_114.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 114 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -428,8 +460,10 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 - [ ] **Step 3.115: 批次 115 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 115 --lane-dir pilot/lanes/opus`
-Expected: `batch_115: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 115 --lane-dir pilot/lanes/opus`
+Expected: `batch_115: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_115.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 115 --lane-dir pilot/lanes/opus`
+Expected: `batch_115: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_115.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 115 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -441,8 +475,10 @@ git commit -m "data: s4fb 批次115 译文入线"
 - [ ] **Step 3.116: 批次 116 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 116 --lane-dir pilot/lanes/opus`
-Expected: `batch_116: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 116 --lane-dir pilot/lanes/opus`
+Expected: `batch_116: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_116.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 116 --lane-dir pilot/lanes/opus`
+Expected: `batch_116: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_116.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 116 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 
@@ -454,8 +490,10 @@ git commit -m "data: s4fb 批次116 译文入线"
 - [ ] **Step 3.117: 批次 117 校验与入库**
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 117 --lane-dir pilot/lanes/opus`
-Expected: `batch_117: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
-`ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 117 --lane-dir pilot/lanes/opus`
+Expected: `batch_117: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `pilot/lanes/opus/work/out/batch_117.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。
+
+Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 117 --lane-dir pilot/lanes/opus`
+Expected: `batch_117: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `pilot/lanes/opus/work/out/batch_117.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供段末流程汇总参考。
 
 Run: `ZND_WORK=pilot/lanes/opus/work ZND_DATA=pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/append_forward.py --batch 117 --backend cc --model <model> --ctx <ctx_sha> --glossary-v 9`
 

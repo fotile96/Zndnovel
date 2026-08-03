@@ -349,14 +349,19 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 """
     for b in batches:
         n = b["batch"]
-        collapse = (f"\n`{p['env']}uv run python {p['tools']}/detect_collapse.py "
-                    f"--batch {n}{p['lane_dir_arg']}{thresholds_arg}`"
+        # 崩溃探测的处置指引必须与 _batch_task 等价：detect_collapse.main() 无条件
+        # return 0，K>0 时若无人眼过目，这道顾问级闸在操作者视野里等于不存在。
+        # 会话组曾把它写成裸命令行（无 Run/Expected、无处置指引），复评指出后补齐。
+        collapse = (f"""
+
+Run: `{p['env']}uv run python {p['tools']}/detect_collapse.py --batch {n}{p['lane_dir_arg']}{thresholds_arg}`
+Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `{p['out']}/batch_{n}.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供{"段末流程" if segment else "检查点"}汇总参考。"""
                     if p["lane_dir_arg"] else "")
         head += f"""
 - [ ] **Step 3.{n}: 批次 {n} 校验与入库**
 
 Run: `{p["env"]}uv run python {p["tools"]}/check_batch.py --batch {n}{p["lane_dir_arg"]}`
-Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可）。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。{collapse}
+Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `{p["out"]}/batch_{n}.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。{collapse}
 
 Run: `{p["env"]}uv run python {p["tools"]}/append_forward.py --batch {n} --backend cc --model <model> --ctx <ctx_sha> --glossary-v {glossary_v}`
 

@@ -833,3 +833,75 @@ def test_group_sessions_never_drops_or_reorders():
         for cap in (50, 600, 10**9):
             flat = [b["batch"] for x in _group_sessions(sel, size, cap) for b in x]
             assert flat == [b["batch"] for b in sel], (size, cap)
+
+
+def _sess(**kw):
+    from tools.gen_plan import _session_task, _paths
+    p = _paths({"lane": "opus", "lane_dir": "pilot/lanes/opus", "model": "opus",
+                "effort": "max", "append_model_id": "claude-opus-5"})
+    bs = [{"batch": 7, "chapter": "s1s", "ids": [1], "jp_chars": 10, "lane": "main"},
+          {"batch": 8, "chapter": "s1s", "ids": [2, 3], "jp_chars": 20, "lane": "main"}]
+    return _session_task(1, bs, "none", 9, p, **kw)
+
+
+def test_session_task_check_batch_carries_lane_dir():
+    """W4 只在带 --lane-dir 时有牙；丢了它 = 复现句族一致性静默不检查。
+
+    这正是 3c0ab9c 修过的那条血统在新代码路径上重生的入口——独立复评实测
+    删掉 `--lane-dir` 后全套测试仍 485 全绿，故补此闸。
+    """
+    t = _sess()
+    for n in (7, 8):
+        assert f"check_batch.py --batch {n} --lane-dir pilot/lanes/opus" in t
+
+
+def test_session_task_build_context_carries_repo():
+    """丢了 --repo 会写进仓库根 work/ 而非车道，违反隔离纪律（本批作废重跑）。"""
+    t = _sess()
+    for n in (7, 8):
+        assert f"build_context.py --batch {n} --profile cc --baseline none --repo pilot/lanes/opus" in t
+
+
+def test_session_task_collapse_step_keeps_disposal_guidance():
+    """崩溃探测必须带处置指引，不能是裸命令行。
+
+    `detect_collapse.main()` 无条件 return 0——K>0 时若无人眼过目，这道顾问级
+    闸在操作者视野里等于不存在。会话组初版把它写成裸命令行，复评指出后补齐。
+    """
+    t = _sess()
+    for n in (7, 8):
+        assert f"detect_collapse.py --batch {n} --lane-dir pilot/lanes/opus" in t
+    assert "恒返回 0" in t and "collapse.json" in t and "人眼过目" in t
+
+
+def test_session_task_check_batch_has_fail_disposal():
+    """check_batch 报 FAIL 时的处置指引（与逐批模式等价）。"""
+    assert "重跑本步直到 PASS" in _sess()
+
+
+def test_group_sessions_respects_batch_cap():
+    """组内批数真的 ≤ size——CLI 拒绝 11 只挡住参数，挡不住分组本身算错。"""
+    from tools.gen_plan import _group_sessions
+    sel = [{"batch": n, "chapter": "s1s", "ids": [n], "jp_chars": 5, "lane": "main"}
+           for n in range(1, 21)]
+    for size in (2, 3, 7):
+        g = _group_sessions(sel, size, lines_cap=10**9)   # 行上限不设限，只看批数
+        assert all(len(x) <= size for x in g), size
+        assert sum(len(x) for x in g) == 20
+
+
+def test_main_session_size_defaults_to_1(tmp_path, monkeypatch):
+    """`main()` 的 argparse 默认值必须是 1。
+
+    render() 的默认值有多条测试护着，但**生产入口是 main()**；
+    test_session_size_1_is_byte_identical_to_before 直调 render，护不到这里。
+    独立复评实测：把 argparse 默认改成 3 后全套仍 485 全绿。
+    """
+    import tools.gen_plan as G
+    seen = {}
+    orig = G.render
+    monkeypatch.setattr(G, "render", lambda *a, **k: (seen.update(k), orig(*a, **k))[1])
+    monkeypatch.setattr(G, "REPO", tmp_path)
+    (tmp_path / "docs" / "superpowers" / "plans").mkdir(parents=True)
+    G.main(["--lane", "main", "--batches", "1-3", "--label", "probe"])
+    assert seen["session_size"] == 1, "main() 默认必须是逐批模式"

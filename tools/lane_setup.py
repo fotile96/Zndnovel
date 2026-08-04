@@ -64,11 +64,52 @@ def _sha256_dir(path) -> str:
     return h.hexdigest()
 
 
+def lane_exclusions(lane_dir) -> list:
+    """该车道 lane.json 里记的 freeze_exclude（车道相对路径，如
+    `glossary/style_refine.md`）。文件缺失或键不存在时返回空列表。"""
+    p = Path(lane_dir) / "lane.json"
+    if not p.exists():
+        return []
+    try:
+        return list(json.loads(p.read_text(encoding="utf-8")).get("freeze_exclude", []))
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+
+def set_exclusions(lane, paths, lanes_root=None) -> list:
+    """只改 lane.json 的 freeze_exclude 并清掉车道内已存在的被排除文件，
+    **不重新冻结**（冻结快照与 manifest 哈希一概不动）。
+
+    单独给一个入口，是为了让「某条车道不要这份文件」这个决定能在**重冻结之前**
+    就落到盘上：`setup(force=True)` 未显式传 freeze_exclude 时会**继承** lane.json
+    里已有的值，于是段边界重冻结不依赖操作者记得加参数。靠记忆的纪律会衰减。
+    """
+    lane_dir = Path(lanes_root or LANES_ROOT) / lane
+    p = lane_dir / "lane.json"
+    if not p.exists():
+        raise SystemExit(f"{p} 不存在——该车道尚未 setup")
+    cfg = json.loads(p.read_text(encoding="utf-8"))
+    cfg["freeze_exclude"] = sorted(set(paths))
+    p.write_text(dumps(cfg), encoding="utf-8")
+    removed = []
+    for rel in cfg["freeze_exclude"]:
+        f = lane_dir / rel
+        if f.is_file():
+            f.unlink()
+            removed.append(rel)
+    return removed
+
+
 def setup(lane, model, effort, append_model_id, repo=None, lanes_root=None,
-          force=False) -> Path:
+          force=False, freeze_exclude=None) -> Path:
     repo = Path(repo or REPO)
     lanes_root = Path(lanes_root or LANES_ROOT)
     lane_dir = lanes_root / lane
+    # None ＝ 未指定 ⇒ 继承车道现有设置（重冻结的默认路径，见 set_exclusions 的
+    # docstring）；显式传空列表 ＝ 清除排除项。二者必须可区分。
+    if freeze_exclude is None:
+        freeze_exclude = lane_exclusions(lane_dir)
+    freeze_exclude = sorted(set(freeze_exclude))
     forward = lane_dir / "data" / "forward.jsonl"
     if forward.exists() and not force:
         raise SystemExit(
@@ -86,10 +127,20 @@ def setup(lane, model, effort, append_model_id, repo=None, lanes_root=None,
         if dst.exists():
             shutil.rmtree(dst)
         shutil.copytree(repo / d, dst)
+    for rel in freeze_exclude:
+        f = lane_dir / rel
+        if f.is_file():
+            f.unlink()
+        else:
+            # 排除项打错字会静默生效（少排一个文件谁也看不出），故必须出声。
+            print(f"⚠ freeze_exclude 项 {rel} 在 {lane} 的冻结拷贝里不存在——"
+                  f"路径写错了？（排除仍记入 lane.json）", file=sys.stderr)
     (lane_dir / "work").mkdir(exist_ok=True)
-    (lane_dir / "lane.json").write_text(dumps({
-        "lane": lane, "lane_dir": str(lane_dir), "model": model,
-        "effort": effort, "append_model_id": append_model_id}), encoding="utf-8")
+    cfg = {"lane": lane, "lane_dir": str(lane_dir), "model": model,
+           "effort": effort, "append_model_id": append_model_id}
+    if freeze_exclude:
+        cfg["freeze_exclude"] = freeze_exclude
+    (lane_dir / "lane.json").write_text(dumps(cfg), encoding="utf-8")
     return lane_dir
 
 
@@ -260,6 +311,7 @@ def stale_vs_repo(lanes_root=None, repo=None) -> list:
     repo_path = Path(repo or REPO)
     out = []
     for lane_dir in sorted(p for p in lanes_root.glob("*") if p.is_dir()):
+        excl = set(lane_exclusions(lane_dir))
         for d in COPIED_DIRS:
             lane_sub, repo_sub = lane_dir / d, repo_path / d
             if not lane_sub.is_dir():
@@ -272,8 +324,28 @@ def stale_vs_repo(lanes_root=None, repo=None) -> list:
                 elif sha256_file(f) != sha256_file(mirror):
                     out.append(f"{lane_dir.name}: {rel} 仓库侧较新，车道拷贝落后")
             for f in sorted(p for p in repo_sub.rglob("*") if p.is_file()):
-                if not (lane_dir / f.relative_to(repo_path)).exists():
-                    out.append(f"{lane_dir.name}: {f.relative_to(repo_path)} 仓库侧新增，未进车道")
+                rel = f.relative_to(repo_path)
+                if str(rel) in excl:
+                    continue  # 有意排除，不算落后；由 frozen_exclusions() 单独播报
+                if not (lane_dir / rel).exists():
+                    out.append(f"{lane_dir.name}: {rel} 仓库侧新增，未进车道")
+    return out
+
+
+def frozen_exclusions(lanes_root=None) -> list:
+    """各车道 lane.json 里有意排除的文件清单，供 --verify 单独播报。
+
+    排除是**静默丢文件**的机制：排错了、或某条车道的排除早该解除了，从产物上
+    完全看不出来。所以它不能只是从 `stale_vs_repo` 里被 skip 掉了事——**跳过等于
+    藏起来**，而藏起来的机制正是本项目反复吃亏的形态。有意排除照样每次出声，
+    只是标明它是有意的，并指出决定记在哪儿（lane.json）。
+    """
+    lanes_root = Path(lanes_root or LANES_ROOT)
+    out = []
+    for lane_dir in sorted(p for p in lanes_root.glob("*") if p.is_dir()):
+        for rel in lane_exclusions(lane_dir):
+            out.append(f"{lane_dir.name}: {rel} 按 lane.json:freeze_exclude 有意排除，"
+                       f"该车道看不到它")
     return out
 
 
@@ -288,10 +360,26 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true",
                     help="车道已有译文进度（data/forward.jsonl 存在）时仍强制"
                          "重新冻结 skeleton/glossary 快照并覆盖已记录的基准哈希")
+    ap.add_argument("--freeze-exclude",
+                    help="逗号分隔的车道相对路径，建/重建时不拷进该车道（如 "
+                         "glossary/style_refine.md）。**不传＝继承车道现有设置**，"
+                         "传空串＝清除。")
+    ap.add_argument("--set-exclude",
+                    help="只改 lane.json 的 freeze_exclude（并删掉车道内已存在的该文件），"
+                         "不重新冻结。需配 --lane。")
     a = ap.parse_args(argv)
+    if a.set_exclude is not None:
+        if not a.lane:
+            raise SystemExit("--set-exclude 需同时给 --lane")
+        paths = [s for s in a.set_exclude.split(",") if s]
+        removed = set_exclusions(a.lane, paths, LANES_ROOT)
+        print(f"{a.lane}: freeze_exclude = {paths or '（已清空）'}"
+              + (f"；已从车道删除 {removed}" if removed else ""))
+        return 0
     if a.verify:
         drift = verify(LANES_ROOT, REPO)
         stale = stale_vs_repo(LANES_ROOT, REPO)
+        excl = frozen_exclusions(LANES_ROOT)
         rc = 0
         if drift:
             for d in drift:
@@ -307,13 +395,23 @@ def main(argv=None):
                   f"这些改动对生产端尚未生效，段边界须 --force 重冻结）：")
             for s in stale:
                 print(f"  {s}")
+        if excl:
+            print(f"ℹ 有意排除 {len(excl)} 项（不是缺陷，但每次出声——"
+                  f"排除是静默丢文件的机制，藏起来才危险）：")
+            for e in excl:
+                print(f"  {e}")
         return rc
     if not all([a.lane, a.model, a.effort, a.append_model_id]):
         raise SystemExit("建车道需同时给 --lane/--model/--effort/--append-model-id")
     lane_dir = setup(a.lane, a.model, a.effort, a.append_model_id, REPO, LANES_ROOT,
-                     force=a.force)
+                     force=a.force,
+                     freeze_exclude=(None if a.freeze_exclude is None
+                                     else [s for s in a.freeze_exclude.split(",") if s]))
     record(LANES_ROOT, REPO, force=a.force)
     print(f"{lane_dir}: 车道就绪，冻结哈希已记入 {_manifest_path(LANES_ROOT)}")
+    kept = lane_exclusions(lane_dir)
+    if kept:
+        print(f"  freeze_exclude（{'继承' if a.freeze_exclude is None else '本次指定'}）：{kept}")
     return 0
 
 

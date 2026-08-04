@@ -451,6 +451,11 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
    ⚠ **两条实操陷阱（seg1-s2 与 seg2-s3 各踩出一条）**：
    ① **漂移预检必须用 `diff -rq 仓库侧 车道拷贝`，不能用 `--verify` 代替**——`--verify`
       比对的是「车道拷贝 vs manifest」，**看不见仓库侧的改动**，此时它照报「无漂移」。
+      ✅ **2026-08-04 起已成闸**：`--verify` 每次都会在绿字后追加「⚠ 车道冻结拷贝落后于
+      仓库侧 N 处」清单（`lane_setup.stale_vs_repo`），落后**不判错、不改退出码**——段中途
+      仓库继续演进本就该不同，判错会训练人忽略它。手工 `diff -rq` 因此降为复核手段，不再是
+      唯一防线。首次跑即抓到两条车道各 6 处落后（`style.md` 16 行 ruby 口径、
+      `skeleton/anchors.yaml` 5 行锚点注音、4 份 voices 示范译例），此前两轮 `--verify` 全绿。
    ② **`--force` 单独给不够**：`lane_setup` 建/重建车道要求同时给
       `--lane/--model/--effort/--append-model-id`，取值照抄各车道现有 `lane.json`
       （opus: opus/max/claude-opus-5；fable: fable/high/claude-fable-5），否则直接报错退出。

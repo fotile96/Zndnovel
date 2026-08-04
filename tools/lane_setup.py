@@ -245,6 +245,38 @@ def verify(lanes_root=None, repo=None) -> list:
     return drift
 
 
+def stale_vs_repo(lanes_root=None, repo=None) -> list:
+    """车道冻结拷贝与仓库当前内容的差异清单（每条一个相对路径）。
+
+    **这不是漂移**：段中途仓库继续演进而车道保持冻结，本就该不同，故不进
+    `verify()` 的返回值、不影响退出码。但它必须被**播报**——译者读到的是车道
+    拷贝，仓库侧改了 `style.md`／`voices/` 而没重冻结时，新口径对生产端等于
+    不存在；而 `--verify` 比的是「车道 vs manifest」，**结构上看不见这一面**，
+    此时它照报「无漂移」。runbook §5 陷阱①要求人工补跑 `diff -rq` 来堵这个洞，
+    靠的是记忆——记忆会衰减，闸不会。2026-08-04 实测：仓库侧 `style.md` 已比
+    车道多 16 行 ruby 口径，两轮 `--verify` 全绿。
+    """
+    lanes_root = Path(lanes_root or LANES_ROOT)
+    repo_path = Path(repo or REPO)
+    out = []
+    for lane_dir in sorted(p for p in lanes_root.glob("*") if p.is_dir()):
+        for d in COPIED_DIRS:
+            lane_sub, repo_sub = lane_dir / d, repo_path / d
+            if not lane_sub.is_dir():
+                continue
+            for f in sorted(p for p in lane_sub.rglob("*") if p.is_file()):
+                rel = f.relative_to(lane_dir)
+                mirror = repo_path / rel
+                if not mirror.exists():
+                    out.append(f"{lane_dir.name}: {rel} 仓库侧已不存在（车道仍冻结着）")
+                elif sha256_file(f) != sha256_file(mirror):
+                    out.append(f"{lane_dir.name}: {rel} 仓库侧较新，车道拷贝落后")
+            for f in sorted(p for p in repo_sub.rglob("*") if p.is_file()):
+                if not (lane_dir / f.relative_to(repo_path)).exists():
+                    out.append(f"{lane_dir.name}: {f.relative_to(repo_path)} 仓库侧新增，未进车道")
+    return out
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser()
@@ -259,12 +291,23 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.verify:
         drift = verify(LANES_ROOT, REPO)
+        stale = stale_vs_repo(LANES_ROOT, REPO)
+        rc = 0
         if drift:
             for d in drift:
                 print(d)
-            return 1
-        print("冻结校验：无漂移")
-        return 0
+            rc = 1
+        else:
+            print("冻结校验：无漂移")
+        # 播报而不判错：见 stale_vs_repo 的 docstring。绿字后面跟这一段，正是为了
+        # 让「无漂移」不再被读成「车道内容与仓库一致」。
+        if stale:
+            print(f"⚠ 车道冻结拷贝落后于仓库侧 {len(stale)} 处"
+                  f"（**不是漂移**，段中途正常；但译者读的是车道拷贝，"
+                  f"这些改动对生产端尚未生效，段边界须 --force 重冻结）：")
+            for s in stale:
+                print(f"  {s}")
+        return rc
     if not all([a.lane, a.model, a.effort, a.append_model_id]):
         raise SystemExit("建车道需同时给 --lane/--model/--effort/--append-model-id")
     lane_dir = setup(a.lane, a.model, a.effort, a.append_model_id, REPO, LANES_ROOT,

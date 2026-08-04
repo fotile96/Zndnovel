@@ -525,3 +525,54 @@ def test_cross_lane_keys_includes_style_and_voices():
     from tools.lane_setup import CROSS_LANE_KEYS
     assert set(CROSS_LANE_KEYS) == {"cards_zh", "anchors", "active",
                                      "glossary_max", "style", "voices"}
+
+
+def test_stale_vs_repo_sees_what_verify_cannot(tmp_path):
+    """仓库侧改了 style.md 而未重冻结：verify 无漂移，stale_vs_repo 必须报出。
+
+    这一对断言是本用例的全部意义——只断言 stale 报了，不能证明它补上了
+    verify 看不见的那一面（runbook §5 陷阱①）。
+    """
+    from tools.lane_setup import stale_vs_repo
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (repo / "glossary" / "style.md").write_text("# 风格\n新增口径", encoding="utf-8")
+    assert verify(lanes, repo) == [], "仓库侧改动不该被算作车道漂移"
+    stale = stale_vs_repo(lanes, repo)
+    assert any("style.md" in s and "落后" in s for s in stale), stale
+
+
+def test_stale_vs_repo_quiet_when_lane_matches_repo(tmp_path):
+    from tools.lane_setup import stale_vs_repo
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    assert stale_vs_repo(lanes, repo) == []
+
+
+def test_stale_vs_repo_reports_repo_side_new_file(tmp_path):
+    from tools.lane_setup import stale_vs_repo
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (repo / "glossary" / "voices" / "chiaki.md").write_text("# 千秋", encoding="utf-8")
+    assert any("chiaki.md" in s and "新增" in s for s in stale_vs_repo(lanes, repo))
+
+
+def test_main_verify_prints_stale_block_but_still_exits_zero(tmp_path, monkeypatch, capsys):
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (repo / "glossary" / "style.md").write_text("# 风格\n新增口径", encoding="utf-8")
+    monkeypatch.setattr("tools.lane_setup.LANES_ROOT", lanes)
+    monkeypatch.setattr("tools.lane_setup.REPO", repo)
+    assert main(["--verify"]) == 0, "落后不是错误，退出码须仍为 0"
+    out = capsys.readouterr().out
+    assert "冻结校验：无漂移" in out
+    assert "落后于仓库侧 1 处" in out and "style.md" in out, \
+        "绿字必须伴随落后播报，否则「无漂移」会被读成「与仓库一致」"

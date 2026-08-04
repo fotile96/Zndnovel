@@ -478,6 +478,47 @@ def test_verify_stale_manifest_missing_keys_still_checks_keys_it_does_have(tmp_p
         "manifest 缺新键不能掩盖旧键（active）的真实漂移"
 
 
+def test_verify_reports_voices_anchors_content_mismatch(tmp_path):
+    """verify() 的第三层检查：glossary/voices 示范译例与 skeleton/anchors.yaml
+    定稿内容打架时必须被抓住——即便两份文件各自都没有"哈希漂移"（这层检查
+    与 record() 是否跑过、manifest 是否存在都无关，见 tools/
+    check_voices_anchors.py）。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    (repo / "skeleton" / "anchors.yaml").write_text(
+        "- chapter: global\n"
+        "  items:\n"
+        "    - id: 10\n"
+        '      zh: "【甲】「锚点定稿」"\n',
+        encoding="utf-8")
+    (repo / "glossary" / "voices" / "naoya.md").write_text(
+        "1. [10]【甲】「にほんご」\n"
+        "   → 【甲】「和定稿不同」\n",
+        encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert any("10" in d and "冲突" in d for d in drift)
+
+
+def test_verify_voices_anchors_check_does_not_false_positive_when_consistent(tmp_path):
+    """voices 示范译例与 anchors 定稿内容一致时，这层检查不能误报——正常流程
+    （setup → record → verify）走一遍必须全绿。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    (repo / "skeleton" / "anchors.yaml").write_text(
+        "- chapter: global\n"
+        "  items:\n"
+        "    - id: 10\n"
+        '      zh: "【甲】「一致内容」"\n',
+        encoding="utf-8")
+    (repo / "glossary" / "voices" / "naoya.md").write_text(
+        "1. [10]【甲】「にほんご」\n"
+        "   → 【甲】「一致内容」\n",
+        encoding="utf-8")
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    assert verify(lanes, repo) == []
+
+
 def test_cross_lane_keys_includes_style_and_voices():
     """CROSS_LANE_KEYS 是两条车道应当彼此相同的冻结基准清单——style/voices
     与 cards_zh/anchors/active/glossary_max 同属此类，必须一并纳入。"""

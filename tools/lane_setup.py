@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tools.check_voices_anchors import check as _check_voices_anchors
 from tools.pipelib import REPO, dumps, sha256_file
 
 LANES_ROOT = REPO / "pilot" / "lanes"
@@ -177,17 +178,30 @@ CROSS_LANE_KEYS = ("cards_zh", "anchors", "active", "glossary_max",
 def verify(lanes_root=None, repo=None) -> list:
     """比对已记录的冻结哈希与当前实际值，返回漂移描述（空列表＝无漂移）。
 
-    两层检查：①每条车道自比——当前实际哈希 vs 该车道 record() 时记下的值；
+    三层检查：①每条车道自比——当前实际哈希 vs 该车道 record() 时记下的值；
     ②跨车道互比——若两条车道分别在仓库术语变更前后 setup，各自的自比都会
     通过（各记各的），但两条车道的术语基准已经不同，正是 spec §0「术语泄漏」
-    要防的事，必须由①之外的检查单独抓住。
+    要防的事，必须由①之外的检查单独抓住；③仓库侧内容自洽——glossary/voices/
+    的示范译例与 skeleton/anchors.yaml 的定稿是否互相打架（tools/
+    check_voices_anchors.py），这层与哈希漂移无关（两份文件各自都可能"没有
+    漂移"却仍然彼此矛盾），只跑一次、查仓库侧而非各车道的冻结拷贝——两份都是
+    仓库同一时刻的内容，车道只是原样拷贝，自洽与否是仓库侧的属性。这一层与
+    manifest 是否存在无关，故放在下面的 mp.exists() 判断之前，任何时候
+    --verify 都会跑到。
     """
     lanes_root = Path(lanes_root or LANES_ROOT)
+    repo_path = Path(repo or REPO)
+    drift = []
+    voices_dir = repo_path / "glossary" / "voices"
+    anchors_path = repo_path / "skeleton" / "anchors.yaml"
+    if voices_dir.is_dir() and anchors_path.exists():
+        mismatches, _n = _check_voices_anchors(voices_dir, anchors_path)
+        drift.extend(mismatches)
     mp = _manifest_path(lanes_root)
     if not mp.exists():
-        return ["pilot-manifest.json 不存在——尚未记录冻结哈希"]
+        drift.append("pilot-manifest.json 不存在——尚未记录冻结哈希")
+        return drift
     recorded = json.loads(mp.read_text(encoding="utf-8"))["lanes"]
-    drift = []
     healthy = {}  # lane -> got，只收完整读出哈希的车道，供下面跨车道比对用
     for lane, want in recorded.items():
         try:

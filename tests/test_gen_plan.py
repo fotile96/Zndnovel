@@ -905,3 +905,77 @@ def test_main_session_size_defaults_to_1(tmp_path, monkeypatch):
     (tmp_path / "docs" / "superpowers" / "plans").mkdir(parents=True)
     G.main(["--lane", "main", "--batches", "1-3", "--label", "probe"])
     assert seen["session_size"] == 1, "main() 默认必须是逐批模式"
+
+
+# ---- 会话组 Step 1 的结构性错误修正（SEG-3 生产会话实战提出）----
+# 后批的 ctx 前缀正文取自 forward.jsonl，而整组开跑时后面几批还没入线，
+# 「一次性生成全组各批 ctx」在正常模式下必然失败/残缺。生产会话的绕过方案
+# （用户已裁决采用）：后续批用 --jp-fallback 只为让 source.jsonl 就位，
+# 译者不读这些批的 context.md，每批入库前再以正常模式重生成 ctx 取真 ctx_sha。
+
+
+def _cmd_lines(text):
+    """计划文本里的命令行（正文里提到 `--jp-fallback` 三个字不算命令）。"""
+    return [l for l in text.splitlines()
+            if l.startswith("`uv run") or l.startswith("Run: `")]
+
+
+def test_session_step1_jp_fallback_only_on_non_first_batches():
+    t = _sess()   # 批次 7（首）、8
+    assert "build_context.py --batch 7 --profile cc --baseline none" \
+           " --repo pilot/lanes/opus`" in t                       # 首批无 fallback
+    assert "build_context.py --batch 8 --profile cc --baseline none" \
+           " --repo pilot/lanes/opus --jp-fallback`" in t          # 后续批有
+    # 只有「后续批」那一条命令带 fallback：只数命令行，不数正文里的说明字样
+    assert [c for c in _cmd_lines(t) if "--jp-fallback" in c] == [
+        "`uv run python tools/build_context.py --batch 8 --profile cc"
+        " --baseline none --repo pilot/lanes/opus --jp-fallback`"]
+
+
+def test_session_step1_explains_why_jp_fallback():
+    """计划要自解释：不写理由，下一个生产会话就得重新发明一遍这套绕过。"""
+    t = _sess()
+    assert "为什么后续批要加 `--jp-fallback`" in t      # 理由自身要在场，不只是结论
+    assert "还没入线" in t                              # 说清根因：后批前缀依赖前批译文
+    assert "只为让该批 `source.jsonl` 就位" in t
+    assert "与 fallback 与否无关" in t
+    assert "不留 fallback 残迹" in t
+
+
+def test_session_step2_forbids_reading_rest_context_md():
+    t = _sess()
+    assert "其余批的 `context.md` 一律不得读取" in t
+    assert "〔未译" in t                                            # 点名占位符长什么样
+
+
+def test_session_each_batch_regenerates_ctx_before_append():
+    """每批入库前先以正常模式重生成 ctx——取真 ctx_sha，覆盖 fallback 档案。"""
+    t = _sess()
+    for n in (7, 8):
+        # 切到 append_forward 的**命令行**为止（正文里也会提到 append_forward）
+        seg = t.split(f"**Step 3.{n}:")[1].split("append_forward.py")[0]
+        assert f"build_context.py --batch {n} --profile cc --baseline none" \
+               f" --repo pilot/lanes/opus`" in seg                  # 重生成、且不带 fallback
+        assert not [c for c in _cmd_lines(seg) if "--jp-fallback" in c]
+        assert seg.index(f"build_context.py --batch {n}") \
+            < seg.index(f"check_batch.py --batch {n}")              # 在校验之前
+    assert "严格按批号顺序" in t
+
+
+def test_session_regen_step_refuses_fallback_workaround():
+    t = _sess()
+    assert "不许加 `--jp-fallback` 绕过" in t
+    assert "漏了 `append_forward`" in t
+
+
+def test_session_size_1_unaffected_by_jp_fallback_change(tmp_path):
+    """逐批模式（--session-size 1）输出里不得出现任何 --jp-fallback 字样。"""
+    from tools.gen_plan import render
+    sel = [{"batch": n, "chapter": "s1s", "ids": [n], "jp_chars": 10, "lane": "main"}
+           for n in (1, 2, 3)]
+    for lane_cfg in (None, {"lane": "opus", "lane_dir": "pilot/lanes/opus",
+                            "model": "opus", "effort": "max",
+                            "append_model_id": "claude-opus-5"}):
+        md = render(sel, label="x", lane="main", session_size=1, lane_cfg=lane_cfg)
+        assert "--jp-fallback" not in md
+        assert "会话组" not in md

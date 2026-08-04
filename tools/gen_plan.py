@@ -328,22 +328,32 @@ def _session_task(tnum, batches, baseline, glossary_v, p, thresholds_arg="",
 > （spec §3.3），故后续批仍每批重投 `style.md`+`active.json`，并由 W4 机械闸
 > 兜住复现句族一致性。
 
-- [ ] **Step 1: 生成全部批次的上下文包**
+- [ ] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
+
+> **为什么后续批要加 `--jp-fallback`**：后批 `context.md` 的前缀正文取自 `{p["forward"]}`，
+> 而整组开跑时后面几批的前置译文**还没入线**，正常模式必然报「前缀行 N 未译」。
+> 这一步给后续批出包**只为让该批 `source.jsonl` 就位**——`source.jsonl` 只由
+> `data/batches.jsonl` + ledger 决定，与 fallback 与否无关、逐字相同。
+> 这些 fallback 档案的 `context.md` 与 `ctx_sha` 一律**不作数**，会在各自的
+> Step 3.N 开头以正常模式重生成并覆盖，**审计链里不留 fallback 残迹**。
 
 Run（逐批执行，ctx 照常入档）：
 """
     for b in batches:
+        fb = "" if b["batch"] == first["batch"] else " --jp-fallback"
         head += (f"\n`uv run python {p['tools']}/build_context.py --batch {b['batch']}"
-                 f" --profile cc --baseline {baseline}{p['repo_arg']}`")
+                 f" --profile cc --baseline {baseline}{p['repo_arg']}{fb}`")
     head += f"""
 
-Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每批 `manifest.json` 的 `ctx_sha`（入库要用）。
+Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首批 {first["batch"]} 的 `ctx_sha` 现在有效**（它的前缀是真译文，也正是译者要读的那份）；其余批的 `ctx_sha` 以 Step 3.N 重生成后的值为准，不要用这一步的输出去 append。
 
 **开工前硬检查**：确认 {ns} 各批 `manifest.json` 的 `glossary_v` **全部相同**。不同即说明本组跨越了 glossary 版本变更，**必须拆组重生成**（spec §4.3：对话里规则书只投一次，跨版本即过期）。
 
 - [ ] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 {len(batches)} 批**
 
 注入：车道根、批次序列 {ns}、以及「首批 {first['batch']} 读全量 `{p['ctx']}/batch_{first['batch']}/context.md`，其余批只读 {rest_srcs} + `{lane_root}/glossary/style.md` + `{lane_root}/glossary/active.json`」。
+
+**明令译者：除首批外，其余批的 `context.md` 一律不得读取。** 会话模式本就不读它，而 Step 1 给这些批出的是 `--jp-fallback` 档案——第二节前缀里带 `〔未译|…〕` 占位，读了只会把占位当既有译文去对齐。
 
 每批译完即走 Step 3 的三件校验并入库，再进入下一批。
 """
@@ -357,8 +367,16 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`；记下每�
 Run: `{p['env']}uv run python {p['tools']}/detect_collapse.py --batch {n}{p['lane_dir_arg']}{thresholds_arg}`
 Expected: `batch_{n}: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接入库；K>0 时打开 `{p['out']}/batch_{n}.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回本组的翻译环节重出该批译文、重跑本步与上一步。把命中数（按 C1/C2/C3 分类）记进本批记录，供{"段末流程" if segment else "检查点"}汇总参考。"""
                     if p["lane_dir_arg"] else "")
+        # 首批的重生成是恒等重跑（Step 1 出它时本就是正常模式）。仍照跑：每批
+        # 同形，操作者不必临场判断哪批该跑，也就不会跑漏真正需要重生成的那些批。
+        identity = ("本批即本组首批，这里是**恒等重跑**（Step 1 出它时就是正常模式），"
+                    "照跑即可——每批同形，免得临场判断哪批该跑。"
+                    if n == first["batch"] else "")
         head += f"""
-- [ ] **Step 3.{n}: 批次 {n} 校验与入库**
+- [ ] **Step 3.{n}: 批次 {n} 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+
+Run: `uv run python {p["tools"]}/build_context.py --batch {n} --profile cc --baseline {baseline}{p["repo_arg"]}`
+Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 {n} 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。{identity}若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
 
 Run: `{p["env"]}uv run python {p["tools"]}/check_batch.py --batch {n}{p["lane_dir_arg"]}`
 Expected: `batch_{n}: PASS  warn=K`（`hard=0` 即可）。若输出 `FAIL`，按 `{p["out"]}/batch_{n}.check.json` 逐条修回本批 `draft.jsonl`，重跑本步直到 PASS。**若打印「⚠ W4 未启用」说明复现句族一致性没被检查**——补 `--lane-dir` 重跑，不要把它当成通过。{collapse}

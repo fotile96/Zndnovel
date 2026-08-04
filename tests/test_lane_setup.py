@@ -20,6 +20,9 @@ def _repo(tmp_path):
     (d / "glossary" / "active.json").write_text('{"a":"啊"}', encoding="utf-8")
     (d / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (d / "glossary" / "glossary.v6.yaml").write_text("version: 6", encoding="utf-8")
+    (d / "glossary" / "voices").mkdir()
+    (d / "glossary" / "voices" / "naoya.md").write_text("# 直哉口调", encoding="utf-8")
+    (d / "glossary" / "voices" / "ayano.md").write_text("# 彩野口调", encoding="utf-8")
     return d
 
 
@@ -59,7 +62,8 @@ def test_freeze_hashes_covers_the_frozen_set(tmp_path):
     lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
                      lanes_root=tmp_path / "lanes")
     h = freeze_hashes(lane_dir, repo)
-    assert set(h) == {"batches", "cards_zh", "anchors", "active", "glossary_max"}
+    assert set(h) == {"batches", "cards_zh", "anchors", "active", "glossary_max",
+                       "style", "voices"}
     assert all(isinstance(v, str) and len(v) == 64 for v in h.values())
 
 
@@ -353,3 +357,130 @@ def test_verify_continues_checking_remaining_lanes_after_one_is_corrupted(tmp_pa
     assert any("fable" in d for d in drift), "损坏车道自身须报出"
     assert any("opus" in d for d in drift), \
         "损坏车道之后的车道也须被继续检查——若此断言失败，说明 verify() 遇坏车道就提前退出了"
+
+
+def test_verify_detects_drift_in_style(tmp_path):
+    """glossary/style.md 整篇渲染进 context.md 第四节、译者直接照做——必须在
+    冻结集里，漂移了 verify() 须能抓住。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (lanes / "opus" / "glossary" / "style.md").write_text(
+        "# 风格（改过）", encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert drift and any("style" in d for d in drift)
+
+
+def test_verify_detects_drift_in_voices_file_content(tmp_path):
+    """voices/ 下某份角色口调表内容被改——目录哈希须变化，verify() 须抓住。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    (lanes / "opus" / "glossary" / "voices" / "naoya.md").write_text(
+        "# 直哉口调（改过）", encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert drift and any("voices" in d for d in drift)
+
+
+def test_freeze_hashes_voices_dir_hash_changes_on_rename_with_same_content(tmp_path):
+    """只哈希文件内容会漏掉改名/增删文件：把 naoya.md 改名为 naoya2.md（内容
+    不变）必须让 voices 哈希改变，否则说明目录哈希没把文件名纳入摘要。"""
+    repo = _repo(tmp_path)
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=tmp_path / "lanes")
+    before = freeze_hashes(lane_dir, repo)["voices"]
+    voices = lane_dir / "glossary" / "voices"
+    (voices / "naoya.md").rename(voices / "naoya2.md")
+    after = freeze_hashes(lane_dir, repo)["voices"]
+    assert before != after, "重命名文件（内容不变）必须改变 voices 目录哈希"
+
+
+def test_freeze_hashes_voices_dir_hash_changes_on_added_file(tmp_path):
+    """voices/ 下新增一份口调表（如新角色）必须让目录哈希改变。"""
+    repo = _repo(tmp_path)
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=tmp_path / "lanes")
+    before = freeze_hashes(lane_dir, repo)["voices"]
+    (lane_dir / "glossary" / "voices" / "yuichi.md").write_text(
+        "# ユウイチ口调", encoding="utf-8")
+    after = freeze_hashes(lane_dir, repo)["voices"]
+    assert before != after, "新增文件必须改变 voices 目录哈希"
+
+
+def test_verify_detects_cross_lane_style_mismatch(tmp_path):
+    """两条车道若在仓库 style.md 变更前后分别 setup，各自的自比都会通过，
+    但风格基准已经不同——跨车道检查须抓住（spec §0「术语泄漏」的同类问题）。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    (repo / "glossary" / "style.md").write_text("# 风格（改过）", encoding="utf-8")
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    drift = verify(lanes, repo)
+    assert drift, "两条车道 style.md 冻结快照不同，必须报漂移"
+    assert any("跨车道" in d and "style" in d for d in drift)
+
+
+def test_verify_detects_cross_lane_voices_mismatch(tmp_path):
+    """同上，换成 voices/ 目录：两条车道口调表基准不同必须被跨车道检查抓住。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
+    (repo / "glossary" / "voices" / "naoya.md").write_text(
+        "# 直哉口调（改过）", encoding="utf-8")
+    setup("fable", "fable", "high", "claude-fable-5", repo=repo, lanes_root=lanes)
+    record(lanes, repo)
+    drift = verify(lanes, repo)
+    assert drift, "两条车道 voices/ 冻结快照不同，必须报漂移"
+    assert any("跨车道" in d and "voices" in d for d in drift)
+
+
+def test_verify_flags_stale_manifest_missing_new_freeze_keys(tmp_path):
+    """向后兼容场景：manifest 是旧版 freeze_hashes（只有 5 个键）留下的记录，
+    没有 style/voices。verify() 遇到"记录的键集合是当前键集合的真子集"时，
+    不得静默放行（否则新增的 style/voices 校验对所有存量车道形同虚设），
+    也不该直接崩——须给出明确、可操作（提示重新冻结）的漂移描述。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=lanes)
+    old_style_hashes = {k: v for k, v in freeze_hashes(lane_dir, repo).items()
+                        if k not in ("style", "voices")}
+    (lanes / "pilot-manifest.json").write_text(
+        json.dumps({"lanes": {"opus": old_style_hashes}}, ensure_ascii=False),
+        encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert drift, "manifest 缺 style/voices 键时不得报「无漂移」"
+    assert any("style" in d for d in drift) and any("voices" in d for d in drift), \
+        "须明确点名缺失的键（style、voices），而不是笼统一句话"
+    assert any("--force" in d or "force" in d for d in drift), \
+        "须提示可操作的修复方式（重新冻结）"
+
+
+def test_verify_stale_manifest_missing_keys_still_checks_keys_it_does_have(tmp_path):
+    """manifest 缺新键的同时，旧键（如 active）也确实漂移了——两类问题都要报，
+    缺键提示不能掩盖既有键的真实漂移。"""
+    repo = _repo(tmp_path)
+    lanes = tmp_path / "lanes"
+    lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo,
+                     lanes_root=lanes)
+    old_style_hashes = {k: v for k, v in freeze_hashes(lane_dir, repo).items()
+                        if k not in ("style", "voices")}
+    (lanes / "pilot-manifest.json").write_text(
+        json.dumps({"lanes": {"opus": old_style_hashes}}, ensure_ascii=False),
+        encoding="utf-8")
+    (lanes / "opus" / "glossary" / "active.json").write_text(
+        '{"a":"改了"}', encoding="utf-8")
+    drift = verify(lanes, repo)
+    assert any("active" in d for d in drift), \
+        "manifest 缺新键不能掩盖旧键（active）的真实漂移"
+
+
+def test_cross_lane_keys_includes_style_and_voices():
+    """CROSS_LANE_KEYS 是两条车道应当彼此相同的冻结基准清单——style/voices
+    与 cards_zh/anchors/active/glossary_max 同属此类，必须一并纳入。"""
+    from tools.lane_setup import CROSS_LANE_KEYS
+    assert set(CROSS_LANE_KEYS) == {"cards_zh", "anchors", "active",
+                                     "glossary_max", "style", "voices"}

@@ -11,6 +11,7 @@
 `skeleton/`、`glossary/` 冻结拷贝、指向仓库的符号链接）——见仓库根
 `.gitignore` 里 `pilot/lanes/*/...` 那几条。
 """
+import hashlib
 import json
 import shutil
 import sys
@@ -37,6 +38,29 @@ def _glossary_max_path(root: Path) -> Path:
     if not cands:
         raise FileNotFoundError(f"{root}/glossary 下没有 glossary.v*.yaml")
     return max(cands)[1]
+
+
+def _sha256_dir(path) -> str:
+    """glossary/voices/ 这类目录的确定性哈希：按文件名排序后逐份把「文件名 +
+    内容」都喂进同一个 sha256。只哈希内容不够——把某份口调表整个删掉，或把
+    一份内容不变的文件改名（如 naoya.md → naoya2.md），纯内容拼接哈希会认不
+    出区别（删掉一份 8000 字的文件、换成另一份恰好等长同内容的文件这种巧合
+    虽罕见，但"文件集合变了、拼接内容的哈希没变"这类情况必须能被捕捉，工程
+    上最简单可靠的办法就是把文件名一并纳入摘要）。每条记录前加长度前缀
+    （8 字节大端），避免"文件名/内容边界"因拼接产生的歧义（如 "ab"+"c" 与
+    "a"+"bc" 不应撞成同一个哈希）。"""
+    path = Path(path)
+    if not path.is_dir():
+        raise FileNotFoundError(f"{path} 不是目录（或不存在）")
+    h = hashlib.sha256()
+    for p in sorted(path.glob("*.md")):
+        name = p.name.encode("utf-8")
+        data = p.read_bytes()
+        h.update(len(name).to_bytes(8, "big"))
+        h.update(name)
+        h.update(len(data).to_bytes(8, "big"))
+        h.update(data)
+    return h.hexdigest()
 
 
 def setup(lane, model, effort, append_model_id, repo=None, lanes_root=None,
@@ -70,7 +94,13 @@ def setup(lane, model, effort, append_model_id, repo=None, lanes_root=None,
 
 def freeze_hashes(lane_dir, repo=None) -> dict:
     """冻结集的哈希：batches 取仓库侧（两条车道共享同一份批次规划），
-    其余四项取车道内的拷贝（各车道各自冻结，理应彼此相同）。"""
+    其余六项取车道内的拷贝（各车道各自冻结，理应彼此相同）。
+
+    style/voices 是 build_context.py 整篇渲染进 context.md 第四节、译者直接
+    照做的规则书（style.md 全文 + voices/ 全部角色口调表），且其哈希本就写进
+    每批 manifest.json（build_context.py 的 "voices" 键）——冻结校验若不覆盖
+    它们，规则书可以随意漂移而 --verify 永远报「无漂移」，等于闸门对着译者
+    实际读的东西是瞎的。voices/ 是目录，用 _sha256_dir（而非 sha256_file）。"""
     repo, lane_dir = Path(repo or REPO), Path(lane_dir)
     return {
         "batches": sha256_file(repo / "data" / "batches.jsonl"),
@@ -78,6 +108,8 @@ def freeze_hashes(lane_dir, repo=None) -> dict:
         "anchors": sha256_file(lane_dir / "skeleton" / "anchors.yaml"),
         "active": sha256_file(lane_dir / "glossary" / "active.json"),
         "glossary_max": sha256_file(_glossary_max_path(lane_dir)),
+        "style": sha256_file(lane_dir / "glossary" / "style.md"),
+        "voices": _sha256_dir(lane_dir / "glossary" / "voices"),
     }
 
 
@@ -132,10 +164,14 @@ def record(lanes_root=None, repo=None, force=False) -> dict:
     return merged
 
 
-# 跨车道一致性检查覆盖的键：cards_zh/anchors/active/glossary_max 是"应当彼此
-# 相同"的冻结基准（batches 不列入——batches.jsonl 本就是仓库共享的单一文件，
-# 不存在"两条车道各自一份"的概念，見 freeze_hashes 的 docstring）。
-CROSS_LANE_KEYS = ("cards_zh", "anchors", "active", "glossary_max")
+# 跨车道一致性检查覆盖的键：cards_zh/anchors/active/glossary_max/style/voices
+# 是"应当彼此相同"的冻结基准（batches 不列入——batches.jsonl 本就是仓库共享
+# 的单一文件，不存在"两条车道各自一份"的概念，見 freeze_hashes 的 docstring）。
+# style/voices 与前四项同理：都是各车道各自拷贝冻结、理应彼此相同的规则书
+# （style.md 风格与润色尺度、voices/ 角色口调表），漏掉就是给术语/风格泄漏
+# 开后门。
+CROSS_LANE_KEYS = ("cards_zh", "anchors", "active", "glossary_max",
+                   "style", "voices")
 
 
 def verify(lanes_root=None, repo=None) -> list:
@@ -164,9 +200,21 @@ def verify(lanes_root=None, repo=None) -> list:
             drift.append(f"{lane}: 冻结文件缺失或车道损坏（{e}）")
             continue
         healthy[lane] = got
+        # want 曾经必定与 got 同键集（freeze_hashes 正常返回时二者键集相等）；
+        # 但 freeze_hashes 后续加过新键（如本次的 style/voices）后，存量 manifest
+        # 里记录的 want 会是当前 got 键集的真子集——这不是"没有漂移"，而是
+        # "这些新键从来没被这条车道校验过"，必须显式报出并给可操作的修复方式，
+        # 不能因为 want.items() 遍历不到就悄悄放过（那样新增的冻结项对所有
+        # 存量车道形同虚设，等于把同一个"闸门永远报绿"的洞换了个地方）。
+        missing_keys = sorted(set(got) - set(want))
+        if missing_keys:
+            drift.append(
+                f"{lane}: manifest 缺少冻结键 {missing_keys}——这些项从未被"
+                f"校验过（不代表未漂移，只是从来没查）。请对该车道重新冻结："
+                f"跑 `python tools/lane_setup.py --lane {lane} --model <model> "
+                f"--effort <effort> --append-model-id <id> --force`（或直接调用 "
+                f"record(force=True)）补齐后再校验。")
         for k, v in want.items():
-            # got 此刻要么完整覆盖 want 的键集（freeze_hashes 正常返回），要么已在
-            # 上面 except 分支被拦下——不存在"部分键缺失"的中间态，故直接 got[k]。
             if got[k] != v:
                 drift.append(f"{lane}: {k} 漂移（记录 {v[:12]}… 实际 {got[k][:12]}…）")
     lanes_sorted = sorted(healthy)

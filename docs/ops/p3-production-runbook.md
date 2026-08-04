@@ -476,6 +476,8 @@ CLI 开关能改路径**（`ledger_path` 只是给测试注入的函数参数）
    **冻结骨架压过了前缀里的历史文本**——但这层保护依赖「旧译法恰好被 glossary 覆盖」，
    一旦某条回改的理由是纯语感/纯本地化（产生不了任何可登记词条），保护就不存在。
    译者看得见的面**只有三个**：`active.json`、`style.md`、`voices/*.md`
+   （`glossary/style_refine.md` 是 2026-08-04 新增的**汉语母语感细则**，**刻意不在这三面里**——
+   用户裁定 opus 本轮不接入，最早用于 fable 车道与润色轨；接入方式与代价见该文件 §7）
    （`build_context._render` 的注入面；`glossary.vN.yaml` 与 anchors 之外的 skeleton **不**进 context.md）。
    三面都无处安放的回改，**须在 `pilot/lanes/<lane>/data/notes/<chapter>.md` 追加显式记录**
    （id、旧译、新译、一句话理由，并注明「旧文本作废、勿沿用」）。

@@ -13541,3 +13541,4 @@
 {"id":17030,"zh":"片段模式：章节６已完结。","batch":150,"backend":"cc","model":"claude-opus-5","ctx":"54368fbc1d11e518445889a98f9e1bb43c249959b1fe2fcf9159b1aa3bee5595","glossary_v":11,"ts":"2026-08-04T17:51:55+00:00"}
 {"id":17031,"zh":"彩野的故事已完结。","batch":150,"backend":"cc","model":"claude-opus-5","ctx":"54368fbc1d11e518445889a98f9e1bb43c249959b1fe2fcf9159b1aa3bee5595","glossary_v":11,"ts":"2026-08-04T17:51:55+00:00"}
 {"id":17032,"zh":"【■通知】游戏菜单中追加了『章节７』。","batch":150,"backend":"cc","model":"claude-opus-5","ctx":"54368fbc1d11e518445889a98f9e1bb43c249959b1fe2fcf9159b1aa3bee5595","glossary_v":11,"ts":"2026-08-04T17:51:55+00:00"}
+{"id":723,"zh":"≪关键词卡片≫","batch":151,"backend":"cc","model":"claude-opus-5","ctx":"a1716781dc43a85773b3a9153ab754d91e34e1c021e908c732b077ad34676404","glossary_v":11,"ts":"2026-08-04T17:52:12+00:00"}

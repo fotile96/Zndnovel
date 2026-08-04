@@ -1,5 +1,5 @@
 """提案预聚类：notes/*.md 散提案 → 按词族聚合的裁决卷宗（P3 spec §4 新工具）。"""
-from tools.cluster_notes import parse_notes, cluster, extract_terms
+from tools.cluster_notes import parse_notes, cluster, extract_terms, item_terms
 from tools.saturation import is_clean_key
 
 NOTES = """# 术语提案 · s1s（opus 车道）
@@ -241,3 +241,122 @@ def test_main_renders_dossier(tmp_path, capsys):
     assert rc == 0
     assert "寝癖" in out and "可裁决" in out          # 1/1 覆盖 → ratio 1.0 ≥ gate
     assert "（未归词）" in out
+
+
+# ---- 长对话（会话组）模式：容器标题之下的有序列表提案 ----
+# 逐批 notes 一词一标题；长对话 notes 一批一节，提案落在
+# `### 5. 术语提案（留给术语委员会）` 之下的有序列表里，标题一个词都没有。
+# SEG-3 段末实测：s4s/s4fa/s4fb 的 34 条真提案在卷宗里一条都不成词。
+
+CONTAINER = """## batch 115
+
+### 5. 术语提案（留给术语委员会）
+
+1. **`エンドロール`→片尾字幕**（12985，全库首次）。本句是比喻——
+   建议登记为定译。
+2. **`苦手` 建议进「按义二分词」表**：默认读**不擅长**（7222）；另一读**害怕**
+   （对象是恐怖或生理性厌恶物，11658、本批 12714 `雷は苦手`）。
+3. **首次出现、建议登记的一般名词**（全库此前无译例）：`銀婚式`→**银婚纪念**（12536）｜`シュノーケル`→**呼吸管**（12668）｜`ココア`→**可可**（12507）
+4. **`まいった／参った`→统一「真伤脑筋」**（本批四处）。
+5. **`【千秋】「はい」` 的分治口径**：肯定/确认前句→**「是」**；应承提议→**「好的」**。
+
+### 6. 自查记录
+
+| 批 | 行数 |
+|---|---|
+| 115 | 374 |
+"""
+
+
+def test_container_list_items_become_proposals():
+    ps = parse_notes(CONTAINER, "s4fb")
+    nums = [p["num"] for p in ps]
+    assert nums == ["5.1", "5.2", "5.3", "5.4", "5.5", 6]   # 容器标题 5 自身不成条
+    assert all(p["batch"] == 115 and p["chapter"] == "s4fb" for p in ps)
+    assert ps[0]["terms"] == ["エンドロール"]
+    assert "建议登记为定译" in ps[0]["body"]                # 续行归本条，不丢
+
+
+def test_container_heading_itself_never_becomes_a_term_family():
+    """「术语提案（留给术语委员会）」「自查记录」是分节名，不该成词族/成条。"""
+    ps = parse_notes(CONTAINER, "s4fb")
+    assert not any("术语提案" in str(p["title"]) for p in ps)
+    c = cluster(ps)
+    assert not any("术语提案" in k or "自查" in k for k in c)
+
+
+def test_item_terms_structural_criterion():
+    # (a) 粗体内的反引号片段
+    assert item_terms("**`エンドロール`→片尾字幕**（12985）。") == ["エンドロール"]
+    # (b) 反引号片段后紧跟 →**译文**（并列写法，一条列表项多个词）
+    assert item_terms("**一般名词**：`銀婚式`→**银婚纪念**｜`ココア`→**可可**") \
+        == ["銀婚式", "ココア"]
+    # 两条都不满足 = 正文里随手引用的原文，不成词
+    assert item_terms("默认读**不擅长**；另一读**害怕**（11658、12714 `雷は苦手`）。") == []
+    assert item_terms("（13137 `現実が物語のストーリーを追う`→「现实追着情节」）") == []
+    # 并列分隔与说话人标签
+    assert item_terms("**`まいった／参った`→统一「真伤脑筋」**") == ["まいった", "参った"]
+    assert item_terms("**`【千秋】「はい」` 的分治口径**：肯定→**「是」**") == ["はい"]
+
+
+def test_container_item_multi_term_all_clustered():
+    ps = parse_notes(CONTAINER, "s4fb")
+    c = cluster(ps)
+    for k in ("エンドロール", "苦手", "銀婚式", "シュノーケル", "ココア",
+              "まいった", "参った", "はい"):
+        assert len(c[k]) == 1, k
+    assert "雷は苦手" not in c            # 正文引用不成词
+
+
+PLAIN = """## batch 4
+
+### 1. 寝癖 → 睡翘的头发
+- id 7327
+
+### 2. 处理步骤（散文编号列表，不是提案）
+
+1. 先核对 id 集合。
+2. 再跑 check_batch。
+3. 最后入库。
+"""
+
+
+def test_plain_ordered_list_without_convention_is_left_as_body():
+    """无「反引号原文＋粗体译文」约定的编号列表照旧只当正文——
+    这是逐批模式不受影响的结构性保证（不靠关键词白名单）。"""
+    ps = parse_notes(PLAIN, "s1s")
+    assert [p["num"] for p in ps] == [1, 2]
+    assert "先核对 id 集合" in ps[1]["body"]
+    assert ps[1]["terms"] == []
+
+
+def test_batchwise_notes_parse_byte_identical():
+    """逐批体 notes 的解析结果逐字不变（回归闸：新分支恒等映射）。"""
+    ps = parse_notes(NOTES, "s1s")
+    assert [(p["num"], p["title"], p["terms"], p["body"], p["batch"]) for p in ps] == [
+        (1, "寝癖 → 睡翘的头发（**跨轨复现**）", ["寝癖"], "- id 7327、7329\n- 理由：略。\n\n", 4),
+        (2, "菜单名的拉丁形态需要一条形态判据", [], "- id 6632\n\n", 4),
+        # 末条 body 多吞一个空行是既有行为（`## batch` 行只更新批号、不断开 body），
+        # 这里照实钉住——回归闸的意义在于「不变」，不在于「好看」。
+        (3, "『ことば』(7302) → 『话语』", ["ことば"], "- 建议沿用。\n\n\n", 4),
+        (1, "海馬 / 内嗅皮質 → 海马体 / 内嗅皮质", ["海馬", "内嗅皮質"], "- id 6351\n\n", 7),
+        (2, "★存疑（非术语）：7374 的行宽警告", [], "- 不是术语。\n\n", 7),
+        (3, "寝癖 → 头发睡翘了", ["寝癖"], "- 又一处。\n", 7),
+    ]
+
+
+def test_container_with_own_term_in_title_keeps_both():
+    """标题自带词（`### 6. 术语提案｜`カウンター` 建议…` 实况）时标题不被吞掉。"""
+    ps = parse_notes(
+        "## batch 1\n\n### 6. `カウンター` → 吧台\n\n"
+        "1. **`ウイスキー`→威士忌**（13268）。\n", "s4fb")
+    assert [p["num"] for p in ps] == [6, "6.1"]
+    assert ps[0]["terms"] == ["カウンター"] and ps[1]["terms"] == ["ウイスキー"]
+
+
+def test_container_intro_prose_is_not_dropped():
+    ps = parse_notes(
+        "## batch 1\n\n### 5. 术语提案\n\n本节共 1 条，均为全库首次。\n\n"
+        "1. **`ウイスキー`→威士忌**（13268）。\n", "s4fb")
+    assert [p["num"] for p in ps] == ["5.1"]
+    assert "本节共 1 条" in ps[0]["body"]

@@ -30,6 +30,28 @@ DESC_PREFIX_RE = re.compile(r"^[^：:]{0,20}[：:]\s*")
 SPLIT_RE = re.compile(r"[/／]")
 UNKEYED = "（未归词）"
 
+# ---- 容器标题 + 列表项提案（长对话／会话组模式的 notes 书写结构）----
+# 逐批模式的 notes 是「一词一标题」（`### 1. 作業記憶 → 工作记忆`），extract_terms
+# 从标题里抠词即可。长对话模式改成「一批一节、按主题分小节」：提案落在**容器标题**
+# （`### 5. 术语提案（留给术语委员会）`）之下的有序列表里，标题本身一个词都没有——
+# SEG-3 段末实测，s4s/s4fa/s4fb 三份 notes 里的 34 条真提案在卷宗中一条都不成词，
+# 裁决会话只能人工逐节读 notes 兜底。
+#
+# 判据取书写约定的**结构**，不猜「像不像术语提案」：这些 notes 里反引号 = 原文、
+# 粗体 = 译文或提案头。一个反引号片段算词项，当且仅当
+#   (a) 它落在某个 `**…**` 粗体片段内——提案头写法 **`エンドロール`→片尾字幕**；或
+#   (b) 其后紧跟 `→` 且箭头右侧紧接粗体——并列写法 `銀婚式`→**银婚纪念**｜`ココア`→**可可**。
+# 正文里随手引用的原文（`雷は苦手`、`現実が物語のストーリーを追う…`）两条都不满足，
+# 自然被排除；有序列表若一条都不满足（纯散文编号列表），整节照旧只当正文，
+# **逐批模式的 notes 因此逐字不受影响**。
+LIST_ITEM_RE = re.compile(r"^(\d+)\.\s+(.*)$")
+BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+TICK_RE = re.compile(r"`([^`]+)`")
+# 反引号片段 → 粗体：并列写法里「原文→译文」的那个译文一律加粗，这是判据 (b)。
+PAIR_RE = re.compile(r"`[^`]+`\s*→\s*\*\*")
+# 说话人标签：`【千秋】「はい」` 这类提案的词是 はい，【千秋】是标签不是词。
+SPEAKER_RE = re.compile(r"^【[^】]*】")
+
 
 def extract_terms(title: str) -> list:
     t = re.sub(r"^\d+\.\s*", "", title)
@@ -40,6 +62,53 @@ def extract_terms(title: str) -> list:
         return []
     left = DESC_PREFIX_RE.sub("", STRIP_RE.sub("", t.split("→", 1)[0]).strip())
     return [w.strip() for w in SPLIT_RE.split(left.replace("★", "")) if w.strip()]
+
+
+def item_terms(text: str) -> list:
+    """列表项里的词项：粗体内的反引号片段 ∪ 后接 `→**` 的反引号片段（判据见上）。"""
+    bolds = [(m.start(1), m.end(1)) for m in BOLD_RE.finditer(text)]
+    terms = []
+    for m in TICK_RE.finditer(text):
+        in_bold = any(a <= m.start(1) and m.end(1) <= b for a, b in bolds)
+        if not (in_bold or PAIR_RE.match(text, m.start())):
+            continue
+        # 反引号内已是纯原文，不再套 DESC_PREFIX_RE：那条是给标题体准备的
+        # （「首译定名：意識」），套在 `０：００` 这类含冒号的原文上反而把左半截吃掉。
+        raw = STRIP_RE.sub("", SPEAKER_RE.sub("", m.group(1))).strip()
+        for w in SPLIT_RE.split(raw.replace("★", "")):
+            if w.strip() and w.strip() not in terms:
+                terms.append(w.strip())
+    return terms
+
+
+def expand_container(prop: dict) -> list:
+    """把「容器标题 + 有序列表」的一节展开成逐条列表项提案。
+
+    只有当该节至少有**一条**列表项能按结构判据抠出词项时，才认定它是提案容器；
+    此时整节的列表项**全部**转为提案（抠不出词的那几条照旧进未归词，不丢文本），
+    容器标题自身不再单独成条——它是「术语提案（留给术语委员会）」「自查记录」
+    这类分节名，不该成词族。标题自带词项（`### 6. 术语提案｜`カウンター` …`）时
+    两者并存：标题里的词是真词，不能因为它名下有列表就被吞掉。
+    """
+    lines = prop["body"].splitlines()
+    starts = [i for i, ln in enumerate(lines) if LIST_ITEM_RE.match(ln)]
+    if not starts:
+        return [prop]
+    segs = []
+    for k, i in enumerate(starts):
+        j = starts[k + 1] if k + 1 < len(starts) else len(lines)
+        m = LIST_ITEM_RE.match(lines[i])
+        segs.append((m.group(1), m.group(2), "\n".join(lines[i + 1:j])))
+    kids = [dict(prop, num=f"{prop['num']}.{n}", title=title, body=body,
+                 terms=item_terms(title + "\n" + body), starred="★" in title)
+            for n, title, body in segs]
+    if not any(k["terms"] for k in kids):
+        return [prop]
+    # 容器前言（首条列表项之前的散文）不能随容器一起丢，挂到第一条上。
+    intro = "\n".join(lines[:starts[0]]).strip()
+    if intro:
+        kids[0]["body"] = intro + "\n" + kids[0]["body"]
+    return ([prop] + kids) if prop["terms"] else kids
 
 
 def parse_notes(text: str, chapter: str) -> list:
@@ -63,7 +132,9 @@ def parse_notes(text: str, chapter: str) -> list:
             cur = None
     if cur:
         props.append(cur)
-    return props
+    # 第二遍才展开容器：第一遍逐字保持原有的标题扫描语义，没有合格列表项时
+    # expand_container 是恒等映射，逐批模式的解析结果因此不可能被改动。
+    return [q for p in props for q in expand_container(p)]
 
 
 def cluster(proposals: list) -> dict:
@@ -148,7 +219,8 @@ def main(argv=None):
 
     # 自述统计口径（同 saturation.py 的教训：一张「完全合理的空表」比报错危险）。
     print(f"done={len(done)} 条已入线译文（data-dir={data}）")
-    print(f"已扫描 {len(md_files)} 个 md，期望标题格式 `### 序号. 词 → 译`"
+    print(f"已扫描 {len(md_files)} 个 md，识别两种提案体：标题体 `### 序号. 词 → 译`、"
+          f"容器体（`### 序号. 术语提案…` 之下的有序列表，词写成 **`原文`→译文**）"
           f"；成词词族 {len(sats)}、未归词 {len(c.get(UNKEYED, []))} 条"
           f"（其中 {len(demoted)} 个键因提取不干净被降级）")
     if not ledger:
@@ -166,7 +238,8 @@ def main(argv=None):
               f"检查 notes 里的批次标题是否为 `## batch <数字>` 开头")
     if not props:
         print(f"!! 告警：{data / 'notes'} 下解析出 0 条提案，卷宗是空的。"
-              f"确认目录存在、且提案标题写成 `### 序号. 词 → 译`（bullet 体不识别）")
+              f"确认目录存在、且提案写成 `### 序号. 词 → 译` 标题体，或容器标题之下的"
+              f"有序列表项（词须写作 **`原文`→译文** 或 `原文`→**译文**）；无序 bullet 体不识别")
     return 0
 
 

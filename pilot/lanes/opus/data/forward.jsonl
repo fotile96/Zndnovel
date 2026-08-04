@@ -10862,3 +10862,4 @@
 {"id":17170,"zh":"……我轻轻地闭上了眼睛。","batch":116,"backend":"cc","model":"claude-opus-5","ctx":"195312c27b9c80e41ae019fdda7c79a610d37aed6f4335f2b2682341483fbb85","glossary_v":9,"ts":"2026-08-03T16:06:16+00:00"}
 {"id":693,"zh":"≪关键词卡片≫","batch":117,"backend":"cc","model":"claude-opus-5","ctx":"730c4402fcb4fe338a10484c715c4f0513e7420ab1352dca1e0ad958ec4f7eb0","glossary_v":9,"ts":"2026-08-03T16:06:30+00:00"}
 {"id":694,"zh":"≪关键词卡片≫","batch":117,"backend":"cc","model":"claude-opus-5","ctx":"730c4402fcb4fe338a10484c715c4f0513e7420ab1352dca1e0ad958ec4f7eb0","glossary_v":9,"ts":"2026-08-03T16:06:30+00:00"}
+{"id":12293,"zh":"ユウイチ――","batch":118,"backend":"cc","model":"claude-opus-5","ctx":"752d8702d692b9fa794d0606677ebea80cf9ca211f3cefaae1529df20bf3509d","glossary_v":10,"ts":"2026-08-04T06:01:39+00:00"}

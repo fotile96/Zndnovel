@@ -131,9 +131,19 @@
 
 长对话中规则书只投一次；若中途 glossary 升版（本项目段末裁决会跳版），对话内的规则书即过期。**一条长对话不得跨越 glossary 版本变更**——该约束天然与段边界对齐。
 
-### 4.4 复现性凭证不变
+### 4.4 复现性凭证：`ctx_sha` 的语义在会话模式下发生了漂移
 
-`build_context` 照常逐批生成 `context.md` / `source.jsonl` / `manifest.json` 并入档，只是第 2..N 批不再整份投喂。`manifest.json` 的 `ctx_sha`/`glossary_v`/骨架与锚点哈希照常留痕，canary 与审计链不受影响。
+`build_context` 照常逐批生成 `context.md` / `source.jsonl` / `manifest.json` 并入档，`manifest.json` 的 `ctx_sha`/`glossary_v`/骨架与锚点哈希照常留痕，canary 与审计链的**结构**不受影响。
+
+**但有一处语义漂移必须显式登记**（SEG-3 实战后补记）：
+
+会话组的 ctx 是**两段式生成**的——组内后续批先用 `--jp-fallback` 预生成（只为让 `source.jsonl` 就位），整组译完后再以正常模式重新生成、取真 `ctx_sha` 入档。于是：
+
+| | 逐批模式 | 会话组模式 |
+|---|---|---|
+| `ctx_sha` 的含义 | **模型读过的材料指纹**（模型确实整份读了 `context.md`） | **入档包指纹**——模型实际读的是「首批全量 `context.md` + 各批 `source.jsonl` + `style.md` + `active.json`」 |
+
+**两者不再是同一个东西。** `ctx_sha` 仍是有效的复现性凭证（能确定地重建那份 ctx），但**不能再据它反推「模型当时看了什么」**。日后做审计或事后归因时，会话组批次的「模型输入」须按 §4.1 的分档表重建，不能只看 `ctx_sha`。
 
 ### 4.5 爆炸半径
 

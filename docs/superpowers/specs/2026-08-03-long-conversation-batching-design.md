@@ -258,6 +258,67 @@ gitignore 的 scratch）。分歧形态几乎全是 9:1 / 3:1 / 2:1 的孤立偏
 
 > 本条显式入档，避免日后看到 W4 报警的人误以为「没人管」。
 
+### 6.2 已知机制缺失：W4 在会话组**组内**失明（2026-08-04 记档，不修）
+
+**成因**：长对话与「每批立刻入库」不可兼得——Workflow 的 `agent()` 是一次性调用，
+无法在中途暂停让派发方跑 `append_forward` 再续跑同一条对话。于是整组的 append
+只能集中在**组末**。而 W4 的族索引来自 `forward.jsonl`+`patches.jsonl`（见
+`check_batch.load_siblings`），组内前批的译文此刻还没入线：
+
+- **译者自跑**：本组前批的译文不在 `forward` 里，检索既有译法查不到；
+- **派发方复跑 `check_batch`**：同上，组内跨批的复现句族一个都不成族。
+
+结果：**同一条日文在同组两个批次里被译成两样，机械闸不会报。** 跨组、跨章的复现
+照常受 W4 保护（那些译文早已入线），失明范围严格限于**同一会话组内的跨批复现**。
+
+**实测（SEG-3 全四个会话组，2026-08-04）：不一致 0 组。**
+
+| 会话组 | 组内跨批 jp 全等句族 | 覆盖行 | zh 不一致 |
+|---|---|---|---|
+| b99–108（10 批） | 15 | 52 | **0** |
+| b109–111 | 1 | 17 | **0** |
+| b112–114 | 2 | 26 | **0** |
+| b115–117 | 4 | 25 | **0** |
+
+**为什么零命中**：长对话的**对话记忆**恰好扛住了这一面。§3.2/§5.1 归纳过，该模式
+退化的是「与**规则表**一致」（低频、无机械兜底的长散文规则会从查表滑向自洽），
+**不是**「与**自己前文**一致」——而 W4 管的正好是后者。译者手记也印证：b115/b116
+自己就把组内跨批复现列成表逐条对齐（`s4fb.md` §2「★组内跨批复现（append_forward
+组末统一执行，W4 组内失明，请重点复核）」），并注明「靠本对话记忆对齐」。
+
+**故不改任何代码**：为此改造 append 时机（拆成多次 `agent()` 调用）会直接摧毁本
+方案省下的 78% 投喂量；而唯一被绕开的那道闸，其管辖面恰是长对话天然最强的一面。
+这是**在监测下接受的已知缺失**，不是遗漏。
+
+**监测办法（段末对每个会话组各跑一次；非零即说明这道天然屏障失效）**：
+
+```python
+# uv run python - <<'PY'   （lane / GROUPS 按实际填）
+from tools.pipelib import read_jsonl
+from tools.resolve import resolve_map
+from pathlib import Path
+lane = Path("pilot/lanes/opus")
+led = {r["id"]: r["jp"] for r in read_jsonl(lane / "data" / "ledger.jsonl")}
+zh = resolve_map(read_jsonl(lane / "data" / "forward.jsonl"),
+                 read_jsonl(lane / "data" / "patches.jsonl"))
+bat = {r["batch"]: r["ids"] for r in read_jsonl(Path("data/batches.jsonl"))}
+GROUPS = [[115, 116, 117]]                      # 本段各会话组的批号
+for g in GROUPS:
+    fam = {}
+    for b in g:
+        for i in bat.get(b, []):
+            if i in zh and i in led:
+                fam.setdefault(led[i], []).append((b, i, zh[i]))
+    cross = {jp: v for jp, v in fam.items() if len({b for b, _, _ in v}) >= 2}
+    bad = {jp: v for jp, v in cross.items() if len({z for _, _, z in v}) > 1}
+    print(g[0], "–", g[-1], "跨批族", len(cross), "不一致", len(bad), bad)
+```
+
+判据与 W4 逐字同源（`ledger.jsonl` 的 jp 全等 → 比 `resolve_map` 后的 zh），差别只
+在**把范围限到组内**——W4 在组末重跑时会把这些行当成普通兄弟行去比，但那时它们
+已全部入线、彼此一致与否已成定局，报出来也只是事后诸葛。**非零即须人工回改**，
+并在段末台账记明：说明对话记忆这道屏障在该组失效，下一段应考虑缩小组内批数。
+
 ---
 
 ## 7. 边界（本 spec 不覆盖）

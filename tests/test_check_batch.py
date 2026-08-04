@@ -1,6 +1,8 @@
 import json
 
-from tools.check_batch import check, main as check_batch_main
+from tools.check_batch import (
+    check, main as check_batch_main, _max_line_width, _strip_ruby,
+)
 from tools.pipelib import write_jsonl
 
 SRC = [
@@ -276,3 +278,70 @@ def test_w4_disabled_is_announced_not_silent(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "W4 未启用" in out, "W4 未启用时必须播报，否则与「跑了没报」不可区分"
     assert "未被检查" in out
+
+
+# ---- W3 行宽按屏幕实际占位算：ruby 注音不占宽 ----
+# 缺陷背景：`_max_line_width` 直接对原始串计宽，把 `<A,B>` 整段算进去。
+# 引擎只在 A 正上方以小字号渲染 B，行宽只占 A。后果双向：zh 一加注音 W3
+# 必然虚高误报（译者消警最省事的办法就是删注音），jp 侧 38 处原生 ruby 同样
+# 被撑大分母、把真超宽的译文放过去。
+
+def test_strip_ruby_keeps_base_drops_reading():
+    assert _strip_ruby("<囔,nāng>") == "囔"
+    assert _strip_ruby("【彩野】「<囔,nāng><囔,nāng>」") == "【彩野】「囔囔」"
+
+
+def test_width_counts_only_ruby_base():
+    """任务书给的四个实测值，逐个钉死（右侧为屏幕实际占位）。"""
+    assert _max_line_width("囔") == 2
+    assert _max_line_width("<囔,nāng>") == 2
+    assert _max_line_width("【彩野】「囔囔」") == 16
+    assert _max_line_width("【彩野】「<囔,nāng><囔,nāng>」") == 16
+
+
+def test_width_handles_fullwidth_latin_ruby_base():
+    """真实语料里存在全角拉丁前半段：Ｔｒｕｅ(8)+半角空格(1)+Ｃｏｌｏｒ(12)-…"""
+    assert _max_line_width("<Ｔｒｕｅ Ｃｏｌｏｒ,トゥルー カラー>") == 19
+
+
+def test_width_does_not_eat_stray_angle_brackets():
+    """孤立/畸形的 `<` `>` 在屏幕上确实占位，不得被当作 ruby 标记吃掉。"""
+    assert _max_line_width("a<b") == 3          # 无逗号无闭合
+    assert _max_line_width("5 > 3") == 5        # 纯不等号
+    assert _max_line_width("<a,b,c>") == 7      # 两个逗号 → 非良构，按字面计
+
+
+def test_width_strips_ruby_before_splitting_breaks():
+    """顺序钉死：先剥 ruby 再按 _n/_r 切。
+
+    断行码落在 ruby 标记内部是两种顺序唯一的分歧点。先切 → `<漢字,か` /
+    `な>` 两段废片按字面计宽（4→ 虚高至 7）；先剥 → ruby 作原子标记参数
+    处理，得 `漢字` = 4。
+    """
+    assert _max_line_width("<漢字,か_nな>") == 4
+
+
+def test_zh_ruby_does_not_false_trigger_w3():
+    """zh 侧：同一句加了汉语拼音注音，不得因此报 W3。"""
+    src = [{"id": 1, "jp": "【彩野】「うん、<前向性健忘,ぜんこうせいけんぼう>だよ」"}]
+    with_ruby = [{"id": 1, "zh": "【彩野】「嗯，是<前向性健忘,shùn xíng xìng yí wàng>哦」"}]
+    no_ruby = [{"id": 1, "zh": "【彩野】「嗯，是前向性健忘哦」"}]
+    r_ruby = check(src, with_ruby, speakers=None, glossary=None)
+    r_plain = check(src, no_ruby, speakers=None, glossary=None)
+    assert not any(v["rule"] == "W3" for v in r_ruby["warn"]), \
+        "加注音不得触发 W3，否则消警的最省事办法就是删注音"
+    assert not any(v["rule"] == "W3" for v in r_plain["warn"])
+
+
+def test_jp_ruby_no_longer_inflates_threshold():
+    """jp 侧：原文 ruby 撑大的分母曾把真超宽译文放过去，现在必须报。
+
+    jp 屏幕宽 32（含 ruby 字面则虚高到 55）；zh 宽 40：
+    真阈值 32*1.15=36.8 → 超；虚高阈值 55*1.15=63.25 → 曾被放过。
+    """
+    src = [{"id": 1, "jp": "【彩野】「うん、<前向性健忘,ぜんこうせいけんぼう>だよ」"}]
+    wide = [{"id": 1, "zh": "长" * 20}]
+    assert _max_line_width(src[0]["jp"]) == 32 and _max_line_width(wide[0]["zh"]) == 40
+    r = check(src, wide, speakers=None, glossary=None)
+    assert any(v["rule"] == "W3" for v in r["warn"]), \
+        "jp 侧 ruby 不得撑大分母、把真超宽译文放过去"

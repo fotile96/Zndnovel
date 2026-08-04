@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import WORK, read_jsonl, sha256_file, display_width, dumps
 
-RUBY_RE = re.compile(r'<[^<>,]+,[^<>,]+>')
+RUBY_RE = re.compile(r'<([^<>,]+),([^<>,]+)>')
 SPEAKER_RE = re.compile(r'^【([^】]+)】')
 MARKS = "≪≫≦≧○■"
 BREAK_RE = re.compile(r'_n|_r')
@@ -34,8 +34,24 @@ def _ruby_ok(s: str) -> bool:
     return "<" not in rest and ">" not in rest
 
 
+def _strip_ruby(s: str) -> str:
+    """ruby `<A,B>` → `A`：注音 B 在 A 正上方以小字号渲染，**不占行宽**。
+
+    只吃良构 ruby（`[^<>,]` 两段，与 `_ruby_ok` 同一条正则）；孤立的 `<`/`>`
+    原样留下——它们在屏幕上确实占位，不该被当作标记吃掉。
+    """
+    return RUBY_RE.sub(lambda m: m.group(1), s)
+
+
 def _max_line_width(s: str) -> int:
-    return max(display_width(seg) for seg in BREAK_RE.split(s)) if s else 0
+    """按屏幕实际占位算最宽一行。**先剥 ruby 再按 _n/_r 切**。
+
+    两种顺序仅在断行码落进 ruby 标记内部时有别（如 `<漢字,か_nな>`）：先切会
+    把 ruby 拆成 `<漢字,か` / `な>` 两段废片、按字面计宽（虚高）；先剥则把
+    ruby 当作原子标记参数处理，得 `漢字`。后者才合引擎语义。
+    """
+    return max(display_width(seg)
+               for seg in BREAK_RE.split(_strip_ruby(s))) if s else 0
 
 
 def build_sibling_index(ledger_rows, zh_map) -> dict:

@@ -12285,3 +12285,5 @@
 {"id":15122,"zh":"不可能会来。","batch":132,"backend":"cc","model":"claude-opus-5","ctx":"03e080ea5bcd2a4b67bdce957b3d28d741d072ae4321a2033b7816aa984d72f2","glossary_v":10,"ts":"2026-08-04T08:18:13+00:00"}
 {"id":15123,"zh":"……。","batch":132,"backend":"cc","model":"claude-opus-5","ctx":"03e080ea5bcd2a4b67bdce957b3d28d741d072ae4321a2033b7816aa984d72f2","glossary_v":10,"ts":"2026-08-04T08:18:13+00:00"}
 {"id":15124,"zh":"风，越来越大了。","batch":132,"backend":"cc","model":"claude-opus-5","ctx":"03e080ea5bcd2a4b67bdce957b3d28d741d072ae4321a2033b7816aa984d72f2","glossary_v":10,"ts":"2026-08-04T08:18:13+00:00"}
+{"id":15134,"zh":"■游戏结束","batch":133,"backend":"cc","model":"claude-opus-5","ctx":"14ae724d3554ed595ca0f6eaad84ad42757fed9a8236d1fc631311c7609a5285","glossary_v":10,"ts":"2026-08-04T08:18:13+00:00"}
+{"id":17177,"zh":"【（提示）】仔细倾听话语，慎重地选择卡片吧。","batch":133,"backend":"cc","model":"claude-opus-5","ctx":"14ae724d3554ed595ca0f6eaad84ad42757fed9a8236d1fc631311c7609a5285","glossary_v":10,"ts":"2026-08-04T08:18:13+00:00"}

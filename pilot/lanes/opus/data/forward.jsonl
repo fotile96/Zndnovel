@@ -11209,3 +11209,5 @@
 {"id":17186,"zh":"【直哉】「灯，好像没开呢」","batch":121,"backend":"cc","model":"claude-opus-5","ctx":"cdc936333dc6d643bb6bcb5fd2df30c560327297f51842dbd715b0dbf538a444","glossary_v":10,"ts":"2026-08-04T06:25:37+00:00"}
 {"id":17188,"zh":"【彩野】「妈妈呢……？」","batch":121,"backend":"cc","model":"claude-opus-5","ctx":"cdc936333dc6d643bb6bcb5fd2df30c560327297f51842dbd715b0dbf538a444","glossary_v":10,"ts":"2026-08-04T06:25:37+00:00"}
 {"id":17189,"zh":"【直哉】「那个呢，说是去上班了。还说，希望彩野同学待在房间里哦」","batch":121,"backend":"cc","model":"claude-opus-5","ctx":"cdc936333dc6d643bb6bcb5fd2df30c560327297f51842dbd715b0dbf538a444","glossary_v":10,"ts":"2026-08-04T06:25:37+00:00"}
+{"id":691,"zh":"≪关键词卡片≫","batch":122,"backend":"cc","model":"claude-opus-5","ctx":"6c5f95b34d38569356c936efba1f2746db9b9709fffc661eeadb58e71bc7981b","glossary_v":10,"ts":"2026-08-04T06:25:45+00:00"}
+{"id":692,"zh":"≪关键词卡片≫","batch":122,"backend":"cc","model":"claude-opus-5","ctx":"6c5f95b34d38569356c936efba1f2746db9b9709fffc661eeadb58e71bc7981b","glossary_v":10,"ts":"2026-08-04T06:25:45+00:00"}

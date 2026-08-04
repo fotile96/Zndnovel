@@ -14201,3 +14201,7 @@
 {"id":16477,"zh":"再一次，回到操场，重新来过吧。","batch":153,"backend":"cc","model":"claude-opus-5","ctx":"7093c806c13042e487848f208ed023c62b85989830fdf65cb3d3d16df6c6e6d8","glossary_v":11,"ts":"2026-08-04T18:57:31+00:00"}
 {"id":16478,"zh":"……成为ユウイチ。","batch":153,"backend":"cc","model":"claude-opus-5","ctx":"7093c806c13042e487848f208ed023c62b85989830fdf65cb3d3d16df6c6e6d8","glossary_v":11,"ts":"2026-08-04T18:57:31+00:00"}
 {"id":16479,"zh":"由我，成为ユウイチ。","batch":153,"backend":"cc","model":"claude-opus-5","ctx":"7093c806c13042e487848f208ed023c62b85989830fdf65cb3d3d16df6c6e6d8","glossary_v":11,"ts":"2026-08-04T18:57:31+00:00"}
+{"id":724,"zh":"≪关键词卡片≫","batch":154,"backend":"cc","model":"claude-opus-5","ctx":"4667309fcc6cf1fbf8f7e23b44443d4beca84b27d65a071a5bf992ce44aad8d1","glossary_v":11,"ts":"2026-08-04T18:57:40+00:00"}
+{"id":628,"zh":"≪本场面中没有直哉与彩野的卡片选择场景≫","batch":154,"backend":"cc","model":"claude-opus-5","ctx":"4667309fcc6cf1fbf8f7e23b44443d4beca84b27d65a071a5bf992ce44aad8d1","glossary_v":11,"ts":"2026-08-04T18:57:40+00:00"}
+{"id":629,"zh":"≪本场面中没有直哉与彩野的卡片选择场景≫","batch":154,"backend":"cc","model":"claude-opus-5","ctx":"4667309fcc6cf1fbf8f7e23b44443d4beca84b27d65a071a5bf992ce44aad8d1","glossary_v":11,"ts":"2026-08-04T18:57:40+00:00"}
+{"id":630,"zh":"≪本场面中没有直哉与彩野的卡片选择场景≫","batch":154,"backend":"cc","model":"claude-opus-5","ctx":"4667309fcc6cf1fbf8f7e23b44443d4beca84b27d65a071a5bf992ce44aad8d1","glossary_v":11,"ts":"2026-08-04T18:57:40+00:00"}

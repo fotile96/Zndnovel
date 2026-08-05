@@ -360,3 +360,68 @@ def test_container_intro_prose_is_not_dropped():
         "1. **`ウイスキー`→威士忌**（13268）。\n", "s4fb")
     assert [p["num"] for p in ps] == ["5.1"]
     assert "本节共 1 条" in ps[0]["body"]
+
+
+# ---- 表格体（第三种书写结构，2026-08-05 新增）----
+
+_TABLE_MD = """# s6s 译者手记
+
+## 术语提案
+
+| 批次 | id | 原文关键词 | 建议译法 | 理由 |
+|---|---|---|---|---|
+| 139 | 15523 | `『いつもの』` | **『老样子』** | 全库首见 |
+| 145 | 15638 | `『お話の案』` | **『故事的草案』** | 封面题字 |
+
+## 【维护者记录】段末裁决回改
+
+| 批次 | id | 原文 | 本批译法 | 依据 |
+|---|---|---|---|---|
+| 139 | 1 | `テスト` | **测试** | 记录性，不请求裁决 |
+"""
+
+
+def test_table_proposals_are_parsed_and_classified_by_container():
+    from tools.cluster_notes import parse_tables
+    props, unparsed = parse_tables(_TABLE_MD, "s6s")
+    assert unparsed == []
+    props_kind = [p for p in props if p["kind"] == "proposal"]
+    records = [p for p in props if p["kind"] == "record"]
+    assert len(props_kind) == 2, props
+    assert len(records) == 1, "【维护者记录】容器下的表必须判为记录性，不进裁决面"
+    assert props_kind[0]["terms"] == ["いつもの"], props_kind[0]["terms"]
+    assert props_kind[1]["terms"] == ["お話の案"], props_kind[1]["terms"]
+
+
+def test_table_batch_comes_from_the_batch_column():
+    """表格常写在不带 `## batch N` 的容器下，只靠 BATCH_RE 会整表渲染成 bNone。"""
+    from tools.cluster_notes import parse_tables
+    props, _ = parse_tables(_TABLE_MD, "s6s")
+    assert [p["batch"] for p in props if p["kind"] == "proposal"] == [139, 145]
+
+
+def test_unrecognised_table_is_reported_not_silently_dropped():
+    """认不出列结构时必须给出诊断——静默才是表格体五个段无人察觉的原因。"""
+    from tools.cluster_notes import parse_tables
+    md = "## 自查记录\n\n| 批 | 行数 | warn |\n|---|---|---|\n| 139 | 22 | 0 |\n"
+    props, unparsed = parse_tables(md, "s6s")
+    assert props == []
+    assert len(unparsed) == 1 and unparsed[0]["rows"] == 1
+    assert unparsed[0]["header"] == ["批", "行数", "warn"]
+
+
+def test_classify_container_defaults_to_unknown_not_a_guess():
+    from tools.cluster_notes import classify_container
+    assert classify_container("术语提案") == "proposal"
+    assert classify_container("1. 术语提案（请裁）") == "proposal"
+    assert classify_container("【维护者记录】段末裁决回改") == "record", \
+        "同时含「裁决」与「记录」时必须判记录——记录性关键词优先"
+    assert classify_container("6. 自查记录（四批）") == "record"
+    assert classify_container("batch 127（109 行）") == "unknown", \
+        "认不出就说不知道，不许默认猜成 proposal 或 record"
+
+
+def test_table_parsing_does_not_disturb_title_or_list_forms():
+    """既有两条判据必须逐字不受影响：表格行两条都匹配不到。"""
+    from tools.cluster_notes import parse_notes
+    assert parse_notes(_TABLE_MD, "s6s") == []

@@ -45,6 +45,31 @@ UNKEYED = "（未归词）"
 # 自然被排除；有序列表若一条都不满足（纯散文编号列表），整节照旧只当正文，
 # **逐批模式的 notes 因此逐字不受影响**。
 LIST_ITEM_RE = re.compile(r"^(\d+)\.\s+(.*)$")
+
+# ---- 表格体提案（第三种书写结构）----
+# 实测（2026-08-05，全 19 份 notes）：**543 行表格数据行 / 103 张表头**，最早出现在
+# SEG-1 的 s2f/s2s。此前两条判据（标题体、容器内有序列表）**一行都匹配不到表格**
+# ——`|…|` 行既不是 `### N.` 也不是 `N. `，于是整表静默丢失。裁决会话连续多段
+# 只能人工逐节读 notes 兜底。
+#
+# 表格里「原文」和「译法」**分处不同单元格**，故容器体的两条判据（反引号落在粗体
+# 内 / `原文`→**译文**）结构上不可能命中——这不是正则写得不够宽，是判据形状不对。
+# 表格的正确判据是**表头列名**：找出「原文」列与「译法」列，词项取自前者。
+#
+# ⚠ 但「解析所有表格」同样是错的：这 543 行里有大量**记录性判断**（「已核对的复现
+# 句」「沿用既有译法」「自查记录」「【维护者记录】」），它们不请求裁决。全量收进卷宗
+# 会用备查内容淹没真提案——裁决会话明确提过这条。故按**容器标题**三分类，
+# 且**一条都不丢**：提案进卷宗正文，备查与存疑进附录，三类计数一律播报。
+TABLE_SEP_RE = re.compile(r"^\|[\s:\-|]+\|\s*$")
+# 列名判据：中文 notes 的表头用词实测有「原文」「原文关键词」「词」；译法列有
+# 「建议译法」「本批译法」「译文」「新译」「沿用的既有译法」。取最宽的子串判据。
+COL_SRC_RE = re.compile(r"原文|^词$")
+COL_DST_RE = re.compile(r"译")
+# 容器标题分类。**顺序有意义**：记录性关键词先判——「【维护者记录】段末裁决回改」
+# 同时含「裁决」与「记录」，它是记录不是提案。
+CONTAINER_RECORD_RE = re.compile(
+    r"维护者记录|记录性|自查|核对|沿用|备查|已知信息损失|一次性生词表")
+CONTAINER_PROP_RE = re.compile(r"提案|请裁|待裁")
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 TICK_RE = re.compile(r"`([^`]+)`")
 # 反引号片段 → 粗体：并列写法里「原文→译文」的那个译文一律加粗，这是判据 (b)。
@@ -111,6 +136,104 @@ def expand_container(prop: dict) -> list:
     return ([prop] + kids) if prop["terms"] else kids
 
 
+def _cells(line: str) -> list:
+    """markdown 表格行 → 单元格列表（去掉首尾的空串）。"""
+    parts = line.split("|")
+    if parts and not parts[0].strip():
+        parts = parts[1:]
+    if parts and not parts[-1].strip():
+        parts = parts[:-1]
+    return [c.strip() for c in parts]
+
+
+def classify_container(title: str) -> str:
+    """容器标题 → proposal / record / unknown。
+
+    unknown 不是「丢掉」的同义词——它进卷宗附录并单独计数。**默认值必须是
+    unknown 而不是 proposal 或 record**：前者会把备查内容混进裁决面，后者会把
+    真提案静默降级，两种猜法都会在下一种新写法出现时无声出错。
+    """
+    if CONTAINER_RECORD_RE.search(title):
+        return "record"
+    if CONTAINER_PROP_RE.search(title):
+        return "proposal"
+    return "unknown"
+
+
+def table_terms(cell: str) -> list:
+    """表格「原文」单元格里的词项。有反引号取反引号内容，否则取整格去装饰。"""
+    ticks = [m.group(1) for m in TICK_RE.finditer(cell)]
+    raw = ticks or [cell]
+    terms = []
+    for r in raw:
+        r = DESC_PREFIX_RE.sub("", STRIP_RE.sub("", SPEAKER_RE.sub("", r))).strip()
+        for w in SPLIT_RE.split(r.replace("★", "")):
+            w = w.strip()
+            # 纯 id/数字格（`| 152 | 15864 |`）不是词
+            if w and not w.isdigit() and w not in terms:
+                terms.append(w)
+    return terms
+
+
+def parse_tables(text: str, chapter: str):
+    """扫全文的 markdown 表格，返回 (提案列表, 未识别表的诊断列表)。
+
+    与 parse_notes 的标题扫描**互不干扰**：表格行永远不会被 PROP_RE/LIST_ITEM_RE
+    匹配，故这里单独走一遍全文，不改动既有两条判据的任何行为。
+    """
+    lines = text.splitlines()
+    props, unparsed = [], []
+    batch, container = None, ""
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if m := BATCH_RE.match(line):
+            batch = int(m.group(1))
+        if line.startswith("#"):
+            container = line.lstrip("# ").strip()
+        # 表头 = 以 | 开头、下一行是分隔行
+        if (line.startswith("|") and i + 1 < len(lines)
+                and TABLE_SEP_RE.match(lines[i + 1])):
+            header = _cells(line)
+            body_start = i + 2
+            j = body_start
+            while j < len(lines) and lines[j].startswith("|"):
+                j += 1
+            rows = [_cells(lines[k]) for k in range(body_start, j)]
+            src = next((n for n, h in enumerate(header) if COL_SRC_RE.search(h)), None)
+            dst = next((n for n, h in enumerate(header) if COL_DST_RE.search(h)), None)
+            if src is None or dst is None:
+                # 认不出来就说出来。**不能静默跳过**——正是「静默」让表格体在五个段里
+                # 无人察觉，而不是「少写了一条正则」。
+                unparsed.append({"chapter": chapter, "container": container,
+                                 "header": header, "rows": len(rows)})
+            else:
+                kind = classify_container(container)
+                # 批号优先取表里的「批次」列：表格体常写在 `## 术语提案` 这类不带批号的
+                # 容器下（s6s/s6f/s7f 全文件如此），只靠 BATCH_RE 会整表渲染成 bNone。
+                bcol = next((n for n, h in enumerate(header)
+                             if "批" in h and "译" not in h), None)
+                for n, cells in enumerate(rows, 1):
+                    if src >= len(cells):
+                        continue
+                    rb = batch
+                    if bcol is not None and bcol < len(cells):
+                        digits = re.findall(r"\d+", cells[bcol])
+                        if digits:
+                            rb = int(digits[0])
+                    props.append({
+                        "chapter": chapter, "batch": rb, "num": f"T{n}",
+                        "title": " ｜ ".join(cells[:dst + 1]),
+                        "terms": table_terms(cells[src]),
+                        "starred": "★" in " ".join(cells),
+                        "kind": kind, "container": container,
+                        "body": " ｜ ".join(cells[dst + 1:])})
+            i = j
+            continue
+        i += 1
+    return props, unparsed
+
+
 def parse_notes(text: str, chapter: str) -> list:
     props, batch, cur = [], None, None
     for line in text.splitlines():
@@ -154,10 +277,15 @@ def main(argv=None):
     a = ap.parse_args(argv)
     lane = Path(a.lane_dir)
     data = lane / "data"
-    props = []
+    props, aside, unparsed = [], [], []
     md_files = sorted((data / "notes").glob("*.md"))
     for p in md_files:
-        props += parse_notes(p.read_text(encoding="utf-8"), p.stem)
+        text = p.read_text(encoding="utf-8")
+        props += parse_notes(text, p.stem)
+        tprops, tun = parse_tables(text, p.stem)
+        unparsed += tun
+        for t in tprops:
+            (props if t["kind"] == "proposal" else aside).append(t)
     ledger_path = data / "ledger.jsonl"
     ledger = read_jsonl(ledger_path) if ledger_path.exists() else []
     extra = data / "ledger_extra.jsonl"
@@ -210,6 +338,21 @@ def main(argv=None):
             lines.append(f"### [{p['chapter']} b{p['batch']} #{p['num']}] {p['title']}")
             lines.append(p["body"].rstrip())
             lines.append("")
+    if aside:
+        # 备查不进裁决面，但**必须在同一份卷宗里看得见**：删掉它才是这次要修的病。
+        byc = {}
+        for p in aside:
+            byc.setdefault((p["chapter"], p["kind"], p["container"]), []).append(p)
+        lines += ["", "---", "",
+                  f"## 附录：表格体里未判为提案的 {len(aside)} 行（备查，不请求裁决）", "",
+                  "> 判据是**容器标题**：含「提案/请裁/待裁」→ 提案（已在上面）；含「维护者记录/"
+                  "自查/核对/沿用/备查/一次性生词表」→ 记录性；两者都不含 → `unknown`，"
+                  "**默认不猜**，一并列在这里由人过目。", ""]
+        for (ch, kind, cont), ps in sorted(byc.items()):
+            lines.append(f"### [{ch}] {cont}（{kind}，{len(ps)} 行）")
+            for p in ps:
+                lines.append(f"- b{p['batch']} {p['title']}")
+            lines.append("")
     text = "\n".join(lines)
     if a.out:
         Path(a.out).write_text(text, encoding="utf-8")
@@ -219,10 +362,23 @@ def main(argv=None):
 
     # 自述统计口径（同 saturation.py 的教训：一张「完全合理的空表」比报错危险）。
     print(f"done={len(done)} 条已入线译文（data-dir={data}）")
-    print(f"已扫描 {len(md_files)} 个 md，识别两种提案体：标题体 `### 序号. 词 → 译`、"
-          f"容器体（`### 序号. 术语提案…` 之下的有序列表，词写成 **`原文`→译文**）"
+    ntab = sum(1 for p in props if str(p["num"]).startswith("T"))
+    print(f"已扫描 {len(md_files)} 个 md，识别三种提案体：标题体 `### 序号. 词 → 译`、"
+          f"容器体（有序列表，词写成 **`原文`→译文**）、"
+          f"表格体（表头须同时有「原文」列与「译」列）"
           f"；成词词族 {len(sats)}、未归词 {len(c.get(UNKEYED, []))} 条"
           f"（其中 {len(demoted)} 个键因提取不干净被降级）")
+    print(f"其中表格体：{ntab} 行判为提案（已进卷宗正文）、{len(aside)} 行判为备查/存疑"
+          f"（进附录，不请求裁决）")
+    if unparsed:
+        # 「认不出来」必须与「认出来了、没内容」在输出上可区分。表格体在五个段里
+        # 静默丢失，正是因为没有这一行——不是因为少写了一条正则。
+        tot = sum(u["rows"] for u in unparsed)
+        print(f"!! 告警：{len(unparsed)} 张表未能识别列结构，合计 {tot} 行**未进卷宗**"
+              f"（表头缺「原文」列或「译」列）。若其中有真提案，请人工提取：")
+        for u in unparsed:
+            print(f"   {u['chapter']}: {u['rows']} 行｜表头 {u['header']}"
+                  f"｜容器「{u['container'][:40]}」")
     if not ledger:
         print(f"!! 告警：{ledger_path} 没读到或为空（0 条记录）——corpus_chars 语料字符集"
               f"随之为空集，is_clean_key 的「含语料外字符」判据对**任何**键都成立，"

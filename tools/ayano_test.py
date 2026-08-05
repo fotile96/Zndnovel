@@ -5,6 +5,7 @@
 结论供段末人工验收参考。--dry-run 只组装统计、零 API 调用。"""
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -159,24 +160,53 @@ def _longest_verbatim_span(answer: str, ctx: str) -> int:
     return best
 
 
+# 判定词表。匹配一律用 `startswith`，**在此前提下词表顺序无关**
+# （`"部分对".startswith("对")` 为 False）——把顺序颠倒的变异全绿即证。
+# 顺序只在有人把匹配改成 `in` 时才变成必需：那时「部分对」会命中「对」。
+# 之所以把这段写下来，是因为初版注释断言「顺序反了会全判成对」，而那在当前实现里
+# 是个**不存在的风险**；一条声称在防守、实际不防守的注释比没有注释更坏。
+# 单改顺序、或单改 `in`，测试都仍绿；**两者同时改才红**（已实测）——长词在前是对
+# `in` 化改写的冗余防护，保留。
+VERDICT_WORDS = ("部分对", "对", "错")
+
+
 def _verdict_head(verdict: str) -> str:
     """判分行格式契约是「判定|一句话依据」，取判定部分。
 
     格式完全由 JUDGE_SYS 提示词约束，模型随时可能漂移（`**对**|…`、`判定：对|…`、
     全角竖线、只回两个字）。此前用「切分后**恰等于**『对』」做判据，任何一种漂移
     都会让 `is_correct` **静默判错**——一个不报警的失效（终审 M3）。故这里把常见
-    装饰（粗体星号、前缀标签、空白）一并剥掉，并认全角竖线。"""
-    head = re.split(r"[|｜]", verdict, maxsplit=1)[0]
-    head = head.replace("*", "").replace("＊", "").strip()
-    head = re.sub(r"^[^：:]{0,10}[：:]\s*", "", head).strip()
-    return head
+    装饰（粗体星号、前缀标签、空白）一并剥掉，并认全角竖线。
+
+    ⚠ 2026-08-05 又逮到一种：`判定|对|…`——模型把字面词「判定」当成了第一字段。
+    只看第一字段就会得到「判定」，`is_correct` 随之静默判否（seg5 q3 实例，人眼读
+    报告是「对」、机械口径是「不对」）。加固方式**不是**再补一条剥前缀的正则——那
+    只会等下一种写法；改成**逐字段找已知判定词**，并让「一个都找不到」这件事
+    可被上层区分（见 parse_verdict）。"""
+    for field in re.split(r"[|｜]", verdict):
+        head = field.replace("*", "").replace("＊", "").strip()
+        head = re.sub(r"^[^：:]{0,10}[：:]\s*", "", head).strip()
+        for w in VERDICT_WORDS:
+            if head.startswith(w):
+                return head
+    return ""
+
+
+def parse_verdict(verdict: str):
+    """→ "对" / "部分对" / "错"；**解析不出来返回 None**。
+
+    None 与「错」必须分开：前者是「这行判分没读懂」，后者是「判分员说答错了」。
+    合并二者正是本函数上一版的失效形态——把格式漂移静默算成非「对」。"""
+    head = _verdict_head(verdict)
+    for w in VERDICT_WORDS:
+        if head.startswith(w):
+            return w
+    return None
 
 
 def is_correct(verdict: str) -> bool:
-    """判分是否为「对」。用 startswith 而非全等：判定词后面常挂标点/补语
-    （「对。」「对（措辞不同）」），全等匹配会把它们当成非「对」。
-    注意「对」是「部分对」「不对」的子串——必须判**开头**，不能用 in。"""
-    return _verdict_head(verdict).startswith("对")
+    """判分是否为「对」。注意「对」是「部分对」的后缀——必须先匹配长词。"""
+    return parse_verdict(verdict) == "对"
 
 
 def cot_signals(answer: str, cot: str, ctx: str) -> str:
@@ -289,6 +319,18 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
     if missing:
         lines.append(f"> ⚠ 本段**缺译 {missing} 行**（段未译完，结论仅供参考）。")
         lines.append("")
+    tally = Counter(parse_verdict(v) or "未能解析" for _, _, v, _, _ in rows)
+    lines.append("> 判分合计："
+                 + "／".join(f"{k} {tally[k]}" for k in ("对", "部分对", "错", "未能解析")
+                             if tally.get(k)))
+    lines.append("")
+    unread = [q["id"] for q, _, v, _, _ in rows if parse_verdict(v) is None]
+    if unread:
+        # 「读不懂这行判分」必须与「判分说答错了」分开报。合并二者是本工具此前
+        # 的失效形态：格式一漂移就被静默算成非「对」，而报告上看不出任何异常。
+        lines += [f"> ⚠ **{len(unread)} 题的判分行未能解析出判定词**"
+                  f"（{'、'.join(unread)}）——请人工读那几行的原文，"
+                  f"**不要**把它们当成「错」计入统计。", ""]
     for q, ans, verdict, cot, signals in rows:
         lines += [f"## {q['id']}：{q['question']}",
                   f"- 信息点：{q.get('info_point', '-')}",

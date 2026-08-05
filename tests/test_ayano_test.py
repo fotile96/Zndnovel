@@ -430,3 +430,35 @@ def test_real_card_chapter_data_gate():
         tail = seg_ctx.index("最新一段正文")
         n = seg_ctx[head:tail].count("【卡")
         assert n > 0, f"{s['label']}（seg={s['seg']}）前缀被滤空"
+
+
+def test_parse_verdict_survives_the_judging_label_drift():
+    """`判定|对|…`——模型把字面词「判定」当第一字段（seg5 q3 实测）。
+
+    只看第一字段会得到「判定」，is_correct 随之静默判否：人眼读报告是「对」、
+    机械口径是「不对」。加固判据是**逐字段找已知判定词**，不是再补一条剥前缀正则。
+    """
+    from tools.ayano_test import parse_verdict, is_correct
+    assert parse_verdict("判定|对|措辞不同") == "对"
+    assert is_correct("判定|对|措辞不同")
+    assert parse_verdict("判定|部分对|x") == "部分对"
+    assert not is_correct("判定|部分对|x")
+
+
+def test_parse_verdict_returns_none_when_it_cannot_read_the_line():
+    """「读不懂」必须与「判成错」分开——合并二者正是上一版的失效形态。"""
+    from tools.ayano_test import parse_verdict, is_correct
+    assert parse_verdict("这行完全没有判定词") is None
+    assert parse_verdict("错|答非所问") == "错"
+    assert not is_correct("这行完全没有判定词")
+
+
+def test_partial_verdict_is_not_read_as_correct():
+    """守的是「别把匹配从 startswith 换成 in」，不是词表顺序。
+
+    用 startswith 时顺序无关（`"部分对".startswith("对")` 为 False）——颠倒词表的
+    变异全绿即证。换成 `in` 则「部分对|…」会命中「对」而误判，本用例届时变红。
+    """
+    from tools.ayano_test import parse_verdict, is_correct
+    assert parse_verdict("部分对|漏了两点") == "部分对"
+    assert not is_correct("部分对|漏了两点")

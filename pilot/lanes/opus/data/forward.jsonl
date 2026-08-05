@@ -14518,3 +14518,4 @@
 {"id":16750,"zh":"看见一只蜻蜓停在围栏上。","batch":157,"backend":"cc","model":"claude-opus-5","ctx":"e9374110e3e4dfac1cb3312ad293a504347eceef10bbb4366d85b7b212537d8b","glossary_v":12,"ts":"2026-08-05T04:44:40+00:00"}
 {"id":16751,"zh":"秋天正在靠近。","batch":157,"backend":"cc","model":"claude-opus-5","ctx":"e9374110e3e4dfac1cb3312ad293a504347eceef10bbb4366d85b7b212537d8b","glossary_v":12,"ts":"2026-08-05T04:44:40+00:00"}
 {"id":17037,"zh":"片段模式：章节８已完结。","batch":157,"backend":"cc","model":"claude-opus-5","ctx":"e9374110e3e4dfac1cb3312ad293a504347eceef10bbb4366d85b7b212537d8b","glossary_v":12,"ts":"2026-08-05T04:44:40+00:00"}
+{"id":725,"zh":"≪关键词卡片≫","batch":158,"backend":"cc","model":"claude-opus-5","ctx":"5fc8c0eeeff59bb18f3c19af8ff0d4259a0e0729e87ac6de37d68f71ecdfbadc","glossary_v":12,"ts":"2026-08-05T04:45:38+00:00"}

@@ -60,7 +60,7 @@
 > （spec §3.3），故后续批仍每批重投 `style.md`+`active.json`，并由 W4 机械闸
 > 兜住复现句族一致性。
 
-- [ ] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
+- [x] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
 
 > **为什么后续批要加 `--jp-fallback`**：后批 `context.md` 的前缀正文取自 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`，
 > 而整组开跑时后面几批的前置译文**还没入线**，正常模式必然报「前缀行 N 未译」。
@@ -86,7 +86,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 **开工前硬检查**：确认 139, 140, 141, 142, 143, 144, 145, 146, 147, 148 各批 `manifest.json` 的 `glossary_v` **全部相同**。不同即说明本组跨越了 glossary 版本变更，**必须拆组重生成**（spec §4.3：对话里规则书只投一次，跨版本即过期）。
 
-- [ ] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 10 批**
+- [x] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 10 批**
 
 注入：车道根、批次序列 139, 140, 141, 142, 143, 144, 145, 146, 147, 148、以及「首批 139 读全量 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_139/context.md`，其余批只读 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_140/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_141/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_142/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_143/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_144/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_145/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_146/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_147/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_148/source.jsonl` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/style.md` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/active.json`」。
 
@@ -94,7 +94,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 每批译完即走 Step 3 的三件校验并入库，再进入下一批。
 
-- [ ] **Step 3.139: 批次 139 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.139: 批次 139 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 139 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 139 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。本批即本组首批，这里是**恒等重跑**（Step 1 出它时就是正常模式），照跑即可——每批同形，免得临场判断哪批该跑。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -112,7 +112,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次139 译文入线"
 ```
 
-- [ ] **Step 3.140: 批次 140 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.140: 批次 140 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 140 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 140 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -130,7 +130,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次140 译文入线"
 ```
 
-- [ ] **Step 3.141: 批次 141 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.141: 批次 141 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 141 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 141 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -148,7 +148,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次141 译文入线"
 ```
 
-- [ ] **Step 3.142: 批次 142 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.142: 批次 142 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 142 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 142 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -166,7 +166,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次142 译文入线"
 ```
 
-- [ ] **Step 3.143: 批次 143 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.143: 批次 143 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 143 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 143 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -184,7 +184,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次143 译文入线"
 ```
 
-- [ ] **Step 3.144: 批次 144 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.144: 批次 144 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 144 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 144 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -202,7 +202,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次144 译文入线"
 ```
 
-- [ ] **Step 3.145: 批次 145 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.145: 批次 145 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 145 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 145 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -220,7 +220,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次145 译文入线"
 ```
 
-- [ ] **Step 3.146: 批次 146 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.146: 批次 146 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 146 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 146 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -238,7 +238,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6s 批次146 译文入线"
 ```
 
-- [ ] **Step 3.147: 批次 147 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.147: 批次 147 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 147 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 147 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -256,7 +256,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次147 译文入线"
 ```
 
-- [ ] **Step 3.148: 批次 148 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.148: 批次 148 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 148 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 148 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -276,18 +276,18 @@ git commit -m "data: s6s 批次148 译文入线"
 
 ### Task 2: CHECKPOINT——批次 139–148 术语提案裁决 + 抽查
 
-- [ ] **Step 0: 冻结校验**（在主仓执行）
+- [x] **Step 0: 冻结校验**（在主仓执行）
 
 Run: `uv run python tools/lane_setup.py --verify`
 Expected: `冻结校验：无漂移`。若报出漂移，**立即停止本段**，报告人工裁决，不要继续派发下一批——漂移意味着两条车道的术语/骨架基准已经不再可比。
 
 到这里已完成 crd、s6s 章批次 139–148 的翻译入库。继续下一批之前做以下几件事：
 
-- [ ] **Step 1: 术语提案裁决**
+- [x] **Step 1: 术语提案裁决**
 
 查看 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/notes/` 下本段涉及的 `crd.md`、`s6s.md`（文件不存在说明该章本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。本段进行中**只清点归档、不裁决**：把提案原样留在文件里，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`，裁决集中到本计划末尾「段末流程」指向的段末小裁决会话。
 
-- [ ] **Step 2: 抽查**
+- [x] **Step 2: 抽查**
 
 从批次 139–148 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
@@ -305,7 +305,7 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止本段**�
 > （spec §3.3），故后续批仍每批重投 `style.md`+`active.json`，并由 W4 机械闸
 > 兜住复现句族一致性。
 
-- [ ] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
+- [x] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
 
 > **为什么后续批要加 `--jp-fallback`**：后批 `context.md` 的前缀正文取自 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`，
 > 而整组开跑时后面几批的前置译文**还没入线**，正常模式必然报「前缀行 N 未译」。
@@ -324,7 +324,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 **开工前硬检查**：确认 149, 150, 151 各批 `manifest.json` 的 `glossary_v` **全部相同**。不同即说明本组跨越了 glossary 版本变更，**必须拆组重生成**（spec §4.3：对话里规则书只投一次，跨版本即过期）。
 
-- [ ] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 3 批**
+- [x] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 3 批**
 
 注入：车道根、批次序列 149, 150, 151、以及「首批 149 读全量 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_149/context.md`，其余批只读 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_150/source.jsonl`、`/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_151/source.jsonl` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/style.md` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/active.json`」。
 
@@ -332,7 +332,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 每批译完即走 Step 3 的三件校验并入库，再进入下一批。
 
-- [ ] **Step 3.149: 批次 149 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.149: 批次 149 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 149 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 149 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。本批即本组首批，这里是**恒等重跑**（Step 1 出它时就是正常模式），照跑即可——每批同形，免得临场判断哪批该跑。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -350,7 +350,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: crd 批次149 译文入线"
 ```
 
-- [ ] **Step 3.150: 批次 150 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.150: 批次 150 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 150 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 150 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -368,7 +368,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s6f 批次150 译文入线"
 ```
 
-- [ ] **Step 3.151: 批次 151 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.151: 批次 151 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 151 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 151 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -395,26 +395,26 @@ git commit -m "data: crd 批次151 译文入线"
 - Consumes: `data/batches.jsonl` 第 152 批（`lane=main chapter=s7f`，377 条 id）
 - Produces: `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 里这些 id 的正向译文行（下一批的前缀正文靠它）
 
-- [ ] **Step 1: 生成上下文包**
+- [x] **Step 1: 生成上下文包**
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 152 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: 生成 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_152/context.md`、`source.jsonl`、`manifest.json`；记下 `manifest.json` 里的 `ctx_sha`（Step 5 要用）。
 
-- [ ] **Step 2: 派译者子代理**
+- [x] **Step 2: 派译者子代理**
 
 按 `prompts/translator_cc.md` 派一个子代理处理本批（明确告诉它批次编号是 152，并按本计划头部「车道配置」注入车道根），产出 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_152.draft.jsonl`。
 
-- [ ] **Step 3: 校验**
+- [x] **Step 3: 校验**
 
 Run: `ZND_WORK=/Users/fotile96/Zndnovel/pilot/lanes/opus/work ZND_DATA=/Users/fotile96/Zndnovel/pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/check_batch.py --batch 152 --lane-dir /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: `batch_152: PASS  warn=K`（`hard=0` 即可，`K` 可以大于 0）。若输出 `FAIL`，按 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_152.check.json` 逐条修回 Step 2 产出的 `draft.jsonl`，重跑本步直到 PASS。
 
-- [ ] **Step 4: 语义崩溃探测（顾问级，不阻断——命中需人眼过一遍再入线）**
+- [x] **Step 4: 语义崩溃探测（顾问级，不阻断——命中需人眼过一遍再入线）**
 
 Run: `ZND_WORK=/Users/fotile96/Zndnovel/pilot/lanes/opus/work ZND_DATA=/Users/fotile96/Zndnovel/pilot/lanes/opus/data uv run python /Users/fotile96/Zndnovel-prod/tools/detect_collapse.py --batch 152 --lane-dir /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: `batch_152: 崩溃探测 K 条 (C1=.. C2=.. C3=..)`。本工具**恒返回 0**，不会自己拦流水线——K=0 直接进 Step 5；K>0 时打开 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/out/batch_152.collapse.json` 逐条人眼过目：确认是误报还是真崩溃（整行漏译、复读、长度离群）。真崩溃需回 Step 2 重新出译文、重跑 Step 3–4。把命中数（按规则 C1/C2/C3 分类）记进本批记录，供后面的检查点/段末流程汇总参考。
 
-- [ ] **Step 5: 入库并提交**
+- [x] **Step 5: 入库并提交**
 
 Run（`<model>` 换成本车道 `append_model_id`；`<ctx_sha>` 取自 Step 1 产出的 `manifest.json`）：
 
@@ -439,7 +439,7 @@ git commit -m "data: s7f 批次152 译文入线"
 > （spec §3.3），故后续批仍每批重投 `style.md`+`active.json`，并由 W4 机械闸
 > 兜住复现句族一致性。
 
-- [ ] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
+- [x] **Step 1: 生成全部批次的上下文包**（首批正常模式；其余批 `--jp-fallback`）
 
 > **为什么后续批要加 `--jp-fallback`**：后批 `context.md` 的前缀正文取自 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`，
 > 而整组开跑时后面几批的前置译文**还没入线**，正常模式必然报「前缀行 N 未译」。
@@ -457,7 +457,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 **开工前硬检查**：确认 153, 154 各批 `manifest.json` 的 `glossary_v` **全部相同**。不同即说明本组跨越了 glossary 版本变更，**必须拆组重生成**（spec §4.3：对话里规则书只投一次，跨版本即过期）。
 
-- [ ] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 2 批**
+- [x] **Step 2: 派一个译者子代理，按 `prompts/translator_cc.md` 的「长对话会话模式」一节连做 2 批**
 
 注入：车道根、批次序列 153, 154、以及「首批 153 读全量 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_153/context.md`，其余批只读 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_154/source.jsonl` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/style.md` + `/Users/fotile96/Zndnovel/pilot/lanes/opus/glossary/active.json`」。
 
@@ -465,7 +465,7 @@ Expected: 各批生成 `context.md`/`source.jsonl`/`manifest.json`。**只有首
 
 每批译完即走 Step 3 的三件校验并入库，再进入下一批。
 
-- [ ] **Step 3.153: 批次 153 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.153: 批次 153 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 153 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 153 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。本批即本组首批，这里是**恒等重跑**（Step 1 出它时就是正常模式），照跑即可——每批同形，免得临场判断哪批该跑。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -483,7 +483,7 @@ git add /Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl
 git commit -m "data: s7f 批次153 译文入线"
 ```
 
-- [ ] **Step 3.154: 批次 154 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
+- [x] **Step 3.154: 批次 154 校验与入库**（**严格按批号顺序**做，前一批入线是后一批 ctx 重生成的前提）
 
 Run: `uv run python /Users/fotile96/Zndnovel-prod/tools/build_context.py --batch 154 --profile cc --baseline none --repo /Users/fotile96/Zndnovel/pilot/lanes/opus`
 Expected: **正常模式重生成本批 ctx（不带 `--jp-fallback`）**——此刻批次 154 之前的各批译文都已入线，前缀能完整渲染。这一步覆盖 Step 1 留下的 fallback 档案，并给出本批**真** `ctx_sha`（下面 `append_forward --ctx` 用的就是它，审计链因此不留 fallback 残迹）。若这里报「前缀行 N 未译」，说明上一批漏了 `append_forward`，**回去补上再回来**，**不许加 `--jp-fallback` 绕过**。
@@ -503,18 +503,18 @@ git commit -m "data: crd 批次154 译文入线"
 
 ### Task 6: CHECKPOINT——批次 149–154 术语提案裁决 + 抽查
 
-- [ ] **Step 0: 冻结校验**（在主仓执行）
+- [x] **Step 0: 冻结校验**（在主仓执行）
 
 Run: `uv run python tools/lane_setup.py --verify`
 Expected: `冻结校验：无漂移`。若报出漂移，**立即停止本段**，报告人工裁决，不要继续派发下一批——漂移意味着两条车道的术语/骨架基准已经不再可比。
 
 到这里已完成 crd、s6f、s7f 章批次 149–154 的翻译入库。继续下一批之前做以下几件事：
 
-- [ ] **Step 1: 术语提案裁决**
+- [x] **Step 1: 术语提案裁决**
 
 查看 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/notes/` 下本段涉及的 `crd.md`、`s6f.md`、`s7f.md`（文件不存在说明该章本轮没有提案，跳过即可）：里面是译者/评审子代理发现的、`glossary/active.json` 未覆盖或疑似有问题的定译词建议。本段进行中**只清点归档、不裁决**：把提案原样留在文件里，不新增 `glossary.vN.yaml`、不改 `glossary/active.json`，裁决集中到本计划末尾「段末流程」指向的段末小裁决会话。
 
-- [ ] **Step 2: 抽查**
+- [x] **Step 2: 抽查**
 
 从批次 149–154 已入库的译文里随机抽 2–3 条，对照对应 `/Users/fotile96/Zndnovel/pilot/lanes/opus/work/ctx/batch_*/source.jsonl` 的原文与 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl` 的译文：核对术语一致性、【说话人】前缀、锚点行是否逐字沿用。怀疑有问题时可按 `prompts/reviewer_cc.md` 派一个评审子代理复核（复核意见只作参考，不直接改 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`——它是 append-only 正向线）。
 
@@ -522,11 +522,11 @@ Expected: `冻结校验：无漂移`。若报出漂移，**立即停止本段**�
 
 crd、s6f、s6s、s7f 章 main 车道全部 16 个批次（139–154）已入库 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`。收尾前做两件事：
 
-- [ ] **Step 1: 梗概回译自检**
+- [x] **Step 1: 梗概回译自检**
 
 对照本段涉及的各章章节梗概卡（`skeleton/cards.zh/` 中 crd、s6f、s6s、s7f 各章对应卡，见 `CLAUDE.md`「卡片分类」节「章节梗概卡」条目）与本车道刚入库的 `/Users/fotile96/Zndnovel/pilot/lanes/opus/data/forward.jsonl`：核对人物称呼（双层人名——现实层汉字/故事层片假名，见 `CLAUDE.md`「剧情核心」节）、关键道具/母题译名是否与 `skeleton/anchors.yaml` 一致，尤其检查有没有在本段尚不该点破的地方提前泄露后续真相（全知纪律，`glossary/style.md`）。**注意本段是 timeline 连续段而非完整章，某些章可能只覆盖了一部分，不要按「整章完结」的标准要求梗概吻合。**
 
-- [ ] **Step 2: 人工评审 gate**
+- [x] **Step 2: 人工评审 gate**
 
 把本计划产生的 16 个 `data: <chapter> 批次N 译文入线` commit（批号 139–154，`<chapter>` 各批不同，见各批 Task 的 Step 5）交给人工复核。**不要自动放行**——人工确认无误后本计划才算完成，之后才能继续对后续批次跑 `tools/gen_plan.py` 生成新计划。
 

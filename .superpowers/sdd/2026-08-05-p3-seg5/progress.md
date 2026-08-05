@@ -373,12 +373,33 @@ q3 的判分行是 `判分：判定|对|…`，比其余各题多一个 `判定|
 ## 6. 待用户处置
 
 - [x] 彩野测试（题库当日补齐，16 对 / 2 部分对 / 0 错；两条部分对均非译文丢信息）
-- [ ] **`review_focus` 抽读**（见下「抽读靶子」；A 级四处已在会话中展示原文/译文对照）
-- [ ] **段末小裁决会话**：`cluster_notes.py --lane-dir pilot/lanes/opus --out work/out/dossier-seg5-s6-s7f.md`
-      → 对可裁词族跑 `saturation.py --terms-file <词表> --data-dir pilot/lanes/opus/data --gate 0.8`
-      （**`--data-dir` 必须带**；表头应打印 `done=14207 条已入线译文`，N=0 即漏传）
-- [ ] **反馈开发轨两条**：①彩野题库 q14 把 `scene_s7f_300`（千秋）并进了直哉的准备，需修订；
-      ②判分行 `判定|` 前缀抖动
+- [x] **`review_focus` 抽读**（用户 2026-08-05 逐条裁决，A 级 4 处 + B 级 4 组；6 条 patch 已落地。
+      **C 级项未逐条抽读**，按用户放行口径不阻断，留作 P4 润色轨输入）
+- [x] **人工评审 gate（计划 Task 7 Step 2）——用户 2026-08-05 放行**：
+      「译文入线可以都放行」。16 个批次 commit（b139–154）全部通过，**本计划完成**，
+      后续批次可跑 `tools/gen_plan.py` 生成新计划。计划文件 34 个 checkbox 已全部勾选。
+- [x] **段末小裁决交接件已出**：`docs/ops/p3-seg5-s6-s7f-adjudication-handoff.md`（commit `8b37131`）。
+      卷宗 `work/out/dossier-seg5-s6-s7f.md` 已生成但**对本段完全失明**（见下），交接件内已给逐文件人工提取清单
+- [ ] **段末小裁决会话**（待开）：`cluster_notes` → `saturation --data-dir pilot/lanes/opus/data --gate 0.8`
+      （表头应打印 `done=14207`，N=0 即漏传）
+- [ ] **反馈开发轨三条**：①`cluster_notes` 表格体盲区（**第三段复发**，本段 52 条提案 0 收录）；
+      ②彩野题库 q14 把 `scene_s7f_300`（千秋）并进了直哉的准备，需修订；③判分行 `判定|` 前缀抖动
+
+### ⚠ 卷宗对本段 100% 失明（交接件已详述，此处备查）
+
+`cluster_notes` 输出 **735 提案 / 195 词族**，与 SEG-4 那次**逐字相同**；
+本段特征词 `室内履き`/`ほつれ`/`やめて`/`筋書き`/`鬼ごっこ` 命中**全为 0**。
+
+**根因（本段定位到源码）**：`tools/cluster_notes.py` 只认
+`PROP_RE = ^### (\d+)\.\s*(.+)$`（标题体）与容器标题下的 `LIST_ITEM_RE = ^(\d+)\.\s+`（有序列表）。
+本段三位译者**都把提案写成 Markdown 表格**（`| 批次 | id | 原文关键词 | 建议译法 | 理由 |`），
+表格行两条正则**都不匹配**；`s6s.md` 的容器标题还是 `## 术语提案`（h2）。
+
+本段实际提案量（人工数）：**s7f 18 / crd 17 / s6s 11 / s6f 6 = 52 条**。
+`git diff 178401e..prod-opus-seg5-s6-s7f-done -- pilot/lanes/opus/data/notes/` 可一次看全。
+
+**建议**：与其修工具，不如在 `prompts/translator_cc.md` 里**直接规定 notes 的提案写法**——成本低得多，
+且这已是 seg3-s4 移交、seg4 复发、seg5 再复发的同一缺口。
 
 ---
 

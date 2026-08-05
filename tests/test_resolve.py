@@ -31,3 +31,32 @@ def test_main_sorts_mixed_int_and_str_ids_without_typeerror(tmp_path, monkeypatc
     assert main([]) == 0
     final = read_jsonl(tmp_path / "final.jsonl")
     assert [r["id"] for r in final] == [1, "snr_x:1"]     # int 在前、str 在后
+
+
+def test_resolve_announces_when_forward_is_absent(tmp_path, capsys, monkeypatch):
+    """漏传 --data-dir 时，`final=0` 与「这条线还没开译」在数字上完全一样。
+
+    人眼分辨不出的失效必须出声——SEG-6 裁决会话实测踩到：读了仓库根 data/
+    （有 ledger、无 forward），算出一张完全合理的空表并把空 final.jsonl 写进仓库根。
+    """
+    from tools.resolve import main
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "ledger.jsonl").write_text('{"id":1,"jp":"あ"}\n', encoding="utf-8")
+    assert main(["--data-dir", str(d)]) == 0
+    err = capsys.readouterr().err
+    assert "forward.jsonl 不存在" in err and "漏传" in err, err
+    assert "final=0" in err
+
+
+def test_resolve_data_dir_overrides_env_and_writes_there(tmp_path, capsys):
+    """--data-dir 必须真的生效：读它、也写它，不能回落到仓库根。"""
+    from tools.resolve import main
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "ledger.jsonl").write_text('{"id":1,"jp":"あ"}\n', encoding="utf-8")
+    (d / "forward.jsonl").write_text('{"id":1,"zh":"啊"}\n', encoding="utf-8")
+    assert main(["--data-dir", str(d)]) == 0
+    assert (d / "final.jsonl").exists(), "final.jsonl 须写在 --data-dir 里"
+    err = capsys.readouterr().err
+    assert "final=1" in err and "forward.jsonl 不存在" not in err

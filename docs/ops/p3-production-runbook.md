@@ -65,6 +65,11 @@ worktree。** 命令按用途分两类：
   uv run python /Users/fotile96/Zndnovel-prod/tools/<tool>.py …`（lane 用主仓
   绝对路径；cwd 仍是主仓）。其余工具与 git 见 §1.1。
 - 中断恢复：从 forward.jsonl 已有 id 对照 batches.jsonl 重新推导断点，不信任记忆。
+- **锚点核对不能按「整行等同」做。** 判据是「**锚点 zh 是否原样嵌入该行译文**」——
+  `skeleton/anchors.yaml` 的 jp 有时只是行 jp 的**连续子串**，此时整行还带着锚点之外的成分。
+  已三次命中、可判定为常态而非孤例：SEG-5 的 **15445**、SEG-6 的 **16594**（整行带 `【直哉】`
+  前缀）与 **3904**（整行是 `先生は、「…」と、彼女に聞く。`）。按整行替换会把行内其余成分
+  一并抹掉，且 `check_batch` 的锚点闸判的也是嵌入而非等同——两边口径必须一致。
 
 ## 四、段边界工具升级流程（canary 闸门）
 
@@ -490,9 +495,13 @@ ruby**，**新增命中 0 行**。即：严格单向放宽，且放宽面与「r
    另：**饱和度 1.000（剩余占位为零）的词不进 active.json**，改记 `ratified` 节
    （W2 只在待译批次上跑，登记只增词表长度）——见 `conventions/active-json-scope` 条件②。
 4. 裁决产出 glossary.v<N> + 召回令；回改走车道 patches.jsonl；用
-   `ZND_DATA=pilot/lanes/opus/data uv run python tools/resolve.py` 验证生效
-   （`resolve.py` **只认 `ZND_DATA` 环境变量、没有 `--data-dir`**；主仓裸跑会读不到
-   车道 forward，并把一份空的 `final.jsonl` 写进仓库根 `data/`）。
+   `uv run python tools/resolve.py --data-dir pilot/lanes/opus/data` 验证生效
+   （✅ **2026-08-05 起有 `--data-dir` 了**，与 `saturation.py` 同形；`ZND_DATA` 仍兼容）。
+   此前它**只认环境变量**，主仓裸跑会读不到车道 forward、算出一张「完全合理」的空表
+   （`final=0 missing=16749`）并把空的 `final.jsonl` 写进仓库根——SEG-6 裁决会话实测踩到。
+   现在这一形态会**显式告警**（「forward.jsonl 不存在……多半是漏传 --data-dir / ZND_DATA」），
+   且 `final.jsonl` 跟着 `--data-dir` 落在车道里，不再污染仓库根。输出末尾另打印
+   `(data-dir=…)`，跑完扫一眼就知道读的是哪棵树。
 5. **段边界版本切换**：漂移预检（确认漂移恰为本次召回令文件）→ 双车道
    `lane_setup --force` → `--verify` 无漂移 → 冻结内容抽验 → commit manifest+台账。
    ⚠ **两条实操陷阱（seg1-s2 与 seg2-s3 各踩出一条）**：
@@ -534,6 +543,11 @@ ruby**，**新增命中 0 行**。即：严格单向放宽，且放宽面与「r
    注：这类维护者记录用 `##` 段落 + 表格写，**不要**用 `### 序号. 词 → 译` 形式——
    后者是 `cluster_notes.py` 的提案标题格式，会把维护者记录算成新提案
    （已实测：回填后卷宗仍是 558 提案 / 137 词族，与回填前逐字相同）。
+   ✅ **表头怎么写不受限**（2026-08-05 澄清）：SEG-6 交接件里曾嘱「表头不要同时含『原文』
+   与『译』两列，否则会被新版 `cluster_notes` 当成新提案」——**那条不必遵守，已撤销**。
+   工具的分流判据是**容器标题**不是表头：标题含「维护者记录／自查／核对／沿用／备查」
+   即判 `record`、进卷宗附录而非裁决面（已用真实的『【维护者记录】段末裁决回改』表实测确认）。
+   多写一条要靠记忆维持、又不带来任何收益的纪律，本身就是负担。
 
 ## 六、额度软政策
 

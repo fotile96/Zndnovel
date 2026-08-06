@@ -192,12 +192,40 @@ def _load_json(path, default):
     return default
 
 
-def _find_prompt_hash(plan_path, batch):
+def _find_prompt_hash(plan_path, batch, channel=None):
     """按批号反查其所属会话的 prompt_hash。`plan.json` 是按 session 号去重
     的累积 list，一个 session 含多个批（`polish_context.plan/render` 产出）。
     找不到时返回 None——调用方必须把 None 当"根本没有这条记录"处理，不能
-    与"查到了但恰好是空串"混同，也不能悄悄塞一个 "" 了事。"""
-    for r in _load_json(plan_path, []):
+    与"查到了但恰好是空串"混同，也不能悄悄塞一个 "" 了事。
+
+    **`channel` 参数（评审 Task 9 Finding B 追加）**：`polish_context.
+    render()` 产出的普通会话记录天然是"channel 无关"的——同一份 prompt
+    文字本来就是让多个 channel（fable/deepseek/…）各自去读同一份，从不在
+    自己的记录里写 `channel` 字段。但 `polish_amplify.scan_prompt()` 装配
+    的是一份**内容不同**的 prompt（纪要+四桶全景，不是普通逐批正文），
+    却覆盖**同一批号区间**——如果不区分，按批号找到的"第一条匹配"会是
+    更早写入的普通会话记录，导致 amplify 候选的 `prompt_hash` 记成别的
+    channel 的文档（评审实测：确实如此，见 `polish_amplify.py` 原 concern
+    与本次修复）。
+
+    修法：只有 `scan_prompt()` 这类"专属某 channel"的记录才会带
+    `"channel"` 字段（见 `polish_amplify.scan_prompt()`）；普通会话记录
+    永远不带这个字段。查找时：
+    1. 若调用方传了 `channel`，先只在"批号吻合且 `record['channel'] ==
+       channel`"的记录里找——存在就直接返回，不受列表顺序、不受其他
+       channel 记录干扰；
+    2. 找不到（该 channel 从未写过专属记录——绝大多数普通 channel 都是
+       这种情况）→ **退化到旧的、channel 无关的"批号匹配即返回第一条"**
+       —— 对存量 `plan.json`（记录里压根没有 `channel` 键）完全透明，
+       行为与本参数加入之前逐位一致（`test_find_prompt_hash_backward_
+       compatible_without_channel_field` 钉死这一点）。
+    """
+    records = _load_json(plan_path, [])
+    if channel is not None:
+        for r in records:
+            if batch in r.get("batches", []) and r.get("channel") == channel:
+                return r.get("prompt_hash")
+    for r in records:
         if batch in r.get("batches", []):
             return r.get("prompt_hash")
     return None
@@ -246,7 +274,7 @@ def ingest(label, channel, batch, repo=None) -> dict:
     locked_ids = set(locked.get("ids", []))
     expected_id_set = batch_id_set - locked_ids
 
-    prompt_hash = _find_prompt_hash(d / "plan.json", batch)
+    prompt_hash = _find_prompt_hash(d / "plan.json", batch, channel=channel)
     if prompt_hash is None:
         reason = (f"{label}/plan.json 里查不到批 {batch} 所属的会话（因而拿不到 "
                    "prompt_hash）——这本身是异常：还没渲染过 prompt 就来了 raw，"

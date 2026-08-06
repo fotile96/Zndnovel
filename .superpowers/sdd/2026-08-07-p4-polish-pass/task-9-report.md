@@ -309,3 +309,195 @@ $ uv run pytest -q
    若未来有人跳过 triage 直接调用 scan_prompt，会得到一条读文件失败的
    报错而不是更友好的"请先跑 triage"提示；当前报错信息已经写明原因，
    判定为足够清楚，未做额外的用户友好化处理。
+
+---
+
+# 修复轮 1/N：评审 Important×1 + 静默指错型退化×1
+
+状态：**DONE**。
+
+评审独立走通了端到端回炉链（setup→ingest→gate→triage→decisions→digest→
+scan_prompt→手造 raw/amplify→ingest amplify→triage 确认恒不 autoclear），
+每一跳字段/路径/批号/jp_tail 长度都对得上；三个原有变异真红；轮数闸抗
+误拦三探针通过（自然语言提及不误拦、跨 SEG 隔离不误拦、`digest()` 连跑
+两次只追加纪要不消耗轮次）；`verdict="auto"` 排除人裁分布的裁定被判为
+正确。报 2 条进本轮修复。
+
+## Finding A（Important）：`AMPLIFY_PREAMBLE` 命令模型做一件它做不到的事
+
+**问题**：说明文字要求模型对桶 2 的行"`zh` 请照抄裁决结果里的最终译文，
+不要回退去抄更早的候选或 opus"，但 `_build_panorama()` 对桶 2 只渲染
+`verdict`/`reason_code`，**从不渲染 `edited_zh` 本身**；整份 prompt 里
+唯一露出"最终 zh"的地方是 `_build_digest_text()` 里**每个原因码最多 3
+条**的代表例。评审用 5 条同 `reason_code="语序"` 的 `verdict="edit"`
+裁决实测：只有前 3 条（按 id 升序）的 `edited_zh` 出现在 `scan_prompt()`
+输出里，第 4/5 条完全不出现——K≈150 的真实规模下单原因码 >3 条是大概率
+事件，不是边界情形；本任务原有夹具只用 3 条 decisions（两码），从未
+触发这个边界，所以没测到。
+
+### 修法（采纳评审建议的方案）
+
+让 `_build_panorama()` 的桶 2 渲染对**每一个**已裁决 id（不再受"每码
+≤3 条"的代表例上限约束）都展示实际最终 zh：
+
+1. 新增共享 helper `_final_zh_for_decision(dec, all_cands, id2opus)`——
+   按 `dec["chosen_channel"]` 查该决策实际参照的候选行，代入
+   `_decision_final_zh()` 同一套 adopt/edit/keep_opus 规则算出最终 zh。
+2. `_build_digest_text()`（代表例）与 `_build_panorama()`（桶 2 全量）
+   都改用这同一个 helper，不再各自维护一份"怎么算最终 zh"的逻辑——
+   避免将来只改一处、另一处悄悄分裂出不同答案（这正是本次 finding 的
+   根因：两处本该给出同一个答案，却只有一处真正渲染了出来）。
+3. `_build_panorama()` 桶 2 小节现在对每个已裁决 id 追加一行"裁决后
+   最终 zh（请照抄这一行，不要回退去抄候选或 opus）"；若该 id 的最新
+   决策缺少可算出的最终译文（如 `verdict="edit"` 却没填 `edited_zh`），
+   显式标注"（决策缺少最终译文，需人工确认）"，不静默留白。
+
+**为什么选这个方案而不是"删掉那句模型做不到的指令"**：评审明确倾向
+前者（"放大扫描的全部意义就是让模型看着人裁结果重扫，看不到最终译文
+等于抽掉了地基"），本次采纳——删指令只是掩盖问题（模型仍然看不到已
+裁决内容，只是工具不再对此撒谎，但放大扫描本该传递的"人裁尺度"这份
+信息量本身就丢了），渲染出来才是真正把设计意图落地。
+
+## Finding B（静默指错型退化）：`candidates.amplify.jsonl` 的 `prompt_hash`
+借用了普通通道的文档
+
+**问题**：`polish_ingest._find_prompt_hash()` 按批号在 `plan.json` 记录
+列表里找**第一个**匹配，不区分 channel；初版 `scan_prompt()` 不写任何
+新记录，导致 `ingest(label, "amplify", batch)` 反查到的 `prompt_hash`
+其实是**更早的普通通道**那次渲染的哈希。评审实测确认：全部 amplify
+候选行的 `prompt_hash` 都是 `"hash-1"`（chA 那次会话的哈希）。这比"查
+不到"更危险——不是缺失（那还有信号），而是"查到了一个真实存在但错误
+的文档"，审计者会以为找对了，实际拿到的是另一次会话的 prompt，破坏了
+Task 8 立下的 `prov` 三跳倒查链的精确性承诺。
+
+### 修法（评审本轮明确授权改 `polish_ingest.py`，此前"不改 ingest"的
+分工到此为止）
+
+1. **`tools/polish_ingest.py`**：`_find_prompt_hash(plan_path, batch,
+   channel=None)` 加可选 `channel` 参数——传了 `channel` 时先只在
+   "批号吻合且记录自带的 `channel` 字段等于查询值"的记录里找；找不到
+   （绝大多数普通 channel 从未写过带 `channel` 标签的专属记录）才退化
+   到旧的"批号匹配即返回第一条、不看 channel"兜底。`ingest()` 内部
+   调用点改为 `_find_prompt_hash(d / "plan.json", batch, channel=channel)`。
+   **`ingest()` 既有的判死/整批失败逻辑一处未动**（R1 覆盖检查、重复
+   id、错位侦测三条件、非法类型判死等全部原样保留）。
+2. **`tools/polish_amplify.py`**：`scan_prompt()` 装配成功后，新增
+   `_upsert_amplify_plan_record()` 往 `plan.json` **追加**一条
+   `{"session": <新会话号>, "batches": <本 SEG 全部批号>, "prompt_hash":
+   sha256(scan_prompt 返回文本), "channel": "amplify"}` 记录（新会话号
+   取现有记录里最大 `session` + 1，不覆盖、不移除任何既有记录）。
+
+### channel 匹配与向后兼容兜底逻辑
+
+- **精确匹配优先**：`channel="amplify"` 的查询第一轮只看"批号吻合 且
+  `record["channel"] == "amplify"`"的记录——由于普通会话记录从不带
+  `channel` 字段，这条新记录是该批号下**唯一**能通过这一轮筛选的记录，
+  不受列表顺序、不受同批号下其他 channel 记录的干扰。
+- **存量数据零改动兼容**：普通 channel（`chA`/`fable`/`deepseek`/…）
+  的查询在第一轮永远找不到"channel 吻合"的记录（它们自己就不带这个
+  字段，也从未主动写过），直接落到第二轮"批号匹配即返回第一条、不看
+  channel"的旧逻辑——这与本次改动之前的行为**逐位一致**，不需要改动
+  `polish_context.py` 或任何既有的 plan.json 写入路径。
+- 若某 SEG 从未跑过 `scan_prompt()`（`plan.json` 里没有任何
+  `channel="amplify"` 记录），`ingest(label, "amplify", batch)` 会自然
+  落到旧的 channel-无关兜底，只要该批号本身有过任一记录（哪怕是别的
+  channel 留下的）就仍能拿到一个非空哈希——这是本次改动刻意保留的
+  "退化但不崩"路径，不是新引入的漏洞：真正需要精确性的场景（本 SEG
+  确实跑过 `scan_prompt()`）已经被新记录覆盖住了。
+
+## 新测试
+
+- `tests/test_polish_ingest.py`：
+  - `test_find_prompt_hash_backward_compatible_without_channel_field`
+    ——存量 plan.json（两条记录都没有 `channel` 字段）下，不管调用方
+    传不传 `channel`、传什么 channel，返回值都必须与加参数之前逐位
+    一致。
+  - `test_find_prompt_hash_prefers_channel_tagged_record` ——追加一条
+    `channel="amplify"` 的专属记录（覆盖与既有 chA 会话相同的批号）后，
+    `channel="amplify"` 查询精确命中新记录，普通 channel 查询完全不受
+    干扰。
+- `tests/test_polish_amplify.py`：
+  - `test_scan_prompt_shows_final_zh_beyond_top3_examples`（新增独立
+    夹具 `_build_wide_code_mini`：5 个 id、全部 `verdict="edit"`、
+    `reason_code="语序"`，K 默认 150 全部落桶 2）——断言全部 5 条
+    `edited_zh` 都出现在 `scan_prompt()` 输出里，不只是 digest 代表例
+    露出的前 3 条。
+  - `test_amplify_ingest_prompt_hash_matches_scan_prompt_not_normal_
+    channel`——`scan_prompt()` 后 `plan.json` 恰好新增 1 条
+    `channel="amplify"` 记录且 `batches` 覆盖 SEG 全部批号；手造
+    `raw/amplify/b1.out`/`b2.out` 后 `ingest(label, "amplify", batch)`
+    产出的 `candidates.amplify.jsonl` 每一行 `prompt_hash` 都等于
+    `sha256(scan_prompt 文本)`，且都不等于 `"hash-1"`（chA 那次普通
+    会话的哈希）。
+
+## 两个变异的红绿实况
+
+方法与此前各任务一致：用 Edit 精确引入一处改动、跑对应测试文件、记录、
+用 Edit 精确还原；还原后单独重跑确认恢复原有 passed 数，最终跑一次全量
+确认无回归。
+
+**变异①（对应 Finding A）：去掉桶 2 的"裁决后最终 zh"渲染**（删掉
+`_build_panorama()` 里新增的那一行 `out.append(f"  - 裁决后最终 zh...")`）
+→ `test_scan_prompt_shows_final_zh_beyond_top3_examples` 真红，且失败
+信息精确指向"digest 代表例只展示前 3 条"这条边界（id 103 是排序后的
+第 4 个）：
+```
+FAILED tests/test_polish_amplify.py::test_scan_prompt_shows_final_zh_beyond_top3_examples
+AssertionError: id 103 的最终 zh 缺失于 scan_prompt 输出
+1 failed, 12 passed in 0.15s
+```
+
+**变异②（对应 Finding B）：`_find_prompt_hash` 忽略 channel 参数**
+（函数体首行插入 `channel = None`，其余逻辑不变）→ 两条独立测试各自
+真红（一条在 `polish_ingest` 层直接调用该函数，一条走完整的
+`scan_prompt→ingest` 端到端链路，两个层面都抓到了同一个问题）：
+```
+FAILED tests/test_polish_amplify.py::test_amplify_ingest_prompt_hash_matches_scan_prompt_not_normal_channel
+AssertionError: assert 'hash-1' == 'acf7145de58c...3b2c772ad2bd1'
+FAILED tests/test_polish_ingest.py::test_find_prompt_hash_prefers_channel_tagged_record
+AssertionError: assert 'hash-session-1' == 'hash-amplify-specific'
+2 failed, 36 passed in 0.45s
+```
+
+两个变异全部按预期真红，均已用 Edit 精确还原（`grep MUTATION tools/
+polish_amplify.py tools/polish_ingest.py` 无输出，源码干净）。
+
+## 回归测试输出
+
+```
+$ uv run pytest tests/test_polish_ingest.py tests/test_polish_amplify.py tests/test_polish_context.py -q
+.......................................................                  [100%]
+55 passed in 0.31s
+
+$ uv run pytest -q
+682 passed in 3.55s      # 678（本任务首轮完成基线）+ 4（本轮新增：
+                          #   test_polish_ingest.py ×2、test_polish_amplify.py ×2）
+```
+
+## 授权范围核查
+
+评审本轮明确写道"这次授权你改 `polish_ingest.py`"——改动严格限于：
+`_find_prompt_hash` 签名加 `channel=None` 可选参数 + 其内部按上述两轮
+匹配逻辑改写；`ingest()` 内唯一一处调用点补 `channel=channel` 实参。
+`ingest()` 函数体其余部分（幂等短路、source/opus/locked 读取、覆盖
+完整性判定、raw 逐行解析、重复 id/错位侦测/非法类型/空 zh 等全部判死
+分支、discipline 落盘、candidates 落盘）**逐字未动**——`git diff
+tools/polish_ingest.py` 可核对改动范围与本节描述完全一致。
+
+## 生产数据安全核查（本轮修复）
+
+- 全程未创建/写入真实 `pilot/polish/` 目录（`ls pilot/polish` 报
+  "No such file or directory"）。
+- 未使用 `git add -A`；未触碰 `.claude/settings.json` 与
+  `data/api_ledger.jsonl`。
+- `.superpowers/sdd/2026-08-07-p4-polish-pass/progress.md` 在本轮修复
+  开工前已有其他流程写入的 Task 9 评审记录（内容与本次收到的评审意见
+  逐字对应），本轮修复未触碰、未覆盖该文件，随最终 commit 一并提交
+  （该文件已被跟踪，非新增，按 CLAUDE.md 约定正常提交即可，不需要
+  `git add -f`）。
+
+## Concerns（更新）
+
+原报告"Concerns"第 1 条（amplify 候选 `prompt_hash` 借用普通通道哈希）
+已通过本轮修复解决，不再是遗留问题。原第 2 条（`scan_prompt()` 要求
+`triage.json` 已存在，否则报错而非更友好提示）维持不变、仍非阻塞。

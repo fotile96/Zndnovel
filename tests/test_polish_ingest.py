@@ -617,3 +617,35 @@ def test_cli_all_scans_raw_dir(mini):
     assert ids == {10, 11, 12, 20, 21, 22}
     ingested = json.loads((mini.d / f"ingested.{mini.channel}.json").read_text(encoding="utf-8"))
     assert set(ingested["batches"]) == {1, 2}
+
+
+# --- _find_prompt_hash：channel 参数（评审 Task 9 Finding B 追加） ---
+#
+# `mini` fixture 的 plan.json 本就是两条"没有 channel 字段"的存量记录
+# （{"session": b, "batches": [b], "prompt_hash": spec["session_hash"]}），
+# 不需要另造夹具——这正是"存量数据"该有的样子。
+
+def test_find_prompt_hash_backward_compatible_without_channel_field(mini):
+    """存量 plan.json（记录里没有 `channel` 字段）——不管调用方传不传
+    `channel`、传的是什么 channel，行为都必须与加这个参数之前逐位一致：
+    按批号匹配第一条记录。"""
+    plan_path = mini.d / "plan.json"
+    assert pi._find_prompt_hash(plan_path, 1) == "hash-session-1"
+    assert pi._find_prompt_hash(plan_path, 1, channel="chA") == "hash-session-1"
+    assert pi._find_prompt_hash(plan_path, 1, channel="amplify") == "hash-session-1"
+    assert pi._find_prompt_hash(plan_path, 2, channel="anything-else") == "hash-session-2"
+
+
+def test_find_prompt_hash_prefers_channel_tagged_record(mini):
+    """新增一条 `channel="amplify"` 的专属记录、覆盖与既有 chA 会话相同的
+    批号——`channel="amplify"` 的查询必须精确命中这条新记录，而不是被列表
+    顺序更靠前的旧记录挡住；普通 channel 的查询完全不受这条新记录干扰。"""
+    plan_path = mini.d / "plan.json"
+    records = json.loads(plan_path.read_text(encoding="utf-8"))
+    records.append({"session": 99, "batches": [1], "prompt_hash": "hash-amplify-specific",
+                     "channel": "amplify"})
+    plan_path.write_text(dumps(records), encoding="utf-8")
+
+    assert pi._find_prompt_hash(plan_path, 1, channel="amplify") == "hash-amplify-specific"
+    assert pi._find_prompt_hash(plan_path, 1, channel="chA") == "hash-session-1"
+    assert pi._find_prompt_hash(plan_path, 1) == "hash-session-1"

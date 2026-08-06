@@ -22,6 +22,31 @@
 已保证 `channel=="amplify"` 恒不 autoclear）分流、人工追加小裁决、
 `polish_commit` 清关——本模块只负责"喂出正确格式的下一轮 prompt"这一步。
 
+## 设计点 0：桶 2 全景必须渲染每一条裁决的最终 zh（评审 Finding A，已修复）
+
+`AMPLIFY_PREAMBLE` 明确要求模型对桶 2（已裁决）的行"`zh` 请照抄裁决结果
+里的最终译文，不要回退去抄更早的候选或 opus"。初版实现里，唯一渲染"最终
+zh"的地方是 `_build_digest_text()` 里**每个原因码最多 3 条**的代表例——
+`_build_panorama()` 的桶 2 小节只渲染了 `verdict`/`reason_code`，从不
+渲染最终译文本身。评审实测：单个原因码聚集 5 条 `verdict="edit"` 裁决时，
+第 4/5 条的 `edited_zh` 在整份 `scan_prompt()` 输出里完全不出现——工具
+要求模型"照抄"一段它从未被展示过的文本，只能猜或重建，而失真的恰恰是
+价值密度最高的那批（人工重写稿，既不同于 opus 也不同于任何通道候选）。
+K≈150 的真实规模下，单原因码 >3 条是大概率事件，不是边界情形。
+
+**修法（评审建议的方案，本次采纳）：让 `_build_panorama()` 的桶 2 渲染
+对每一个已裁决的 id 都展示实际最终 zh**，不再依赖 digest 里限量的代表例
+兜底这件事。新增共享 helper `_final_zh_for_decision(dec, all_cands,
+id2opus)`（按 `dec["chosen_channel"]` 查该决策实际参照的候选行、代入
+`_decision_final_zh()` 同一套 adopt/edit/keep_opus 规则），`_build_
+digest_text()` 与 `_build_panorama()` 都改用这同一个 helper，避免两处
+各自维护一份"怎么算最终 zh"的逻辑而互相漂移。桶 2 小节现在对**每个**
+已裁决 id（不再受"每码 ≤3 条"限制——那个限制只该约束 digest 的"代表例"
+篇幅，不该限制模型能否看到自己被要求照抄的文本）都追加一行"裁决后最终
+zh"；若该 id 的最新决策缺少可算出的最终译文（比如 `verdict="edit"` 却
+没填 `edited_zh`），显式标注"（决策缺少最终译文，需人工确认）"而不是
+静默留白。变异自检①专门验证"去掉这一行渲染，测试必须真红"。
+
 ## 设计点 1：`verdict="auto"` 决策不计入人裁意图分布
 
 `decisions.jsonl` 里 `verdict="auto"` 的记录是 `polish_commit.commit()` 对
@@ -77,29 +102,51 @@ f"b{batch}.out"` 这个路径上找不到文件，对每一个批都判"raw 不�
 "重扫整个 SEG"字面意义上的重扫（含桶 0/1/2 已经不需要改动的行，也要求
 原样抄一遍 zh，与常规批次同一份契约），不是只扫桶 3。
 
-### 关于 `plan.json`/`prompt_hash` 的一个已知、不新增的粗糙点
+### `plan.json`/`prompt_hash` 的 channel 精确性（评审 Finding B，已修复）
 
 `polish_ingest.ingest()` 用 `plan.json` 反查某批所属会话的 `prompt_hash`
-（`_find_prompt_hash`，按批号在记录列表里找**第一个**匹配，不区分
-channel）。`polish_context.render()`+CLI 早于本模块运行、已经为该 SEG
-全部批次写过至少一条 session 记录（真实流水线里不同 channel 执行的是
-同一份 prompt 文字，只是换了个模型/车道去读——`render()` 本身不按
-channel 参数化，session 记录天然是"channel 无关"的）。**本模块因此不
-再往 `plan.json` 写任何新记录**：既有记录已经能让 `_find_prompt_hash`
-对 SEG 的每个批号都返回一个非空哈希，`ingest(label, "amplify", batch)`
-可以正常跑通（覆盖检查、jp_tail 核验等与 channel 无关的逻辑一切照旧）。
+（`_find_prompt_hash`）。初版实现里该函数按批号在记录列表里找**第一个**
+匹配、不区分 channel——`polish_context.render()`+CLI 早于本模块运行、
+已经为该 SEG 全部批次写过普通会话记录（真实流水线里不同普通 channel
+执行的是同一份 prompt 文字，`render()` 本身不按 channel 参数化，这些
+记录天然"channel 无关"，从不带 `channel` 字段）。评审实测发现：初版
+`scan_prompt()` 不写任何新记录，导致 `ingest(label, "amplify", batch)`
+反查到的 `prompt_hash` 其实是**更早的普通通道**那次渲染的哈希——不是
+"查不到"（那还有信号），而是"查到了一个真实存在但错误的文档"，破坏了
+Task 8 立下的 `prov` 三跳倒查链的精确性承诺。
 
-代价：`candidates.amplify.jsonl` 里记的 `prompt_hash` 指向的是**某次
-普通会话**渲染出的哈希，不是"这次放大扫描 prompt 本身"的哈希——这是
-一个真实存在、但不影响 ingest 是否成功、只影响审计精确度的粗糙点
-（`_find_prompt_hash` 本身不支持按 channel 区分记录，修它超出本任务
-范围，也违反"直接复用、不改动 polish_ingest.py"的既定分工）。已在报告
-里作为 concern 记录。若该 SEG 从未跑过任何 `polish_context.render()`+
-`--out` 流程（plan.json 完全为空），`ingest("amplify", batch)` 会按既有
-逻辑正确地判"整批失败：查不到 prompt_hash"——这与其余 channel 遇到同一
-情形的行为完全一致，不是本模块引入的新缺口。
+**修法**：`tools.polish_ingest._find_prompt_hash(plan_path, batch,
+channel=None)` 加了可选 `channel` 参数——传了 `channel` 时先只在"批号
+吻合且记录自带的 `channel` 字段等于查询值"的记录里找，找到就直接返回；
+找不到（绝大多数普通 channel 从未写过带 `channel` 标签的专属记录）才
+退化到旧的"批号匹配即返回第一条、不看 channel"兜底。`ingest()` 内部
+调用点相应改为 `_find_prompt_hash(d / "plan.json", batch, channel=channel)`。
+
+配合本模块这一侧：`scan_prompt()` 装配成功后，往 `plan.json` **追加**
+一条 `{"session": <新会话号>, "batches": <本 SEG 全部批号>, "prompt_hash":
+sha256(scan_prompt 文本), "channel": "amplify"}` 记录（新会话号取现有
+记录里最大 `session` + 1，不与任何既有记录冲突，也不覆盖/移除任何既有
+记录）。这条记录**专属** `channel="amplify"` 的查询：
+- `ingest(label, "amplify", batch)` 查询时传 `channel="amplify"`，第一
+  轮匹配直接命中这条新记录，返回的正是这次放大扫描 prompt 自身的哈希——
+  不再借用任何普通通道的文档。
+- 普通 channel（`chA`/`fable`/`deepseek`/…）的查询完全不受影响：它们
+  从未写过、也不会写带 `channel` 字段的记录，第一轮匹配（要求 channel
+  吻合）永远找不到东西，直接落到旧的 channel-无关兜底，行为与本次改动
+  之前逐位一致——`test_find_prompt_hash_backward_compatible_without_
+  channel_field`（`tests/test_polish_ingest.py`）与
+  `test_amplify_ingest_prompt_hash_matches_scan_prompt_not_normal_
+  channel`（`tests/test_polish_amplify.py`）分别从"函数级直接调用"与
+  "端到端 ingest 出来的 candidates 行"两个层面钉死这一点。
+
+⚠ **本次改动的授权范围**：评审明确"这次授权你改 `polish_ingest.py`"，
+仅限于 `_find_prompt_hash` 加 channel 参数、`ingest()` 内部调用点传
+channel——`ingest()` 既有的判死/整批失败逻辑（R1 覆盖检查、重复 id、
+错位侦测三条件、非法类型等）**一处未动**，`tests/test_polish_ingest.py`
+全量重跑确认无回归（见下方"回归"一节）。
 """
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -108,7 +155,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_context import _render_anchors, _render_voices
-from tools.pipelib import REPO, read_jsonl
+from tools.pipelib import REPO, dumps, read_jsonl
 from tools.polish_context import OUTPUT_CONTRACT_HEADER
 from tools.polishlib import CFG
 
@@ -167,6 +214,25 @@ def _decision_final_zh(dec: dict, cand_zh, opus_zh):
     if verdict == "keep_opus":
         return opus_zh
     return cand_zh
+
+
+def _final_zh_for_decision(dec: dict, all_cands: dict, id2opus: dict):
+    """`_decision_final_zh()` 的查表版本——按这条决策自己的 `chosen_
+    channel` 去 `all_cands` 里找该 id 对应的候选行，取其 `zh` 作为
+    "候选原文"这一路输入，再代入同一套 adopt/edit/keep_opus 规则。
+
+    `_build_digest_text()`（代表例）与 `_build_panorama()`（桶 2 全量）
+    都调用这同一个 helper——两处都需要"这条决策的最终 zh 到底是什么"这
+    件事，若各自实现一份查表逻辑，将来任何一处改了对齐规则都可能悄悄
+    分裂成两套答案（评审 Finding A 的教训：两处只有一处渲染，被漏掉的
+    那一处就成了"工具对模型撒了谎"）。
+    """
+    cid = dec.get("id")
+    channel = dec.get("chosen_channel")
+    cand_row = all_cands.get(channel, {}).get(cid) if channel else None
+    cand_zh = cand_row.get("zh") if cand_row else None
+    opus_zh = id2opus.get(cid, "")
+    return _decision_final_zh(dec, cand_zh, opus_zh)
 
 
 def _decision_ruling_text(dec: dict) -> str:
@@ -232,7 +298,7 @@ def _build_digest_text(label, repo=None) -> str:
             cand_row = all_cands.get(channel, {}).get(cid) if channel else None
             cand_zh = cand_row.get("zh") if cand_row else None
             opus_zh = id2opus.get(cid, "")
-            final_zh = _decision_final_zh(dec, cand_zh, opus_zh)
+            final_zh = _final_zh_for_decision(dec, all_cands, id2opus)
             ruling = _decision_ruling_text(dec)
             out.append(f"- id {cid}（verdict={dec.get('verdict')}）")
             out.append(f"  - JP：{id2jp.get(cid, '')}")
@@ -313,8 +379,11 @@ def _build_panorama(d: Path, id2jp, id2opus, locked_ids, all_cands) -> str:
             decs = decisions_by_id.get(cid)
             if decs:
                 last = decs[-1]
+                final_zh = _final_zh_for_decision(last, all_cands, id2opus)
                 out.append(f"  - 裁决结果：verdict={last.get('verdict')}，"
                             f"原因={last.get('reason_code')}")
+                out.append(f"  - 裁决后最终 zh（请照抄这一行，不要回退去抄候选或 opus）："
+                            f"{final_zh if final_zh is not None else '（决策缺少最终译文，需人工确认）'}")
             else:
                 out.append("  - 裁决结果：（尚未裁决）")
     else:
@@ -359,6 +428,19 @@ AMPLIFY_PREAMBLE = """\
 """
 
 
+def _upsert_amplify_plan_record(plan_path: Path, batches: list, prompt_hash: str) -> None:
+    """往 `plan.json` **追加**一条 `channel="amplify"` 的专属记录（评审
+    Finding B 的修复）：新会话号取现有记录里最大 `session` + 1，不覆盖、
+    不移除任何既有记录（普通 channel 的会话记录完全不受影响，它们从来
+    不带 `channel` 字段，`polish_ingest._find_prompt_hash` 对它们的查找
+    行为逐位不变）。"""
+    records = json.loads(plan_path.read_text(encoding="utf-8")) if plan_path.exists() else []
+    next_session = max((r.get("session", 0) for r in records), default=0) + 1
+    records.append({"session": next_session, "batches": list(batches),
+                     "prompt_hash": prompt_hash, "channel": "amplify"})
+    plan_path.write_text(dumps(records), encoding="utf-8")
+
+
 def scan_prompt(label, repo=None) -> str:
     """装配整 SEG 放大扫描 prompt：纪要 + 四桶全景（含桶 3 落选句全文）+
     锁定 id 清单 + 术语/风格/口调/锚点 + 输出契约（channel 固定 amplify）。
@@ -366,6 +448,11 @@ def scan_prompt(label, repo=None) -> str:
     轮数闸：`frozen/rulings.md` 里已有的 `<!-- amplify-round:N -->` 标记数
     达到 `CFG["amplify_rounds"]` 就拒绝——抛 `AmplifyRoundLimitError`，不做
     任何写入（见模块 docstring 设计点 2：标记只在装配成功后才追加）。
+
+    成功装配后还会往 `plan.json` 追加一条 `channel="amplify"` 的专属会话
+    记录（`prompt_hash` = 本次返回文本自身的 sha256），供
+    `polish_ingest.ingest(label, "amplify", batch)` 精确反查——见模块
+    docstring"`plan.json`/`prompt_hash` 的 channel 精确性"专节。
     """
     d = _dir_for(label, repo)
     fz = d / "frozen"
@@ -425,6 +512,9 @@ def scan_prompt(label, repo=None) -> str:
         out.append(f"- `raw/amplify/b{b}.out`")
 
     text = "\n".join(out)
+
+    prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    _upsert_amplify_plan_record(d / "plan.json", batches, prompt_hash)
 
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
     marker = f"\n## 放大扫描 · 第 {round_count + 1} 轮已装配（{ts}）\n<!-- amplify-round:{round_count + 1} -->\n"

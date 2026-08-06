@@ -165,3 +165,21 @@ Task 8: minor (deferred): ①多通道同 id 都 autoclear 的 tie-break（取 e
   无专项回归测试——评审用探针确认实际行为安全（只写一条、不覆盖），建议后续固化；
   ②同 id 在单次 commit 内同时被人工决策与 autoclear 命中的边缘场景未测（正常流程不会发生，
   且实测不丢数据）；③`_save_committed()` O(n²) 重写是有意为之（中途崩溃时幂等键不漏判）。
+Task 9: 实施完成 2749460（678 passed）。评审**独立走通了端到端回炉链**
+  （setup→ingest→gate→triage→decisions→digest→scan_prompt→手造 raw/amplify→ingest amplify
+  →triage 确认恒不 autoclear），每一跳字段/路径/批号/jp_tail 长度都对得上；三变异真红；
+  轮数闸抗误拦三探针通过（自然语言提及不误拦、跨 SEG 不误拦、digest 不消耗轮次）。
+  `verdict="auto"` 排除人裁分布的裁定被判为正确（auto 无人的判断、`edited_zh` 恒 None）。
+  报 2 条进修复轮：
+Task 9: fix round 1/5 —
+  A（Important）：`AMPLIFY_PREAMBLE` 命令模型「照抄裁决结果里的最终译文」，但
+    `_build_panorama()` 桶 2 只渲染 verdict+reason_code，**从不渲染 `edited_zh`**；
+    唯一露出最终 zh 的是纪要里每码 ≤3 条代表例。评审实测 5 条同码 edit 裁决，
+    第 4/5 条的最终译文在整份 prompt 里完全不出现。K≈150 时单码 >3 条是大概率事件——
+    **模型被要求照抄一段它从没见过的文字**，失真的恰是价值密度最高的人工重写译文。
+    夹具只有 3 条 decisions（两码），从未触发这个边界。
+  B：`candidates.amplify.jsonl` 的 `prompt_hash` 指向普通通道的 prompt。评审判为
+    **「静默指错型退化」——比缺失更危险**：不是查不到，而是查到一个真实存在但错误的文档，
+    审计者会以为找对了。破了 Task 8 刚立的 prov 三跳倒查链的精确性承诺。
+    授权改 `polish_ingest._find_prompt_hash` 加 channel 过滤 + plan.json 记 channel 标签 +
+    向后兼容兜底（原「不改 ingest」的分工到此为止）。

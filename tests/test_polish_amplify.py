@@ -30,6 +30,7 @@ append 的，没有代码生成它）。
 内通过 monkeypatch `tools.polishlib.CFG` 临时改写、`finally` 里还原——同
 `test_polish_triage.py`/`test_polish_commit.py` 的既定手法。
 """
+import hashlib
 import json
 import re
 import sys
@@ -318,3 +319,120 @@ def test_cli_scan_prompt_second_call_rejected(mini, capsys):
     assert rc2 == 1
     err = capsys.readouterr().err
     assert "轮次配额" in err or "拒绝" in err
+
+
+# ---- 评审 Finding A：单个原因码 >3 条 edit 裁决时，第 4/5 条也必须出现 ----
+
+WIDE_LABEL = "segWideCode"
+WIDE_IDS = [100, 101, 102, 103, 104]
+WIDE_JP = {i: f"第{i}句测试原文テキスト独立且不重复" for i in WIDE_IDS}
+WIDE_OPUS = {i: f"第{i}句测试译文原样" for i in WIDE_IDS}
+# 每条都是真实改动（远超 autoclear_limit=4），且各不相同，方便逐条断言。
+WIDE_CAND = {i: f"第{i}句测试译文的候选改写版本，篇幅明显更长一些以确保编辑距离足够大"
+             for i in WIDE_IDS}
+WIDE_EDITED_ZH = {i: f"人工改写第{i}条：这是评审组裁决后确认的最终译文，与候选和 opus 都不同"
+                  for i in WIDE_IDS}
+
+
+def _build_wide_code_mini(tmp_path):
+    """5 个 id，全部 verdict=edit、reason_code=语序——同一原因码下的裁决数
+    超过 digest 代表例的"每码 ≤3 条"上限，专门验证 scan_prompt() 的桶 2
+    全景渲染不受这个上限约束（评审 Finding A）。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": WIDE_LABEL, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": WIDE_IDS, "seqs": [1],
+         "jp_chars": len(WIDE_IDS), "chapter": "s2s", "cut_reason": "budget"},
+    ])
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([]), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": WIDE_JP[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"}
+        for i in WIDE_IDS
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": WIDE_OPUS[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i in WIDE_IDS
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(WIDE_LABEL, opus_data, repo=repo)
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-wide-1"},
+    ]), encoding="utf-8")
+
+    raw_cha = d / "raw" / "chA"
+    raw_cha.mkdir(parents=True)
+    lines = [dumps({"id": i, "jp_tail": jp_tail(WIDE_JP[i]), "zh": WIDE_CAND[i],
+                     "score": 90, "note": "", "adjudicate": False}) for i in WIDE_IDS]
+    (raw_cha / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert pi.ingest(WIDE_LABEL, "chA", 1, repo=repo)["ok"]
+    pcheck.gate(WIDE_LABEL, "chA", repo=repo)
+    pt.triage(WIDE_LABEL, repo=repo)  # 默认 K=150，5 条全部落桶 2
+
+    write_jsonl(d / "decisions.jsonl", [
+        {"id": i, "verdict": "edit", "chosen_channel": "chA",
+         "edited_zh": WIDE_EDITED_ZH[i], "reason_code": "语序",
+         "ts": f"2026-08-01T00:{i % 60:02d}:00+00:00"}
+        for i in WIDE_IDS
+    ])
+    return SimpleNamespace(root=repo, d=d, label=WIDE_LABEL)
+
+
+def test_scan_prompt_shows_final_zh_beyond_top3_examples(tmp_path):
+    wide = _build_wide_code_mini(tmp_path)
+    assert _triage_bucket_ids(wide.d, 2) == set(WIDE_IDS)
+
+    text = amp.scan_prompt(WIDE_LABEL, repo=wide.root)
+    # digest 的代表例最多只展示 3 条——只断言这 3 条不够，必须全部 5 条都在。
+    for i in WIDE_IDS:
+        assert WIDE_EDITED_ZH[i] in text, f"id {i} 的最终 zh 缺失于 scan_prompt 输出"
+
+
+# ---- 评审 Finding B：amplify 候选的 prompt_hash 必须等于本次 scan_prompt
+#      文本自身的哈希，不能借用普通通道那次会话的哈希 ----
+
+def test_amplify_ingest_prompt_hash_matches_scan_prompt_not_normal_channel(mini):
+    text = amp.scan_prompt(LABEL, repo=mini.root)
+    expected_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    plan = json.loads((mini.d / "plan.json").read_text(encoding="utf-8"))
+    amplify_records = [r for r in plan if r.get("channel") == "amplify"]
+    assert len(amplify_records) == 1
+    assert amplify_records[0]["prompt_hash"] == expected_hash
+    assert set(amplify_records[0]["batches"]) == {1, 2}
+
+    raw_amp = mini.d / "raw" / "amplify"
+    raw_amp.mkdir(parents=True)
+    lines_b1 = [dumps({"id": i, "jp_tail": jp_tail(JP[i]), "zh": CAND_CHA.get(i, OPUS[i]),
+                        "score": 90, "note": "", "adjudicate": False})
+                for i in (11, 12, 13, 14, 15)]
+    (raw_amp / "b1.out").write_text("\n".join(lines_b1) + "\n", encoding="utf-8")
+    lines_b2 = [dumps({"id": 20, "jp_tail": jp_tail(JP[20]), "zh": CAND_CHA[20],
+                        "score": 90, "note": "", "adjudicate": False})]
+    (raw_amp / "b2.out").write_text("\n".join(lines_b2) + "\n", encoding="utf-8")
+
+    assert pi.ingest(LABEL, "amplify", 1, repo=mini.root)["ok"]
+    assert pi.ingest(LABEL, "amplify", 2, repo=mini.root)["ok"]
+
+    cands = read_jsonl(mini.d / "candidates.amplify.jsonl")
+    assert cands
+    for c in cands:
+        assert c["prompt_hash"] == expected_hash
+        assert c["prompt_hash"] != "hash-1"  # 不是 chA 那次普通会话的哈希

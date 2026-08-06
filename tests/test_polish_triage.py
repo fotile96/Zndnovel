@@ -452,6 +452,155 @@ def test_queue_md_content_and_sample_blinding(mini):
     assert "sample" not in text.lower()
 
 
+# ---- 评审 Important 修复：抽检必须受 K 帽约束，桶 2 总量恒 <= K ----
+
+def _build_mini_overload(tmp_path, label, n_autoclear=50, n_real=20):
+    """K 很小、自动清关候选远超预算的放大场景（评审用真实规模复现的对抗
+    输入）：`n_autoclear` 个"小改"候选（autoclear 四项条件全部满足）+
+    `n_real` 个"大改写"真实候选（有实质改动、需要人裁），单通道 chBig、
+    单批。用来验证"桶 2 实际总量（抽检 + 排位）恒 <= K"这条不变量，以及
+    K 很小时不崩溃、不产生负配额、不让某一类永远拿不到名额。
+
+    id 分两段（100.. 给小改、500.. 给大改），jp/opus 模板里都嵌入 id 本身，
+    保证任意两个 id 的 opus 文本不会逐字相同——不触发 `polish_ingest` 的
+    错位侦测（那条判据要求"zh 与本批另一 id 的 opus 逐字相同"）。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    autoclear_ids = list(range(100, 100 + n_autoclear))
+    real_ids = list(range(500, 500 + n_real))
+    ids = autoclear_ids + real_ids
+
+    jp = {i: f"测试原文第{i}句テスト。" for i in ids}
+    opus = {i: f"这是第{i}句的现行译文内容示例。" for i in ids}
+    cand = {}
+    for i in autoclear_ids:
+        cand[i] = opus[i] + "呢"  # 小改：只插入 1 个字，edit=1，远低于 autoclear_limit 的下限 4
+    for i in real_ids:
+        cand[i] = (f"经过大幅重写的第{i}句译文,语序与用词都发生了根本性"
+                    "变化,读起来完全是另一种味道,需要人认真斟酌。")  # 大改写
+
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": []},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"} for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": opus[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-big"},
+    ]), encoding="utf-8")
+
+    raw_dir = d / "raw" / "chBig"
+    raw_dir.mkdir(parents=True)
+    lines = [dumps({"id": i, "jp_tail": jp_tail(jp[i]), "zh": cand[i],
+                     "score": 90, "note": "", "adjudicate": False}) for i in ids]
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    r = pi.ingest(label, "chBig", 1, repo=repo)
+    assert r["ok"], f"chBig ingest 失败：{r}"
+    pcheck.gate(label, "chBig", repo=repo)
+
+    (d / "channel_state.json").write_text(
+        dumps({"chBig": {"autoclear": True}}), encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label,
+                            autoclear_ids=autoclear_ids, real_ids=real_ids)
+
+
+def test_bucket2_total_never_exceeds_K(tmp_path, monkeypatch):
+    """评审 Important 复现的原始场景：50 个自动清关候选 + 20 个真实大改
+    候选，K=2、sample_rate=0.5——修复前桶 2 实际总量会冲到约 30（远超
+    K=2），20 条真实大改候选被全部挤到桶 3。修复后必须 <= K，且真实候选
+    没有被完全挤没（体现"最小配额"裁定：K=2 时 rank_floor=1）。"""
+    monkeypatch.setitem(pt.CFG, "K", 2)
+    monkeypatch.setitem(pt.CFG, "sample_rate", 0.5)
+    m = _build_mini_overload(tmp_path, "segBig1", n_autoclear=50, n_real=20)
+    t = pt.triage(m.label, repo=m.root)
+    bucket2_ids = {r["id"] for r in t["rows"] if r["bucket"] == 2}
+    assert len(bucket2_ids) <= 2
+    assert bucket2_ids & set(m.real_ids), \
+        "真实大改候选不应该被自动清关候选完全挤出桶 2（最小配额裁定）"
+
+
+def test_sample_drop_reported_in_meta_and_stderr(tmp_path, monkeypatch, capsys):
+    """抽检覆盖率被压缩必须"响"：`triage.json` 的 `meta` 字段与 stderr
+    告警都要出现，不能只是悄悄砍掉抽中的样本。"""
+    monkeypatch.setitem(pt.CFG, "K", 2)
+    monkeypatch.setitem(pt.CFG, "sample_rate", 0.5)
+    m = _build_mini_overload(tmp_path, "segBig2", n_autoclear=50, n_real=20)
+    t = pt.triage(m.label, repo=m.root)
+    meta = t["meta"]
+    assert meta["K"] == 2
+    assert meta["sample_rate_configured"] == 0.5
+    assert meta["autoclear_eligible_total"] == 50
+    assert meta["sampled_dropped"] > 0
+    assert meta["sampled_count"] + meta["sampled_dropped"] > meta["sampled_count"]
+    assert meta["sample_rate_effective"] is not None
+    assert meta["sample_rate_effective"] < meta["sample_rate_configured"]
+
+    err = capsys.readouterr().err
+    assert "压缩" in err
+    assert str(meta["sampled_dropped"]) in err
+
+    # 落盘的 triage.json 与内存返回值一致（meta 字段也在内）。
+    on_disk = json.loads((m.d / "triage.json").read_text(encoding="utf-8"))
+    assert on_disk["meta"] == meta
+
+
+@pytest.mark.parametrize("k", [0, 1, 2])
+def test_small_K_boundaries_no_crash_no_overflow(tmp_path, monkeypatch, k):
+    """K 很小的边界（0/1/2）：不崩溃、不产生负配额、桶 2 总量恒 <= K。"""
+    monkeypatch.setitem(pt.CFG, "K", k)
+    monkeypatch.setitem(pt.CFG, "sample_rate", 0.5)
+    m = _build_mini_overload(tmp_path, f"segBoundary{k}", n_autoclear=10, n_real=10)
+    t = pt.triage(m.label, repo=m.root)
+    bucket2_ids = {r["id"] for r in t["rows"] if r["bucket"] == 2}
+    assert len(bucket2_ids) <= k
+    assert t["meta"]["K"] == k
+    assert t["meta"]["sampled_count"] <= k
+
+
+def test_k1_favors_real_candidates_over_sample_on_tie(tmp_path, monkeypatch):
+    """K=1 是"两类都想要唯一名额"的最极端情形——按本任务的裁定（ceil 配
+    整数除法，真实编辑风险优先于二阶抽检审计），这唯一的名额应该给真实
+    大改候选，不是抽检样本；抽检率设 100% 确保抽检"很想要"这个名额。"""
+    monkeypatch.setitem(pt.CFG, "K", 1)
+    monkeypatch.setitem(pt.CFG, "sample_rate", 1.0)
+    m = _build_mini_overload(tmp_path, "segK1", n_autoclear=10, n_real=10)
+    t = pt.triage(m.label, repo=m.root)
+    bucket2_ids = {r["id"] for r in t["rows"] if r["bucket"] == 2}
+    assert len(bucket2_ids) == 1
+    assert bucket2_ids <= set(m.real_ids)
+    assert t["meta"]["sampled_count"] == 0
+    assert t["meta"]["sampled_dropped"] == 10
+
+
 # ---- CLI ----
 
 def test_cli_smoke(mini, capsys):

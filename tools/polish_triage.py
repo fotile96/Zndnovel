@@ -113,6 +113,85 @@ all-or-nothing 摘除+抽样，最后才用"K 减去抽样数"去切排序队列
 本模块唯一不产生循环依赖的写法，因为每一步只依赖"更早、且与自身无关"
 的信息。
 
+### 2b. 抽检 K 帽与最小配额（评审 Important 修复，追加于原始实现之后）
+
+**评审发现的漏洞**：`quota = max(0, K - len(sampled_ids))` 只保证了
+"给排位池的配额不为负"，却**没有反过来约束 `len(sampled_ids)` 本身不
+能超过 K**——原始实现里 `sampled_ids` 是"逐个自动清关 id 独立掷一次
+`rng.random() < sample_rate`"的直接产物，理论上没有任何上限。评审构造
+的对抗场景：50 个满足 autoclear 条件的候选 + 20 个真实大改候选，
+`K=2`、`sample_rate=0.5` → 期望被抽中的样本数在 25 上下，桶 2 实际
+总量（抽检 + 排位）远超 `K=2`，20 条真正需要人裁的大改候选反而被全部
+挤到桶 3。这不是纯理论：真实规模下 `K=150`、`sample_rate=0.10`，只要
+单 SEG 满足 autoclear 条件的候选数超过 1500（多通道齐跑、单 SEG 候选量
+上千时会发生），抽检数本身就 > 150，"K 是总额、含抽检占用"这条 brief
+与本模块 docstring 反复强调的不变量此前没有任何代码在维持它。
+
+**修法：两步——先算"配置比率下本该抽中谁"（`desired_sampled_ids`，
+可能比 K 还大），再单独用一个与排位池大小联动的帽子把它压到 `sample_
+cap` 以内**：
+
+```python
+rank_floor  = min((K + 1) // 2, len(non_autoclear_ids))
+sample_cap  = max(0, K - rank_floor)
+sampled_ids = set(desired_sampled_ids[:sample_cap])   # 超出部分丢弃（deterministic：按 id 升序砍尾）
+```
+
+`quota = max(0, K - len(sampled_ids))` 这一行代码完全不用改——一旦
+`len(sampled_ids)` 本身先被压到 `≤ sample_cap = K - rank_floor`，
+`quota = K - len(sampled_ids) ≥ rank_floor` 自动成立，"桶 2 总量
+`len(sampled_ids) + min(quota, len(ranked_ids)) ≤ K`" 这条不变量就
+恒真——问题根本不在这一行，而在它上游"喂给它的 `sampled_ids` 从未
+被封顶"。
+
+**设计张力的裁定（控制者已明确指示，记录在此）：宁可降低抽检覆盖率，
+也不能突破用户定的人工预算**——`K` 是用户明确给的裁决带宽（spec §5：
+"人工请裁配额 K≈100–150 句/SEG"），静默超出这个预算比"抽检少抽几条"
+更坏；反之，抽检覆盖率不足只是牺牲了一部分"事后验证 autoclear 判定
+是否可信"的统计功效，不会让任何一条真正需要人看的大改候选被挤掉。
+
+**是否给正常排位（桶 2 的"真实改动候选"部分）留最小配额——本任务的
+选择与理由**：留，且量取 `min(ceil(K/2), 真实需要审的候选数)`：
+- **为什么要留**：桶 2 存在的**首要目的**是"有真实改动、需要人拿主意
+  的候选排上队"（spec §3 四桶表：桶 2 = "有改动 ...段末人工裁决"）；
+  抽检审计的对象是"一条已经被自动清关判定为『安全』的候选"——它本身
+  风险更低（否则也不会通过 autoclear 的四项前置条件），审计的价值是
+  "校准 autoclear 判定本身可不可信"，是二阶目标。如果自动清关候选量
+  一旦膨胀就能把真正有实质改动、还没有任何判定为它背书的候选**完全**
+  挤出人工视野，那是本末倒置——真实编辑风险应该优先于"再确认一下已经
+  过关的东西是不是真的没问题"。
+- **为什么是"最多一半"而不是"全部给排位"**：抽检本身也不能形同虚设——
+  如果排位池稍微大一点（哪怕只有几十条真实改动）就能把抽检挤到 0，
+  autoclear 通道就会长期处于"无人验证"状态，一旦某个通道的自动清关
+  判定系统性跑偏（比如某次准入小考通过了但实际表现变差），要等到人
+  自己发现才会被注意到——抽检兜底的意义就没有了。"一半"是本任务在
+  brief 没有给出具体数字时选择的一个居中值，不追求精确调优（brief §9
+  "调整记台账、不以自动入库率为优化目标"同样适用于这里）。
+- **为什么用 `ceil` 而不是 `floor`**：只有在 `K` 为奇数、且排位池与
+  抽检都"想要"最后那一个名额时才有区别（`K=1` 是最极端的例子：
+  `floor(1/2)=0` 会让抽检拿到唯一的名额、排位池颗粒无收；`ceil(1/2)=1`
+  则反过来。按上一条"真实编辑风险优先于二阶审计"的裁定，这唯一的
+  名额应该给排位池，所以取 `ceil`）。
+- **为什么设了 `min(..., len(non_autoclear_ids))`**：排位池没有那么多
+  真实候选时，不占着不用的配额——K=150 而只有 5 条真实改动候选时，
+  不应该白白锁掉 70 个名额只给排位池摆着，那 70 个应该回流给抽检
+  （`sample_cap = K - rank_floor` 会自动变大，因为 `rank_floor` 已经
+  按实际需要收窄了），这样在正常规模下（K=150、真实改动候选往往有
+  几十上百条）不会改变原有行为——`rank_floor`/`sample_cap` 的计算
+  只在候选量足够极端时才会真正触发裁剪。
+
+**抽检覆盖率被压缩必须"响"**（brief"限了什么就得说出来"这条一贯原则
+的延伸，控制者本轮明确要求）：`sampled_dropped > 0` 时打印到 stderr
+（配置抽检率 vs 实际达成比率 vs 少抽了多少条），并把 `sample_rate_
+configured`/`sample_rate_effective`/`sampled_dropped`/`autoclear_
+eligible_total`/`sampled_count`/`K` 六项落进 `triage.json` 顶层的
+`meta` 字段——不依赖读 stderr 日志才能知道覆盖率被削减过，落盘的
+`triage.json` 本身就带着这份证据，供 Task 10（准入小考/推翻率统计）
+之后复核。`autoclear_ids` 为空（没有任何自动清关候选）时
+`sample_rate_effective` 记 `None`（不是 0——"没有分母"和"抽检率恰好
+是 0" 是两件不同的事，`None` 明确表达"这个比率在本次 triage 里无意义"，
+不会被后续统计代码误当成"这个通道抽检率是 0%"）。
+
 ### 3. `edit == 0` 与 `zh == opus` 的关系：两套归一化，不能共用一套
 
 brief 点名的风险："归一过头会把「只改了控制码位置」的真实改动误判成
@@ -371,7 +450,36 @@ def triage(label, repo=None) -> dict:
     non_autoclear_ids = sorted(set(pool) - set(autoclear_ids))
 
     # --- 确定性抽样：固定顺序（id 升序）逐个抽，seed 来自 manifest 哈希 ---
-    sampled_ids = {cid for cid in autoclear_ids if rng.random() < CFG["sample_rate"]}
+    # 这一步只决定"配置比率下本该抽中谁"，产出的 desired_sampled_ids 可能
+    # 比 K 还大（评审 Important：autoclear 候选量足够大时必然发生）。真正
+    # 的 K 帽在下面单独一段处理，见模块 docstring"抽检 K 帽与最小配额"专节。
+    K = CFG["K"]
+    desired_sampled_ids = sorted(cid for cid in autoclear_ids
+                                  if rng.random() < CFG["sample_rate"])
+
+    # 给"正常排位"（真实改动候选）留一个最小配额：最多 K 的一半（ceil，K
+    # 为奇数时最后一个名额偏向排位而不是抽检——理由见 docstring），但不会
+    # 预留超过排位池实际需要的量（没有真实候选就不占空）。抽检能用的名额
+    # 上限 = K 减去这个保底。
+    rank_floor = min((K + 1) // 2, len(non_autoclear_ids))
+    sample_cap = max(0, K - rank_floor)
+    if len(desired_sampled_ids) > sample_cap:
+        sampled_ids = set(desired_sampled_ids[:sample_cap])
+        sampled_dropped = len(desired_sampled_ids) - sample_cap
+    else:
+        sampled_ids = set(desired_sampled_ids)
+        sampled_dropped = 0
+
+    sample_rate_configured = CFG["sample_rate"]
+    sample_rate_effective = (len(sampled_ids) / len(autoclear_ids)
+                              if autoclear_ids else None)
+    if sampled_dropped:
+        eff_str = f"{sample_rate_effective:.1%}" if sample_rate_effective is not None else "N/A"
+        print(f"!! polish_triage: {label} 自动清关候选过多（{len(autoclear_ids)} 个满足条件），"
+              f"抽检名额被人工预算 K={K} 压缩——配置抽检率 "
+              f"{sample_rate_configured:.0%}，实际达成 {eff_str}，少抽 "
+              f"{sampled_dropped} 条。抽检是自动清关这条免检通道的唯一兜底，"
+              "覆盖率被压缩必须被看见，不能静默发生。", file=sys.stderr)
 
     for cid in autoclear_ids:
         for r in pool[cid]:
@@ -398,7 +506,9 @@ def triage(label, repo=None) -> dict:
         return (not adjudicate_flag, -max_edit, min_score, cid)
 
     ranked_ids = sorted(non_autoclear_ids, key=_sort_key)
-    quota = max(0, CFG["K"] - len(sampled_ids))
+    # K 减去(已经封顶过的)抽检占用——不变量：len(sampled_ids) + len(top_ids)
+    # <= K 恒成立（sampled_ids 已经被上面的 sample_cap 逻辑封顶过）。
+    quota = max(0, K - len(sampled_ids))
     top_ids = set(ranked_ids[:quota])
 
     for cid in ranked_ids:
@@ -413,7 +523,15 @@ def triage(label, repo=None) -> dict:
     out_rows = [{"id": r["id"], "channel": r["channel"], "bucket": r["bucket"],
                  "edit": r["edit"], "autoclear": r["autoclear"], "sampled": r["sampled"]}
                 for r in rows]
-    result = {"rows": out_rows, "queue_ids": queue_ids}
+    meta = {
+        "K": K,
+        "sample_rate_configured": sample_rate_configured,
+        "sample_rate_effective": sample_rate_effective,
+        "autoclear_eligible_total": len(autoclear_ids),
+        "sampled_count": len(sampled_ids),
+        "sampled_dropped": sampled_dropped,
+    }
+    result = {"rows": out_rows, "queue_ids": queue_ids, "meta": meta}
 
     d.mkdir(parents=True, exist_ok=True)
     (d / "triage.json").write_text(dumps(result), encoding="utf-8")
@@ -461,6 +579,10 @@ def main(argv=None):
           f"桶0 {counts[0]} / 桶1 {counts[1]} / 桶2 {counts[2]} / 桶3 {counts[3]}，"
           f"自动清关 {n_autoclear}（其中抽检 {n_sampled}），"
           f"裁决队列 {len(result['queue_ids'])} 个 id")
+    dropped = result["meta"]["sampled_dropped"]
+    if dropped:
+        print(f"!! 抽检覆盖率被 K 压缩：少抽 {dropped} 条（详见 stderr 告警与 "
+              "triage.json 的 meta 字段）")
     return 0
 
 

@@ -127,3 +127,17 @@ Task 7: 实施完成（commit 5422266）；650 passed（637 基线 + 13 新增�
   helper `load_gates()` 放在本模块（brief 补充信息允许二选一），未回去
   改动已过评审、clean 状态的 `tools/polish_check.py`。
   待复核：无。
+Task 7: fix round 1/5 — **抽检数本身不受 K 约束，桶 2 总量能超 K**。评审放大场景实测：
+  50 个 autoclear 候选 + 20 个大改、K=2、sample_rate=0.5 → 桶 2 实际 30 条（远超 K=2），
+  20 条大改全被挤到桶 3。`quota = max(0, K - len(sampled))` 只保证配额非负，没约束抽检数本身。
+  真实规模下 K=150/rate=0.10、autoclear >1500 即触发。brief 与 docstring 都写「K 是总额、
+  含抽检占用」，这条不变量无人维持。
+  >> 控制者裁定：**宁可降抽检覆盖率也不突破用户定的人工预算**（K=100–150 是用户明确给的带宽）。
+  >> 但**降下来必须响**——实际达成比率写进 triage.json 的 meta 并播报 stderr。10% 抽检是
+  >> 自动清关这条免检通道的唯一兜底，实际只抽到 3% 却无人知晓＝把安全边际悄悄削掉。
+  >> 要求补「去掉播报/meta 则测试真红」的变异，证明「响」这件事本身有测试兜着。
+Task 7: 另记两笔实施者自查成果：①brief 给的 `test_deterministic_sampling` 对变异③只有约
+  18% 概率转红（5 次重跑全绿），已补 monkeypatch 结构性钉死变成 100% 确定检验；
+  ②随机种子 key 实测是 `manifest["files"]["frozen/source.jsonl"]`（带前缀），brief 字面写法
+  会在真实 SEG 上 KeyError；③`progress.md` 自 Task 1 起从未真正入库（CLAUDE.md 要求 SDD
+  证据入库），已 `git add -f` 补上。

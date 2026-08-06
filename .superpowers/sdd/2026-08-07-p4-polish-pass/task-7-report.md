@@ -282,3 +282,187 @@ uv run pytest -q
   更精细的区分，建议在 `bucket` 之外新增一个独立的 disposition 字段，
   而不是重新定义 `bucket` 的取值范围（那会牵连 `queue_ids`/`queue.md`
   的现有实现）。
+
+---
+
+# 修复轮：抽检必须受 K 帽约束，桶 2 总量恒 <= K（评审 Important）
+
+状态：DONE。commit 见文末。
+
+## Finding 复述
+
+评审构造放大场景实测：50 个满足 autoclear 四项条件的候选 + 20 个真实
+大改候选，`K=2`、`sample_rate=0.5` → 桶 2 实际总量冲到 30（远超 `K=2`），
+20 条真实大改候选被**全部**挤到桶 3。根因：原实现 `quota = max(0, K -
+len(sampled_ids))` 只保证了"给排位池的配额不为负"，从未反过来约束
+`len(sampled_ids)` 本身不超过 K——`sampled_ids` 是"逐个自动清关 id 独立
+掷一次 `rng.random() < sample_rate`"的直接产物，没有任何上限。按真实
+规模推算不是纯理论：`K=150`、`sample_rate=0.10`，单 SEG 满足 autoclear
+条件的候选数一旦超过 1500（多通道齐跑、单 SEG 候选量上千时会发生），
+抽检数本身就 > 150，"K 是总额、含抽检占用"这条 brief 与本模块 docstring
+反复强调的不变量此前没有任何代码在维持。
+
+## 修法
+
+把"决定抽检候选是谁"和"把抽检数压到 K 帽以内"拆成两步（此前糅在一起，
+是漏洞的直接原因）：
+
+```python
+K = CFG["K"]
+desired_sampled_ids = sorted(cid for cid in autoclear_ids
+                              if rng.random() < CFG["sample_rate"])   # 可能比 K 还大
+
+rank_floor  = min((K + 1) // 2, len(non_autoclear_ids))   # 给真实改动候选的最小配额
+sample_cap  = max(0, K - rank_floor)                       # 抽检能用的名额上限
+if len(desired_sampled_ids) > sample_cap:
+    sampled_ids = set(desired_sampled_ids[:sample_cap])    # 超出部分丢弃（按 id 升序砍尾，确定性）
+    sampled_dropped = len(desired_sampled_ids) - sample_cap
+else:
+    sampled_ids = set(desired_sampled_ids)
+    sampled_dropped = 0
+```
+
+`quota = max(0, K - len(sampled_ids))` 这一行代码本身**完全没改**——
+问题不在这一行，在它上游"喂给它的 `sampled_ids` 从未被封顶"。一旦
+`sampled_ids` 先被压到 `≤ sample_cap = K - rank_floor`，`quota = K -
+len(sampled_ids) ≥ rank_floor` 自动成立，"桶 2 总量 `len(sampled_ids) +
+min(quota, len(ranked_ids)) ≤ K`" 这条不变量就恒真。
+
+## 设计张力的处理：宁可降抽检覆盖率，也不突破人工预算（控制者已裁定）
+
+`K` 是用户明确给的裁决带宽（spec §5："人工请裁配额 K≈100–150 句/SEG"），
+静默突破这个预算比"抽检少抽几条"更坏——所以修法方向是**压缩 `sampled_
+ids` 使其服从 `K`**，不是反过来放宽 `K` 去容纳所有想抽的样本。
+
+## 是否给正常排位留最小配额：本任务的裁定与理由
+
+**留，且量取 `min(ceil(K/2), 真实需要审的候选数)`**：
+- **为什么要留**：桶 2 的首要目的是"有真实改动、需要人拿主意的候选
+  排上队"（spec §3 四桶表）；抽检审计的对象是"一条已经被自动清关判定
+  为『安全』的候选"，本身风险更低（否则也通不过 autoclear 的四项前置
+  条件），是**二阶目标**（校准 autoclear 判定本身是否可信）。如果
+  autoclear 候选量一膨胀就能把毫无判定背书的真实改动候选**完全**挤出
+  人工视野，是本末倒置——真实编辑风险应该优先于"再确认一下已经过关
+  的东西是不是真的没问题"。
+- **为什么是"最多一半"而不是"全部给排位"**：抽检本身不能形同虚设——
+  排位池稍大一点（哪怕只有几十条真实改动）就能把抽检挤到 0 的话，
+  autoclear 通道会长期处于"无人验证"状态，一旦某通道的自动清关判定
+  系统性跑偏，要等人自己发现才会被注意到，抽检兜底的意义就没了。"一半"
+  是 brief 未给出具体数字时选择的居中值，不追求精确调优（呼应 spec §9
+  "调整记台账、不以自动入库率为优化目标"）。
+- **为什么用 `ceil`**：只在 `K` 为奇数、且两类都"想要"最后一个名额时
+  才有区别（`K=1` 最极端：`floor` 会让抽检拿到唯一名额，`ceil` 则反过
+  来给排位）。按"真实编辑风险优先"的裁定，这唯一的名额应该给排位池。
+- **为什么设 `min(..., len(non_autoclear_ids))`**：排位池没那么多真实
+  候选时不占着不用——K=150 而只有 5 条真实改动候选时不该白锁 70 个
+  名额，未用满的部分自动回流给抽检（`sample_cap` 因 `rank_floor` 收窄
+  而变大），这也是正常规模（K=150、真实候选往往几十上百条）下这套
+  帽子基本不触发、不改变既有行为的原因——只在候选量足够极端时才真正
+  起作用。
+
+## "降下来必须响"的落地
+
+`sampled_dropped > 0` 时：
+1. 打印到 stderr（配置抽检率 / 实际达成比率 / 少抽了多少条）。
+2. 落进 `triage.json` 顶层新增的 `meta` 字段：`K`、
+   `sample_rate_configured`、`sample_rate_effective`（`autoclear_ids`
+   为空时记 `None`，不是 0——"没有分母"与"抽检率恰好是 0" 是两件不同
+   的事，`None` 明确表达"这个比率在本次 triage 里无意义"）、
+   `autoclear_eligible_total`、`sampled_count`、`sampled_dropped`。
+
+`triage(label) -> dict` 的返回值形状因此从 `{"rows": ..., "queue_ids":
+...}` 变为 `{"rows": ..., "queue_ids": ..., "meta": ...}`——`triage.json`
+落盘内容同步含 `meta`，不影响 `by_id()`/既有测试对 `rows`/`queue_ids`
+的读取方式。
+
+## 新增测试（`tests/test_polish_triage.py`，新增 6 条，19 passed）
+
+新增 `_build_mini_overload(tmp_path, label, n_autoclear, n_real)` 夹具：
+可参数化生成 N 个"小改"（autoclear 四项条件全满足）+ M 个"大改写"
+（真实需要人裁）候选，单通道，程序化构造（不手写每条句子），支持评审
+给的真实规模场景（50+20）与边界场景（K=0/1/2）。
+
+- `test_bucket2_total_never_exceeds_K`：评审给的原始场景（50 autoclear
+  + 20 真实、K=2、sample_rate=0.5）——断言桶 2 总量 `<= K`，且真实候选
+  没有被完全挤没。
+- `test_sample_drop_reported_in_meta_and_stderr`：同一场景下断言
+  `meta.sampled_dropped > 0`、`sample_rate_effective < sample_rate_
+  configured`、stderr 含"压缩"字样与具体丢弃数字、`triage.json` 落盘
+  与内存返回值一致。
+- `test_small_K_boundaries_no_crash_no_overflow`（参数化 K=0/1/2）：
+  不崩溃、`桶2总量 <= K`、`meta.sampled_count <= K`。
+- `test_k1_favors_real_candidates_over_sample_on_tie`：K=1、
+  `sample_rate=1.0`（抽检"很想要"这唯一名额）——唯一的名额必须给真实
+  大改候选，验证"ceil 偏向排位"这条裁定确实生效，且
+  `meta.sampled_count==0`/`sampled_dropped==10` 如实记录（"降下来但没
+  发生"与"降下来了"两种状态都要能通过 meta 区分）。
+
+## 变异红绿实况
+
+命令统一：`uv run pytest tests/test_polish_triage.py -q`；每次用 Edit
+改一处、跑测、记录、再用 Edit 精确还原（未使用 `git checkout`/`stash`/
+`restore`）。
+
+**变异①（评审指定）：抽检上限名存实亡**（`sample_cap = max(0, K -
+rank_floor)` → `sample_cap = 10**9`，即抽检数不再真正受 K 约束）→
+本轮新增的全部 6 条测试悉数真红，原有 13 条不受影响：
+```
+6 failed, 13 passed in 0.17s
+FAILED test_bucket2_total_never_exceeds_K
+FAILED test_sample_drop_reported_in_meta_and_stderr
+FAILED test_small_K_boundaries_no_crash_no_overflow[0]
+FAILED test_small_K_boundaries_no_crash_no_overflow[1]
+FAILED test_small_K_boundaries_no_crash_no_overflow[2]
+FAILED test_k1_favors_real_candidates_over_sample_on_tie
+```
+（`test_small_K_boundaries_no_crash_no_overflow[0]` 在 K=0 时两类都是 0，
+理论上帽子失效也不会立刻爆——实际转红是因为 `_build_mini_overload` 用
+了 `n_autoclear=10`、`sample_rate=0.5`，去掉帽子后仍有约 5 个被"抽中"、
+超过 K=0 这个上限，仍然触发不变量违反，证明这条边界测试确有牙。）
+
+**变异②（评审指定）：播报与 meta 记录都被静默拿掉**（删掉 `print(...)`
+调用，且把 `sampled_dropped` 强制改写为恒 `0`，模拟"实现者偷懒同时抹掉
+两处证据"）→ 恰好 2 条测试真红，其余（含变异①命中的边界/K1 测试，因为
+它们的核心断言是"总量 <= K"而不是"是否报告了丢弃"，帽子本身仍然完好）
+不受影响：
+```
+2 failed, 17 passed in 0.36s
+FAILED test_sample_drop_reported_in_meta_and_stderr
+FAILED test_k1_favors_real_candidates_over_sample_on_tie
+  （后者失败于 assert t["meta"]["sampled_dropped"] == 10，恰好命中同一处”响”的证据）
+```
+
+两个变异全部按预期真红，均已用 Edit 精确还原（未使用 git 相关的破坏性
+命令）；每次还原后单独跑 `tests/test_polish_triage.py` 确认恢复到
+19 passed。
+
+## 测试输出
+
+```
+uv run pytest tests/test_polish_triage.py -q
+...................                                                      [100%]
+19 passed in 0.14s
+
+uv run pytest -q
+656 passed in 3.37s      # 637（Task 7 开始前基线）+ 19（13 原有 + 6 本轮新增）
+```
+
+## 与指令的关系 / 偏差
+
+1. 指令要求"补测试②：抽检被压缩时 triage.json 的 meta 字段与 stderr
+   播报都出现"——`test_sample_drop_reported_in_meta_and_stderr` 同时
+   验证了两者，外加 `triage.json` 落盘与内存返回值一致这第三重检验
+   （指令没有明确要求，但既然新增了 `meta` 字段，顺带验证落盘一致性
+   是低成本的额外保障）。
+2. 指令要求"补测试③：K 很小的边界...不把某一类挤成永远拿不到名额的
+   死角"——除参数化的 K=0/1/2 边界测试外，另加了
+   `test_k1_favors_real_candidates_over_sample_on_tie` 专门验证 K=1 时
+   "唯一名额给谁"这个此前没人规定过的选择确实按裁定生效（真实候选而
+   非抽检），这是本任务在指令字面要求之外补的一层，因为"不产生死角"
+   这句话本身没有说清楚"两类都想要唯一名额时该给谁"，需要一个显式的
+   裁定并用测试钉住。
+3. `progress.md`：本轮开工前发现该文件已经有一份不是本次会话写入的
+   新增记录（内容与本次评审 Finding 逐字对应，应是协调流程在派发本
+   任务前写入的工作台账草稿）——原样保留，未覆盖、未删减，随本轮改动
+   一并提交。
+

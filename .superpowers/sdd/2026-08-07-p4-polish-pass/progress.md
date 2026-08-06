@@ -239,3 +239,30 @@ Task 11: fix round 2/5 (C addressed; commits 9a01a76..8f3115b) — 706 passed
 Task 11: complete (commits 58b0656..8f3115b, review clean)
 
 ## 全部 11 个任务完成。706 passed（起点 567，净增 139 条测试）。
+
+## 最终全分支评审修复轮（2026-08-07）
+report：`.superpowers/sdd/2026-08-07-p4-polish-pass/final-fix-report.md`
+commits：825ab2c / 74af7dd / f262455 / 1c4bd22 / eb78158 / b889e97 / 96897c9 —— 706 → **758 passed**
+- 必修 12 条（C1/C2/C3 + I1/I2/I3/I4/I5/I7/I8/I9）**全部落地**，16 个变异全部真红（无绿变异）。
+- C1：`gates.<channel>.json` 改结构记 `checked_ids`，triage 判「id 不在覆盖面里＝没有证据」；
+  旧格式按空集处理并播报。runbook §六「建议重跑 gate」升级为强制步骤。
+- C2：新硬规则 `P4-CTL`（`_n`/`_r`/ruby 计数 vs opus，只卡计数不卡位置、`_n`/`_r` 分开数）
+  + W3 行宽 warn 纳入 autoclear 前置（实测依据：SEG-1 现行 opus 自身触发 W3 仅 5/1996＝0.3%，
+  是窄闸不是伪报源）。W1/W2/W4 保持不阻断，取舍有参数化测试落盘。
+- C3：`polish_check --w4-full --lane-dir`（全段 × 车道现行译文 × 全库兄弟索引），
+  索引建不起来抛 `W4NotAvailable`、CLI rc=2（「没能跑」≠「跑了没问题」）。真实实跑得 9 处
+  既有不一致，已入库作点火前基线。
+- I4：`manifest.opus_at` 首次被消费——自动清关不得覆盖冻结后的 review/recall patch
+  （dry-run 同样拒；基线算不出来时保守放大）。
+- I5：已在产 SEG（有 candidates/decisions/triage）拒绝重冻结，rc=3，`--force` 才强制，
+  拒绝发生在任何删写之前。
+- I7：新工具 `tools/polish_audit.py`（推翻率闸，段末强制）；配套 `polish_calibrate.score()`
+  不再能悄悄解冻被它冻结过的通道——**本轮自查发现的新洞**。
+- I8：`glossary/polish.md` §7 改写（§1–§6 逐字未动）。自查修正一处：改写初稿把旧措辞原文
+  引进了 §7，渲染后仍会读给模型，遂改为只指 git 历史。
+- I9：`polish_context --calib` 校准批渲染器，与生产 prompt 共用 `_frozen_blocks()` 保证同构；
+  `truth.json` 不进 prompt 有专测钉死。
+- SEG-1 已重冻结（未点火故无需 `--force`）+ 四个 session 重渲染：frozen 三份核心产物逐字节
+  未变，manifest 仅 polish.md 哈希与 ts 变，四个 prompt_hash 用 shasum 独立重算逐个吻合。
+- 不修项确认未碰：I6、M1–M5、九条 deferred minor、`check_batch.py`、`build_context.py`、
+  `.claude/settings.json`、`data/api_ledger.jsonl`；`pilot/lanes/opus/data/` git status 为空。

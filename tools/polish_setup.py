@@ -119,9 +119,66 @@ def _copy_notes(notes_src: Path, notes_dst: Path, chapters) -> list:
     return missing
 
 
-def setup(label, opus_data, repo=None) -> Path:
+# 「这个 SEG 已经在产」的判据：出现任何一个下游产物就算。三者都是
+# 冻结之后才可能出现的东西（候选=已派发过通道并 ingest；裁决=人已经在裁；
+# 分流=已经跑过 triage），且都**以冻结面为基准**——重建 frozen/ 会让它们的
+# 基准静默换掉（见 setup() 的拒绝闸 docstring）。
+IN_PRODUCTION_GLOBS = ("candidates.*.jsonl", "decisions.jsonl", "triage.json")
+
+
+def in_production(d: Path) -> list:
+    """`d` 下已存在的"在产产物"相对文件名（排序）。空列表＝尚未点火。"""
+    found = []
+    for pat in IN_PRODUCTION_GLOBS:
+        found.extend(p.name for p in d.glob(pat) if p.is_file())
+    return sorted(found)
+
+
+class SegInProductionError(RuntimeError):
+    """已在产的 SEG 被要求重新冻结，且没给 `--force`。"""
+
+
+def setup(label, opus_data, repo=None, force=False) -> Path:
+    """建/重建 `pilot/polish/<label>/frozen/` + `manifest.json`。
+
+    ## 已在产的 SEG 拒绝重跑（最终评审 I5）
+
+    `setup()` 是**破坏性**的：`shutil.rmtree(frozen)` 之后按**当前**车道状态
+    整体重建，`manifest.json` 一并重写。对一个已经点火的 SEG 重跑，后果是
+    一连串**静默**的基准置换，而不是一个错误：
+
+    - `frozen/opus.jsonl` 会把本轮刚落的 `reason=polish` patch 吃进去，于是
+      "润色起点"变成了"润色结果"——此后所有 `edit` 幅度、`zh==opus` 零改动
+      判定、autoclear 阈值全部对着一个错的基线算；
+    - `manifest["files"]` 跟着重写，`verify()` 事后**恒绿**——它比对的是刚
+      写下的那份哈希，看不出基准被换过；
+    - `frozen/rulings.md` 被清成空壳，连同 `<!-- amplify-round:N -->` 轮数闸
+      标记一起没了，"每 SEG 限一轮放大扫描"随之失效；
+    - `manifest["opus_at"]` 冻结基线前移，`polish_commit` 的"冻结后人裁 patch
+      拒写闸"（评审 I4）也跟着失去参照。
+
+    这些都不会报错，只会让后续判定安静地跑在错误的基准上。此前唯一的防线是
+    runbook 里一句"不要重跑"——纪律，不是机制。现在：目录里出现
+    `candidates.*.jsonl` / `decisions.jsonl` / `triage.json` 任何一个，就
+    `SegInProductionError` 拒绝执行（**在任何文件被删除或写入之前**），除非
+    显式 `force=True`（CLI `--force`）。拒绝信息逐条说清会毁掉什么。
+    """
     repo = Path(repo) if repo is not None else REPO
     opus_data = Path(opus_data)
+
+    d_guard = _dir_for(label, repo)
+    existing = in_production(d_guard) if d_guard.is_dir() else []
+    if existing and not force:
+        raise SegInProductionError(
+            f"{label} 已经点火（{d_guard} 下存在：{', '.join(existing)}），"
+            "拒绝重新冻结。重跑 setup() 会 rmtree 掉 frozen/ 并按**当前**车道"
+            "状态重建，后果全部是静默的：①opus.jsonl 会把本轮已清关的 "
+            "reason=polish patch 吃成新的「润色起点」，此后 edit 幅度/零改动"
+            "判定/autoclear 阈值全部基于错误基线；②manifest 一并重写，"
+            "verify() 事后恒绿、看不出基准被换过；③frozen/rulings.md 连同 "
+            "amplify 轮数闸标记被清零，「每 SEG 限一轮」失效；④manifest."
+            "opus_at 冻结基线前移，polish_commit 的「冻结后人裁 patch 拒写闸」"
+            "失去参照。确实要重来请显式加 --force（并先自己备份/核对上述四项）。")
 
     seg = _seg_entry(repo, label)
     lo, hi = seg["batches"]
@@ -229,6 +286,10 @@ def main(argv=None):
     ap.add_argument("--seg", help="段表 label，如 seg1-s2")
     ap.add_argument("--opus-data", help="opus 车道 data 目录（pilot/lanes/opus/data）")
     ap.add_argument("--verify", metavar="LABEL", help="只校验，不重新冻结")
+    ap.add_argument("--force", action="store_true",
+                     help="已点火的 SEG（存在 candidates/decisions/triage）默认拒绝重新"
+                          "冻结；本开关强制执行——会静默置换全部下游判据基准，看清"
+                          "拒绝信息里列的四条后果再用")
     args = ap.parse_args(argv)
 
     if args.verify:
@@ -242,7 +303,11 @@ def main(argv=None):
         return 0
 
     if args.seg and args.opus_data:
-        d = setup(args.seg, args.opus_data)
+        try:
+            d = setup(args.seg, args.opus_data, force=args.force)
+        except SegInProductionError as e:
+            print(f"拒绝冻结：{e}", file=sys.stderr)
+            return 3
         print(f"冻结完成：{d}")
         return 0
 

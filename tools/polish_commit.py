@@ -127,6 +127,34 @@ channel_state 有更新），如果每次都对同一个 autoclear 候选铸造�
 最低的一个（万一某个通道的 autoclear 资格判定本身有系统性偏差，保守的
 那个造成的下游影响也最小）。
 
+## 冻结基线之后新落的人裁 patch：自动清关一律拒写（最终评审 I4）
+
+spec §3 把 `manifest.opus_at`（冻结时点 opus 车道 `forward`/`patches` 的行数
+与整体哈希）称作"安全承重点"，并承诺："润色期间若有新裁决 patch 落库，过期
+候选由 §4 回执核验**机械失败**，不靠人记"。最终评审 grep 全仓发现
+**`opus_at` 只有 `polish_setup` 写、没有任何工具读**（`candidates` 行的
+`jp_hash`/`opus_hash` 同样只写不读），并实测复现：冻结之后对某 id 落一条
+`reason=review` 的人裁 patch，`commit --apply` 的自动清关照样写一条
+`reason=polish` 盖上去，只有一行 stderr `⚠`，**不阻断**。这正是 CLAUDE.md 记
+的「SEG-5 id 1600 误覆盖已裁定稿」同一失败模式，区别只在于这次执行者是无人
+值守的自动清关。
+
+修法（`_post_freeze_rulings()` + `commit()` 里的拒写分支）：
+
+- 基线取 `manifest["opus_at"]["patches_lines"]`——冻结那一刻 `patches.jsonl`
+  的行数。该文件是 append-only 的，故第 `patches_lines` 行之后的全部行都是
+  **冻结之后**新落的。
+- 其中 `reason ∈ {review, recall}` 的行 = 润色期间新增的**人的裁决**。
+- **自动清关路径（`verdict="auto"`）命中即拒绝写入**，并把冲突详情打进
+  stderr（id、那条人裁 patch 的 reason/ts/zh 摘要）。人裁路径
+  （`verdict ∈ {adopt, edit}`）**放行但显著播报**——那条路径上有人正在看着
+  这个 id，他有权在知情的前提下覆盖；无人值守的自动清关没有这个资格。
+- 行数比基线**少**（append-only 被破坏，或换了一个车道的 data 目录）：
+  无法建立基线 → 保守把**全部** review/recall patch 都视为"冻结后的"，
+  自动清关因此在这些 id 上一律拒写，并显式告警。宁可多拦，不可漏拦。
+- `manifest.json` 或 `opus_at` 缺失（老 SEG 目录）：同样告警 + 保守按"全部
+  review/recall 都算冻结后"处理。
+
 ## `queue.md`/`triage.json` 不认识的字段：`decisions.jsonl` 里的额外键
 
 `verdict="auto"` 决策记录除了 brief 给的五个字段（`id`/`verdict`/
@@ -184,6 +212,44 @@ def _announce_prior(cid, data_dir, *, tag) -> list:
               f"{tag}   ——本次清关将追加新的一条，不覆盖历史；若你以为这一行在润色期间"
               "没被别的会话动过，请先核对。", file=sys.stderr)
     return prior
+
+
+HUMAN_REASONS = ("review", "recall")
+
+
+def _post_freeze_rulings(d: Path, data_dir: Path) -> dict:
+    """冻结基线之后新落的**人裁** patch：`{id: [patch_row, ...]}`。
+
+    见模块 docstring「冻结基线之后新落的人裁 patch」一节——这是 spec §3 承诺
+    的 `manifest.opus_at` 安全承重点第一次真正被消费。基线建不起来时一律
+    **保守放大**（把全部 review/recall patch 都当成冻结后的），绝不因为
+    "算不出来"就返回空字典放行。
+    """
+    pat_path = Path(data_dir) / "patches.jsonl"
+    rows = read_jsonl(pat_path) if pat_path.exists() else []
+
+    baseline = None
+    mp = d / "manifest.json"
+    if mp.exists():
+        manifest = json.loads(mp.read_text(encoding="utf-8"))
+        baseline = (manifest.get("opus_at") or {}).get("patches_lines")
+    if baseline is None:
+        print(f"!! polish_commit: {mp} 缺 opus_at.patches_lines，无法确定冻结基线"
+              "——保守把全部 reason∈{review,recall} 的 patch 都视为「冻结后的人裁」，"
+              "自动清关在这些 id 上一律拒写", file=sys.stderr)
+        baseline = 0
+    elif baseline > len(rows):
+        print(f"!! polish_commit: {pat_path} 只有 {len(rows)} 行，少于冻结基线 "
+              f"{baseline} 行——append-only 约定被破坏，或 --data-dir 指向了别的车道。"
+              "保守把全部 reason∈{review,recall} 的 patch 都视为「冻结后的人裁」",
+              file=sys.stderr)
+        baseline = 0
+
+    out = {}
+    for r in rows[baseline:]:
+        if r.get("reason") in HUMAN_REASONS:
+            out.setdefault(r.get("id"), []).append(r)
+    return out
 
 
 def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
@@ -321,9 +387,28 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
     plan.sort(key=lambda p: (p["decision_ts"], p["id"] if isinstance(p["id"], int) else 0))
 
     tag = "[dry-run]" if dry_run else "[apply]"
+    post_freeze = _post_freeze_rulings(d, data_dir)
     result = []
     for item in plan:
         cid = item["id"]
+        # ---- 冻结后人裁 patch 的拒写闸（最终评审 I4）----
+        clash = post_freeze.get(cid)
+        if clash:
+            last = clash[-1]
+            detail = (f"id {cid} 在本 SEG 冻结之后新落过 {len(clash)} 条人裁 patch"
+                      f"（最近一条 reason={last.get('reason')} ts={last.get('ts')}）\n"
+                      f"{tag}   人裁现行译文：{str(last.get('zh', ''))[:60]}\n"
+                      f"{tag}   本次拟写入：{str(item['zh'])[:60]}")
+            if item["verdict"] == "auto":
+                print(f"{tag} ✗ 拒绝写入（自动清关不得覆盖冻结后的人工裁决）：{detail}\n"
+                      f"{tag}   ——这条候选是基于冻结时点的旧 opus 产出的，人裁已经在它"
+                      "之后改过这一行。要落它必须走人工裁决（在 decisions.jsonl 里显式"
+                      f"给一条 adopt/edit），由人确认是否真的要覆盖 id {cid} 的裁定稿。",
+                      file=sys.stderr)
+                continue
+            print(f"{tag} ⚠ 人工裁决路径覆盖冻结后的人裁 patch：{detail}\n"
+                  f"{tag}   ——放行（人裁路径有人在看），但请确认你知道自己在覆盖什么。",
+                  file=sys.stderr)
         prov = {"channel": item["channel"], "candidate_ts": item["candidate_ts"], "seg": label}
         patch_row = {"id": cid, "zh": item["zh"], "reason": "polish",
                      "glossary_v": gv, "ts": item["decision_ts"], "prov": prov}

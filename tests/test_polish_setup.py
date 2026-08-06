@@ -256,3 +256,75 @@ def test_ignore_list_does_not_hide_real_extra_file(mini_repo):
         "# 真的多出来的文件", encoding="utf-8")
     drift = ps.verify("segX", repo=mini_repo.root)
     assert drift and any("sneaky_not_noise.md" in x for x in drift)
+
+
+# ---- 最终评审 I5：已在产的 SEG 拒绝重新冻结 ----
+
+@pytest.mark.parametrize("artifact", ["candidates.chA.jsonl", "decisions.jsonl",
+                                       "triage.json"])
+def test_setup_refuses_when_seg_in_production(mini_repo, artifact):
+    """`setup()` 是破坏性的（rmtree frozen/ 后按**当前**车道重建），对已点火
+    的 SEG 重跑会静默置换全部下游判据基准：opus.jsonl 把已清关的 polish
+    patch 吃成新的"润色起点"、manifest 一并重写使 `verify()` 事后恒绿、
+    rulings.md 连同 amplify 轮数闸标记清零、`opus_at` 冻结基线前移。此前
+    唯一防线是 runbook 一句"不要重跑"——纪律，不是机制。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / artifact).write_text("{}", encoding="utf-8")
+    with pytest.raises(ps.SegInProductionError) as e:
+        ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    # 拒绝信息要说清会毁掉什么，不是一句"拒绝执行"。
+    for kw in ("opus.jsonl", "verify()", "rulings.md", "opus_at", "--force"):
+        assert kw in str(e.value)
+
+
+def test_refusal_destroys_nothing(mini_repo):
+    """拒绝必须发生在**任何文件被删除或写入之前**——frozen/ 与 manifest 的
+    每一个字节都要原封不动（对比 Task 8 验过的"零文件创建"承诺）。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "triage.json").write_text("{}", encoding="utf-8")
+    before = {p.relative_to(d).as_posix(): p.read_bytes()
+              for p in sorted(d.rglob("*")) if p.is_file()}
+    with pytest.raises(ps.SegInProductionError):
+        ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    after = {p.relative_to(d).as_posix(): p.read_bytes()
+             for p in sorted(d.rglob("*")) if p.is_file()}
+    assert after == before
+
+
+def test_force_overrides_the_guard(mini_repo):
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "triage.json").write_text("{}", encoding="utf-8")
+    assert ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root, force=True) == d
+    assert ps.verify("segX", repo=mini_repo.root) == []
+
+
+def test_fresh_seg_not_blocked(mini_repo):
+    """反向锁：没有任何在产产物时，重跑 setup 照常放行（SEG-1 这类"已冻结
+    但尚未点火"的段仍然可以重冻结，不需要 --force）。"""
+    ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+
+
+def test_cli_refusal_rc3_then_force_rc0(mini_repo, monkeypatch, capsys):
+    """CLI 层：拒绝 → rc=3 且 stderr 说清后果；加 `--force` → rc=0。
+
+    `polish_setup.main()` 没有 `--repo`（历史如此），故把模块级 `REPO` 指到
+    替身仓库——`setup()`/`_dir_for()` 都在调用时才查这个名字。"""
+    monkeypatch.setattr(ps, "REPO", mini_repo.root)
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "decisions.jsonl").write_text("", encoding="utf-8")
+
+    rc = ps.main(["--seg", "segX", "--opus-data", str(mini_repo.opus_data)])
+    assert rc == 3
+    assert "拒绝冻结" in capsys.readouterr().err
+
+    rc = ps.main(["--seg", "segX", "--opus-data", str(mini_repo.opus_data), "--force"])
+    assert rc == 0
+
+
+def test_in_production_judgement(mini_repo):
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    assert ps.in_production(d) == []
+    (d / "decisions.jsonl").write_text("", encoding="utf-8")
+    (d / "candidates.chA.jsonl").write_text("", encoding="utf-8")
+    assert ps.in_production(d) == ["candidates.chA.jsonl", "decisions.jsonl"]

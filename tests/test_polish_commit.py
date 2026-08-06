@@ -388,3 +388,109 @@ def test_cli_lane_mode_without_data_dir_or_env_rejects(mini, monkeypatch):
     # 拒绝发生在任何文件被创建之前——repo/data/ 本身是夹具搭建时就有的
     # （batches.jsonl 等），真正要防的是"缺省落进主仓 data/patches.jsonl"。
     assert not (mini.root / "data" / "patches.jsonl").exists()
+
+
+# ---- 最终评审 I4：冻结基线之后新落的人裁 patch，自动清关一律拒写 ----
+
+def _land_human_patch(mini, cid, zh, reason="review", ts="2026-08-06T00:00:00+00:00"):
+    """冻结**之后**往生产车道落一条人裁 patch（模拟"润色期间另一个会话把这
+    一行裁决过了"）。刻意用 append，保持 patches.jsonl 的 append-only 语义。"""
+    append_jsonl(mini.data_dir / "patches.jsonl",
+                 [{"id": cid, "zh": zh, "reason": reason, "glossary_v": 1, "ts": ts}])
+
+
+def test_autoclear_refuses_to_overwrite_post_freeze_ruling(mini, capsys):
+    """spec §3 承诺 `manifest.opus_at` 是"安全承重点"：润色期间若有新裁决
+    patch 落库，过期候选**机械失败**、不靠人记。评审 grep 全仓发现 `opus_at`
+    只写不读，并实测：冻结后落一条 `reason=review` 人裁 patch，`commit
+    --apply` 的自动清关照样写 `reason=polish` 盖上去，只有一行 stderr ⚠、
+    **不阻断**——与 CLAUDE.md 记的「SEG-5 id 1600 误覆盖已裁定稿」同一失败
+    模式，区别只在于这次执行者是无人值守的自动清关。
+    """
+    _land_human_patch(mini, 14, "由加里推了推那副旧眼镜。")
+    result = pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    assert 14 not in {r["id"] for r in result}, "自动清关不得覆盖冻结后的人裁 patch"
+    assert 11 in {r["id"] for r in result}, "同一次 commit 里别的 id 不受牵连"
+
+    # 生产车道里 id 14 仍然只有那条人裁 patch，没有被 polish 盖掉。
+    p14 = [r for r in read_jsonl(mini.data_dir / "patches.jsonl") if r["id"] == 14]
+    assert [r["reason"] for r in p14] == ["review"]
+    # 也不该为它铸造 auto 决策（拒写发生在写 decisions 之前）。
+    autos = [r for r in read_jsonl(mini.d / "decisions.jsonl")
+             if r.get("verdict") == "auto"]
+    assert not autos
+    err = capsys.readouterr().err
+    assert "拒绝写入" in err and "14" in err
+
+
+def test_dry_run_also_refuses(mini, capsys):
+    """dry-run 的预览清单里同样不得出现它——评审对 C1 的实测正是"dry-run
+    把它列进了将写入的 patch"，预览与实写必须给同一个答案。"""
+    _land_human_patch(mini, 14, "由加里推了推那副旧眼镜。")
+    result = pc.commit(LABEL, mini.data_dir, dry_run=True, repo=mini.root)
+    assert 14 not in {r["id"] for r in result}
+    assert "拒绝写入" in capsys.readouterr().err
+
+
+def test_human_verdict_path_allowed_but_announced(tmp_path, capsys):
+    """人裁路径放行、但显著播报——那条路径上有人正看着这个 id，他有权在
+    知情前提下覆盖；无人值守的自动清关没有这个资格。"""
+    m = _build_mini(tmp_path, decisions=[
+        {"id": 11, "verdict": "adopt", "chosen_channel": "chA", "edited_zh": None,
+         "reason_code": "语序", "ts": ADOPT_TS_11}])
+    _land_human_patch(m, 11, "我发现教室里的钟还在走。")
+    result = pc.commit(LABEL, m.data_dir, dry_run=True, repo=m.root)
+    assert 11 in {r["id"] for r in result}
+    err = capsys.readouterr().err
+    assert "人工裁决路径覆盖" in err
+
+
+def test_pre_freeze_patch_does_not_block(tmp_path):
+    """反向锁（判据不能过宽）：冻结**之前**就存在的 review patch 不该拦住
+    任何东西——那些 id 本来就在 locked 面里，也证明基线比对不是"只要有过
+    review patch 就拦"。"""
+    m = _build_mini(tmp_path)
+    manifest = json.loads((m.d / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["opus_at"]["patches_lines"] == 0
+    # 把一条 review patch 塞进"冻结时点已有"的位置：直接改 manifest 基线，
+    # 等价于"冻结时 patches.jsonl 本来就有这一行"。
+    _land_human_patch(m, 14, "冻结前就有的人裁稿")
+    manifest["opus_at"]["patches_lines"] = 1
+    (m.d / "manifest.json").write_text(dumps(manifest), encoding="utf-8")
+    result = pc.commit(LABEL, m.data_dir, dry_run=True, repo=m.root)
+    assert 14 in {r["id"] for r in result}
+
+
+def test_polish_patch_after_freeze_does_not_block(mini):
+    """只有 reason∈{review,recall} 算"人的裁决"——本流水线自己先前落的
+    `reason=polish` patch 不该触发拒写（否则同一 SEG 第二次 commit 就寸步
+    难行）。"""
+    _land_human_patch(mini, 14, "上一轮润色稿", reason="polish")
+    result = pc.commit(LABEL, mini.data_dir, dry_run=True, repo=mini.root)
+    assert 14 in {r["id"] for r in result}
+
+
+def test_missing_opus_at_is_conservative(mini, capsys):
+    """manifest 缺 `opus_at` → 建不起基线 → **保守放大**：把全部 review/
+    recall patch 都当成冻结后的，自动清关一律拒写并告警。宁可多拦不可漏拦
+    ——"算不出来"绝不能等于"放行"。"""
+    manifest = json.loads((mini.d / "manifest.json").read_text(encoding="utf-8"))
+    manifest.pop("opus_at")
+    (mini.d / "manifest.json").write_text(dumps(manifest), encoding="utf-8")
+    _land_human_patch(mini, 14, "人裁稿")
+    result = pc.commit(LABEL, mini.data_dir, dry_run=True, repo=mini.root)
+    assert 14 not in {r["id"] for r in result}
+    err = capsys.readouterr().err
+    assert "无法确定冻结基线" in err
+
+
+def test_shrunken_patches_file_is_conservative(mini, capsys):
+    """patches.jsonl 比基线还短（append-only 被破坏，或 --data-dir 指向了
+    别的车道）→ 同样保守放大。"""
+    manifest = json.loads((mini.d / "manifest.json").read_text(encoding="utf-8"))
+    manifest["opus_at"]["patches_lines"] = 99
+    (mini.d / "manifest.json").write_text(dumps(manifest), encoding="utf-8")
+    _land_human_patch(mini, 14, "人裁稿")
+    result = pc.commit(LABEL, mini.data_dir, dry_run=True, repo=mini.root)
+    assert 14 not in {r["id"] for r in result}
+    assert "append-only 约定被破坏" in capsys.readouterr().err

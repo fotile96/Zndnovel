@@ -258,6 +258,38 @@ def test_render_body_line_has_no_bracket_nesting_with_speaker_prefix(mini_seg_sp
     assert "JP:" in p and "ZH(opus):" in p
 
 
+# --- Task 4/Task 11 收尾：章节编号撞号（"三"出现两次后跳到"四"）---
+
+def test_render_has_no_duplicate_or_skipped_chapter_numbers(mini_seg_render):
+    """`_render_anchors`（build_context.py 共享函数）自带硬编码的"## 三、锚点行"
+    标题，而 render() 自己此前也给"术语/风格/口调/锚点"编了"## 三、"——两个
+    "三"撞在一起，加上 notes/rulings 为空时的条件小节又会跳号。修法：本工具
+    顶层标题一律不带序号；`_render_anchors` 的产出在拼进本工具输出前被降级为
+    "### 锚点行"（不带数字），读起来是"术语..."节下的子块。"""
+    p = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "## 三、" not in p
+    assert "### 锚点行" in p
+    # 顶层标题不编号：任何 "## <汉字数字>、" 形态都不应出现
+    for numeral in "一二三四五六七八九十":
+        assert f"## {numeral}、" not in p
+
+
+def test_render_chapter_titles_stable_regardless_of_optional_sections(mini_seg_render):
+    """notes/rulings 都缺席时（不带任何裁决前馈、章节纪要）——既有小节的标题
+    文字不应因为"少了几节"而漂移（没有序号可跳，天然稳定）。"""
+    (mini_seg_render.seg_dir / "frozen" / "rulings.md").write_text("   ", encoding="utf-8")
+    import shutil
+    shutil.rmtree(mini_seg_render.seg_dir / "frozen" / "notes")
+    p = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "## 任务说明（润色契约）" in p
+    assert "## 锁定 id 清单" in p
+    assert "## 术语 / 风格 / 口调 / 锚点" in p
+    assert "## 逐批正文" in p
+    assert "## 输出契约" in p
+    assert "章节纪要" not in p
+    assert "裁决与前序纪要" not in p
+
+
 # --- CLI ---
 
 def test_cli_plan_prints_sessions(mini_seg, capsys):

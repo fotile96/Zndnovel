@@ -25,3 +25,15 @@ def test_edit_distance_basic():
 def test_autoclear_limit_floor_and_ratio():
     assert pl.autoclear_limit("四字") == 4            # floor
     assert pl.autoclear_limit("十" * 100) == 15       # 100×0.15
+
+def test_is_ignored_extra_matches_known_fs_noise():
+    assert pl.is_ignored_extra(Path("/a/b/.DS_Store"))
+    assert pl.is_ignored_extra(Path("/a/b/Thumbs.db"))
+    assert pl.is_ignored_extra(Path("/a/__pycache__/x.pyc"))
+    assert pl.is_ignored_extra(Path("/a/b/__pycache__/x.pyc"))
+
+def test_is_ignored_extra_does_not_match_real_files():
+    """名单窄——不得靠子串/前缀命中真实文件；只精确匹配已知噪声。"""
+    assert not pl.is_ignored_extra(Path("/a/b/sneaky_extra.md"))
+    assert not pl.is_ignored_extra(Path("/a/b/DS_Store_backup.txt"))
+    assert not pl.is_ignored_extra(Path("/a/b/notes.pyc.md"))

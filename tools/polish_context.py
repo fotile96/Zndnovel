@@ -85,7 +85,7 @@ def plan(label, session_lines=None, session_size=None, repo=None) -> list:
 
 
 TASK_INSTRUCTIONS = """\
-## 一、任务说明（润色契约）
+## 任务说明（润色契约）
 
 你正在给《セカンドノベル 〜彼女の夏、15分の記憶〜》官方中文本地化做**润色
 pass**——不是从头翻译。下面每一行的「opus zh」都已经是可用译文（来自本项目
@@ -197,8 +197,24 @@ def render(label, session_no, repo=None) -> str:
            f"（批次 {batches[0]}–{batches[-1]}，共 {sess['lines']} 行）",
            TASK_INSTRUCTIONS]
 
+    # 章节标题不带序号（Task 4/Task 11 挂起的 minor 的最终修法）：本节列表里
+    # 「章节纪要」「裁决与前序纪要」两节视 notes/rulings 是否为空条件性出现，
+    # 而「术语/风格/口调/锚点」一节又整段复用 `build_context._render_anchors`
+    # ——那段代码在 build_context.py 自己的编号体系里正确地自称"## 三、锚点行"
+    # （它在那边确实是第三节），但直接照搬进本工具会撞上本工具自己的"三"。
+    # 两条路都试过：①把本工具的标题也重新编号——治不好条件性小节导致的跳号，
+    # 且这个模块每渲染一次都要按 notes_text/rulings_text 是否为空重算序号，
+    # 边界一多就脆；②去改 `_render_anchors` 里那行硬编码文案——它是
+    # build_context.py 生产链路在用的共享函数，为了这里的装订问题去动它，
+    # 等于让一个跟 P4 无关的改动去牵动 P3 的按批四件套（那边改动需要
+    # canary 回验）。故选：**本工具自己的顶层标题一律不编号**，只用描述性
+    # 标题——条件小节出现与否不再需要维护任何序号；`_render_anchors` 返回的
+    # "## 三、锚点行"文本原样保留，但在本工具的输出里把它降一级注为
+    # "### 锚点行"（局部字符串替换，只影响本模块拼出的 prompt，不改
+    # `_render_anchors` 本身），使其读起来是"术语/风格/口调/锚点"节下的一个
+    # 子块，而不是一段孤零零带着"三"字的顶层标题。
     session_locked = [i for b in batches for i in ids_by_batch.get(b, []) if i in locked_ids]
-    out.append("\n## 二、锁定 id 清单（【锁】标记；仅供上下文参照，"
+    out.append("\n## 锁定 id 清单（【锁】标记；仅供上下文参照，"
                 "禁止在输出的 raw/*.out 中出现这些 id）")
     if session_locked:
         for i in session_locked:
@@ -207,7 +223,7 @@ def render(label, session_no, repo=None) -> str:
     else:
         out.append("（本会话无锁定 id）")
 
-    out.append("\n## 三、术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
+    out.append("\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
     out.append("### active.json（术语表）")
     out.append(json.dumps(active, ensure_ascii=False))
     out.append("\n### style.md（对/错标准，与下方六条冲突时以此为准）")
@@ -216,17 +232,17 @@ def render(label, session_no, repo=None) -> str:
     out.append(polish_md)
     if voices:
         out.append(voices)
-    out.append(anchors)
+    out.append(anchors.replace("## 三、锚点行", "### 锚点行", 1))
     if notes_text:
-        out.append("\n## 四、章节纪要（背景参考）")
+        out.append("\n## 章节纪要（背景参考）")
         out.append(notes_text)
 
     if rulings_text:
-        out.append("\n## 五、裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
+        out.append("\n## 裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
                     "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
         out.append(rulings_text)
 
-    out.append("\n## 六、逐批正文（仅列非锁定 id；ZH(opus) 为现行 opus 译文，即润色起点）")
+    out.append("\n## 逐批正文（仅列非锁定 id；ZH(opus) 为现行 opus 译文，即润色起点）")
     for b in batches:
         ids = ids_by_batch.get(b, [])
         body_ids = [i for i in ids if i not in locked_ids]
@@ -237,7 +253,7 @@ def render(label, session_no, repo=None) -> str:
         for i in body_ids:
             out.append(f"[b{b}] {i}: JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
 
-    out.append("\n## 七、输出契约")
+    out.append("\n## 输出契约")
     out.append(OUTPUT_CONTRACT_HEADER)
     for b in batches:
         out.append(f"- `raw/<channel>/b{b}.out`")

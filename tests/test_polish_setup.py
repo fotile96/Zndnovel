@@ -214,3 +214,45 @@ def test_verify_detects_unregistered_extra_notes_file(mini_repo):
     (d / "frozen" / "notes" / "s3s.md").write_text("# 误拷的章节纪要", encoding="utf-8")
     drift = ps.verify("segX", repo=mini_repo.root)
     assert drift and any("s3s.md" in x for x in drift)
+
+
+# --- Task 11 收尾：反向扫描忽略名单（Task 3 挂起的 minor） ---
+
+def test_verify_ignores_ds_store_and_friends(mini_repo):
+    """macOS Finder 翻 frozen/ 必然落 .DS_Store；Windows 落 Thumbs.db；误进
+    __pycache__/*.pyc 同理。这些是文件系统噪声，不该被反向扫描当成"凭空
+    多出的文件"报漂移——一道稳定冤枉正确行为（人用 Finder 看一眼产出）的闸
+    会被当噪音忽略，是「恒绿闸」的镜像（本项目已吃过 ruby 闸 104→5、数字闸
+    212→1 的亏）。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    assert ps.verify("segX", repo=mini_repo.root) == []
+    (d / "frozen" / ".DS_Store").write_bytes(b"\x00\x01binary-plist-noise")
+    (d / "frozen" / "glossary" / "voices" / ".DS_Store").write_bytes(b"\x00")
+    (d / "frozen" / "notes" / "Thumbs.db").write_bytes(b"\x00")
+    pycache = d / "frozen" / "glossary" / "__pycache__"
+    pycache.mkdir(parents=True)
+    (pycache / "sneaky.pyc").write_bytes(b"\x00")
+    assert ps.verify("segX", repo=mini_repo.root) == []
+
+
+def test_verify_without_ignore_list_would_report_ds_store(mini_repo, monkeypatch):
+    """变异：证明上一条测试是靠忽略名单过关的，不是「反向扫描本来就漏了它」
+    的巧合。把 `polishlib.is_ignored_extra` 打回恒 False（模拟"名单不存在"），
+    同一个 .DS_Store 必须重新被判成漂移——名单确有牙。"""
+    from tools import polish_setup as ps_mod
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "frozen" / ".DS_Store").write_bytes(b"\x00\x01binary-plist-noise")
+    monkeypatch.setattr(ps_mod, "is_ignored_extra", lambda p: False)
+    drift = ps.verify("segX", repo=mini_repo.root)
+    assert drift and any(".DS_Store" in x for x in drift)
+
+
+def test_ignore_list_does_not_hide_real_extra_file(mini_repo):
+    """名单别做宽到能藏住真文件：一个正常命名的多余文件（非 .DS_Store/
+    Thumbs.db/__pycache__/*.pyc）必须继续被判漂移，忽略名单不能连带把它
+    也放过。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "frozen" / "glossary" / "voices" / "sneaky_not_noise.md").write_text(
+        "# 真的多出来的文件", encoding="utf-8")
+    drift = ps.verify("segX", repo=mini_repo.root)
+    assert drift and any("sneaky_not_noise.md" in x for x in drift)

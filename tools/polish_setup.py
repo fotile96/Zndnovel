@@ -27,6 +27,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_context import glossary_version
 from tools.pipelib import REPO, dumps, read_jsonl, sha256_file, write_jsonl
+from tools.polishlib import is_ignored_extra
 from tools.resolve import resolve_map
 
 
@@ -214,6 +215,8 @@ def verify(label, repo=None) -> list:
     if fz.is_dir():
         for p in sorted(fz.rglob("*")):
             if p.is_file():
+                if is_ignored_extra(p):
+                    continue
                 rel = p.relative_to(d).as_posix()
                 if rel not in known:
                     drift.append(f"{rel}: 未登记（凭空多出）")

@@ -446,6 +446,16 @@ ruby**，**新增命中 0 行**。即：严格单向放宽，且放宽面与「r
    并以 **rc=2** 退出——不抛异常、也不会被误读成「跑完且全部通过」（rc=0）；见此跳过
    即记进段末台账，不必人工先 `ls` 探路径。报告落 work/out/ayano-<label>.md，
    判「错」的题逐条人工核对是译文丢信息还是题目/判分问题，结论记进段末台账。）
+   ⚠ **凡本段有回改（`patches.jsonl` 新增），跑完彩野测试后必须跑一次题库同步检查**：
+   ```bash
+   uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
+       --data-dir pilot/lanes/opus/data
+   ```
+   题库的参考答案大量**逐字引用译文**，而抽读裁定/召回令会把译文改掉、题库却不会跟着动
+   ——于是标准答案里留着一条**已经作废的译文串**，受试照现行译文作答反而被判「错」。
+   **此前没有任何机械闸能抓到这一类**（题库不参与 `check_batch`，`add_patch` 也不知道题库
+   存在）。2026-08-06 首次跑即在 **7 份题库里查出 5 处真失同步**（seg3 q18、seg4 q3、
+   seg5 q18、seg7 q11／q17），其中只有 1 处是事先知道的。
    **不得拿别段的题库顶替**：题库顶层带 `segment:` 绑定，与 `--segment` 不符工具直接
    报错退出。理由是上一段的答案往往整张躺在本段前缀卡里（实测 seg1 的 6 张答案卡
    41/44/45/46/58/134 全在 seg2 前缀内），受试模型一行译文不看即可全对——那是恒绿假信号。
@@ -494,6 +504,19 @@ ruby**，**新增命中 0 行**。即：严格单向放宽，且放宽面与「r
       这类不改校验器，登记时知道即可。
    另：**饱和度 1.000（剩余占位为零）的词不进 active.json**，改记 `ratified` 节
    （W2 只在待译批次上跑，登记只增词表长度）——见 `conventions/active-json-scope` 条件②。
+3.5 **判「某个 id 是否已被裁过」用 `add_patch.py --has-patch`，不要 grep。**
+   ```bash
+   uv run python tools/add_patch.py --id <N> --has-patch --data-dir pilot/lanes/opus/data
+   # 退出码 0＝已有 patch（并列出历次），1＝没有
+   ```
+   ⚠ **grep 式查重会静默漏判**：146 条 patch 里有 **17 条是带空格体**（`{"id": 10662,`），
+   `grep '"id":<N>,'` 对它们恒返回 0；据此判「没被裁过」再补一条，就是 SEG-5 那次
+   id 1600 误覆盖已裁定稿的同一失败模式。
+   ⚠ **两处曾流传的错误归因已更正**（2026-08-06 实测）：①带空格体**不是 `add_patch.py`
+   写的**——它一直走 `pipelib.dumps`（紧凑体）；②那 17 条**不是「最近裁决的」而是最老的**
+   （全部 glossary_v 8–9），v10 起全部紧凑。照错归因去「统一 add_patch 的分隔符」
+   什么也修不到——**正确的修法是别用文本匹配判 JSON**。
+   `add_patch.py` 现在追加前会自己播报该 id 的既有 patch，这条纪律因此不再依赖记忆。
 4. 裁决产出 glossary.v<N> + 召回令；回改走车道 patches.jsonl；用
    `uv run python tools/resolve.py --data-dir pilot/lanes/opus/data` 验证生效
    （✅ **2026-08-05 起有 `--data-dir` 了**，与 `saturation.py` 同形；`ZND_DATA` 仍兼容）。

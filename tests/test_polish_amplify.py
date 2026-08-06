@@ -277,6 +277,36 @@ def test_scan_prompt_includes_bucket3_full_text(mini):
     assert "锁定 id" in text
 
 
+def test_scan_prompt_has_no_duplicate_or_skipped_chapter_numbers(mini):
+    """评审 Finding C（Task 11 第二轮修复）：`scan_prompt()` 此前自己维护一套
+    顶层编号（"## 零、本轮说明"→"一、裁决意图纪要"→"二、全 SEG 四桶结果全景"→
+    "三、锁定 id 清单"→"四、术语/风格/口调/锚点"→"五、输出契约"），而"四、
+    术语..."节内又整段复用 `_render_anchors()`，后者硬编码"## 三、锚点行"——
+    与本文档自己的"三、锁定 id 清单"撞号。这与评审报的 Finding A 是同一个
+    根因（复用 `build_context._render_anchors` 带进一个自带编号的标题），
+    只是发生在 `polish_amplify.py` 而非 `polish_context.py`。修法与 Finding A
+    保持一致（同一批人读的两份 prompt，风格不分叉）：本函数自己的顶层标题
+    一律不编号，`_render_anchors()` 的产出经共享 helper
+    `polishlib.demote_anchors_heading()` 降级为"### 锚点行"。"""
+    text = amp.scan_prompt(LABEL, repo=mini.root)
+    assert "## 三、" not in text
+    assert "### 锚点行" in text
+    for numeral in "零一二三四五六七八九十":
+        assert f"## {numeral}、" not in text
+
+
+def test_scan_prompt_has_no_stale_numbered_cross_references(mini):
+    """评审 Finding A 在 `polish_context.py` 暴露的教训——标题去编号后，正文
+    散文里引用旧编号的字符串必须跟着改，否则指向一个不存在的编号。
+    `AMPLIFY_PREAMBLE` 原文有两处这类引用（"见下方"一、裁决意图纪要""、
+    ""二、全 SEG 四桶结果全景"里"），随标题一并去了编号。用同一个通用正则
+    扫全文，不满足于只测已知出过问题的那两处。"""
+    text = amp.scan_prompt(LABEL, repo=mini.root)
+    stale = re.findall(r"「[一二三四五六七八九十]+、[^」]*」", text)
+    stale += re.findall(r'"[一二三四五六七八九十]+、[^"]*"', text)
+    assert stale == [], f"发现指向带编号旧标题的散文引用：{stale}"
+
+
 def test_scan_prompt_round_gate_blocks_second_call(mini):
     text1 = amp.scan_prompt(LABEL, repo=mini.root)
     assert isinstance(text1, str) and text1

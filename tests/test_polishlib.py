@@ -51,3 +51,25 @@ def test_is_ignored_extra_directory_match_excludes_own_basename():
     # 真正落在 __pycache__ 目录之下的文件（含非 .pyc 后缀）：仍应被忽略——
     # 目录判据本身没有被削弱，只是不再看 basename 那一段。
     assert pl.is_ignored_extra(Path("/a/b/__pycache__/somefile.txt"))
+
+def test_demote_anchors_heading_downgrades_and_only_once():
+    """评审 Finding C：`_render_anchors()`（build_context.py 共享函数）硬编码
+    "## 三、锚点行" 作为它自己编号体系里的第三节标题，但 `polish_context.py`
+    与 `polish_amplify.py` 各自有独立的顶层标题方案，直接照搬会撞号（前者与
+    自己的"三"撞、后者与自己的"三、锁定 id 清单"撞）。共享 helper 把这个
+    硬编码标题降级成不带编号的三级标题，供两个复用方共用同一份处理，不再
+    各自维护一份 `.replace(...)`。"""
+    text = "## 三、锚点行（日中对照）\n### global\n[1] jp\n    → zh"
+    out = pl.demote_anchors_heading(text)
+    assert out == "### 锚点行（日中对照）\n### global\n[1] jp\n    → zh"
+    assert "## 三、" not in out
+    # 只替换一次——即使正文里恰好也出现同一串字面文本，不该被二次替换掉
+    # （该字符串按设计只会出现在 _render_anchors() 产出的第一行，这里只是
+    # 确认 helper 本身遵守"只替换一次"的约定，不依赖调用方的实际数据形态）。
+    twice = "## 三、锚点行\n" * 2
+    assert pl.demote_anchors_heading(twice) == "### 锚点行\n## 三、锚点行\n"
+
+def test_demote_anchors_heading_no_op_when_marker_absent():
+    """没有命中硬编码标题时原样返回，不误伤其他内容。"""
+    text = "没有任何锚点标题的普通文本"
+    assert pl.demote_anchors_heading(text) == text

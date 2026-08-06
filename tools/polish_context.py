@@ -34,7 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_context import _render_anchors, _render_voices
 from tools.pipelib import REPO, dumps, read_jsonl
-from tools.polishlib import CFG
+from tools.polishlib import CFG, demote_anchors_heading
 
 
 def _dir_for(label, repo) -> Path:
@@ -209,10 +209,12 @@ def render(label, session_no, repo=None) -> str:
     # 等于让一个跟 P4 无关的改动去牵动 P3 的按批四件套（那边改动需要
     # canary 回验）。故选：**本工具自己的顶层标题一律不编号**，只用描述性
     # 标题——条件小节出现与否不再需要维护任何序号；`_render_anchors` 返回的
-    # "## 三、锚点行"文本原样保留，但在本工具的输出里把它降一级注为
-    # "### 锚点行"（局部字符串替换，只影响本模块拼出的 prompt，不改
-    # `_render_anchors` 本身），使其读起来是"术语/风格/口调/锚点"节下的一个
-    # 子块，而不是一段孤零零带着"三"字的顶层标题。
+    # "## 三、锚点行"文本原样保留，但在拼进本工具输出前经
+    # `polishlib.demote_anchors_heading()` 降一级注为 "### 锚点行"（共享
+    # helper，不改 `_render_anchors` 本身——`tools/polish_amplify.py::
+    # scan_prompt()` 复用同一个函数同一份处理，两处不再各自维护一份
+    # `.replace(...)`，见评审 Finding C），使其读起来是"术语/风格/口调/
+    # 锚点"节下的一个子块，而不是一段孤零零带着"三"字的顶层标题。
     session_locked = [i for b in batches for i in ids_by_batch.get(b, []) if i in locked_ids]
     out.append("\n## 锁定 id 清单（【锁】标记；仅供上下文参照，"
                 "禁止在输出的 raw/*.out 中出现这些 id）")
@@ -232,7 +234,7 @@ def render(label, session_no, repo=None) -> str:
     out.append(polish_md)
     if voices:
         out.append(voices)
-    out.append(anchors.replace("## 三、锚点行", "### 锚点行", 1))
+    out.append(demote_anchors_heading(anchors))
     if notes_text:
         out.append("\n## 章节纪要（背景参考）")
         out.append(notes_text)

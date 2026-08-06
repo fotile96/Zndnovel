@@ -24,6 +24,38 @@ IGNORE_SUFFIXES = (".pyc",)
 IGNORE_DIR_NAMES = {"__pycache__"}
 
 
+# `tools.build_context._render_anchors()` 返回的文本硬编码了一个顶层标题
+# "## 三、锚点行"——那是 build_context.py 自己的编号体系里正确的第三节
+# （build_context.build() 的顺序：一、冻结骨架 → 二、前缀正文 → 三、锚点行 →
+# 四、术语风格口调 → 五、本批任务），但任何**其他**文档复用这个函数
+# （`polish_context.render()`、`polish_amplify.scan_prompt()` 都是——它们
+# 各自有自己的一套顶层标题/编号）都会撞上这个硬编码的"三"，或者在自己已经
+# 去掉编号之后，让这段文本显得像一个孤零零带着编号的顶层标题。
+#
+# **根因处置的选择（Task 11 评审 Finding A/C 共同结论）**：不修改
+# `build_context._render_anchors()` 本身——它是 P3 生产在用的钉死面
+# （`tools/build_context.py` 属"按批四件套"，生产树独立 pin 版本、
+# 改动需要 canary 回验；这里的标题在它自己的编号体系里是**正确**的，
+# 问题只出在"被复用到别的编号体系里"这一侧），而是提供这个共享 helper，
+# 由**每一个复用方**在拼自己的文档之前，把这段文本的标题降级/去编号。
+# 好处：改动面永远限定在 P4 自己的模块里，`build_context.py` 的 P3 覆盖面
+# 与既有行为逐字不变，不需要为这一处装订问题走 canary 流程；未来任何第三个
+# 复用方（不管是不是 P4 的）都只需要调这一个函数，不需要各自发明一份
+# `.replace(...)`（Task 11 修复轮初版就是每个复用方各自内联一份，抽出来
+# 才能保证以后只需要改一处）。
+ANCHORS_HEADING_OLD = "## 三、锚点行"
+ANCHORS_HEADING_DEMOTED = "### 锚点行"
+
+
+def demote_anchors_heading(anchors_text: str) -> str:
+    """把 `build_context._render_anchors()` 产出文本里硬编码的顶层标题
+    "## 三、锚点行" 降级成不带编号的三级标题 "### 锚点行"——读起来是调用方
+    某个二级章节下的子块，而不是一段孤立的、带着别处编号体系"三"的顶层标题。
+    只替换一次（`count=1`）：该字符串在 `_render_anchors()` 的产出里只会
+    出现一次，就是返回文本的第一行。"""
+    return anchors_text.replace(ANCHORS_HEADING_OLD, ANCHORS_HEADING_DEMOTED, 1)
+
+
 def is_ignored_extra(p: Path) -> bool:
     """`p` 是否属于 verify() 反向扫描该忽略的文件系统噪声。
 

@@ -497,3 +497,175 @@ grep -n "锁定 id 清单\|「[一二三四五六七八九十]" work/ctx/p4s1-s1
 0d0a4d8 fix: Task 11 评审修复轮 —— 章节交叉引用残留 + is_ignored_extra 目录判据缝隙
 ```
 
+---
+
+## 九、评审修复轮 2（Finding C：`polish_amplify.py` 同根因）
+
+协调者裁定：§8.1 自查时发现但未处理的 `polish_amplify.py::scan_prompt()` 编号撞号**不算
+范围外**——与 Finding A 是同一类缺陷、同一个根因（复用 `build_context._render_anchors`
+带进一个自带编号的标题），只是发生在另一个文件；要求一并修掉，且顺手把根因本身处理清楚。
+
+### 9.1 修法：与 Finding A 保持一致的风格
+
+`scan_prompt()` 此前自己维护一套顶层编号：
+
+```
+## 零、本轮说明 → ## 一、裁决意图纪要 → ## 二、全 SEG 四桶结果全景（_build_panorama）
+→ ## 三、锁定 id 清单 → ## 四、术语/风格/口调/锚点 → [_render_anchors 硬编码"## 三、锚点行"]
+→ ## 五、输出契约
+```
+
+"四、术语..."节内整段复用 `_render_anchors()`，其硬编码"## 三、锚点行"与本文档自己的
+"三、锁定 id 清单"撞号——与 §8.1 描述的 `polish_context.render()` 那个缺陷是完全同构的
+一个实例。修法：本函数自己的顶层标题同样一律不编号（`零/一/二/三/四/五` 全部去掉，改成
+纯描述性标题），`anchors` 变量在拼进输出前同样做降级处理。
+
+### 9.2 grep 自查：amplify 正文里的交叉引用
+
+按 Finding A 的教训（标题去编号后正文引用没跟着改），逐一检查 `AMPLIFY_PREAMBLE` 与
+其余常量，**发现两处真实的旧式交叉引用**（不是假设性风险，是已经存在的字面文本）：
+
+```python
+# 修复前（AMPLIFY_PREAMBLE）：
+前一轮，本项目对本 SEG 抽出的 K 条候选做了人工裁决（见下方"一、裁决意图纪要"）。
+...尤其是下方"二、全 SEG 四桶结果全景"里**桶 3（落选候选）**：
+```
+
+两处引用的编号（"一、裁决意图纪要"、"二、全 SEG 四桶结果全景"）随标题一并改成不带编号的
+"裁决意图纪要"、"全 SEG 四桶结果全景"，与 §9.1 改后的实际标题文字一致。
+
+grep 复核（改完之后跑，确认清零）：
+```bash
+grep -n '## [一二三四五六七八九十零]、\|「[一二三四五六七八九十]、\|"[一二三四五六七八九十]、\|'"'"'[一二三四五六七八九十]、' \
+    tools/polish_amplify.py tools/polish_context.py
+# 仅命中 3 处 Python 注释（描述 build_context.py 自己的编号体系，不进入渲染输出），
+# 渲染文本本身零残留。
+```
+
+### 9.3 根因处置：不改 `build_context.py`，在复用方一侧抽共享 helper
+
+**决策：不修改 `tools/build_context._render_anchors()`**，保持它在 `build_context.py`
+自己的编号体系里的原样输出（对它自己而言"## 三、锚点行"是正确的第三节标题，问题只出在
+"被复用到别的编号体系里"这一侧）。
+
+**理由**：
+1. `build_context.py` 是 P3 生产按批四件套的一员，独立 pin 在 `/Users/fotile96/Zndnovel-prod`
+   这棵生产树上；main 上的任何改动只有在下次段边界升级时才会被生产采用，且升级流程要求
+   `canary` 回验（`check_batch`/`detect_collapse`/`build_context` 三者之一改动即需回验）
+   或至少人工判定"不影响在产批次的产出/判定"并留痕（见 `docs/ops/p3-production-runbook.md`
+   §4.1）。即便只改一行注释文字（零行为变化），也会把这个文件的 diff 带进下一次段边界的
+   `git diff <旧tag> main -- tools/ prompts/` 判定范围，需要人工逐条走一遍"这个改动会不会
+   改变任何一批的产出或判定"的问句并留痕——对一个纯粹的 P4 装订问题而言，这个流程成本与
+   收益不成比例。
+2. `_render_anchors()` 的输出在 `build_context.py` 自己的调用点（`build()` 函数）里的位置
+   是固定的、已知的第三节，**它自己的行为没有任何问题**——问题完全在于两个不同的 P4 模块
+   各自复用它时，没有把它纳入自己的编号体系去考虑。这是"消费方需要适配共享组件"的情形，
+   不是"共享组件本身有缺陷"的情形，修法理应落在消费方。
+3. 消费方处理这件事只需要一个纯函数（字符串替换），**已经证明可以完全解决问题**（两处
+   复用方各自验证通过）——没有必要为了图省事去动一个成本高得多的钉死文件。
+4. 该函数目前有且仅有两个复用方（`polish_context.py`/`polish_amplify.py`），且都在 P4
+   自己的代码里；把处理逻辑抽成 `tools/polishlib.py` 的共享 helper
+   `demote_anchors_heading()`，覆盖了"未来第三个复用方"的场景（只需要调用同一个函数，
+   不需要重新发明一份 `.replace(...)`），已经拿到了"改共享组件"能带来的大部分好处
+   （单一实现、单一维护点），却完全不必承担改 P3 钉死面的代价。
+
+**实现**：`tools/polishlib.py` 新增
+```python
+ANCHORS_HEADING_OLD = "## 三、锚点行"
+ANCHORS_HEADING_DEMOTED = "### 锚点行"
+
+def demote_anchors_heading(anchors_text: str) -> str:
+    return anchors_text.replace(ANCHORS_HEADING_OLD, ANCHORS_HEADING_DEMOTED, 1)
+```
+`tools/polish_context.py::render()` 与 `tools/polish_amplify.py::scan_prompt()` 都改为
+`anchors = demote_anchors_heading(_render_anchors(...))`，不再各自内联一份
+`.replace(...)`（Finding A 的初版修复就是内联写法，这次统一抽出）。
+
+### 9.4 新测试
+
+`tests/test_polish_amplify.py` 新增 2 条（复用既有 `mini` 固件，`segAmp` 双批语料）：
+- `test_scan_prompt_has_no_duplicate_or_skipped_chapter_numbers`：`"## 三、"` 不出现、
+  `"### 锚点行"` 出现、且 `零一二三四五六七八九十` 任一数字后接顿号的顶层标题形态都不出现。
+- `test_scan_prompt_has_no_stale_numbered_cross_references`：用与 `polish_context.py` 那条
+  测试同样的通用正则（`「X、...」`），另加一条 ASCII 双引号版本（`"X、..."`，因为
+  `AMPLIFY_PREAMBLE` 原文用的是直引号不是「」），扫全文确认零残留。
+
+`tests/test_polishlib.py` 新增 2 条：
+- `test_demote_anchors_heading_downgrades_and_only_once`：核对降级替换的字面效果，且验证
+  "只替换一次"（`count=1`）——两次出现同一标记的极端输入里，只有第一次被替换。
+- `test_demote_anchors_heading_no_op_when_marker_absent`：没有命中标记的文本原样返回，
+  不误伤其他内容。
+
+### 9.5 变异实测（全部用 Edit 改坏/复原，未使用任何 git 命令）
+
+```
+# 变异①：anchors = _render_anchors(...)（撤销降级处理）
+uv run pytest tests/test_polish_amplify.py::test_scan_prompt_has_no_duplicate_or_skipped_chapter_numbers -q
+FAILED — AssertionError: '## 三、' 出现在 "...## 三、锚点行（日中对照...)..."
+# 用 Edit 改回 demote_anchors_heading(...) 后重跑：1 passed
+
+# 变异②：AMPLIFY_PREAMBLE 两处交叉引用改回旧编号（"一、裁决意图纪要"／"二、全 SEG 四桶结果全景"）
+uv run pytest tests/test_polish_amplify.py::test_scan_prompt_has_no_stale_numbered_cross_references -q
+FAILED — 发现指向带编号旧标题的散文引用：['"一、裁决意图\n纪要"', '"二、全 SEG 四桶结果全景"']
+# 用 Edit 改回不带编号的措辞后重跑：1 passed
+```
+两处变异均先 `-q` 确认失败原文与断言信息，再用同一个 Edit 调用把原文本改回，随即重跑确认
+转绿，全程未调用 `git checkout`/`stash`/`restore` 等任何回滚类命令。
+
+### 9.6 测试输出
+
+```bash
+uv run pytest tests/test_polish_amplify.py tests/test_polish_context.py -q
+# 35 passed（含本轮新增 4 条：amplify 2 条 + polishlib 2 条已在下面的全量里体现）
+
+uv run pytest -q
+# 706 passed（702 基线 + 4 条新增：test_scan_prompt_has_no_duplicate_or_skipped_chapter_numbers /
+#   test_scan_prompt_has_no_stale_numbered_cross_references /
+#   test_demote_anchors_heading_downgrades_and_only_once /
+#   test_demote_anchors_heading_no_op_when_marker_absent）
+```
+
+### 9.7 重新渲染并通读：真实 SEG-1 无受影响哈希，改用等价语料自查
+
+`tools/polish_amplify.py::scan_prompt()` 依赖 `triage.json`（不存在则抛
+`FileNotFoundError`，见其 docstring），而**真实 `pilot/polish/seg1-s2/` 尚未跑
+`polish_ingest`/`polish_check`/`polish_triage`**（本任务从 Task 11 一开始就刻意只做到
+`polish_calibrate --make` 为止，见 §一/§二）——这是设计使然，不是本轮遗漏：SEG-1 目前
+根本没有到达能调用 `scan_prompt()` 的流水线阶段。核实：
+
+```bash
+grep -c amplify pilot/polish/seg1-s2/plan.json   # 0——从未写过 amplify 记录
+ls pilot/polish/seg1-s2/triage.json               # 不存在
+```
+
+故**没有任何落在真实 SEG-1 数据里的 `prompt_hash` 会因为这次修复而变化**——与 Finding A
+的情形不同（那时 SEG-1 的四组会话 prompt 已经真实渲染过、`plan.json` 里记着旧哈希）。
+`git status --short pilot/polish/` 在本轮修复前后均为空，可证本轮未触碰任何 SEG-1 产物。
+
+改用测试套件既有的 `segAmp` 合成语料（`tests/test_polish_amplify.py::_build_mini`，与
+单测使用同一套构造，双批共 7 个 id：1 锁定/1 零改动/3 桶2/2 桶3）在临时目录里跑一遍真实
+`amp.scan_prompt()` 并落盘通读（`<scratchpad>/amplify-scan-prompt-sample.md`，3278 字节）：
+
+- 标题序列干净：`## 本轮说明` → `## 裁决意图纪要`（紧跟 `digest_text` 自带的
+  `## 放大扫描意图纪要（...)` 二级标题，两者不是同一件事的重复标题，是"外层小节名"+
+  "纪要自身标题"的嵌套，pre-existing、非本轮范围）→ `## 全 SEG 四桶结果全景` → `## 锁定
+  id 清单` → `## 术语 / 风格 / 口调 / 锚点`（内含 `### 锚点行`，已正确降级）→ `## 输出契约`。
+- 全文 `grep -n "^## "` 确认零 `"## 三、"`、零任何编号顶层标题。
+- `AMPLIFY_PREAMBLE` 里的两处交叉引用（"裁决意图纪要"、"全 SEG 四桶结果全景"）与实际标题
+  文字逐字一致。
+- 桶 2 每条已裁决 id 都渲染了"裁决后最终 zh（请照抄这一行…）"（Task 9 评审 Finding A 修复
+  的既有行为，本轮未触碰，复核确认仍在）；桶 3 两条落选候选全文完整列出。
+- 未发现任何新问题。
+
+**留一处如实记录、不在本轮处理范围内的观察**（沿用 §8.1 的做法，只记录不动手）：
+"## 裁决意图纪要"（`scan_prompt()` 自己的小节标题）与紧随其后的 `digest_text` 首行
+"## 放大扫描意图纪要（...)"（`_build_digest_text()` 自己的标题）是两个连续的二级标题，
+读起来略有嵌套冗余，但两者标题文字不同、不构成"编号撞号"，与本轮两个 Finding 的性质不同，
+未做改动。
+
+### 9.8 commit
+
+```
+<下面填入本轮修复实际提交的短哈希>
+```
+

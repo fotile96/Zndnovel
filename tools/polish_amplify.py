@@ -157,7 +157,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_context import _render_anchors, _render_voices
 from tools.pipelib import REPO, dumps, read_jsonl
 from tools.polish_context import OUTPUT_CONTRACT_HEADER
-from tools.polishlib import CFG
+from tools.polishlib import CFG, demote_anchors_heading
 
 HUMAN_VERDICTS = ("adopt", "edit", "keep_opus")
 
@@ -352,7 +352,7 @@ def _build_panorama(d: Path, id2jp, id2opus, locked_ids, all_cands) -> str:
     for dec in decisions:
         decisions_by_id.setdefault(dec.get("id"), []).append(dec)
 
-    out = ["## 二、全 SEG 四桶结果全景（`polish_triage.triage()` 的分流快照）\n"]
+    out = ["## 全 SEG 四桶结果全景（`polish_triage.triage()` 的分流快照）\n"]
 
     out.append(f"### 桶 0（锁定 id，禁止改动，共 {len(locked_ids)} 个）\n")
     out.append("、".join(str(i) for i in sorted(locked_ids)) or "（本 SEG 无锁定 id）")
@@ -409,13 +409,13 @@ def _build_panorama(d: Path, id2jp, id2opus, locked_ids, all_cands) -> str:
 
 
 AMPLIFY_PREAMBLE = """\
-## 零、本轮说明——这是一次「放大扫描」
+## 本轮说明——这是一次「放大扫描」
 
-前一轮，本项目对本 SEG 抽出的 K 条候选做了人工裁决（见下方"一、裁决意图
+前一轮，本项目对本 SEG 抽出的 K 条候选做了人工裁决（见下方"裁决意图
 纪要"）。那批裁决体现的判断尺度（哪类改动该动、哪类不该动、术语/语气怎么
 把握）理应适用于**整个 SEG**，不只是被抽到的那 K 条。你的任务：带着这份
 纪要给出的判断尺度，重新审视本 SEG **全部**行的润色结果——尤其是下方
-"二、全 SEG 四桶结果全景"里**桶 3（落选候选）**：这些行曾经产生过真实
+"全 SEG 四桶结果全景"里**桶 3（落选候选）**：这些行曾经产生过真实
 改动，却因为人工裁决配额有限而从未被人看过，目前默认原样保留 opus（或
 已被机械判定为"安全"而自动清关，但同样没有人确认过）。
 
@@ -477,17 +477,22 @@ def scan_prompt(label, repo=None) -> str:
     style = (fz / "glossary" / "style.md").read_text(encoding="utf-8")
     polish_md = (fz / "glossary" / "polish.md").read_text(encoding="utf-8")
     voices = _render_voices(fz / "glossary" / "voices")
-    anchors = _render_anchors(fz / "glossary" / "anchors.yaml")
+    # `_render_anchors()` 硬编码"## 三、锚点行"（build_context.py 自己的编号
+    # 体系里正确的第三节）——本函数自己不编号顶层标题，用共享 helper 把它
+    # 降级成不带编号的三级标题，与 polish_context.render() 同一处理、同一
+    # 理由（评审 Finding A/C：两份 prompt 是同一批人读的，风格不该分叉），
+    # 见 tools/polishlib.demote_anchors_heading 的 docstring。
+    anchors = demote_anchors_heading(_render_anchors(fz / "glossary" / "anchors.yaml"))
 
     out = [f"# {label} 放大扫描（第 {round_count + 1} 轮，共 {len(batches)} 批）",
            AMPLIFY_PREAMBLE]
 
-    out.append("## 一、裁决意图纪要\n")
+    out.append("## 裁决意图纪要\n")
     out.append(digest_text)
 
     out.append(_build_panorama(d, id2jp, id2opus, locked_ids, all_cands))
 
-    out.append("\n## 三、锁定 id 清单（禁止在输出中出现这些 id）\n")
+    out.append("\n## 锁定 id 清单（禁止在输出中出现这些 id）\n")
     if locked_ids:
         for i in sorted(locked_ids):
             out.append(f"- 【锁】{i}（{why.get(str(i), '?')}）："
@@ -495,7 +500,7 @@ def scan_prompt(label, repo=None) -> str:
     else:
         out.append("（本 SEG 无锁定 id）")
 
-    out.append("\n## 四、术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
+    out.append("\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
     out.append("### active.json（术语表）")
     out.append(json.dumps(active, ensure_ascii=False))
     out.append("\n### style.md（对/错标准）")
@@ -506,7 +511,7 @@ def scan_prompt(label, repo=None) -> str:
         out.append(voices)
     out.append(anchors)
 
-    out.append("\n## 五、输出契约")
+    out.append("\n## 输出契约")
     out.append(OUTPUT_CONTRACT_HEADER)
     for b in batches:
         out.append(f"- `raw/amplify/b{b}.out`")

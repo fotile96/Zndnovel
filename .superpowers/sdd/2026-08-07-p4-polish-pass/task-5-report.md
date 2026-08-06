@@ -294,3 +294,195 @@ uv run pytest -q
 幂等实现等）未改动，继续有效；本节只记录评审 Critical 修复轮新增的判据、
 测试与变异。
 
+---
+
+# 修复轮二：复审真实语料复核——Finding A（非字符串 zh 崩溃）+ Finding B（错位闸收窄）
+
+状态：DONE。commit 见文末。
+
+复审判定第一轮 Critical 已 ADDRESSED（独立复现对抗轮转 + 两个原变异都真红），
+但复审用**真实语料**做了两件事：①自己构造 `{"id":1,"zh":12345}` 这类畸形
+行实测出修复 diff 新引入的一个崩溃点；②读真实 `ledger.jsonl`/
+`forward.jsonl`/`patches.jsonl` 统计出错位闸在真实数据上的确定性伪报源。
+两处都已处理。
+
+## Finding A：`_norm()` 对非字符串 `zh` 崩溃
+
+**问题**：上一轮修复把 `row.get("zh")` 直接喂给 `_norm()` 做归一化，
+`_norm()` 原实现是 `(s or "").strip()`——`s` 是 `12345`/`True`/`[...]`
+这类合法 JSON 但非字符串的值时，`12345 or ""` 求值为 `12345`（真值），
+再 `.strip()` 直接 `AttributeError`，没有任何 `try/except` 兜底，一路
+穿透到 `ingest()` 调用方。这是**修复前没有的问题**——原来 `row.get("zh")`
+只是原样透传进 candidates 行（数据不干净但不崩），这轮反而是"防错位"的
+新代码引入的回归。危害不止一行判死：CLI `--all` 逐批调用 `ingest()`，
+一旦某一批命中这个崩溃，整个 `--all` 扫描直接中断（异常会终止 `main()`
+的 for 循环），而不是"该批失败、继续扫下一批"的既有契约。
+
+**修法**：在归一化之前，显式用 `isinstance` 判定类型（`tools/polish_ingest.py`
+约第 315–326 行）：
+```python
+zh_raw = row.get("zh")
+if zh_raw is None:
+    dead.append({"id": rid, "reason": "zh 为空串或缺失"})
+    continue
+if not isinstance(zh_raw, str):
+    dead.append({"id": rid,
+                 "reason": f"zh 字段类型非法：期望字符串，实收 {type(zh_raw).__name__}"})
+    continue
+zh_norm = _norm(zh_raw)
+```
+`None`（字段缺失/显式 null）归为"空串或缺失"（沿用既有判死理由文案，
+不新增一种叙述）；其余非 `str` 类型（int/bool/list/dict/…）归为新的
+"zh 字段类型非法"判死理由——都是**判死该行，其余行照常处理**，回到
+既有契约，不抛异常。
+
+顺带把 `_norm()` 本身也加固为对非字符串防御性返回 `""`（第二层保险，
+不是主防线——主防线是上面这个显式类型检查，`_norm()` 的防御只是防止
+`batch_opus_norm`/未来新调用点等其他路径万一喂进非字符串时依然不崩）。
+
+## Finding B：错位闸对"不改的短句"确定性误杀——收窄
+
+**复审的真实数据**：读真实三份数据统计"zh 逐字相同、jp 不同"的碰撞对——
+全库 527 对；缩到错位侦测实际比对的范围（**同批内**）是 **21 对、38 个
+id、17/339 个批（约 5%）**。抽样全部是正当的短促应答/近义收敛：
+`「ん」`/`「うん」`→「嗯」，`「え？」`/`「ええ？」`→「诶？」，
+`どうしたの？`/`どうかした？`→「怎么了？」，`首を横にふった`/
+`首を横に振った`→「我摇了摇头」。
+
+**这不是概率性伪报，是确定性的**：这些碰撞来自 opus 基线本身（早就存在，
+不是本轮引入）。只要某通道对这类短行"不改"——这正是输出契约里最常见、
+最正确的动作（"不改的行 `zh` 逐字等于 opus"）——这 17 个批里对应的两行
+就会被**双双误杀**，不需要任何随机性凑巧。
+
+**收窄（复审提出，裁定采纳）**：若该行的 `zh` **与它自身 id 的 opus 逐字
+相同**，一律不判错位。实现见 `tools/polish_ingest.py` 约第 328–340 行：
+```python
+own_opus_norm = batch_opus_norm.get(rid, "")
+misaligned_with = None
+if zh_norm != own_opus_norm:
+    misaligned_with = next(
+        (other for other, other_opus in batch_opus_norm.items()
+         if other != rid and zh_norm == other_opus and id2jp.get(rid) != id2jp.get(other)),
+        None)
+```
+
+**为什么这条收窄不削弱错位防线**：轮转攻击的本质是"这一行的 zh 挂的是
+**别人**的 opus"，因此 `zh_norm != own_opus_norm` 在攻击场景下恒成立
+（错位时 zh 绝不会等于自身 opus，否则就不是错位了）——收窄条件只在
+"这行确实没改"时生效，而"没改"的行天然是正确的，不管这段文字是否恰好
+在批内别处也出现过。
+
+## 新测试
+
+- `test_non_string_zh_killed_not_crashed`：`{"id":11,"zh":12345}`——判死
+  （reason 含"类型"），不崩溃，其余两行正常入仓。
+- `test_non_string_zh_variants_all_killed_not_crashed`：`zh` 为 `True`
+  的变体，同样只判死不崩溃。
+- `test_cli_all_survives_non_string_zh_in_one_batch`：还原真正的风险
+  场景——CLI `--all` 扫两个批，其中一批混入非字符串 `zh`。断言
+  `rc==0` 且两个批都正常处理完（该行判死，其余 5 行正常入仓），验证
+  "崩溃会让整个 `--all` 中断"这个原始危害确实被消除。
+- `test_short_response_collision_not_misaligned`：新建专用夹具
+  `_build_mini_short_collision`/`mini_short_collision`——两个不同 jp 的
+  短促应答句（`「ん」`/`「うん」`）译文收敛成同一个 `「嗯」`，raw 里
+  两行都"不改"（zh 各自等于自身 opus）。断言两行必须**全部**正常入仓
+  （`added==2, dead==[]`），且不产生 `discipline.json`。
+- 同时**加固**了既有的 `test_recurrence_family_not_misaligned`：原夹具
+  `_build_mini_recurrence` 只有 id=14"没改"（zh 等于自身 opus，也等于
+  10 的 opus）——这条用例在加了 Finding B 收窄之后会被"zh==自身 opus"
+  这层收窄提前挡住，不再真正走到"jp 是否相同"这条判断，导致 mutation A
+  （去掉"jp 不同"限定）会被这条收窄意外掩盖而测不出来（见下方变异
+  实况的第一次尝试）。为此往夹具里加了 **id=15**：它的 `zh` 被**正当
+  改写**成与 10/14 一致的现行译文，但与自身历史 `opus`（`forward.jsonl`
+  里的旧译文）不同——即 `zh(15) != opus(15)` 但 `zh(15) == opus(10)`，
+  `jp(15) == jp(10)`。这条用例的"zh==自身 opus"收窄不生效（两者本来就
+  不相等），只能靠"jp 相同"这条限定本身才能免于误判，因此能在 mutation A
+  下真正转红（见下）。`added` 断言相应从 4 改为 5，`ids_in` 加入 15。
+
+## 变异红绿实况（全部：改一处→跑测→记录→用 Edit 还原，未用 git checkout/restore）
+
+命令统一：`uv run pytest tests/test_polish_ingest.py -q`。
+
+**变异 C（Finding B 的收窄）：去掉"zh==自身 opus"跳过条件**（把
+`if zh_norm != own_opus_norm:` 换成 `if True:`）→
+`test_short_response_collision_not_misaligned` 真红：
+```
+assert (True and 0 == 2)
+```
+（两行合法的"未改动短应答"被双双误杀，`added` 从期望的 2 掉到 0——证明
+这条收窄确实在起作用，不是装饰。）
+
+**复跑变异 A（原有：去掉"jp 不同"限定）——验证收窄没有削掉错位防线**：
+第一次直接复跑（未先加固夹具）时，`test_recurrence_family_not_misaligned`
+**没有转红**（23 passed）——诊断为**测试无牙**，不是变异没打中：原夹具
+里 id=14 的 `zh` 本来就等于自身 opus，Finding B 的收窄在"jp 是否相同"
+这条判断**之前**就已经放行了这一行，所以去掉"jp 不同"限定根本没有机会
+被这条用例触发。这正是"绿变异必须区分两种解释"的具体案例——按夹具
+加固方案（加入 id=15，`zh(15)!=opus(15)` 但等于 10 的 opus）重新复现，
+`test_recurrence_family_not_misaligned` 转真红：
+```
+assert (True and 4 == 5)
+```
+（id=15 被误杀，`added` 从期望的 5 掉到 4——现在这条用例不再经过
+"zh==自身 opus"这条捷径，真正命中"jp 不同"限定本身。）
+
+**复跑变异 B（原有：去掉错位侦测本身）——同样验证收窄没有削掉防线**：
+把判据整段替换成 `misaligned_with = None` → `test_misaligned_zh_rotation_all_dead`
+真红：
+```
+assert 3 == 0   # r["added"]
+```
+（评审的三行对抗轮转输入全部悄悄入仓——与收窄改动前的行为一致，证明
+Finding B 的收窄没有影响这道核心防线。）
+
+**变异 D（Finding A）：去掉非字符串类型判死**（注释掉 `isinstance` 检查，
+并把 `_norm(zh_raw)` 换成裸 `zh_raw.strip()` 以绕开 `_norm()` 自身的第二层
+防御，精确复现修复前的崩溃路径）→ 3 个测试真红，且是以**未捕获异常**
+（而非普通断言失败）的形式红的：
+```
+E   AttributeError: 'list' object has no attribute 'strip'
+FAILED test_non_string_zh_killed_not_crashed
+FAILED test_non_string_zh_variants_all_killed_not_crashed
+FAILED test_cli_all_survives_non_string_zh_in_one_batch
+```
+（与 Finding A 描述的原始崩溃完全一致——证明修复前的行为已被真实复现，
+而当前实现确实消除了它。）
+
+四个变异（A/B/C/D）全部按预期真红；A 的第一次复跑触发了"测试无牙"而非
+"变异没打中"的诊断，已通过加固夹具（引入 id=15）纠正，纠正后同一变异
+在同一测试上真正转红。
+
+## 收窄后仍然残留的伪报面（写进了 `tools/polish_ingest.py` 的模块 docstring）
+
+第三条收窄（"zh==自身 opus 就不判错位"）只覆盖"完全没改"这个最常见的
+正当动作，**不覆盖**这种更窄的剩余情形：`zh` **被改动过**（不等于自身
+opus）、**改动后恰好逐字等于批内另一 id 的 opus**、且两行 `jp` 不同——
+这种情形仍会被判死（`test_recurrence_family_not_misaligned` 里如果去掉
+"jp 相同"这个前提，id=15 式的合法"口径统一"编辑也会被误杀，只是现在
+有"jp 相同"这条限定兜底；但如果两个 id 的 jp 确实不同、且润色后恰好字面
+撞车，这属于本闸设计上刻意不再进一步收窄的剩余面）。docstring 里已经
+显式写明这一点，避免后来人误以为收窄之后已经零伪报——收窄只是把"评审
+实测出的、真实语料上确定性发生"的那一类（不改的短句碰撞）消掉，没有
+声称覆盖所有可能的巧合。这一残留面如果触发，仍由既有的两道下游闸兜底
+（Task 6 R2b 说话人核验 + Task 7 分流的人工裁决队列），不会造成数据
+丢失，只是需要人工复核一次。
+
+## 测试输出
+
+```
+uv run pytest tests/test_polish_ingest.py -q
+.......................                                                   [100%]
+23 passed in 0.14s~0.38s
+
+uv run pytest -q
+625 passed in 3.23s        # 621（复审第一轮结束时）+ 4（本轮新增：
+                            # non_string_zh_killed/variants/cli_all_survives/
+                            # short_response_collision）
+```
+
+## 与复审要求的关系
+
+deferred minor（`misaligned_with` 用 `next()` 在多重匹配时依赖迭代顺序，
+只影响报告文案里点名的"另一 id"，不影响死活判定）按复审明确指示未处理。
+
+

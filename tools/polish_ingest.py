@@ -23,9 +23,14 @@
 - `jp_tail` 与 frozen 重算的期望值不符；
 - `zh` 为空串或缺 `zh` 字段——空译文没有任何下游用途，让它进仓只会把问题
   推给后面（评审 Critical 修复轮实测：这类行原先被静默透传）；
-- **`zh` 逐字等于本批内另一个 id 的 opus 译文，且那两个 id 的 `jp` 不相同**
-  ——错位嫌疑，额外计入 `discipline.<channel>.json` 的 `misaligned_hits`
-  （评审 Critical 修复轮新增，见下方"错位侦测"专节）。
+- `zh` 字段类型非法（合法 JSON 但不是字符串，如 `12345`/`true`/数组/对象）
+  ——评审 Important 修复轮实测：原先会在归一化时 `AttributeError` 崩溃，
+  穿透整个 `ingest()`（CLI `--all` 因此整体中断，而不是"该行判死、继续
+  扫下一批"），现改为显式判死；
+- **`zh` 逐字等于本批内另一个 id 的 opus 译文、那两个 id 的 `jp` 不相同、
+  且该行的 `zh` 不等于它自身 id 的 opus**（第三条是评审用真实语料复核
+  伪报率后追加的收窄）——错位嫌疑，额外计入 `discipline.<channel>.json`
+  的 `misaligned_hits`（评审两轮修复新增，见下方"错位侦测"专节）。
 
 **整批失败**（不入仓任何行，且不写 `ingested.<channel>.json`——见下方幂等
 小节的理由）：
@@ -95,16 +100,42 @@
   逐字相同——那是 W4（跨候选一致性检查，Task 11 全段复检的管辖范围）的
   正确行为，不是错位。少了这条限定，复现句族会被整片误杀，把大量本该
   入仓的正确候选错杀。
+- **第三条收窄（评审用真实语料复核后追加）：`zh` 若与该行自身 id 的
+  opus 逐字相同，一律不判错位**——即使这段文字在批内别的 id 上也恰好
+  出现、且那个 id 的 jp 不同，也不判死。理由：评审读了真实
+  `ledger.jsonl`/`forward.jsonl`/`patches.jsonl` 统计，全库"zh 逐字相同、
+  jp 不同"的巧合有 527 对，缩到"同批内"（错位侦测实际比对的范围）仍有
+  21 对、38 个 id、覆盖约 5% 的批——抽样全是正当的短促应答/近义收敛
+  （`「ん」`/`「うん」`→「嗯」，`「え？」`/`「ええ？」`→「诶？」，
+  `どうしたの？`/`どうかした？`→「怎么了？」）。这**不是概率性伪报**，
+  而是**确定性**的：只要某通道对这类短行"不改"（契约里最常见、最正确
+  的动作），这些批里对应的两行就会被双双误杀。第三条收窄精确对冲这个
+  面："zh == 自身 opus" 就是"这行没改"，对本 id 天然正确，与它在别处
+  是否巧合出现无关；而这个条件在轮转错位攻击里恒不成立（错位时 zh 挂的
+  是别人的 opus，绝不等于自身 opus），所以不削弱错位防线本身。
 
-**残留边界（写清楚，别让后来人以为这里已经全覆盖）**：这道闸只抓一种
-确切指纹——"`zh` 逐字等于本批另一行的 opus"。如果模型把错挂的 `zh` 又
-顺手润色改写了几个字（不再与任何 opus 逐字相同），本闸**抓不到**，会
-放行入仓。这一层残留风险由下游两道闸兜底，而不是本模块的职责：
-1. **Task 6 `polish_check.py` 的 R2b 说话人核验**——错位的 zh 大概率带着
-   别的说话人前缀（【名字】），与该行原文的说话人对不上，R2b 会报 hard；
-2. **Task 7 `polish_triage.py` 的分流**——错位 zh 与该行真正 `opus[id]`
-   的编辑距离必然很大（内容完全不相关），不满足自动清关的"小改"条件，
-   会被强制落进人工裁决队列，不会被自动清关放过。
+**残留边界（写清楚，别让后来人以为这里已经全覆盖或已经零伪报）**：
+
+1. **漏检面**（这道闸只抓一种确切指纹，"zh 逐字等于本批另一行的
+   opus"）：如果模型把错挂的 `zh` 又顺手润色改写了几个字（不再与任何
+   opus 逐字相同），本闸**抓不到**，会放行入仓。这一层残留风险由下游
+   两道闸兜底，而不是本模块的职责：
+   - **Task 6 `polish_check.py` 的 R2b 说话人核验**——错位的 zh 大概率
+     带着别的说话人前缀（【名字】），与该行原文的说话人对不上，R2b 会
+     报 hard；
+   - **Task 7 `polish_triage.py` 的分流**——错位 zh 与该行真正
+     `opus[id]` 的编辑距离必然很大（内容完全不相关），不满足自动清关的
+     "小改"条件，会被强制落进人工裁决队列，不会被自动清关放过。
+2. **加了第三条收窄之后仍然残留的伪报面**：`zh` **被改动过**（不等于
+   自身 opus）、**改动后恰好逐字等于批内另一 id 的 opus**、且两行 jp
+   不同——这种情形仍会被判死。也就是说第三条收窄只覆盖"完全不改"这个
+   最常见的正当动作，不覆盖"改出来的新文本恰好撞上了另一句的现行译文"
+   这种更巧合、更罕见的情形；后者理论上仍可能是正当的润色巧合（而非
+   错位），本模块选择不为这个更窄的剩余面再加收窄条件——再收窄一层，
+   判据的确切性会开始打折扣，与"逐字指纹、宁窄勿宽"的设计初衷冲突。
+   这个残留伪报如果发生，同样会被上面第 1 点的两道下游闸接住（人工
+   裁决队列兜底），不会造成数据丢失，只是需要人工复核一次。
+
 本模块的错位侦测只是"确切指纹"这一层最便宜、最不会伪报的一道闸，不是
 唯一防线；这三层合起来才是这类问题的完整覆盖。
 """
@@ -141,8 +172,17 @@ def _norm(s) -> str:
     """错位侦测/空 zh 判定用的归一化——**只做空白层面**，不做任何语义/分词
     归一化：只 `.strip()` 掉首尾空白，`_n`/`_r`/ruby 等控制码原样保留（它们
     是内容的一部分，不是排版噪声，抹掉会让"逐字相同"这条确切指纹变得不准）。
-    `None` 归一化为空串，方便和"缺字段"统一处理。"""
-    return (s or "").strip()
+    `None` 归一化为空串，方便和"缺字段"统一处理。
+
+    **类型防御（评审 Important 修复轮追加）**：只接受 `str`，其余类型
+    （int/bool/list/dict/…）一律归一化为空串，绝不 `.strip()` 一个非字符串
+    对象——`ingest()` 的调用点在此之前已经用 `isinstance` 显式判死了非法
+    类型的 `zh`，把它挡在真正走到这个函数之前；这里的类型防御是第二层
+    保险（比如 `batch_opus_norm` 理论上也吃 frozen 数据，不该崩，但没有
+    再单独判死的必要），不是主防线。"""
+    if not isinstance(s, str):
+        return ""
+    return s.strip()
 
 
 def _load_json(path, default):
@@ -272,15 +312,32 @@ def ingest(label, channel, batch, repo=None) -> dict:
                          "reason": f"jp_tail 与 frozen 不符（期望 {want_tail!r}，实收 {got_tail!r}）"})
             continue
 
-        zh_norm = _norm(row.get("zh"))
+        zh_raw = row.get("zh")
+        if zh_raw is None:
+            dead.append({"id": rid, "reason": "zh 为空串或缺失"})
+            continue
+        if not isinstance(zh_raw, str):
+            dead.append({"id": rid,
+                         "reason": f"zh 字段类型非法：期望字符串，实收 {type(zh_raw).__name__}"})
+            continue
+        zh_norm = _norm(zh_raw)
         if not zh_norm:
             dead.append({"id": rid, "reason": "zh 为空串或缺失"})
             continue
 
-        misaligned_with = next(
-            (other for other, other_opus in batch_opus_norm.items()
-             if other != rid and zh_norm == other_opus and id2jp.get(rid) != id2jp.get(other)),
-            None)
+        # 收窄（评审真实语料伪报统计后追加）：这一行的 zh 若与它自身 id 的
+        # opus 逐字相同，一律不判错位——"zh == 自身 opus" 就是"这行没改"，
+        # 不管这段文字是否在批内别处也出现过，它对本 id 天然正确。轮转攻击
+        # 里这个条件恒不成立（错位时 zh 挂的是别人的 opus，不等于自身
+        # opus），所以不削弱错位防线；但能一次性消掉"短促应答/近义收敛"
+        # 这整类确定性伪报（见模块 docstring"残留边界"一节的数据）。
+        own_opus_norm = batch_opus_norm.get(rid, "")
+        misaligned_with = None
+        if zh_norm != own_opus_norm:
+            misaligned_with = next(
+                (other for other, other_opus in batch_opus_norm.items()
+                 if other != rid and zh_norm == other_opus and id2jp.get(rid) != id2jp.get(other)),
+                None)
         if misaligned_with is not None:
             dead.append({"id": rid,
                          "reason": f"疑似错位：zh 与本批 id={misaligned_with} 的 opus 逐字"

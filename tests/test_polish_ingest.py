@@ -171,28 +171,46 @@ def _build_mini(tmp_path, label="segX", channel="chA"):
                 del r["zh"]
         _save(batch, rows)
 
+    def set_zh_raw(id, value, batch=1):
+        """评审 Important 复现：把某行的 zh 换成任意非字符串 JSON 值
+        （int/bool/list/…）——`dumps()` 对这些类型完全合法，模拟模型输出
+        "合法 JSON 但 zh 不是字符串"这种畸形行。"""
+        rows = _rows(batch)
+        for r in rows:
+            if r["id"] == id:
+                r["zh"] = value
+        _save(batch, rows)
+
     return SimpleNamespace(
         root=repo, d=d, label=label, channel=channel, jp=jp, zh=zh, raw_dir=raw_dir,
         corrupt_tail=corrupt_tail, add_locked_line=add_locked_line,
         add_foreign_line=add_foreign_line, drop_line=drop_line, dup_line=dup_line,
         corrupt_json=corrupt_json, rotate_zh=rotate_zh, blank_zh=blank_zh,
-        missing_zh_field=missing_zh_field,
+        missing_zh_field=missing_zh_field, set_zh_raw=set_zh_raw,
     )
 
 
 def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
-    """专用夹具：单批 4 个非锁定 id，其中 10/14 是"复现句族"——jp 完全相同，
-    zh（opus）也完全相同（这是复现句族的合法状态：同一句原文本来就该有同一
-    份译文，参见 W4 的管辖范围）。用来验证错位侦测的"jp 不同"限定确实在
-    起作用：id=14 的 zh 与 id=10 的 opus 逐字相同，但因为 jp 也相同，不该被
-    误判为错位。"""
+    """专用夹具：单批 5 个非锁定 id，10/14/15 是"复现句族"——jp 完全相同。
+    用来验证错位侦测的"jp 不同"限定确实在起作用，覆盖两种子情形：
+
+    - id=14：raw 里"没改"（zh 逐字等于自身 opus，也逐字等于 10 的 opus）。
+      这条即使去掉"jp 不同"限定也会先被 Finding B 的"zh==自身 opus"收窄
+      挡住——不专门测 mutation A，但仍是合法场景的回归覆盖。
+    - id=15：raw 里"改了"——`zh` 被（正当地）改成与 10/14 一致的现行译文，
+      但它自身的历史 opus（forward.jsonl）是另一句旧译文，即
+      `zh(15) != opus(15)` 但 `zh(15) == opus(10)`。这是**真正**只靠
+      "jp 相同"这条限定才能免于误判的场景——`zh==自身 opus` 的收窄在这里
+      不生效（两者不相等），所以专门用来验证"jp 不同"限定本身有牙
+      （mutation A：去掉这条限定后，id=15 必须被误杀）。
+    """
     repo = tmp_path / "repo"
     (repo / "config").mkdir(parents=True)
     (repo / "data").mkdir(parents=True)
     (repo / "skeleton").mkdir(parents=True)
     (repo / "glossary" / "voices").mkdir(parents=True)
 
-    ids = [10, 11, 12, 14]
+    ids = [10, 11, 12, 14, 15]
     (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
         {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
          "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
@@ -202,10 +220,85 @@ def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
          "chapter": "s2s", "cut_reason": "budget"},
     ])
 
-    jp = {10: "重复出现的同一句テキスト", 14: "重复出现的同一句テキスト",
+    same_jp = "重复出现的同一句テキスト"
+    jp = {10: same_jp, 14: same_jp, 15: same_jp,
           11: "第11句独立原文テキスト", 12: "第12句独立原文テキスト"}
-    zh = {10: "重复句译文", 14: "重复句译文",
-          11: "第11句译文", 12: "第12句译文"}
+    # opus（forward.jsonl 现行译文）：10/14 一致；15 是历史遗留的旧译文
+    # （与 10/14 不同——尚未被这个复现句族"统一口径"）。
+    opus_zh = {10: "重复句译文", 14: "重复句译文", 15: "重复句旧译文",
+               11: "第11句译文", 12: "第12句译文"}
+    # raw（模型本次输出的 zh）：10/11/12/14 全部"没改"；15 被正当地改成
+    # 与 10/14 一致的现行译文（合理的复现句族口径统一），因此
+    # raw_zh[15] != opus_zh[15]，但等于 opus_zh[10]。
+    raw_zh = dict(opus_zh)
+    raw_zh[15] = opus_zh[10]
+
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": []},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"}
+        for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": opus_zh[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"}
+        for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-recurrence"},
+    ]), encoding="utf-8")
+
+    raw_dir = d / "raw" / channel
+    raw_dir.mkdir(parents=True)
+    lines = [dumps({"id": i, "jp_tail": jp_tail(jp[i]), "zh": raw_zh[i],
+                    "score": 95, "note": "", "adjudicate": False}) for i in ids]
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label, channel=channel, jp=jp, zh=opus_zh)
+
+
+def _build_mini_short_collision(tmp_path, label="segS", channel="chA"):
+    """专用夹具：评审 Finding B 的真实语料复现——两个**不同** jp 的短促应答
+    句，opus 恰好收敛到同一个 zh（如"「ん」"/"「うん」"都译成"「嗯」"）。
+    这**不是**复现句族（jp 不同，不受 W4 管辖），而是评审读真实
+    ledger.jsonl/forward.jsonl/patches.jsonl 统计出的确定性伪报源：全库
+    527 对"zh 相同、jp 不同"，缩到同批内仍有 21 对/38 个 id/约 5% 的批。
+
+    raw 里两行都"不改"（zh 各自等于自身 opus）——这正是契约里最常见、最
+    正确的动作。收窄前的错位判据会把这两行双双误杀；收窄后必须两行都
+    正常入仓。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    ids = [10, 16]
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+
+    # 两个不同的短促应答原文，opus 恰好收敛成同一句译文——评审实测的真实
+    # 语料形态（「ん」/「うん」→「嗯」）。
+    jp = {10: "「ん」", 16: "「うん」"}
+    zh = {10: "「嗯」", 16: "「嗯」"}
 
     (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
         {"chapter": "global", "items": []},
@@ -231,11 +324,12 @@ def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
 
     d = ps.setup(label, opus_data, repo=repo)
     (d / "plan.json").write_text(dumps([
-        {"session": 1, "batches": [1], "prompt_hash": "hash-recurrence"},
+        {"session": 1, "batches": [1], "prompt_hash": "hash-short-collision"},
     ]), encoding="utf-8")
 
     raw_dir = d / "raw" / channel
     raw_dir.mkdir(parents=True)
+    # 两行都"不改"：zh 逐字等于各自的 opus。
     lines = [dumps({"id": i, "jp_tail": jp_tail(jp[i]), "zh": zh[i],
                     "score": 95, "note": "", "adjudicate": False}) for i in ids]
     (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -411,15 +505,18 @@ def test_misaligned_zh_rotation_all_dead(mini):
 
 
 def test_recurrence_family_not_misaligned(mini_recurrence):
-    """比错位侦测本身更要紧的回归锁：复现句族（同一 jp 对应同一 zh 的两个
-    不同 id）绝不能被错杀。id=14 的 zh 与 id=10 的 opus 逐字相同，但两者
-    jp 也相同——这是合法状态，必须正常入仓，不能被"zh 与本批他人 opus 逐字
-    相同"这条判据误伤。"""
+    """比错位侦测本身更要紧的回归锁：复现句族（同一 jp 对应同一 zh 的多个
+    不同 id）绝不能被错杀。id=14 的 zh 与 id=10 的 opus 逐字相同（且未改动
+    自身 opus）——Finding B 的"zh==自身 opus"收窄即可放行。**id=15 是更严格
+    的用例**：它的 zh 被正当改写成与 10/14 一致的译文，与自身历史 opus
+    不同（`zh(15) != opus(15)`），只有靠"jp 相同"这条限定本身才能免于
+    误判——这条用例专门用来在 mutation A（去掉"jp 不同"限定）下真正转红，
+    不会被 Finding B 的收窄意外掩盖。"""
     r = pi.ingest(mini_recurrence.label, mini_recurrence.channel, 1, repo=mini_recurrence.root)
-    assert r["ok"] and r["added"] == 4 and r["dead"] == []
+    assert r["ok"] and r["added"] == 5 and r["dead"] == []
     ids_in = {row["id"] for row in read_jsonl(
         mini_recurrence.d / f"candidates.{mini_recurrence.channel}.jsonl")}
-    assert ids_in == {10, 11, 12, 14}
+    assert ids_in == {10, 11, 12, 14, 15}
     assert not (mini_recurrence.d / f"discipline.{mini_recurrence.channel}.json").exists()
 
 
@@ -435,6 +532,60 @@ def test_missing_zh_field_killed(mini):
     r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
     assert r["ok"] and r["added"] == 2
     assert any(d["id"] == 12 and "空" in d["reason"] for d in r["dead"])
+
+
+# --- 复审第二轮：Finding A（非字符串 zh 崩溃）+ Finding B（收窄，防短句伪报）---
+
+@pytest.fixture
+def mini_short_collision(tmp_path):
+    return _build_mini_short_collision(tmp_path)
+
+
+def test_non_string_zh_killed_not_crashed(mini):
+    """评审 Important 复现：`{"id":11, "zh":12345}`——合法 JSON 但 zh 不是
+    字符串。修复前会在 `_norm()` 里 `.strip()` 一个 int 直接崩溃
+    （AttributeError 穿透 ingest()）；修复后须回到"该行判死、其余行照常
+    入仓"的既有契约，不抛异常。"""
+    mini.set_zh_raw(id=11, value=12345)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any(d["id"] == 11 and "类型" in d["reason"] for d in r["dead"])
+    ids_in = {row["id"] for row in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")}
+    assert ids_in == {10, 12}
+
+
+def test_non_string_zh_variants_all_killed_not_crashed(mini):
+    """bool/list 两种非字符串变体同样只判死不崩溃（int 已在上一条覆盖）。"""
+    mini.set_zh_raw(id=11, value=True)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any(d["id"] == 11 for d in r["dead"])
+
+
+def test_cli_all_survives_non_string_zh_in_one_batch(mini):
+    """还原评审描述的真正风险场景：CLI `--all` 扫多个批，其中一批混入
+    非字符串 zh。修复前会让整个 `--all` 扫描中断；修复后应正常扫完全部
+    批，只是那一行判死。"""
+    mini.set_zh_raw(id=11, value=[1, 2, 3], batch=1)
+    rc = pi.main(["--seg", mini.label, "--channel", mini.channel, "--all",
+                  "--repo", str(mini.root)])
+    assert rc == 0
+    ids_in = {row["id"] for row in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")}
+    assert ids_in == {10, 12, 20, 21, 22}  # 11 判死；批 2 完全不受影响
+
+
+def test_short_response_collision_not_misaligned(mini_short_collision):
+    """评审 Finding B 复现（真实语料统计出的确定性伪报源）：两个不同 jp 的
+    短促应答句（「ん」/「うん」），opus 恰好都收敛成「嗯」。两行在 raw 里
+    都"不改"（zh 各自等于自身 opus）——必须两行都正常入仓，一行都不许死，
+    也不该产生任何 discipline 记录。"""
+    r = pi.ingest(mini_short_collision.label, mini_short_collision.channel, 1,
+                  repo=mini_short_collision.root)
+    assert r["ok"] and r["added"] == 2 and r["dead"] == []
+    ids_in = {row["id"] for row in read_jsonl(
+        mini_short_collision.d / f"candidates.{mini_short_collision.channel}.jsonl")}
+    assert ids_in == {10, 16}
+    assert not (mini_short_collision.d / f"discipline.{mini_short_collision.channel}.json").exists()
 
 
 # --- CLI ---

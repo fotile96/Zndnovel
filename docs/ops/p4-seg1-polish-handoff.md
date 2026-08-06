@@ -19,20 +19,38 @@ uv run python tools/polish_setup.py --verify seg1-s2       # 应输出「冻结�
 git status --short pilot/lanes/opus/data/                  # 应为空——本流程不改生产数据，只经 patches.jsonl 追加
 ```
 
-冻结面已在本任务实跑生成（`pilot/polish/seg1-s2/frozen/` + `manifest.json`），**不要重跑
-`--seg`**（会整体重建 frozen、换掉 manifest）；只需要 `--verify`。
+冻结面已实跑生成（`pilot/polish/seg1-s2/frozen/` + `manifest.json`），**点火之后不要重跑
+`--seg`**（会整体重建 frozen、换掉 manifest 与全部下游判据基准）；只需要 `--verify`。
+这条现在**是机制不是纪律**：目录里一旦出现 `candidates.*.jsonl`/`decisions.jsonl`/`triage.json`
+任何一个，`polish_setup.py --seg` 会直接拒绝执行（rc=3，`--force` 才强制），拒绝信息里逐条
+列出重跑会静默毁掉什么。点火**之前**（比如仓库的 `glossary/polish.md` 又改了）重冻结是安全的，
+但要连带重渲染四个 session 的 prompt 并更新 `plan.json`。
 
-## 会话分组（已渲染，`plan.json` 已记录）
+## 会话分组
 
 ```
-session 1: batches 36-45（10 批，568 行）  prompt_hash=a8f247cea72dbdd77799cac682a2ab09edb74aa9de5956a1eb2ef825faa5a0ad
-session 2: batches 46-55（10 批，488 行）  prompt_hash=5457fa37f4f1a216c2775e68219e558d4c78755a4a18d052efd13275912c706c
-session 3: batches 56-57（2 批，371 行）   prompt_hash=a33cc073204a2f5e31bf1aa46c86447535551bf86af5aadbb32e4099296fcc42
-session 4: batches 58-62（5 批，569 行）   prompt_hash=c39bc9ee62f30071f06f9c1ae07f6787e31fe02c3f88587082c9231a975a43e2
+session 1: batches 36-45（10 批，568 行）
+session 2: batches 46-55（10 批，488 行）
+session 3: batches 56-57（2 批，371 行）
+session 4: batches 58-62（5 批，569 行）
 ```
 
-prompt 文件本身在 `work/` 下（gitignore，不入库），若不存在或想确认哈希未漂移，重新渲染即可
-（幂等，`--out` 会覆盖同一份内容并替换 `plan.json` 里同 session 的记录）：
+**`prompt_hash` 的唯一真相源是 `pilot/polish/seg1-s2/plan.json`，本文件不再抄一份。**
+初版在这里抄了一张哈希表，`ffcd6b4` 写下、`0d0a4d8` 改了 prompt 文本并更新了 `plan.json`，
+这张表没跟——四个哈希**全部过期**，而它的用途恰恰是"确认哈希未漂移"（P4 最终评审 I1 实测）。
+两处记同一个易变值，迟早只有一处是对的；现在只留一处，另一处给核对命令：
+
+```bash
+# 看当前记录（会话 → 批号 → prompt_hash）
+cat pilot/polish/seg1-s2/plan.json
+
+# 核对某个 session 的 prompt 文件与 plan.json 记录是否一致（两串应逐字相同）
+shasum -a 256 work/ctx/p4s1-s<N>.md
+uv run python -c "import json;print([r['prompt_hash'] for r in json.load(open('pilot/polish/seg1-s2/plan.json')) if r['session']==<N>][0])"
+```
+
+prompt 文件本身在 `work/` 下（gitignore，不入库），不存在就重新渲染（幂等，`--out` 会覆盖同一份
+内容并替换 `plan.json` 里同 session 的记录——重渲染之后上面两串自然又一致）：
 
 ```bash
 uv run python tools/polish_context.py --seg seg1-s2 --session <N> --out work/ctx/p4s1-s<N>.md
@@ -54,8 +72,8 @@ session 派发两次**，`fable-wf` 与 `ds-flash` 各读同一份 prompt 文件
 ```
 读取文件 /Users/fotile96/Zndnovel/work/ctx/p4s1-s<N>.md（若不存在，先运行
 `uv run python tools/polish_context.py --seg seg1-s2 --session <N> --out work/ctx/p4s1-s<N>.md`
-生成）。按该文件"一、任务说明"与"七、输出契约"两节的要求，对该会话涉及的每一个批次
-产出一个 JSONL 文件，写到下面的绝对路径（不是相对路径，不要自己判断落哪）：
+生成）。按该文件里「## 任务说明（润色契约）」与「## 输出契约」两节的要求，对该会话
+涉及的每一个批次产出一个 JSONL 文件，写到下面的绝对路径（不是相对路径，不要自己判断落哪）：
 
   /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/raw/fable-wf/b<批号>.out
 
@@ -121,9 +139,23 @@ paseo create_workspace（isolation: local 即可——本通道只读 prompt 文
 产出的 20 句校准批，两条通道**各自**跑一遍并 `--score`：
 
 ```bash
+# ① 造校准批（20 句：10 金标 + 10 陪考，truth.json 是判卷答案，绝不进任何 prompt）
 uv run python tools/polish_calibrate.py --seg seg1-s2 --make
-# 把 calib/seg1-s2.batch.jsonl 分别喂给 fable-wf 与 ds-flash（同一套派发方式，
-# 落输出到 pilot/polish/seg1-s2/calib/raw.fable-wf.jsonl 与 raw.ds-flash.jsonl）
+
+# ② 渲染校准批 prompt——**与生产 prompt 同构**（同一份任务说明/术语表/style.md/
+#    六条细则/口调表/锚点，只换正文与输出契约、不带锁标）。
+#    ⚠ 不要自己拼一份：拼得与生产不等价，这场小考就测不到生产行为，
+#      而它的产物直接决定这条通道有没有免检权（P4 最终评审 I9）。
+uv run python tools/polish_context.py --seg seg1-s2 --calib --out work/ctx/p4s1-calib.md
+
+# ③ 两条通道**各读这一份 prompt**（派发方式与生产 session 完全相同，只是把
+#    "读 work/ctx/p4s1-s<N>.md、写 raw/<channel>/b<N>.out" 换成
+#    "读 work/ctx/p4s1-calib.md、写 calib/raw.<channel>.jsonl" 这一个文件）：
+#      /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/calib/raw.fable-wf.jsonl
+#      /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/calib/raw.ds-flash.jsonl
+#    ⚠ 绝不要落进 raw/<channel>/bN.out——那个路径专属生产批的 ingest/幂等扫描。
+
+# ④ 判卷
 uv run python tools/polish_calibrate.py --seg seg1-s2 --score --channel fable-wf \
     --raw pilot/polish/seg1-s2/calib/raw.fable-wf.jsonl
 uv run python tools/polish_calibrate.py --seg seg1-s2 --score --channel ds-flash \
@@ -153,12 +185,33 @@ uv run python tools/polish_triage.py --seg seg1-s2
 ## 段末流程（回指 runbook，不在这里复述）
 
 `queue.md` 逐条裁决 → append `decisions.jsonl`（原因码枚举：量词/语序/补主语/过度归化/术语/
-口调/漂移/其他）→ `polish_amplify.py --digest` → `--scan-prompt`（**每 SEG 限一轮**，两条通道
-若都想跑放大扫描，按同样的派发方式各自产出 `raw/<channel>/amplify` 批次，同一份 scan prompt
-文件即可，不需要为两条通道分别装配两份）→ 补充小裁决 → `polish_commit.py`（**先 dry-run
-人工核对倒查链，再 `--apply`，且必须 `--data-dir pilot/lanes/opus/data`**）→ 清关后必跑
-`check_batch` 全段 W4 复检 + `check_qa_quotes.py --qa config/ayano_qa/*.yaml --data-dir
-pilot/lanes/opus/data`。
+口调/漂移/其他）→ **`polish_audit.py --seg seg1-s2`（抽检推翻率闸，段末强制跑，见 runbook
+§八之后那一节）** → `polish_amplify.py --digest` → `--scan-prompt`（**每 SEG 限一轮**）→
+放大扫描的输出**只走 `amplify` 这一个保留通道**（见下方"放大扫描的落盘路径"）→ 补充小裁决 →
+`polish_commit.py`（**先 dry-run 人工核对倒查链，再 `--apply`，且必须
+`--data-dir pilot/lanes/opus/data`**）→ 清关后必跑全段 W4 复检
+（`polish_check.py --seg seg1-s2 --w4-full --lane-dir pilot/lanes/opus`）+
+`check_qa_quotes.py --qa config/ayano_qa/*.yaml --data-dir pilot/lanes/opus/data`。
+
+### 放大扫描的落盘路径（**不是两条通道各产一份**）
+
+初版这里写的是"两条通道按同样的派发方式各自产出 `raw/<channel>/amplify` 批次"——**与工具契约
+直接冲突，照做会静默零产出**（P4 最终评审 I3）：`polish_amplify.py` 固定 `channel="amplify"`，
+`polish_ingest` 认领的路径是 `raw/amplify/b<N>.out`。按初版做的话，`raw/fable-wf/amplify`
+这种路径不被任何 ingest 认领；改用 `--channel fable-wf` 回炉又会撞上批级幂等
+（那些批号早已在 `ingested.fable-wf.json` 里）→ **no-op、零报错、零入仓，整轮放大扫描白跑**。
+
+正确形态（与 runbook §九 一致）：
+
+```
+scan prompt：work/ctx/p4s1-amplify.md（一份，两条通道可以读同一份）
+落盘路径：  /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/raw/amplify/b<批号>.out
+入仓：      uv run python tools/polish_ingest.py --seg seg1-s2 --channel amplify --all
+```
+
+两条通道若都要参与放大扫描，让它们写**同一个** `raw/amplify/` 目录下**不同批号**的文件
+（批号由 scan prompt 的输出契约给定），不要各建一个通道目录。`amplify` 通道恒不自动清关
+（与 `channel_state.json` 写了什么无关），产物只能进人裁。
 
 **清关前的最后一道人工检查**：`polish_commit.py`（无 `--apply`）的 dry-run 输出会逐条打印
 "倒查链：id → 候选(channel, ts) → prompt_hash"——核对这条链确实指向你认可的那次裁决，

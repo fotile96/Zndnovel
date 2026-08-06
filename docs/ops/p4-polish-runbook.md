@@ -7,8 +7,8 @@
 > ——P3 管首译（opus 车道正文从 0 到 1），P4 管在**已入线**译文上做一遍模型润色 pass，产出
 > `reason="polish"` 的 patch。两者共享同一个生产车道 `pilot/lanes/opus/data/`，但工具、冻结面、
 > 数据目录（`pilot/polish/<seg>/` vs `pilot/lanes/opus/work/`）互不相同。
-> 九个工具：`tools/polish_{setup,context,ingest,check,triage,commit,amplify,calibrate}.py` +
-> 公共层 `tools/polishlib.py`。**CLI 参数以各工具 `--help` 为准，本手册给出的都是已实跑验证过的形态**
+> 十个工具：`tools/polish_{setup,context,ingest,check,triage,commit,amplify,calibrate,audit}.py` +
+> 公共层 `tools/polishlib.py`（`polish_audit.py` 是最终评审 I7 补的推翻率闸）。**CLI 参数以各工具 `--help` 为准，本手册给出的都是已实跑验证过的形态**
 > （2026-08-07，SEG-1 `seg1-s2`，见 `.superpowers/sdd/2026-08-07-p4-polish-pass/task-11-report.md`）。
 
 ## 一、命名与目录约定
@@ -23,7 +23,8 @@
     calib/                   校准批 + truth + （score 用的 raw，人工另存）——入库
     raw/<channel>/b<N>.out   执行通道原始输出——入库（真实生产台账，不可再生成）
     candidates.<channel>.jsonl  每通道各自的保税仓候选——入库
-    gates.<channel>.json     机械闸结果（`polish_check.gate()`）——入库
+    gates.<channel>.json     机械闸结果（`{checked_ids, findings}`）——入库
+    w4_full.json             清关后全段 W4 复检结果（`polish_check --w4-full`）——入库
     discipline.<channel>.json  通道纪律画像（锁定违规/错位命中计数，按需产生）——入库
     ingested.<channel>.json  批级入仓幂等标记——入库
     channel_state.json       准入小考结果（`{channel: {"autoclear": bool}}`）——入库
@@ -55,8 +56,15 @@ uv run python tools/polish_setup.py --verify <label>
   「冻结校验：无漂移」才算过。反向扫描（frozen 里凭空多出的文件）**自带忽略名单**
   （`.DS_Store`/`Thumbs.db`/`__pycache__`/`*.pyc`，Task 11 补的——见 §十二 阈值/机制变更台账
   第一条），人用 Finder 翻一眼 `frozen/` 不会污染 verify 结果。
-- **重跑 `setup()` 会整体重建 `frozen/`**（`shutil.rmtree` 后重写），manifest 也会跟着换掉——
-  已经跑过 ingest/triage/commit 的 SEG **不要**重跑 `--seg`（只重跑 `--verify` 是安全的）。
+- **重跑 `setup()` 会整体重建 `frozen/`**（`shutil.rmtree` 后重写），manifest 也会跟着换掉。
+  这条现在**是机制不是纪律**（最终评审 I5）：目录里一旦出现 `candidates.*.jsonl` /
+  `decisions.jsonl` / `triage.json` 任何一个，`--seg` 直接拒绝执行（**rc=3，在任何文件被删写
+  之前**），拒绝信息逐条列出重跑会静默毁掉什么：①`opus.jsonl` 把已清关的 polish patch 吃成
+  新的"润色起点"，此后 edit 幅度/零改动判定/autoclear 阈值全部基于错误基线；②manifest 一并
+  重写使 `verify()` 事后**恒绿**；③`rulings.md` 连同 amplify 轮数闸标记清零；④`opus_at` 冻结
+  基线前移，§十 那道"冻结后人裁 patch 拒写闸"失去参照。确实要重来才加 `--force`。
+  **点火之前**重冻结（例如仓库的 `glossary/polish.md` 又改了）是安全的，但必须连带重渲染各
+  session 的 prompt 并更新 `plan.json`（见 `glossary/polish.md` §7.3）。
 - setup 会硬性要求该 SEG 涉及的全部 id 在 opus 车道 `forward`+`patches` 里已有译文（`resolve_map`
   覆盖），没覆盖直接抛 `KeyError`——这是故意的：**P4 不对着还没译完的 SEG 冻结**。
 - 锁定集合 = `anchors.yaml` 命中的 id ∪ 已有 patch 的 id（`locked.json` 的 `why` 字段区分两者，
@@ -70,10 +78,21 @@ uv run python tools/polish_calibrate.py --seg <label> --make
 ```
 
 产出 `calib/<label>.batch.jsonl`（20 句：10 句金标定稿 + 10 句普通句，不带锁标）与
-`calib/<label>.truth.json`（判卷答案，绝不进任何 prompt）。**两条执行通道各自**把这份
-`batch.jsonl` 当作一批正常翻译任务喂进去（字段 `{"id","batch","jp","opus_zh"}`，输出契约
-与生产批完全一致：`{"id","jp_tail","zh","score","note","adjudicate"}`），把模型输出存成一份
-JSONL（建议路径 `pilot/polish/<label>/calib/raw.<channel>.jsonl`——**不要**放进
+`calib/<label>.truth.json`（判卷答案，绝不进任何 prompt）。
+
+**然后渲染校准批 prompt**（最终评审 I9 补的模式——此前没有渲染器，操作者只能自己拼，
+拼得与生产 prompt 不等价这场小考就测不到生产行为，**而它的产物直接决定免检权**）：
+
+```bash
+uv run python tools/polish_context.py --seg <label> --calib --out work/ctx/p4<短名>-calib.md
+```
+
+它与生产 prompt **同构**（共用同一份任务说明 / `active.json` / `style.md` / `polish.md`
+六条细则 / 口调表 / 锚点行 / 章节纪要，均取自同一冻结面），差异只有两处：正文换成校准批的行，
+输出契约换成单文件。`truth.json` 绝不进这份 prompt（有专测钉死）。
+
+**两条执行通道各自**读这份 prompt（派发方式与生产 session 完全相同），把模型输出存成一份
+JSONL（路径 `pilot/polish/<label>/calib/raw.<channel>.jsonl`——**不要**放进
 `raw/<channel>/bN.out`，那个路径专属生产批的 ingest/幂等扫描）：
 
 ```bash
@@ -142,10 +161,24 @@ uv run python tools/polish_check.py --seg <label> --channel <channel>
 ```
 
 对该通道当前保税仓里**全部**候选跑一次 `check_batch.check()`（R2a/R2b/R2c 硬规则、W1/W2/W3
-软规则），产出 `gates.<channel>.json`（`{id: {"hard":[...], "warn":[...]}}`，只收有问题的 id）。
-**W4（复现句族一致性）在这一层不跑**——保税仓阶段还没清关，谈不上"全段"，W4 挪到 §十一"清关后
-必跑"。`hard` 非空的候选后续一切分流不得自动清关。每次新一批候选入仓后建议重跑本命令，保持
-`gates.<channel>.json` 与 `candidates.<channel>.jsonl` 同步。
+软规则）**加一条 P4 专属硬规则 `P4-CTL`**（`_n`/`_r`/ruby **计数**必须与 `frozen/opus.jsonl`
+里该 id 的现行译文相等——只卡计数不卡位置，`_n` 与 `_r` 分开数），产出：
+
+```json
+{"checked_ids": [ …本次真正检查过的 id 全集，含全绿的… ],
+ "findings": {"<id>": {"hard": [...], "warn": [...]}}}
+```
+
+**`hard` 非空的候选后续一切分流不得自动清关；`warn` 里带 `W3`（行宽超限）的同样不得自动清关**
+（其余 warn 不阻断）。
+
+⚠ **每次新一批候选入仓后必须重跑本命令——这是强制步骤，不是建议**（最终评审 C1）。理由：
+`triage` 判"这个 id 有没有机械闸证据"看的是 `checked_ids`，gate 跑过之后又入仓的新候选**不在
+里面**，会被判成"没有证据"而拒绝自动清关（安全方向，但会白白把它推去人裁）；而在加
+`checked_ids` 之前，那些 id 是被判成"干净"直通免检的——评审实测复现过一条带 R2b 硬伤的候选
+就这样进了 `polish_commit` 的写入计划。**顺序永远是：ingest 完这一批 → 重跑 gate → 再 triage。**
+
+**W4（复现句族一致性）在这一层不跑**——保税仓阶段还没清关，谈不上"全段"，W4 见 §十一。
 
 ## 七、四桶分流（`polish_triage.py`）
 
@@ -210,6 +243,31 @@ EOF
   幂等键，同一 id 先后两次不同裁决（比如先 adopt 后来发现有问题改判 edit）靠不同 `ts` 区分，
   都能落地成两条 patch（后写者胜）。
 
+## 八之二、抽检推翻率闸（`polish_audit.py`）——段末强制，不是可选
+
+```bash
+uv run python tools/polish_audit.py --seg <label>
+```
+
+裁决完 `queue.md` 之后**立刻跑这一条**（放大扫描之前）。它读 `triage.json` 里
+`autoclear=True and sampled=True` 的行 × `decisions.jsonl` 的人裁 verdict，算每条通道的抽检
+推翻率；**达到或超过 `overturn_freeze`（0.20）即改写 `channel_state.json` 关闭该通道本 SEG
+的自动清关权**，并列出需要回滚复审的存量自动清关 patch id。
+
+- 推翻的判据：该 id 的最后一条人裁不是"adopt 本通道的候选" → 算推翻（`keep_opus`/`edit`/
+  `adopt` 了别家的，都算）。`verdict="auto"` 是 `polish_commit` 自己铸造的记录，**不算人裁**
+  （算了的话抽检就自我背书，推翻率恒 0）。
+- 尚未裁决的抽检样本不进分母，但会 stderr 播报待裁数——分母太小导致率虚低不能悄悄发生。
+- `--dry-run` 只报不改。**默认就会改**：关权是安全方向的动作，不该需要额外开关才肯生效。
+- 冻结之后**不能靠重跑准入小考解冻**：`polish_calibrate.py --score` 看到
+  `autoclear_frozen_by` 就强制判 False 并播报，解冻必须是人处理完存量回滚之后的显式动作。
+- 存量回滚不在本工具里做（生产 `patches.jsonl` 只经 `polish_commit --apply`/`add_patch.py`
+  写入）——按 §十二 逐条用 `add_patch.py` 落 `reason=review` 覆盖 patch。
+
+这条闸此前**只有文档没有代码**（runbook 自陈"由裁决会话人工执行"）。它是自动清关这条免检
+通道**唯一**的事后反馈回路，而 `triage` 本身还会主动压缩抽检覆盖率（K 帽，SEG-1 规模下 10%
+实际会掉到 6% 上下）——覆盖率在打折，出口再靠人记就等于没有闭环（最终评审 I7）。
+
 ## 九、放大扫描（`polish_amplify.py`）——每 SEG 限一轮
 
 裁决完成后：
@@ -266,14 +324,23 @@ uv run python tools/polish_commit.py --seg <label> --data-dir pilot/lanes/opus/d
   `ts` 不同，都能落地（后写者胜）。重复 `--apply` 是 no-op。
 - 多通道同一 id 都满足自动清关：取 `edit`（相对 opus 编辑距离）最小的通道，同分按通道名
   字典序打散——选"改动最保守"的那份。
+- **冻结基线之后新落的人裁 patch，自动清关一律拒写**（最终评审 I4，spec §3 承诺的
+  `manifest.opus_at` 安全承重点第一次真正被消费）：`commit()` 逐条比对该 id 在
+  `opus_at.patches_lines` 之后是否新增过 `reason∈{review,recall}` 的 patch——
+  - 有 → **`verdict=auto` 的直接拒绝写入**（dry-run 预览里同样不出现），stderr 打出冲突详情；
+    要落它必须走人裁（在 `decisions.jsonl` 里显式给一条 adopt/edit），由人确认是否真要覆盖
+    那条裁定稿。这正是 CLAUDE.md 记的「SEG-5 id 1600 误覆盖已裁定稿」同一失败模式，区别只在于
+    这次执行者是无人值守的自动清关。
+  - 人裁路径放行但**显著播报**——那条路上有人正看着这个 id。
+  - manifest 缺 `opus_at`、或 `patches.jsonl` 比基线还短（append-only 被破坏／`--data-dir`
+    指错车道）→ **保守放大**：把全部 review/recall patch 都当成冻结后的，自动清关一律拒写并
+    告警。"算不出来"绝不等于"放行"。
 
 ## 十一、清关后必跑
 
 ```bash
-# 1) 全段 W4 复检（复现句族跨候选一致性——ingest/gate 阶段刻意不跑这个）
-for b in $(seq <lo批号> <hi批号>); do
-    uv run python tools/check_batch.py --batch $b --lane-dir pilot/lanes/opus
-done
+# 1) 全段 W4 复检（复现句族一致性——ingest/gate 阶段刻意不跑这个）
+uv run python tools/polish_check.py --seg <label> --w4-full --lane-dir pilot/lanes/opus
 
 # 2) 题库引文同步检查（润色 patch 落库必然可能覆盖题库里逐字引用的旧译文）
 uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
@@ -281,7 +348,15 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
 ```
 
 - 第 1 步扫的是**全段**（不只是本次清关的 id），因为润色改动可能让某句与它的"兄弟句"（同一
-  日文反复出现的复现句族）产生新的不一致——W4 的判定面是全库兄弟索引，不是单条候选。
+  日文反复出现的复现句族）产生新的不一致——W4 的判定面是全库兄弟索引，不是单条候选；比对的
+  文本是**车道现行译文**（`resolve_map(forward, patches)`，即已叠加本轮 polish patch 的那一版）。
+  结果落 `pilot/polish/<label>/w4_full.json`，命中项同时打到 stderr。
+  **rc 语义**：`0`=跑完了（不管有没有命中，W4 是顾问级、不自动阻断）；`2`=**没能跑**
+  （车道 data 缺 ledger 或全无译文，兄弟索引建不起来）——"没能跑"绝不冒充"跑了没问题"。
+  ⚠ 本手册初版这一步写的是 `check_batch.py --batch N --lane-dir …`，**在 P4 语境下根本跑不
+  起来**（它读 P3 的按批四件套 `work/ctx/batch_N/source.jsonl`，`work/` 是 gitignore 的临时
+  目录、P3 跑完早已不存在；即便重建，它读的草稿是 P3 **首译稿**而不是清关后的现行译文）——
+  结果是 spec §8 点名的"润色只改同 jp 兄弟句之一"这条真实风险**全程无闸**（最终评审 C3）。
 - 第 2 步命中即说明某题库参考答案逐字引用的译文被本轮回改覆盖掉了，需人工核对是"译文改对了
   但题库答案没跟上"（更新题库引文）还是"回改本身有问题"（回到 §八 补一条裁决）。P3 runbook
   记录过首次跑即在 7 份题库里查出 5 处真失同步——这类闸此前完全不存在，**不要跳过**。
@@ -301,9 +376,11 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
 里 `sampled=True` 的行）时，若某通道被抽检推翻（人工判定该行不该被自动清关放过）的比例
 超过此线，该通道**本 SEG**自动清关权立即冻结（改 `channel_state.json` 该通道的
 `autoclear` 为 `false`），存量该通道的自动清关 patch **全部回滚复审**（保税仓单据链
-`prov` 字段可精确定位每一条来源）。这条闸没有专属 CLI，由裁决会话人工执行——按 `prov`
-逐条找到需要回滚的 patch id，用 `add_patch.py --has-patch` 核实后再决定是否需要一条新的
-`reason=review` 覆盖 patch 撤销之前的自动清关内容。
+`prov` 字段可精确定位每一条来源）。**这条闸现在有专属 CLI：`tools/polish_audit.py`，见 §八之二，段末强制跑。** 它负责算率、
+关权、列出需回滚的 patch id；回滚本身仍由人执行（生产 `patches.jsonl` 只经
+`polish_commit --apply`/`add_patch.py` 写入，不发明第三条写入路径）——按 `prov` 逐条找到
+patch id，用 `add_patch.py --has-patch` 核实后落一条新的 `reason=review` 覆盖 patch 撤销
+之前的自动清关内容。
 
 ## 纪律速记（前 10 个任务评审实证过、必须显式遵守）
 
@@ -316,7 +393,12 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
    ```
 3. **`triage.json` 的 `meta.sample_rate_effective < sample_rate_configured` 要看一眼少抽了
    多少**（见 §七）。
-4. **每 SEG 只有一轮 amplify**（`amplify_rounds`=1，工具层已拦，见 §九）。
+4. **每 SEG 只有一轮 amplify**（`amplify_rounds`=1，工具层已拦，见 §九）；放大扫描的输出
+   **只落 `raw/amplify/b<N>.out` 这一个保留通道**，不要按执行通道各建一个目录——那种路径
+   不被任何 ingest 认领，而改用原通道名回炉会撞上批级幂等，两条路都是"零报错、零入仓"。
+4b. **ingest 完一批就重跑 `polish_check`，再跑 `polish_triage`**（§六）——gate 跑过之后
+   入仓的新候选不在 `checked_ids` 里，triage 会拒绝给它免检权。
+4c. **段末裁决完立刻跑 `polish_audit.py`**（§八之二），再进放大扫描/清关。
 5. **绝不 `git add -A`**——生产会话/裁决会话只 add 车道数据与 `pilot/polish/<label>/` 下按
    §一 清单入库的文件；dev 会话只 add 自己改的工具/文档。工作树里若有其他会话未提交的
    `.claude/settings.json`/`data/api_ledger.jsonl` 改动，绝对不要碰。

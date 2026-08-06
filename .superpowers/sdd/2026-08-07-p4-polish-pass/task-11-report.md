@@ -494,6 +494,6 @@ grep -n "锁定 id 清单\|「[一二三四五六七八九十]" work/ctx/p4s1-s1
 ### 8.6 commit
 
 ```
-<下面填入本轮修复实际提交的短哈希>
+0d0a4d8 fix: Task 11 评审修复轮 —— 章节交叉引用残留 + is_ignored_extra 目录判据缝隙
 ```
 

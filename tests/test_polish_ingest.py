@@ -145,12 +145,102 @@ def _build_mini(tmp_path, label="segX", channel="chA"):
         lines[0] = lines[0][:-3] + "###NOTJSON"
         p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    def rotate_zh(batch=1):
+        """评审 Critical 复现：批内每一行的 zh 都挂成"下一个 id"的 opus——
+        id/jp_tail 全部自洽（同一行机械复制），只有 zh 内容错位挂到了别的
+        原文上。ids=[10,11,12] 时：10 拿 11 的译文、11 拿 12 的、12 拿 10 的。
+        """
+        ids = BATCHES[batch]["plain"]
+        rotated = ids[1:] + ids[:1]
+        rows = [{"id": i, "jp_tail": jp_tail(jp[i]), "zh": zh[other],
+                 "score": 90, "note": "", "adjudicate": False}
+                for i, other in zip(ids, rotated)]
+        _save(batch, rows)
+
+    def blank_zh(id, batch=1):
+        rows = _rows(batch)
+        for r in rows:
+            if r["id"] == id:
+                r["zh"] = ""
+        _save(batch, rows)
+
+    def missing_zh_field(id, batch=1):
+        rows = _rows(batch)
+        for r in rows:
+            if r["id"] == id:
+                del r["zh"]
+        _save(batch, rows)
+
     return SimpleNamespace(
         root=repo, d=d, label=label, channel=channel, jp=jp, zh=zh, raw_dir=raw_dir,
         corrupt_tail=corrupt_tail, add_locked_line=add_locked_line,
         add_foreign_line=add_foreign_line, drop_line=drop_line, dup_line=dup_line,
-        corrupt_json=corrupt_json,
+        corrupt_json=corrupt_json, rotate_zh=rotate_zh, blank_zh=blank_zh,
+        missing_zh_field=missing_zh_field,
     )
+
+
+def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
+    """专用夹具：单批 4 个非锁定 id，其中 10/14 是"复现句族"——jp 完全相同，
+    zh（opus）也完全相同（这是复现句族的合法状态：同一句原文本来就该有同一
+    份译文，参见 W4 的管辖范围）。用来验证错位侦测的"jp 不同"限定确实在
+    起作用：id=14 的 zh 与 id=10 的 opus 逐字相同，但因为 jp 也相同，不该被
+    误判为错位。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    ids = [10, 11, 12, 14]
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+
+    jp = {10: "重复出现的同一句テキスト", 14: "重复出现的同一句テキスト",
+          11: "第11句独立原文テキスト", 12: "第12句独立原文テキスト"}
+    zh = {10: "重复句译文", 14: "重复句译文",
+          11: "第11句译文", 12: "第12句译文"}
+
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": []},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"}
+        for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": zh[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"}
+        for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-recurrence"},
+    ]), encoding="utf-8")
+
+    raw_dir = d / "raw" / channel
+    raw_dir.mkdir(parents=True)
+    lines = [dumps({"id": i, "jp_tail": jp_tail(jp[i]), "zh": zh[i],
+                    "score": 95, "note": "", "adjudicate": False}) for i in ids]
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label, channel=channel, jp=jp, zh=zh)
 
 
 @pytest.fixture
@@ -292,6 +382,59 @@ def test_discipline_accumulates_across_batches(mini):
     pi.ingest(mini.label, mini.channel, 2, repo=mini.root)
     disc = json.loads((mini.d / f"discipline.{mini.channel}.json").read_text(encoding="utf-8"))
     assert disc["locked_hits"] == 2
+
+
+# --- 评审 Critical 修复轮：zh↔jp 错位侦测 + 空 zh 判死 ---
+
+@pytest.fixture
+def mini_recurrence(tmp_path):
+    return _build_mini_recurrence(tmp_path)
+
+
+def test_misaligned_zh_rotation_all_dead(mini):
+    """评审自己构造的对抗输入复现：三行 id/jp_tail 全部自洽（同一行机械
+    复制，逐项核验全过），但 zh 内容整体轮转错位到"下一个 id"的 opus 上。
+    三行必须全部判死，一行都不能入仓。"""
+    mini.rotate_zh(batch=1)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"]  # 覆盖完整性没问题（三行都出现过），只是内容全部判死
+    assert r["added"] == 0
+    assert len(r["dead"]) == 3
+    assert {d["id"] for d in r["dead"]} == {10, 11, 12}
+    assert all("错位" in d["reason"] for d in r["dead"])
+    # 整批仍算"成功"（覆盖完整、只是内容判死），append_jsonl 对空列表也会
+    # touch 出文件（`pipelib.append_jsonl` 以 "a" 模式打开）——断言的是"零行
+    # 候选"，不是"文件不存在"（那是整批失败分支才有的语义，这里不适用）。
+    assert read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl") == []
+    disc = json.loads((mini.d / f"discipline.{mini.channel}.json").read_text(encoding="utf-8"))
+    assert disc["misaligned_hits"] == 3
+
+
+def test_recurrence_family_not_misaligned(mini_recurrence):
+    """比错位侦测本身更要紧的回归锁：复现句族（同一 jp 对应同一 zh 的两个
+    不同 id）绝不能被错杀。id=14 的 zh 与 id=10 的 opus 逐字相同，但两者
+    jp 也相同——这是合法状态，必须正常入仓，不能被"zh 与本批他人 opus 逐字
+    相同"这条判据误伤。"""
+    r = pi.ingest(mini_recurrence.label, mini_recurrence.channel, 1, repo=mini_recurrence.root)
+    assert r["ok"] and r["added"] == 4 and r["dead"] == []
+    ids_in = {row["id"] for row in read_jsonl(
+        mini_recurrence.d / f"candidates.{mini_recurrence.channel}.jsonl")}
+    assert ids_in == {10, 11, 12, 14}
+    assert not (mini_recurrence.d / f"discipline.{mini_recurrence.channel}.json").exists()
+
+
+def test_empty_zh_string_killed(mini):
+    mini.blank_zh(id=11)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any(d["id"] == 11 and "空" in d["reason"] for d in r["dead"])
+
+
+def test_missing_zh_field_killed(mini):
+    mini.missing_zh_field(id=12)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any(d["id"] == 12 and "空" in d["reason"] for d in r["dead"])
 
 
 # --- CLI ---

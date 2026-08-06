@@ -20,7 +20,12 @@
 - 锁定 id 出稿（额外计入 `discipline.<channel>.json`——纪律画像，衡量该
   通道有多少次试图对锁定行出稿）；
 - 批内该 id 出现不止一行（重复 id——模型输出错位的典型征兆，见下）；
-- `jp_tail` 与 frozen 重算的期望值不符。
+- `jp_tail` 与 frozen 重算的期望值不符；
+- `zh` 为空串或缺 `zh` 字段——空译文没有任何下游用途，让它进仓只会把问题
+  推给后面（评审 Critical 修复轮实测：这类行原先被静默透传）；
+- **`zh` 逐字等于本批内另一个 id 的 opus 译文，且那两个 id 的 `jp` 不相同**
+  ——错位嫌疑，额外计入 `discipline.<channel>.json` 的 `misaligned_hits`
+  （评审 Critical 修复轮新增，见下方"错位侦测"专节）。
 
 **整批失败**（不入仓任何行，且不写 `ingested.<channel>.json`——见下方幂等
 小节的理由）：
@@ -62,6 +67,46 @@
    时落盘——一次整批失败的尝试里出现的锁定违规，等这批用干净的 raw 重跑
    一遍后，真正被采纳的那一次自然会被记上；不需要为一次可能整批作废的
    半成品尝试打永久的纪律烙印。
+
+## 错位侦测（评审 Critical 修复轮追加）
+
+**背景**：上线后评审自己构造对抗输入实测出一个漏洞——回执原先只绑定
+`id ↔ jp_tail`，从不绑定 `zh ↔ jp`。三行互相"自洽错位"（`id=11` 挂着
+`opus[10]` 的译文、`id=12` 挂着 `opus[11]`……）时，`id`/`jp_tail` 都是从
+同一行机械复制来的，逐项核验全过，`jp_hash`/`opus_hash` 还是按 `row["id"]`
+正确算出——反而把错位彻底掩盖了。这个失败模式恰好绕开了原设计的唯一防线：
+输出契约要求"不改的行 `zh` 逐字抄 opus"，让模型在长列表里逐行照抄 opus
+一列，抄串行是长上下文最典型的失误，而 id/jp_tail 是同一行机械复制、往往
+仍然正确。
+
+**判据（两条限定缺一不可，故意收窄，不做宽判据）**：
+若某行的 `zh` **逐字**（`.strip()` 归一化空白后完全相等，不做任何语义/
+分词层面的归一化）等于**本批内另一个 id** 的 opus 译文，**且**这两个 id
+的 `jp`（frozen 原文）**不相同**——判该行死，计入
+`discipline.<channel>.json` 的 `misaligned_hits`。
+
+- **为什么要求"逐字"**：这是错位的确切指纹——被错误挂到这一行的 zh 本该
+  是别处的 opus 译文，一字不差地照抄过来。放宽成"相似"/"编辑距离小"会把
+  大量"这行几乎没改动、只是顺手润色了一两个字"的正常候选也网进来，误报
+  会淹没真信号——这正是本项目吃过的具体亏（ruby 检出 104→5、复现句族数字
+  212→1，都是判据太宽把真信号冲掉的先例）。
+- **为什么要求"jp 不相同"**：本库存在大量同一句日文反复出现的"复现句族"
+  （anchors.yaml/skeleton 明确承认的现象），这些句子的 zh 本来就**应该**
+  逐字相同——那是 W4（跨候选一致性检查，Task 11 全段复检的管辖范围）的
+  正确行为，不是错位。少了这条限定，复现句族会被整片误杀，把大量本该
+  入仓的正确候选错杀。
+
+**残留边界（写清楚，别让后来人以为这里已经全覆盖）**：这道闸只抓一种
+确切指纹——"`zh` 逐字等于本批另一行的 opus"。如果模型把错挂的 `zh` 又
+顺手润色改写了几个字（不再与任何 opus 逐字相同），本闸**抓不到**，会
+放行入仓。这一层残留风险由下游两道闸兜底，而不是本模块的职责：
+1. **Task 6 `polish_check.py` 的 R2b 说话人核验**——错位的 zh 大概率带着
+   别的说话人前缀（【名字】），与该行原文的说话人对不上，R2b 会报 hard；
+2. **Task 7 `polish_triage.py` 的分流**——错位 zh 与该行真正 `opus[id]`
+   的编辑距离必然很大（内容完全不相关），不满足自动清关的"小改"条件，
+   会被强制落进人工裁决队列，不会被自动清关放过。
+本模块的错位侦测只是"确切指纹"这一层最便宜、最不会伪报的一道闸，不是
+唯一防线；这三层合起来才是这类问题的完整覆盖。
 """
 import argparse
 import hashlib
@@ -90,6 +135,14 @@ def _sha256_text(s: str) -> str:
     算，这里是对某个 id 的一段字符串内容算）。模型算不出这个，所以模型只
     回显 `jp_tail`；这里由代码从 frozen 侧补齐。"""
     return hashlib.sha256((s or "").encode("utf-8")).hexdigest()
+
+
+def _norm(s) -> str:
+    """错位侦测/空 zh 判定用的归一化——**只做空白层面**，不做任何语义/分词
+    归一化：只 `.strip()` 掉首尾空白，`_n`/`_r`/ruby 等控制码原样保留（它们
+    是内容的一部分，不是排版噪声，抹掉会让"逐字相同"这条确切指纹变得不准）。
+    `None` 归一化为空串，方便和"缺字段"统一处理。"""
+    return (s or "").strip()
 
 
 def _load_json(path, default):
@@ -127,7 +180,12 @@ def ingest(label, channel, batch, repo=None) -> dict:
         print(f"ingest: {label}/{channel} 批 {batch} 已入仓，跳过（幂等 no-op）")
         return {"ok": True, "added": 0, "dead": [], "reason": "already ingested"}
 
-    source_rows = read_jsonl(fz / "source.jsonl")
+    try:
+        source_rows = read_jsonl(fz / "source.jsonl")
+    except FileNotFoundError:
+        reason = f"{fz / 'source.jsonl'} 不存在——该 SEG 尚未 polish_setup.setup() 冻结"
+        print(f"ingest 整批失败：{reason}")
+        return {"ok": False, "added": 0, "dead": [], "reason": reason}
     id2jp = {r["id"]: r["jp"] for r in source_rows}
     batch_ids = [r["id"] for r in source_rows if r["batch"] == batch]
     if not batch_ids:
@@ -136,7 +194,12 @@ def ingest(label, channel, batch, repo=None) -> dict:
         return {"ok": False, "added": 0, "dead": [], "reason": reason}
     batch_id_set = set(batch_ids)
 
-    opus_rows = read_jsonl(fz / "opus.jsonl")
+    try:
+        opus_rows = read_jsonl(fz / "opus.jsonl")
+    except FileNotFoundError:
+        reason = f"{fz / 'opus.jsonl'} 不存在——该 SEG 尚未 polish_setup.setup() 冻结"
+        print(f"ingest 整批失败：{reason}")
+        return {"ok": False, "added": 0, "dead": [], "reason": reason}
     id2opus = {r["id"]: r["zh"] for r in opus_rows}
 
     locked = _load_json(fz / "locked.json", {"ids": [], "why": {}})
@@ -181,8 +244,13 @@ def ingest(label, channel, batch, repo=None) -> dict:
     id_counts = Counter(r.get("id") for r in parsed if r.get("id") in batch_id_set)
     dup_ids = {i for i, c in id_counts.items() if c > 1}
 
+    # 错位侦测的比对范围：本批全部 id（含锁定 id，锁定 id 的 opus 内容
+    # 同样可以是"被挂错"的来源）的 opus 译文，做空白归一化（不做语义归一）。
+    batch_opus_norm = {i: _norm(id2opus.get(i, "")) for i in batch_id_set}
+
     dead = []
     locked_hits = 0
+    misaligned_hits = 0
     candidates = []
     for row in parsed:
         rid = row.get("id")
@@ -203,6 +271,23 @@ def ingest(label, channel, batch, repo=None) -> dict:
             dead.append({"id": rid,
                          "reason": f"jp_tail 与 frozen 不符（期望 {want_tail!r}，实收 {got_tail!r}）"})
             continue
+
+        zh_norm = _norm(row.get("zh"))
+        if not zh_norm:
+            dead.append({"id": rid, "reason": "zh 为空串或缺失"})
+            continue
+
+        misaligned_with = next(
+            (other for other, other_opus in batch_opus_norm.items()
+             if other != rid and zh_norm == other_opus and id2jp.get(rid) != id2jp.get(other)),
+            None)
+        if misaligned_with is not None:
+            dead.append({"id": rid,
+                         "reason": f"疑似错位：zh 与本批 id={misaligned_with} 的 opus 逐字"
+                                   "相同，但两者原文（jp）不同"})
+            misaligned_hits += 1
+            continue
+
         candidates.append(row)
 
     # 覆盖完整性：判据是"这个 id 有没有在 raw 里出现过"（哪怕那一行随后被
@@ -232,16 +317,22 @@ def ingest(label, channel, batch, repo=None) -> dict:
 
     append_jsonl(d / f"candidates.{channel}.jsonl", out_rows)
 
-    if locked_hits:
+    if locked_hits or misaligned_hits:
         disc_path = d / f"discipline.{channel}.json"
-        disc = _load_json(disc_path, {"locked_hits": 0})
+        disc = _load_json(disc_path, {"locked_hits": 0, "misaligned_hits": 0})
         disc["locked_hits"] = disc.get("locked_hits", 0) + locked_hits
+        disc["misaligned_hits"] = disc.get("misaligned_hits", 0) + misaligned_hits
         disc_path.write_text(dumps(disc), encoding="utf-8")
 
     ingested["batches"] = sorted(set(ingested.get("batches", [])) | {batch})
     ingested_path.write_text(dumps(ingested), encoding="utf-8")
 
-    extra = f"，含锁定违规 {locked_hits} 次" if locked_hits else ""
+    extra_bits = []
+    if locked_hits:
+        extra_bits.append(f"锁定违规 {locked_hits} 次")
+    if misaligned_hits:
+        extra_bits.append(f"疑似错位 {misaligned_hits} 次")
+    extra = f"，含{'、'.join(extra_bits)}" if extra_bits else ""
     print(f"ingest: {label}/{channel} 批 {batch} 入仓 {len(out_rows)} 行，"
           f"判死 {len(dead)} 行{extra}")
     return {"ok": True, "added": len(out_rows), "dead": dead, "reason": ""}

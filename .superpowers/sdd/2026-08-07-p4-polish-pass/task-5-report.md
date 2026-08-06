@@ -158,3 +158,139 @@ uv run pytest -q
   属于 Task 6 `polish_check.py` 的机械闸范畴，本任务只负责"这行数据的来路
   可信"（id/锁定/尾串/覆盖完整性），不做内容语义校验，特此注明避免 Task 6
   误以为这层已经做过。
+
+---
+
+# 修复轮：评审 Critical——zh↔jp 错位侦测 + 空 zh 判死
+
+状态：DONE。commit 见文末。
+
+## Finding 复述
+
+评审自己构造对抗输入实测：三行 `{id, jp_tail}` 互相自洽（同一行机械复制，
+`id 不在批内`/`锁定`/`重复`/`jp_tail 不符` 四道闸全部核验通过），但 `zh`
+挂的是**本批另一个 id 的 opus 译文**（评审的例子：`id=11` 挂 `opus[10]`，
+`id=12` 挂 `opus[11]`，`id=10` 挂 `opus[12]`——一个轮转）。原实现
+`jp_hash`/`opus_hash` 仍按 `row["id"]` 正确算出，三行错位数据 `{'ok': True,
+'added': 3, 'dead': []}` 静默全量入仓——哈希核验反而给错误内容盖了一层"看起来
+可信"的戳。根因：回执设计只绑定了 `id ↔ jp_tail`，从未绑定 `zh` 本身与
+"这一行到底该是哪句原文的译文"之间的关系。这条攻击面之所以现实（不是纯理论）：
+输出契约明写"不改的行 `zh` 逐字等于 opus"，模型在长列表里逐行抄一整列 opus，
+串行错位是长上下文任务最典型的失误模式，而 `id`/`jp_tail` 是同一行机械复制、
+不受串行影响——刚好绕开了此前唯一的防线。
+
+## 判据的最终形态
+
+在 `ingest()` 每行的判死链条里，`jp_tail` 核验通过之后、正式收作候选之前，
+新增两道检查（`tools/polish_ingest.py` 约第 251–291 行）：
+
+1. **空 `zh` 判死**：`zh` 经 `_norm()`（`.strip()`，`None`→`""`）后为空即
+   判死，理由 `"zh 为空串或缺失"`。不区分"字段缺失"与"字段为空串"——两者
+   下游都没有任何用途。
+
+2. **错位侦测**：`zh` 归一化后**逐字等于批内另一个 id 的 opus**（同样
+   `_norm()` 归一化），**且**这两个 id 的 `jp`（frozen 原文，未归一化，
+   要求真正不同）**不相同**——判死，理由标注涉事的另一 id，并计入
+   `discipline.<channel>.json` 的新键 `misaligned_hits`。比对范围是
+   **本批全部 id**（含锁定 id——锁定 id 的 opus 同样可能是被挂错的来源，
+   即使锁定 id 本身不会出现在 raw 里）。
+
+`_norm()` 只做空白层面归一化（`.strip()`），不做任何语义/分词归一化——
+`_n`/`_r`/ruby 等控制码原样保留在比较字符串里，因为它们是内容的一部分，
+抹掉会让"逐字相同"这条指纹变得不精确（该松的地方松，该严的地方必须严）。
+
+### 两条限定的理由（缺一不可）
+
+- **要求"逐字相同"，不要求"相似"**：这是错位的确切指纹——错位挂过来的
+  内容是**原样照抄**别处的 opus，一字不差。放宽成"编辑距离小"/"高度相似"
+  会把大量"这行只顺手润色了一两个字"的正常候选也网进来，误报会淹没真
+  信号——这正是本项目实打实吃过的亏（ruby 检出闸 104→5、复现句族数字闸
+  212→1，都是判据太宽把真信号冲没的先例），所以故意收窄到"确切相同"这一
+  种指纹，宁可有漏（下游还有两层兜底，见"残留边界"），不要伪报。
+- **要求"jp 不同"，不能只看"zh 相同"**：本库存在大量"复现句族"——同一句
+  日文在不同场景反复出现，这些不同 id 的 zh **本来就应该**逐字相同（这是
+  W4/Task 11 全段复检管辖的正确状态，不是缺陷）。如果不加这条限定，凡是
+  复现句族的正确候选都会被这道闸整片误杀，把"正确"当成"错位"进而拒绝
+  入仓——这才是真正需要严防的过杀风险，比"漏抓某些错位"更致命，因为它
+  会直接把大量本该顺利入仓的正确数据挡在门外。用
+  `test_recurrence_family_not_misaligned` + 变异①验证了这条限定确实在
+  起作用（见下）。
+
+### 残留边界（写进了模块 docstring，避免后来人误判覆盖范围）
+
+这道闸只抓一种确切指纹：**"`zh` 逐字等于本批另一行的 opus"**。如果模型
+把错挂的 `zh` 又顺手润色改写了几个字（不再与任何 opus 逐字相同），本闸
+**抓不到**，会放行入仓。这层残留风险由两道下游闸兜底，不是本模块的职责：
+1. Task 6 `polish_check.py` 的 **R2b 说话人核验**——错位的 zh 大概率带着
+   别的说话人前缀，与该行原文的说话人对不上，会报 hard；
+2. Task 7 `polish_triage.py` 的**分流**——错位 zh 与该行真正 `opus[id]`
+   的编辑距离必然很大，不满足自动清关"小改"的条件，会被强制落进人工
+   裁决队列，不会被自动清关放过。
+
+## 新测试（`tests/test_polish_ingest.py`）
+
+- `test_misaligned_zh_rotation_all_dead`：复现评审的对抗输入（`rotate_zh`
+  夹具方法，ids=[10,11,12] 三行整体轮转挂错 opus）。断言：`r["ok"]==True`
+  （覆盖完整性没问题，三行都"出现过"）、`r["added"]==0`、`dead` 长度 3、
+  三个 id 都在、reason 都含"错位"、`candidates.chA.jsonl` 读出为空列表、
+  `discipline.chA.json["misaligned_hits"]==3`。
+- `test_recurrence_family_not_misaligned`（**比上一条更要紧的回归锁**，
+  防的是判据过宽）：新建专用夹具 `_build_mini_recurrence`/`mini_recurrence`——
+  单批 4 个非锁定 id，其中 10/14 的 `jp` 完全相同、`zh`（opus）也完全相同
+  （合法的复现句族状态）。断言 `r["ok"] and r["added"]==4 and r["dead"]==[]`，
+  四个 id 全部正常入仓，`discipline.chA.json` 不存在（零违规）。
+- `test_empty_zh_string_killed` / `test_missing_zh_field_killed`：`zh` 为
+  `""` 或字段缺失，均判死，reason 含"空"。
+
+## 变异红绿实况
+
+命令统一：`uv run pytest tests/test_polish_ingest.py -q`；每次用 Edit 改
+一处、跑测、记录、再用 Edit 还原（未使用 git checkout/restore）。
+
+**变异 A：去掉"jp 不同"限定**（把 `and id2jp.get(rid) != id2jp.get(other)`
+从判据里删掉，只留"zh 逐字等于本批他人 opus"）→ `test_recurrence_family_not_misaligned`
+真红：
+```
+assert (True and 2 == 4)
+```
+（id=10/14 这对合法复现句族被误杀，`added` 从期望的 4 掉到 2——证明"jp 不同"
+这条限定确实是有牙的闸，不是装饰性写法。）
+
+**变异 B：去掉错位侦测本身**（把判据整段替换成 `misaligned_with = None`）
+→ `test_misaligned_zh_rotation_all_dead` 真红：
+```
+assert 3 == 0   # r["added"]
+```
+（评审的三行对抗输入全部悄悄入仓——证明这道闸如果被拿掉，Finding 描述的
+漏洞会原样重现，闸本身确实在防这个具体问题，不是摆设。）
+
+两个变异都在预期测试上真红，命中的正是各自要防的那条限定/机制，没有出现
+"测试无牙"的情况。
+
+## 测试输出
+
+```
+uv run pytest tests/test_polish_ingest.py -q
+...................                                                       [100%]
+19 passed in 0.32s
+
+uv run pytest -q
+621 passed in 3.37s        # 617（Critical 修复前）+ 4（本轮新增：rotation/
+                            # recurrence/blank_zh/missing_zh_field）
+```
+
+## Minor（评审顺手提的一条）：`frozen/source.jsonl`/`opus.jsonl` 缺失时的未捕获异常
+
+已顺手修复：`ingest()` 里读取 `frozen/source.jsonl` 与 `frozen/opus.jsonl`
+两处各包一层 `try/except FileNotFoundError`，缺失时走正常的 `reason` 返回
+路径（`ok=False`），不再让未捕获异常穿透给调用方。这是防御性路径（SEG 没
+`polish_setup.setup()` 冻结就直接 `ingest()`），brief 未给出专门测试用例，
+现有测试矩阵不因此改动，也没有新增专门测试覆盖它（改动本身极小、纯粹是
+把"抛异常"换成"走已有的整批失败返回路径"，风险极低）。
+
+## 与原报告的关系
+
+本节是**追加**内容，原 Task 5 报告（判死/整批失败判定表、三个原始设计点、
+幂等实现等）未改动，继续有效；本节只记录评审 Critical 修复轮新增的判据、
+测试与变异。
+

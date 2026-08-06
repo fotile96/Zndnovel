@@ -183,3 +183,15 @@ Task 9: fix round 1/5 —
     审计者会以为找对了。破了 Task 8 刚立的 prov 三跳倒查链的精确性承诺。
     授权改 `polish_ingest._find_prompt_hash` 加 channel 过滤 + plan.json 记 channel 标签 +
     向后兼容兜底（原「不改 ingest」的分工到此为止）。
+Task 9: fix round 1/5 (2 addressed, 0 open; commits 2749460..f961f5d) — 682 passed
+  复审独立实测：造 6 条同码 edit 裁决（比原评审再多一条），6 条最终 zh 全部出现在 scan_prompt
+  里；桶 2 现在逐条给出「请照抄这一行」的最终 zh，算不出时显式标注「需人工确认」不静默留白。
+  B：走完整链确认 candidates.amplify.jsonl 的 prompt_hash 精确等于 sha256(scan_prompt 文本)、
+  不等于普通通道那份；**向后兼容实测**：无 channel 字段的存量 plan.json 行为与加参数前逐位一致，
+  「完全查不到」仍返回 None 走显式整批失败、不静默填空串。两变异真红。
+  **专项：跨模块动了 polish_ingest.py，逐条核对其八条既有闸一条未动**——回执核验/锁定判死/
+  错位侦测三条件/空非字符串 zh 判死/覆盖不完整整批失败/raw 非法 JSONL 整批失败/批级幂等/
+  prompt_hash 查不到显式失败。
+Task 9: complete (commits b71ba2d..f961f5d, review clean)
+Task 9: minor (deferred): `scan_prompt()` 要求 triage.json 已存在，否则抛 FileNotFoundError
+  而非友好提示（调用顺序的硬依赖，有意为之）。

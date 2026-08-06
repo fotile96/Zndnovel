@@ -580,52 +580,52 @@ def test_main_verify_prints_stale_block_but_still_exits_zero(tmp_path, monkeypat
 
 def test_setup_freeze_exclude_omits_file_from_lane(tmp_path):
     repo = _repo(tmp_path)
-    (repo / "glossary" / "style_refine.md").write_text("# 细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 细则", encoding="utf-8")
     lanes = tmp_path / "lanes"
     lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes,
-                     freeze_exclude=["glossary/style_refine.md"])
-    assert not (lane_dir / "glossary" / "style_refine.md").exists()
+                     freeze_exclude=["glossary/polish.md"])
+    assert not (lane_dir / "glossary" / "polish.md").exists()
     assert (lane_dir / "glossary" / "style.md").exists(), "只该少那一个文件"
     assert json.loads((lane_dir / "lane.json").read_text(encoding="utf-8")
-                      )["freeze_exclude"] == ["glossary/style_refine.md"]
+                      )["freeze_exclude"] == ["glossary/polish.md"]
 
 
 def test_refreeze_inherits_exclusion_without_being_told(tmp_path):
     """段边界重冻结不加参数也必须保持排除——靠记忆的纪律会衰减。"""
     repo = _repo(tmp_path)
-    (repo / "glossary" / "style_refine.md").write_text("# 细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 细则", encoding="utf-8")
     lanes = tmp_path / "lanes"
     lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes,
-                     freeze_exclude=["glossary/style_refine.md"])
+                     freeze_exclude=["glossary/polish.md"])
     (lane_dir / "data" / "forward.jsonl").write_text("{}\n", encoding="utf-8")
     setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes, force=True)
-    assert not (lane_dir / "glossary" / "style_refine.md").exists(), \
+    assert not (lane_dir / "glossary" / "polish.md").exists(), \
         "重冻结未传 freeze_exclude 时必须继承，否则排除会被静默撤销"
 
 
 def test_refreeze_with_empty_list_clears_exclusion(tmp_path):
     repo = _repo(tmp_path)
-    (repo / "glossary" / "style_refine.md").write_text("# 细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 细则", encoding="utf-8")
     lanes = tmp_path / "lanes"
     lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes,
-                     freeze_exclude=["glossary/style_refine.md"])
+                     freeze_exclude=["glossary/polish.md"])
     setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes,
           force=True, freeze_exclude=[])
-    assert (lane_dir / "glossary" / "style_refine.md").exists(), \
+    assert (lane_dir / "glossary" / "polish.md").exists(), \
         "显式传空列表须能解除排除（与「不传＝继承」区分开）"
 
 
 def test_excluded_file_is_not_reported_as_stale_but_is_announced(tmp_path):
     from tools.lane_setup import stale_vs_repo, frozen_exclusions
     repo = _repo(tmp_path)
-    (repo / "glossary" / "style_refine.md").write_text("# 细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 细则", encoding="utf-8")
     lanes = tmp_path / "lanes"
     setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes,
-          freeze_exclude=["glossary/style_refine.md"])
+          freeze_exclude=["glossary/polish.md"])
     record(lanes, repo)
-    assert not any("style_refine" in s for s in stale_vs_repo(lanes, repo)), \
+    assert not any("polish" in s for s in stale_vs_repo(lanes, repo)), \
         "有意排除不该算作「落后」，否则闸永远带着一条假警报"
-    assert any("style_refine" in e and "有意排除" in e for e in frozen_exclusions(lanes)), \
+    assert any("polish" in e and "有意排除" in e for e in frozen_exclusions(lanes)), \
         "但也不能因此消失——跳过等于藏起来"
 
 
@@ -633,15 +633,15 @@ def test_set_exclusions_records_intent_without_refreezing(tmp_path):
     """能在重冻结之前就把决定落盘，是这条路径存在的全部理由。"""
     from tools.lane_setup import set_exclusions, lane_exclusions
     repo = _repo(tmp_path)
-    (repo / "glossary" / "style_refine.md").write_text("# 细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 细则", encoding="utf-8")
     lanes = tmp_path / "lanes"
     lane_dir = setup("opus", "opus", "max", "claude-opus-5", repo=repo, lanes_root=lanes)
     before = freeze_hashes(lane_dir, repo)
-    assert (lane_dir / "glossary" / "style_refine.md").exists()
-    removed = set_exclusions("opus", ["glossary/style_refine.md"], lanes)
-    assert removed == ["glossary/style_refine.md"]
-    assert not (lane_dir / "glossary" / "style_refine.md").exists()
-    assert lane_exclusions(lane_dir) == ["glossary/style_refine.md"]
+    assert (lane_dir / "glossary" / "polish.md").exists()
+    removed = set_exclusions("opus", ["glossary/polish.md"], lanes)
+    assert removed == ["glossary/polish.md"]
+    assert not (lane_dir / "glossary" / "polish.md").exists()
+    assert lane_exclusions(lane_dir) == ["glossary/polish.md"]
     assert freeze_hashes(lane_dir, repo) == before, "不得动冻结快照的任何哈希"
 
 

@@ -1,4 +1,4 @@
-# 汉语母语感细则（style_refine）
+# 汉语母语感细则（polish）
 
 > 用户口述，2026-08-04 记录。**尚未接入任何生产指令**——接入面与时机见文末 §7。
 >
@@ -104,7 +104,7 @@
 
 ## 7. 接入面：这份文件现在谁也看不见
 
-**译者能看到的面只有三个**：`glossary/active.json`、`glossary/style.md`、`glossary/voices/*.md`——这是 `build_context._render` 的注入面（`tools/build_context.py:209-212`），`style_refine.md` 不在其中。**放在这里不接入，等于没写。**
+**译者能看到的面只有三个**：`glossary/active.json`、`glossary/style.md`、`glossary/voices/*.md`——这是 `build_context._render` 的注入面（`tools/build_context.py:209-212`），`polish.md` 不在其中。**放在这里不接入，等于没写。**
 
 四个候选接入点，按将来的用途选：
 
@@ -126,7 +126,7 @@
 用户 2026-08-04 要求：**接下来 opus 的重冻结不得带上本文**。这已做成机制，不是纪律：
 
 ```
-pilot/lanes/opus/lane.json → "freeze_exclude": ["glossary/style_refine.md"]
+pilot/lanes/opus/lane.json → "freeze_exclude": ["glossary/polish.md"]
 ```
 
 - `setup()` 建/重建车道时按此列表**不拷贝**该文件；

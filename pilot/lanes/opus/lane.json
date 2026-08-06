@@ -1,1 +1,1 @@
-{"lane":"opus","lane_dir":"/Users/fotile96/Zndnovel/pilot/lanes/opus","model":"opus","effort":"max","append_model_id":"claude-opus-5","freeze_exclude":["glossary/style_refine.md"]}
+{"lane":"opus","lane_dir":"/Users/fotile96/Zndnovel/pilot/lanes/opus","model":"opus","effort":"max","append_model_id":"claude-opus-5","freeze_exclude":["glossary/polish.md"]}

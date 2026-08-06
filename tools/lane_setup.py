@@ -66,7 +66,7 @@ def _sha256_dir(path) -> str:
 
 def lane_exclusions(lane_dir) -> list:
     """该车道 lane.json 里记的 freeze_exclude（车道相对路径，如
-    `glossary/style_refine.md`）。文件缺失或键不存在时返回空列表。"""
+    `glossary/polish.md`）。文件缺失或键不存在时返回空列表。"""
     p = Path(lane_dir) / "lane.json"
     if not p.exists():
         return []
@@ -362,7 +362,7 @@ def main(argv=None):
                          "重新冻结 skeleton/glossary 快照并覆盖已记录的基准哈希")
     ap.add_argument("--freeze-exclude",
                     help="逗号分隔的车道相对路径，建/重建时不拷进该车道（如 "
-                         "glossary/style_refine.md）。**不传＝继承车道现有设置**，"
+                         "glossary/polish.md）。**不传＝继承车道现有设置**，"
                          "传空串＝清除。")
     ap.add_argument("--set-exclude",
                     help="只改 lane.json 的 freeze_exclude（并删掉车道内已存在的该文件），"

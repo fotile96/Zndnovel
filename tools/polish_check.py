@@ -3,13 +3,82 @@
 薄封装：把已经成熟的批校验（R2a/R2b/R2c 硬规则、W1/W2/W3 软规则，见
 `tools/check_batch.py`）套用到某个 SEG 某个通道当前保税仓（`candidates.<channel>
 .jsonl`，`tools/polish_ingest.py` 的唯一入仓口）里的候选上，产出
-`gates.<channel>.json`：`{id: {"hard": [...], "warn": [...]}}`，**只收有问题的
-id**（全绿的 id 不进字典——`gates.json` 的用途是"标出问题"，Task 7 消费时只
-需要判断某 id 是否在字典里、`hard` 是否非空，不需要靠这份文件反查"全库有多
-少 id"，那个信息 `frozen/source.jsonl`/`candidates.<channel>.jsonl` 本身就有）。
+`gates.<channel>.json`。
 
 **hard 非空的候选后续一切分流不得自动清关**（Task 7 消费本模块产出时的硬
 约束，brief 原文）。
+
+## 落盘结构：`checked_ids` + `findings`（最终评审 C1 修复，破坏性改版）
+
+```json
+{"checked_ids": [10, 11, 12], "findings": {"12": {"hard": [...], "warn": [...]}}}
+```
+
+初版只落 `{id: {"hard":…, "warn":…}}` 一层，**只收有问题的 id**。这在
+`polish_triage` 那一侧造成了一个**恒绿闸**：`gates.get(cid) is None` 同时表示
+"查过、干净"和"从来没查过这个 id"，二者不可区分。最终评审实测复现——b1 入仓
+后跑 gate，再入仓 b2（说话人被换名的真 hard 违规），**不重跑 gate** 就跑
+triage：新候选的 id 在旧 `gates.json` 里查无此人 → 被当成"干净" → `autoclear
+=True`，`polish_commit` dry-run 已将其列入写入计划；事后补跑 gate 才报出
+R2b hard。`load_gates()` 在**文件**层已经做到了"没有证据就不放行"（文件不存在
+→ 该通道一律不 eligible），**id 层却没有同等待遇**。
+
+修法就是把"这次检查覆盖了哪些 id"如实落盘：`checked_ids` 是本次 `gate()` 真正
+送进 `check_batch.check()` 的 id 全集（含全绿的），`findings` 只收有问题的 id
+（沿用初版语义，避免为几千个全绿 id 各写一个空壳对象）。`polish_triage` 改判
+**"id 不在 checked_ids 里 → 不 eligible"**——陈旧 gates 文件从此只会让新候选
+排队进人裁，不会让它直通免检。
+
+⚠ 旧格式（无 `checked_ids` 键的裸字典）被 `polish_triage.load_gates()` 读到时，
+`checked_ids` 视为**空集**（不是"全部"）——同一条"没有证据就不放行"的哲学，
+并且会 stderr 播报要求重跑 gate。
+
+## P4-CTL：`_n`/`_r`/ruby 计数必须与 **opus 现行译文**一致（最终评审 C2 修复）
+
+`check_batch.check()` 的全部规则都是"jp vs zh"，且控制码保全只覆盖到
+【】(R2b)、`○■≪≫≦≧`(R2c)、ruby 良构(R2a)。**`_n`/`_r` 只有 W1 一条软规则、
+阈值还是「差 ≥2」**——润色把一行里唯一的 `_n` 删掉，连一条 warn 都不响。最终
+评审实测：opus `是啊_n不过，等一下_n再说一遍`，候选把 `_n` 删光 →
+`polish_triage._content_edit()` 先 `strip_ctl` 得 **edit=0**（比任何真实润色都
+更像"安全小改"）→ gate 只有 W1/W3 warn、hard 为空 → `autoclear=True` 直通入库。
+`_n` 决定消息窗断行，丢了就是游戏内文本溢出。ruby 同理：R2a 只管"写出来的
+ruby 良构不良构"，**整个 ruby 被删掉**它一声不吭。
+
+故本模块（**不动 `tools/check_batch.py`——那是 P3 生产在用的钉死面**）另加一
+条 P4 专属**硬**规则 `P4-CTL`：候选 `zh` 与 `frozen/opus.jsonl` 里该 id 的现行
+译文相比，`_n` 条数、`_r` 条数、ruby 组数**三者各自必须相等**。
+
+判据宽窄的两处刻意选择（"判据过宽会用伪报淹没真信号"）：
+
+- **只卡计数，不卡位置。** 润色改了中文字数之后把断行点前后挪一两个字是完全
+  正当的排版动作（甚至是必要的），卡位置会让几乎每一条真实润色都变红，一周
+  之内这条闸就会被当噪音无视——那是"恒绿闸的镜像形态"。位置挪动带来的真实
+  风险是"某一行变得过长"，那正是 W3 行宽 warn 的管辖面，而 W3 现在已被列入
+  autoclear 的前置条件（见下），不存在无人看管的缺口。
+- **`_n` 与 `_r` 分开数，不合并成总数。** 两者是引擎里不同的断行语义（见
+  CLAUDE.md「`_n` 换行、`_r` 另一种断行……勿删」），`_n`→`_r` 的对换会让总数
+  不变而行为改变，且它明确违反 prompt 任务说明第 4 条"控制码不得增删或挪位"。
+  分开数不引入任何伪报（正当润色本来就不该换断行码种类），却堵住一整类静默
+  篡改。
+
+`P4-CTL` 落在 `hard` 里（不是 warn）：warn 在整条 P4 流水线上此前**零消费者**，
+把这条判据放进 warn 等于没写。
+
+## W3 行宽 warn 现在参与 autoclear 前置（最终评审 C2 第二半）
+
+`gates.<channel>.json` 的 `warn` 谁也没读。W1/W2/W4 保持"不阻断"是合理的
+（W1 是 jp↔zh 断行数差的粗略提示、W2 是术语提示、W4 属清关后全段复检），但
+**W3 行宽是真实的游戏内故障**（中文比日文占宽，溢出就是玩家看得见的破图），
+不该享受免检。判定写在 `polish_triage._row_eligible` 一侧（本模块只负责如实
+产出 warn），见那边的 docstring。
+
+## W4 全段复检模式（最终评审 C3 修复）——`w4_full()`
+
+见本文件下方 `w4_full()` 的 docstring。原 runbook §十一 第 1 步给的
+`check_batch.py --batch N --lane-dir …` **在 P4 语境下根本跑不起来**（它读
+`work/ctx/batch_N/source.jsonl` 这套 P3 按批四件套，`work/` 是 gitignore 的
+临时目录，P3 跑完早已不存在；即便重建，它读的草稿是 P3 **首译稿**而不是清关
+后的现行译文）——spec §8 点名的"润色只改同 jp 兄弟句之一"全程无闸。
 
 ## 与 check_batch.check() 的接口对齐——id 集裁剪（本模块最关键的一步）
 
@@ -70,7 +139,7 @@ Task 6 覆盖"搞混**——Task 5 `polish_ingest.py` 的模块 docstring 在"�
 + 名字映射）是这一残留面的主要兜底**：错位挂过来的文本大概率带着错误场景
 的说话人前缀（原文说话人对不上），R2b 会把它报成 hard，挡在自动清关之外。
 
-## 同 id 多条候选——取最后一条
+## 同 id 多条候选——取最后一条（gate）
 
 理论上同一 (label, channel) 下同一 id 不应有多条候选（`ingest()` 对同批
 重跑是幂等的），但 amplify 等场景会以不同 batch/轮次向同一个
@@ -80,12 +149,14 @@ Task 6 覆盖"搞混**——Task 5 `polish_ingest.py` 的模块 docstring 在"�
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.check_batch import check
+from tools.check_batch import _w4_msg, check, load_siblings
 from tools.pipelib import REPO, dumps, read_jsonl
+from tools.resolve import resolve_map
 
 
 def _dir_for(label, repo) -> Path:
@@ -107,19 +178,57 @@ def _load_speakers(fz: Path) -> dict | None:
     return None
 
 
+N_RE = re.compile(r"_n")
+R_RE = re.compile(r"_r")
+RUBY_RE = re.compile(r"<([^<>,]+),([^<>,]+)>")
+
+# `P4-CTL` 逐项判据：(人读名, 计数函数)。三项各自独立报一条，报文里直接给出
+# "opus N 个 / 候选 M 个"，让人一眼看出是删了还是加了。
+_CTL_COUNTERS = (
+    ("_n", lambda s: len(N_RE.findall(s))),
+    ("_r", lambda s: len(R_RE.findall(s))),
+    ("ruby 注音", lambda s: len(RUBY_RE.findall(s))),
+)
+
+
+def ctl_violations(cid, zh, opus_zh) -> list:
+    """P4-CTL：候选 `zh` 与 opus 现行译文的 `_n`/`_r`/ruby **计数**比对，返回
+    hard 违规列表（见模块 docstring "P4-CTL" 一节的判据宽窄理由）。
+
+    `zh` 非字符串（`polish_ingest` 已在入仓时判死这类行，这里是兜底）视为空
+    串参与比较——opus 里但凡有一个控制码就会被报出来，不会静默放过。
+    """
+    z = zh if isinstance(zh, str) else ""
+    o = opus_zh if isinstance(opus_zh, str) else ""
+    out = []
+    for name, count in _CTL_COUNTERS:
+        cz, co = count(z), count(o)
+        if cz != co:
+            out.append({"id": cid, "rule": "P4-CTL",
+                        "msg": f"{name} 计数与 opus 现行译文不一致"
+                               f"（opus {co} 个，候选 {cz} 个）——控制码保全是"
+                               "硬约束，位置可调、总数不可改"})
+    return out
+
+
 def gate(label, channel, repo=None) -> dict:
-    """对该 SEG/通道当前保税仓里的全部候选跑 `check_batch.check()`，返回
-    `{id: {"hard": [...], "warn": [...]}}`（只收有问题的 id），并写
-    `gates.<channel>.json`。
+    """对该 SEG/通道当前保税仓里的全部候选跑 `check_batch.check()` + P4-CTL，
+    返回 `{"checked_ids": [...], "findings": {id: {"hard": [...], "warn": [...]}}}`
+    并原样落盘成 `gates.<channel>.json`（`findings` 落盘时 key 转 str）。
+
+    `checked_ids` 是本次真正被检查过的 id 全集（**含全绿的**），`findings`
+    只收有问题的 id——两者的分工与"陈旧 gates ＝ 恒绿闸"这条修复的理由见模块
+    docstring。
 
     `candidates.<channel>.jsonl` 不存在（该通道还没入仓过任何东西）时，
-    等同于"零候选"：返回空字典，照常落盘一份空 `gates.<channel>.json`（不
+    等同于"零候选"：`checked_ids` 为空、`findings` 为空，照常落盘（不
     报错——尚未入仓是正常的中间状态，不是异常）。
     """
     d = _dir_for(label, repo)
     fz = d / "frozen"
     source_rows = read_jsonl(fz / "source.jsonl")
     src_jp = {r["id"]: r["jp"] for r in source_rows}
+    opus_zh = {r["id"]: r["zh"] for r in read_jsonl(fz / "opus.jsonl")}
 
     cand_path = d / f"candidates.{channel}.jsonl"
     candidates = read_jsonl(cand_path) if cand_path.exists() else []
@@ -154,35 +263,124 @@ def gate(label, channel, repo=None) -> dict:
     result = check(cropped_source, draft_rows, speakers=speakers, glossary=glossary,
                     siblings=None)
 
-    gates = {}
+    findings = {}
     for v in result["hard"]:
-        gates.setdefault(v["id"], {"hard": [], "warn": []})["hard"].append(v)
+        findings.setdefault(v["id"], {"hard": [], "warn": []})["hard"].append(v)
     for v in result["warn"]:
-        gates.setdefault(v["id"], {"hard": [], "warn": []})["warn"].append(v)
+        findings.setdefault(v["id"], {"hard": [], "warn": []})["warn"].append(v)
+
+    # P4 专属硬规则：控制码计数保全（vs opus 现行译文，不是 vs jp）。
+    for i in ids:
+        for v in ctl_violations(i, last_by_id[i]["zh"], opus_zh.get(i, "")):
+            findings.setdefault(i, {"hard": [], "warn": []})["hard"].append(v)
 
     d.mkdir(parents=True, exist_ok=True)
     # JSON 对象键只能是字符串，id 在这里是 int——落盘前显式转 str（与
     # tools/check_charlevel.py 的 per_id 输出同一约定），排序保证输出确定性；
-    # gate() 的返回值本身仍是 int 键的字典，与仓库里其它按 id 建索引的字典
-    # （如 check_batch.check() 内部的 src/drf）保持同一类型习惯。
+    # gate() 的返回值里 findings 仍是 int 键的字典，与仓库里其它按 id 建索引
+    # 的字典（如 check_batch.check() 内部的 src/drf）保持同一类型习惯。
+    gates = {"checked_ids": sorted(ids),
+             "findings": {k: v for k, v in sorted(findings.items())}}
     (d / f"gates.{channel}.json").write_text(
-        dumps({str(k): v for k, v in sorted(gates.items())}), encoding="utf-8")
+        dumps({"checked_ids": gates["checked_ids"],
+               "findings": {str(k): v for k, v in gates["findings"].items()}}),
+        encoding="utf-8")
     return gates
+
+
+class W4NotAvailable(RuntimeError):
+    """兄弟索引建不起来（车道 data 缺 ledger 或全无译文）——**必须与"查过、
+    没问题"可区分**，绝不返回空清单冒充绿。见 `check_batch.main()` 里同一条
+    告诫（"闸没跑"必须与"闸跑了没报"在输出上可区分）。"""
+
+
+def w4_full(label, lane_dir, repo=None) -> list:
+    """**清关后全段 W4 复检**：对该 SEG 的全部 id，用车道**现行**译文
+    （`resolve.resolve_map(forward, patches)`，即已经叠加过本轮 polish patch
+    的那一版）在**全库**复现句族索引里查"同一 jp 另有别的译法"。
+
+    为什么必须另起一个模式，而不是照 runbook 原样跑 `check_batch.py --batch N`
+    （最终评审 C3）：
+    - `check_batch.main()` 读 `work/ctx/batch_<N>/source.jsonl` +
+      `work/out/batch_<N>.draft.jsonl`——P3 的按批四件套。`work/` 是 gitignore
+      的临时目录，P3 生产跑完早已不存在，实跑直接 `FileNotFoundError`；
+    - 即便有人重建那套四件套，`draft.jsonl` 是 P3 的**首译稿**，不是清关后的
+      现行译文——查的是错的文本，"绿"毫无意义。
+
+    本函数的判定面因此是：**id 集 = frozen/source.jsonl（整段，不只本轮清关的
+    id）**——spec §8 明写风险是"润色只改同 jp 兄弟句之一"，被改的那条和没被改
+    的兄弟条都要能被报出来；**文本 = 车道现行译文**；**索引 = 全库兄弟索引**
+    （`check_batch.load_siblings`，跨 SEG，因为复现句族本来就散布全书）。
+
+    返回 `[{"id":…, "rule": "W4", "msg":…}, …]`（按 id 升序）。索引建不起来时
+    抛 `W4NotAvailable`——不返回空列表。
+    """
+    d = _dir_for(label, repo)
+    lane_dir = Path(lane_dir)
+    siblings = load_siblings(lane_dir)
+    if siblings is None:
+        raise W4NotAvailable(
+            f"{lane_dir}/data 下无 ledger.jsonl 或无任何译文，复现句族索引建不"
+            "起来——W4 **未被检查**，这与「查过、没问题」是两回事，不予冒充绿")
+
+    seg_ids = [r["id"] for r in read_jsonl(d / "frozen" / "source.jsonl")]
+    ledger = {r["id"]: r for r in read_jsonl(lane_dir / "data" / "ledger.jsonl")}
+    fwd_p, pat_p = lane_dir / "data" / "forward.jsonl", lane_dir / "data" / "patches.jsonl"
+    cur = resolve_map(read_jsonl(fwd_p) if fwd_p.exists() else [],
+                      read_jsonl(pat_p) if pat_p.exists() else [])
+
+    out = []
+    for i in seg_ids:
+        if i not in ledger or i not in cur:
+            continue
+        jp, zh = ledger[i]["jp"], cur[i]
+        others = [(sid, szh) for sid, szh in siblings.get(jp, [])
+                  if sid != i and szh != zh]
+        if others:
+            out.append({"id": i, "rule": "W4", "msg": _w4_msg(others)})
+    (d / "w4_full.json").write_text(dumps({"lane": str(lane_dir), "findings": out}),
+                                     encoding="utf-8")
+    return out
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="P4 保税仓机械闸：候选级复用 check_batch.check()")
     ap.add_argument("--seg", required=True, help="段表 label（如 seg1-s2）")
-    ap.add_argument("--channel", required=True, help="执行通道（如 fable/deepseek）")
+    ap.add_argument("--channel", help="执行通道（如 fable-wf/ds-flash）；候选级机械闸必需")
+    ap.add_argument("--w4-full", action="store_true",
+                     help="清关后全段 W4 复检模式（与 --channel 互斥，需要 --lane-dir）")
+    ap.add_argument("--lane-dir", default=None,
+                     help="配合 --w4-full：生产车道**根**目录（如 pilot/lanes/opus，"
+                          "不是它下面的 data/）")
     ap.add_argument("--repo", default=None,
                      help="车道根目录（省略时用仓库根；测试用 tmp_path 传替身仓库）")
     args = ap.parse_args(argv)
 
+    if args.w4_full:
+        if not args.lane_dir:
+            ap.error("--w4-full 需要 --lane-dir（生产车道根，如 pilot/lanes/opus）")
+        try:
+            findings = w4_full(args.seg, args.lane_dir, repo=args.repo)
+        except W4NotAvailable as e:
+            print(f"⚠ W4 全段复检**未能执行**：{e}", file=sys.stderr)
+            return 2
+        if findings:
+            print(f"!! W4 全段复检：{args.seg} 有 {len(findings)} 处复现句族不一致"
+                  "（顾问级，不自动阻断——逐条人工核对该改哪一边）", file=sys.stderr)
+            for v in findings:
+                print(f"  - id {v['id']}：{v['msg']}", file=sys.stderr)
+        print(f"w4-full: {args.seg} 复现句族不一致 {len(findings)} 处"
+              f"（明细见 pilot/polish/{args.seg}/w4_full.json）")
+        return 0
+
+    if not args.channel:
+        ap.error("需要 --channel（候选级机械闸），或 --w4-full（清关后全段复检）")
     gates = gate(args.seg, args.channel, repo=args.repo)
-    n_hard = sum(1 for v in gates.values() if v["hard"])
-    n_warn = sum(1 for v in gates.values() if v["warn"] and not v["hard"])
-    print(f"gate: {args.seg}/{args.channel} 有问题 {len(gates)} 个 id"
-          f"（hard {n_hard}，仅 warn {n_warn}）")
+    findings = gates["findings"]
+    n_hard = sum(1 for v in findings.values() if v["hard"])
+    n_warn = sum(1 for v in findings.values() if v["warn"] and not v["hard"])
+    print(f"gate: {args.seg}/{args.channel} 检查 {len(gates['checked_ids'])} 个 id，"
+          f"有问题 {len(findings)} 个（hard {n_hard}，仅 warn {n_warn}）")
     return 0
 
 

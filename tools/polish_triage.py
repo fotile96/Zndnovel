@@ -31,9 +31,10 @@ autoclear"）的实现都是错的——本模块通篇不出现这种比较。
 ## 自动清关（从桶 2/3 前"截流"——见"K 配额"专节展开这句话到底什么顺序）
 
 `bucket∈{2,3}` 且 `edit ≤ autoclear_limit(opus)` 且该行所在通道
-`gates.<channel>.json` 里这个 id 的 `hard` 为空且该通道自动清关权开启
-（`channel_state.json`，缺省关闭）→ 从竞争排队的候选池里摘出，`autoclear
-=True`；其中按 `sample_rate` 抽一部分 `sampled=True` 塞回裁决队列（占用
+`gates.<channel>.json` **本次检查覆盖了这个 id**（`checked_ids`，最终评审
+C1）且它的 `hard` 为空、`warn` 里没有 W3 行宽（最终评审 C2）且该通道自动
+清关权开启（`channel_state.json`，缺省关闭）→ 从竞争排队的候选池里摘出，
+`autoclear=True`；其中按 `sample_rate` 抽一部分 `sampled=True` 塞回裁决队列（占用
 K 配额，供人工事后审计，Task 8 只对 `autoclear and not sampled` 的候选
 直接清关，`sampled=True` 的即使 `autoclear=True` 也还要走一遍人工裁决——
 这是 Task 8 brief 原文的分工，本模块只需要保证两个字段都如实落盘）。
@@ -312,25 +313,42 @@ def _dir_for(label, repo) -> Path:
 
 
 def load_gates(path) -> dict | None:
-    """`gates.<channel>.json` 磁盘上的 key 是 JSON 字符串（int 键无法落
-    JSON——见 Task 6 `polish_check.gate()` 落盘前的显式转换），这里统一转
-    回 int 键，供本模块直接用 id（int）查。
+    """读 `gates.<channel>.json`，返回
+    `{"checked_ids": set[int], "findings": {int: {"hard": […], "warn": […]}}}`
+    （磁盘上 findings 的 key 是 JSON 字符串——int 键无法落 JSON，见
+    `polish_check.gate()` 落盘前的显式转换——这里统一转回 int 键）。
 
-    返回 `None`（不是 `{}`）表示"这个通道的 gates 文件根本不存在"——即
-    Task 6 `gate()` 从未针对这个通道跑过；这与"跑过、返回空字典（全绿）"
-    是两种不同的状态，`triage()` 据此做出的默认动作也不同：**没有 gates
-    证据 → 不允许该通道任何候选自动清关**（与 `channel_state.json` 缺失
-    时的保守缺省同一逻辑：没有证据就不给通过）。这个 helper 按 Task 6
-    评审遗留的 concern（磁盘 str key / 内存 int key 的落差）而设，放在本
-    模块而不是回去改 `polish_check.py`——那个文件已经过评审、进入 clean
-    状态，本模块是它目前唯一的消费方，没有必要为了一个纯读取侧的小转换
-    再触碰一个已完成任务的文件。
+    返回 `None`（不是空结构）表示"这个通道的 gates 文件根本不存在"——即
+    `polish_check.gate()` 从未针对这个通道跑过；这与"跑过、全绿"是两种
+    不同的状态，`triage()` 据此做出的默认动作也不同：**没有 gates 证据 →
+    不允许该通道任何候选自动清关**（与 `channel_state.json` 缺失时的保守
+    缺省同一逻辑：没有证据就不给通过）。
+
+    **`checked_ids` 是最终评审 C1 的修复承重点**：文件存在不等于"文件里
+    没提到的那个 id 被检查过"。陈旧 gates（跑过 gate 之后又入仓了新批次）
+    下，新 id 在 findings 里查无此人，初版据此判"干净"→ 直通自动清关。
+    现在改判"不在 checked_ids 里 → 没有证据 → 不 eligible"，把文件层已有
+    的保守缺省贯彻到 id 层。
+
+    **旧格式兼容（安全方向）**：读到没有 `checked_ids` 键的裸字典（本次
+    改版之前落盘的文件），`checked_ids` 取**空集**而不是"findings 的键集"
+    也不是"全部"——空集意味着该通道本轮一个 id 都不许自动清关，操作者会
+    在 triage 的 stderr 告警里看到"请重跑 polish_check"。反过来把它当成
+    "全部检查过"就等于把 C1 这个洞原样保留下来。
     """
     p = Path(path)
     if not p.exists():
         return None
     raw = json.loads(p.read_text(encoding="utf-8"))
-    return {int(k): v for k, v in raw.items()}
+    if "checked_ids" not in raw:
+        print(f"!! polish_triage: {p} 是**旧格式** gates 文件（无 checked_ids），"
+              "无法区分「查过且干净」与「从未查过」——本轮该通道一律不予自动清关。"
+              "请重跑 `polish_check.py --seg … --channel …` 后再 triage。",
+              file=sys.stderr)
+        return {"checked_ids": set(),
+                "findings": {int(k): v for k, v in raw.items()}}
+    return {"checked_ids": {int(i) for i in raw.get("checked_ids", [])},
+            "findings": {int(k): v for k, v in raw.get("findings", {}).items()}}
 
 
 def _load_channel_state(path) -> dict:
@@ -434,12 +452,23 @@ def triage(label, repo=None) -> dict:
                 rows.append(row)
                 continue
 
-            gate_entry = gates.get(cid) if gates is not None else None
-            gates_hard_empty = gates is not None and not (gate_entry or {}).get("hard")
+            # --- 机械闸证据（最终评审 C1/C2 修复后的三段判定）---
+            # ① 文件在不在（gate 跑过没有）；② 这个 id 在不在本次检查的覆盖面
+            #    里（陈旧 gates 的新候选＝没有证据）；③ 覆盖面内才谈 hard/warn。
+            gate_checked = gates is not None and cid in gates["checked_ids"]
+            gate_entry = (gates["findings"].get(cid) or {}) if gates is not None else {}
+            gates_hard_empty = gate_checked and not gate_entry.get("hard")
+            # W3（显示行宽超限）是唯一一条对应**真实游戏内故障**的 warn——中文
+            # 比日文占宽，溢出玩家一眼看得见。其余 warn（W1 断行数差/W2 术语提示/
+            # W4 复现句族，后者本层根本不跑）保持"不阻断"：它们要么是粗略提示、
+            # 要么另有专门环节（W4 见 polish_check.w4_full）。带 W3 的候选照常
+            # 进人裁队列，只是不能免检直通。
+            no_w3 = not any(v.get("rule") == "W3" for v in gate_entry.get("warn", []))
             row["_eligible"] = (
                 channel != "amplify"
                 and row["edit"] <= autoclear_limit(opus_zh)
                 and gates_hard_empty
+                and no_w3
                 and _channel_autoclear_power(channel, channel_state)
             )
             pool.setdefault(cid, []).append(row)

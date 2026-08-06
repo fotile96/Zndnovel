@@ -163,14 +163,35 @@ def _build_mini(tmp_path):
 
     def make_gate_hard(id, channel="chA"):
         p = d / f"gates.{channel}.json"
-        gates = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-        gates[str(id)] = {"hard": [{"id": id, "rule": "R9-test", "msg": "人为注入测试用 hard"}],
-                           "warn": []}
+        gates = (json.loads(p.read_text(encoding="utf-8")) if p.exists()
+                 else {"checked_ids": [], "findings": {}})
+        gates["findings"][str(id)] = {
+            "hard": [{"id": id, "rule": "R9-test", "msg": "人为注入测试用 hard"}],
+            "warn": []}
+        p.write_text(dumps(gates), encoding="utf-8")
+
+    def make_gate_warn(id, rule, channel="chA"):
+        """注入一条 warn（不带 hard）——用于验证"哪些 warn 阻断自动清关"。"""
+        p = d / f"gates.{channel}.json"
+        gates = (json.loads(p.read_text(encoding="utf-8")) if p.exists()
+                 else {"checked_ids": [], "findings": {}})
+        entry = gates["findings"].setdefault(str(id), {"hard": [], "warn": []})
+        entry["warn"].append({"id": id, "rule": rule, "msg": f"人为注入测试用 {rule}"})
+        p.write_text(dumps(gates), encoding="utf-8")
+
+    def drop_from_checked(id, channel="chA"):
+        """把某 id 从 gates 的 checked_ids 里摘掉，模拟"gate 跑过之后又入仓了
+        这个 id 的新候选、但没重跑 gate"的陈旧 gates 状态（最终评审 C1）。"""
+        p = d / f"gates.{channel}.json"
+        gates = json.loads(p.read_text(encoding="utf-8"))
+        gates["checked_ids"] = [i for i in gates["checked_ids"] if i != id]
         p.write_text(dumps(gates), encoding="utf-8")
 
     return SimpleNamespace(root=repo, d=d, label=LABEL,
                             enable_autoclear=enable_autoclear,
-                            make_gate_hard=make_gate_hard)
+                            make_gate_hard=make_gate_hard,
+                            make_gate_warn=make_gate_warn,
+                            drop_from_checked=drop_from_checked)
 
 
 @pytest.fixture
@@ -474,8 +495,14 @@ def _build_mini_overload(tmp_path, label, n_autoclear=50, n_real=20):
     real_ids = list(range(500, 500 + n_real))
     ids = autoclear_ids + real_ids
 
-    jp = {i: f"测试原文第{i}句テスト。" for i in ids}
-    opus = {i: f"这是第{i}句的现行译文内容示例。" for i in ids}
+    # jp 刻意写得比 zh 长：现实语料里日文（含假名）几乎总比中译占宽，
+    # `check_batch` 的 W3 判据（zh 显示宽 > jp 显示宽 ×1.15）因此在真实
+    # SEG-1 的 1996 行现行译文上只命中 5 行（0.3%）。初版夹具的 zh 反比
+    # jp 长，会让**每一条**小改候选都挂上 W3 warn——而 W3 现在参与自动
+    # 清关前置（最终评审 C2），那样整个夹具就一个 autoclear 候选都产不出，
+    # 测不到它本来要测的 K 帽不变量。这是夹具脱离现实，不是判据过严。
+    jp = {i: f"これは第{i}番目のテスト用サンプル原文であります。" for i in ids}
+    opus = {i: f"这是第{i}句的现行译文。" for i in ids}
     cand = {}
     for i in autoclear_ids:
         cand[i] = opus[i] + "呢"  # 小改：只插入 1 个字，edit=1，远低于 autoclear_limit 的下限 4
@@ -610,3 +637,85 @@ def test_cli_smoke(mini, capsys):
     assert "triage" in out
     assert (mini.d / "triage.json").exists()
     assert (mini.d / "queue.md").exists()
+
+
+# ---- 最终评审 C1：陈旧 gates（id 不在 checked_ids 里）＝没有证据，不许免检 ----
+
+def test_stale_gates_id_not_checked_blocks_autoclear(mini):
+    """gate 跑过之后又入仓了新候选、**没重跑 gate** → 该 id 不许自动清关。
+
+    评审实测的原始复现：b1 入仓后跑 gate，再入仓 b2（`【アヤノ】`→`【ユカリ】`
+    的真 hard 违规，edit=3 小改），不重跑 gate 就 triage —— 新 id 在旧
+    `gates.json` 里查无此人，初版据此判"干净"→ `autoclear=True`，
+    `polish_commit` dry-run 已把它列入写入计划；事后补跑 gate 才报 R2b hard。
+    `load_gates` 在**文件**层已经做到"没有证据就不放行"，id 层此前没有同等
+    待遇。这里用 `drop_from_checked` 精确重建那个状态。
+    """
+    mini.enable_autoclear("chA")
+    assert by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]  # 前提：本来能清关
+    mini.drop_from_checked(14)
+    assert not by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]
+
+
+def test_stale_gates_end_to_end_new_candidate_not_autocleared(mini):
+    """端到端版本（不手工改 gates 文件）：跑完 gate 之后再 append 一条**新
+    id** 的候选，不重跑 gate —— 那个 id 必须进人裁，不得自动清关。"""
+    # 夹具里 id 15 另有一条 amplify 候选，而 amplify 恒不 eligible，会通过
+    # "id 级 all-or-nothing" 把整个 id 15 拦下——那是另一条规则，会掩盖本
+    # 测试要验的东西。先把 amplify 通道整个撤掉，让 id 15 成为纯 chA 的 id。
+    (mini.d / "candidates.amplify.jsonl").unlink()
+    (mini.d / "gates.amplify.json").unlink()
+    mini.enable_autoclear("chA")
+    pcheck.gate(LABEL, "chA", repo=mini.root)          # 此刻 checked_ids 不含 15
+    append_jsonl(mini.d / "candidates.chA.jsonl", [{
+        "id": 15, "channel": "chA", "batch": 2, "prompt_hash": "hash-2",
+        "jp_hash": "x", "opus_hash": "x", "zh": "千秋抬起头看向黑板上的时钟。",
+        "score": 95, "note": "", "adjudicate": False,
+        "jp_tail": jp_tail(JP[15]), "ts": "t-late",
+    }])
+    assert not by_id(pt.triage(LABEL, repo=mini.root), 15, ch="chA")["autoclear"]
+    # 补跑 gate（把它纳入 checked_ids）之后才恢复资格——证明拦的是"没查过"，
+    # 不是把这个 id 永久打死。
+    pcheck.gate(LABEL, "chA", repo=mini.root)
+    assert by_id(pt.triage(LABEL, repo=mini.root), 15, ch="chA")["autoclear"]
+
+
+def test_legacy_gates_format_blocks_autoclear_and_warns(mini, capsys):
+    """旧格式（无 `checked_ids` 的裸字典）→ 一律不许自动清关 + stderr 播报。
+
+    把旧文件当成"全部检查过"就等于把 C1 这个洞原样保留；当成"空集"则最坏
+    情况只是多排一轮人裁，且操作者会被告知去重跑 gate。"""
+    mini.enable_autoclear("chA")
+    p = mini.d / "gates.chA.json"
+    new = json.loads(p.read_text(encoding="utf-8"))
+    p.write_text(dumps(new["findings"]), encoding="utf-8")   # 退回旧格式
+    t = pt.triage(LABEL, repo=mini.root)
+    assert not by_id(t, 14)["autoclear"]
+    err = capsys.readouterr().err
+    assert "旧格式" in err and "polish_check" in err
+
+
+# ---- 最终评审 C2 后半：W3 行宽 warn 参与自动清关前置 ----
+
+def test_w3_warn_blocks_autoclear(mini):
+    """W3（显示行宽超限）是唯一一条对应**真实游戏内故障**的 warn——中文比
+    日文占宽，溢出玩家一眼看得见。它此前在整条 P4 流水线上零消费者（连同
+    `gates.json` 里其余 warn），于是"会溢出的小改"照样免检入库。"""
+    mini.enable_autoclear("chA")
+    assert by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]
+    mini.make_gate_warn(14, "W3")
+    assert not by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]
+
+
+@pytest.mark.parametrize("rule", ["W1", "W2", "W4"])
+def test_other_warns_do_not_block_autoclear(mini, rule):
+    """W1/W2/W4 保持不阻断——判据过宽会用伪报淹没真信号。
+
+    W1 是 jp↔zh 断行数差的粗略提示（真正的控制码保全由 P4-CTL 硬规则接管）、
+    W2 是术语提示、W4 在候选级根本不跑（挪到 `polish_check.w4_full` 的清关后
+    全段复检）。把它们一并当成阻断条件会让自动清关这条通道形同虚设，而它们
+    各自都有更合适的归口。这条参数化测试就是那个取舍的落盘证据。
+    """
+    mini.enable_autoclear("chA")
+    mini.make_gate_warn(14, rule)
+    assert by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]

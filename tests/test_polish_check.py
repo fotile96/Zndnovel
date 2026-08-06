@@ -126,12 +126,18 @@ def mini(tmp_path):
 
 # ---- brief Step 1 核心断言 ----
 
-def test_all_green_candidates_empty_gates(mini):
-    """全绿候选 → 空字典，且落盘的 gates.json 也是空对象。"""
+def test_all_green_candidates_empty_findings_but_checked_ids_recorded(mini):
+    """全绿候选 → `findings` 空，但 `checked_ids` 必须如实列出被检查过的 id。
+
+    「findings 为空」与「checked_ids 为空」是两件完全不同的事：前者是"查过、
+    干净"，后者是"没查过"。初版落盘只有前者那一层，下游无从区分，造成陈旧
+    gates ＝ 恒绿闸（最终评审 C1）。这条断言把两者同时钉住。
+    """
     gates = pcheck.gate(mini.label, mini.channel, repo=mini.root)
-    assert gates == {}
+    assert gates["findings"] == {}
+    assert gates["checked_ids"] == sorted(NON_LOCKED)
     on_disk = json.loads((mini.d / f"gates.{mini.channel}.json").read_text(encoding="utf-8"))
-    assert on_disk == {}
+    assert on_disk == {"checked_ids": sorted(NON_LOCKED), "findings": {}}
 
 
 def test_missing_speaker_prefix_is_hard(tmp_path):
@@ -145,10 +151,11 @@ def test_missing_speaker_prefix_is_hard(tmp_path):
     """
     m = _build_mini(tmp_path, zh_overrides={12: "今天天气真好啊"})  # 丢了【彩野】
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
-    assert 12 in gates
-    rules = {v["rule"] for v in gates[12]["hard"]}
+    findings = gates["findings"]
+    assert 12 in findings
+    rules = {v["rule"] for v in findings[12]["hard"]}
     assert "R2b" in rules
-    all_rules = {v["rule"] for g in gates.values() for v in g["hard"] + g["warn"]}
+    all_rules = {v["rule"] for g in findings.values() for v in g["hard"] + g["warn"]}
     assert "R1" not in all_rules
 
 
@@ -157,9 +164,10 @@ def test_line_width_overflow_is_warn(tmp_path):
     long_zh = "○_n那里有≪你≫。" + "长" * 40 + "_r毫无疑问。"
     m = _build_mini(tmp_path, zh_overrides={11: long_zh})
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
-    assert 11 in gates
-    assert gates[11]["hard"] == []
-    rules = {v["rule"] for v in gates[11]["warn"]}
+    findings = gates["findings"]
+    assert 11 in findings
+    assert findings[11]["hard"] == []
+    rules = {v["rule"] for v in findings[11]["warn"]}
     assert "W3" in rules
 
 
@@ -169,16 +177,18 @@ def test_gates_json_matches_return_value(tmp_path):
     m = _build_mini(tmp_path, zh_overrides={12: "今天天气真好啊"})
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
     on_disk = json.loads((m.d / f"gates.{m.channel}.json").read_text(encoding="utf-8"))
-    # JSON 对象键只能是字符串；返回值里是 int 键，落盘后是 str 键，内容一致。
-    assert on_disk == {str(k): v for k, v in gates.items()}
-    assert set(on_disk.keys()) == {"12"}
+    # JSON 对象键只能是字符串；返回值 findings 里是 int 键，落盘后是 str 键。
+    assert on_disk["findings"] == {str(k): v for k, v in gates["findings"].items()}
+    assert set(on_disk["findings"].keys()) == {"12"}
+    # checked_ids 覆盖全部三个非锁定 id——包括两个全绿的（它们不在 findings 里）。
+    assert on_disk["checked_ids"] == sorted(NON_LOCKED)
 
 
 def test_no_candidates_file_returns_empty(mini):
     """该通道从未入仓过任何东西：channel 不存在 candidates 文件 → 视为零
     候选，不报错，照常落盘一份空 gates 文件。"""
     gates = pcheck.gate(mini.label, "never-ingested-channel", repo=mini.root)
-    assert gates == {}
+    assert gates == {"checked_ids": [], "findings": {}}
     assert (mini.d / "gates.never-ingested-channel.json").exists()
 
 
@@ -189,7 +199,7 @@ def test_multiple_candidates_same_id_last_wins(mini):
     id 的新一行——gate() 必须按"最后一条"判定，不是第一条、也不是合并两条。"""
     # 先确认初始（干净）状态下 12 不在问题字典里。
     gates0 = pcheck.gate(mini.label, mini.channel, repo=mini.root)
-    assert 12 not in gates0
+    assert 12 not in gates0["findings"]
 
     # 追加一条 id=12 的新候选，内容带 R2b 违规（丢说话人）。
     append_jsonl(mini.d / f"candidates.{mini.channel}.jsonl", [{
@@ -199,8 +209,8 @@ def test_multiple_candidates_same_id_last_wins(mini):
         "jp_tail": jp_tail(JP[12]), "ts": "t2",
     }])
     gates1 = pcheck.gate(mini.label, mini.channel, repo=mini.root)
-    assert 12 in gates1
-    assert "R2b" in {v["rule"] for v in gates1[12]["hard"]}
+    assert 12 in gates1["findings"]
+    assert "R2b" in {v["rule"] for v in gates1["findings"][12]["hard"]}
 
     # 再追加一条把 12 改回干净内容——gate() 应重新判定为绿（不是"曾经红过
     # 就一直红"）。
@@ -211,7 +221,7 @@ def test_multiple_candidates_same_id_last_wins(mini):
         "jp_tail": jp_tail(JP[12]), "ts": "t3",
     }])
     gates2 = pcheck.gate(mini.label, mini.channel, repo=mini.root)
-    assert 12 not in gates2
+    assert 12 not in gates2["findings"]
 
 
 # ---- 候选里混入不属于这个 SEG 的 id（防御性） ----
@@ -223,7 +233,8 @@ def test_stray_candidate_id_skipped_not_crashed(mini, capsys):
         "score": 10, "note": "", "adjudicate": False, "jp_tail": "?", "ts": "t",
     }])
     gates = pcheck.gate(mini.label, mini.channel, repo=mini.root)
-    assert 999999 not in gates
+    assert 999999 not in gates["findings"]
+    assert 999999 not in gates["checked_ids"]
     err = capsys.readouterr().err
     assert "999999" in err
 
@@ -240,8 +251,8 @@ def test_speakers_read_from_frozen_copy(tmp_path):
                      zh_overrides={12: "【绫乃】「今天天气真好啊」"})
     assert (m.d / "frozen" / "glossary" / "speakers.json").exists()
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
-    assert 12 in gates
-    msgs = [v["msg"] for v in gates[12]["hard"] if v["rule"] == "R2b"]
+    assert 12 in gates["findings"]
+    msgs = [v["msg"] for v in gates["findings"][12]["hard"] if v["rule"] == "R2b"]
     assert any("彩野" in msg for msg in msgs)
 
 
@@ -268,7 +279,7 @@ def test_speakers_frozen_only_no_fallback_to_repo_root(tmp_path):
     assert (m.root / "glossary" / "speakers.json").exists()
 
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
-    rules12 = {v["rule"] for v in gates.get(12, {"hard": []})["hard"]}
+    rules12 = {v["rule"] for v in gates["findings"].get(12, {"hard": []})["hard"]}
     assert "R2b" not in rules12
 
 
@@ -289,3 +300,157 @@ def test_cli_reports_hard_count(tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "hard 1" in out
+
+
+# ---- P4-CTL：控制码计数保全（vs opus 现行译文）——最终评审 C2 ----
+
+def test_ctl_drop_n_is_hard(tmp_path):
+    """删掉一个 `_n` 必须是 hard。
+
+    这是最终评审 C2 实测复现的形态："纯控制码删除"是**最像安全小改**的东西
+    ——`polish_triage._content_edit()` 先 `strip_ctl()` 再算距离，删光 `_n`
+    得到 edit=0，比任何真实润色都"安全"；`check_batch` 那边 `_n/_r` 只有
+    W1 一条软规则、阈值还是「差 ≥2」，删一个连 warn 都不响。于是候选一路
+    直通自动清关。`_n` 决定消息窗断行，丢了就是游戏内溢出。
+    """
+    m = _build_mini(tmp_path, zh_overrides={11: "○那里有≪你≫。_r毫无疑问。"})
+    findings = pcheck.gate(m.label, m.channel, repo=m.root)["findings"]
+    assert 11 in findings
+    rules = {v["rule"] for v in findings[11]["hard"]}
+    assert "P4-CTL" in rules, "删掉 _n 必须落在 hard 里——warn 在 P4 流水线上零消费者"
+    msgs = [v["msg"] for v in findings[11]["hard"] if v["rule"] == "P4-CTL"]
+    assert any("_n" in msg for msg in msgs)
+
+
+def test_ctl_swap_n_for_r_is_hard(tmp_path):
+    """`_n`→`_r` 对换：总数不变、单项计数变——分开数才抓得住。
+
+    这条专门钉死"两个计数器分开数，不合并成总数"这个选择：合并成总数的
+    实现在这个输入下**恒绿**（1+1 == 1+1），而 `_n`/`_r` 是引擎里两种不同
+    的断行语义，对换是实打实的控制码篡改（prompt 任务说明第 4 条明令禁止）。
+    """
+    m = _build_mini(tmp_path, zh_overrides={11: "○_r那里有≪你≫。_r毫无疑问。"})
+    findings = pcheck.gate(m.label, m.channel, repo=m.root)["findings"]
+    hard = [v for v in findings.get(11, {"hard": []})["hard"] if v["rule"] == "P4-CTL"]
+    assert hard, "`_n`→`_r` 对换必须被抓住（合并成总数的实现在这里会恒绿）"
+    assert {"_n", "_r"} <= {tok for v in hard for tok in ("_n", "_r") if tok in v["msg"]}
+
+
+def test_ctl_position_move_is_allowed(tmp_path):
+    """只挪位置、计数不变 → 不报（判据故意只卡计数，见模块 docstring）。
+
+    润色改了中文字数之后前后挪一两个字的断行点是正当排版动作；卡位置会让
+    几乎每条真实润色都变红，一周内这条闸就会被当噪音无视——那是"恒绿闸的
+    镜像形态"（伪报淹没真信号）。位置挪动的真实风险是某行变得过长，那是
+    W3 的管辖面，且 W3 已被列入自动清关前置。
+    """
+    m = _build_mini(tmp_path, zh_overrides={11: "○那里有≪你≫。_n毫无疑问，_r真的。"})
+    findings = pcheck.gate(m.label, m.channel, repo=m.root)["findings"]
+    rules = {v["rule"] for v in findings.get(11, {"hard": []})["hard"]}
+    assert "P4-CTL" not in rules
+
+
+def test_ruby_drop_is_hard(tmp_path):
+    """整个 ruby 注音被删 → hard。R2a 只管"写出来的 ruby 良不良构"，
+    **整组被删掉它一声不吭**——这是与 `_n/_r` 完全同型的静默丢失。"""
+    m = _build_mini(tmp_path, zh_overrides={10: "【彩野】「嗯，是顺行性遗忘哦」"})
+    findings = pcheck.gate(m.label, m.channel, repo=m.root)["findings"]
+    hard = [v for v in findings.get(10, {"hard": []})["hard"] if v["rule"] == "P4-CTL"]
+    assert hard and "ruby" in hard[0]["msg"]
+
+
+def test_ctl_unchanged_candidates_stay_green(tmp_path):
+    """反向锁：夹具默认候选（逐字等于 opus）一条 P4-CTL 都不该有——判据
+    不能宽到把"什么都没改"也报出来。"""
+    m = _build_mini(tmp_path)
+    findings = pcheck.gate(m.label, m.channel, repo=m.root)["findings"]
+    assert not [v for g in findings.values() for v in g["hard"] if v["rule"] == "P4-CTL"]
+
+
+def test_ctl_violations_unit():
+    """`ctl_violations()` 的直接单测：三项各自独立报、报文带 opus/候选计数。"""
+    v = pcheck.ctl_violations(1, "甲_n乙", "甲_n乙_n丙")
+    assert len(v) == 1 and v[0]["rule"] == "P4-CTL" and "opus 2 个，候选 1 个" in v[0]["msg"]
+    assert pcheck.ctl_violations(1, "甲_n乙", "甲_n乙") == []
+    # 非字符串 zh（ingest 已判死，这里是兜底）：opus 里的控制码全部报出来。
+    assert len(pcheck.ctl_violations(1, None, "甲_n乙_r<漢,かん>")) == 3
+
+
+# ---- 清关后全段 W4 复检（最终评审 C3）----
+
+def _build_lane(tmp_path, ledger, current):
+    """造一个最小的生产车道（`<lane>/data/{ledger,forward}.jsonl`）——
+    `check_batch.load_siblings()` 与 `w4_full()` 都按这个布局读。"""
+    lane = tmp_path / "lane"
+    (lane / "data").mkdir(parents=True)
+    write_jsonl(lane / "data" / "ledger.jsonl", [
+        {"id": i, "jp": jp, "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"}
+        for i, jp in ledger.items()])
+    write_jsonl(lane / "data" / "forward.jsonl", [
+        {"id": i, "zh": zh, "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i, zh in current.items()])
+    return lane
+
+
+def test_w4_full_reports_sibling_divergence(mini, tmp_path):
+    """润色只改了复现句族里的一条 → 全段 W4 复检必须报出来。
+
+    spec §8 点名这是"真实风险"，而候选级机械闸恒传 `siblings=None`（W4 在
+    那一层完全不跑），runbook 原来指向的 `check_batch.py --batch N` 在 P4
+    语境下根本跑不起来（读 P3 的 `work/ctx/batch_N/`，早已不存在；即便重建
+    读的也是 P3 首译稿而非清关后现行译文）——最终评审 C3：W4 在 P4 全程从
+    未跑过。
+    """
+    # id 10 与库外的 id 900 是同一 jp 的复现句族；10 被润色改过，900 没改。
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    assert "900" in findings[0]["msg"]
+    on_disk = json.loads((mini.d / "w4_full.json").read_text(encoding="utf-8"))
+    assert on_disk["findings"] == findings
+
+
+def test_w4_full_green_when_family_consistent(mini, tmp_path):
+    lane = _build_lane(
+        tmp_path,
+        ledger={i: JP[i] for i in (10, 11, 12, 13)} | {900: JP[10]},
+        current={i: DEFAULT_ZH[i] for i in (10, 11, 12, 13)} | {900: DEFAULT_ZH[10]})
+    assert pcheck.w4_full(mini.label, lane, repo=mini.root) == []
+
+
+def test_w4_full_refuses_to_fake_green_without_index(mini, tmp_path):
+    """车道 data 建不出兄弟索引时**抛异常**，绝不返回空清单冒充绿——
+    "闸没跑"必须与"闸跑了没报"可区分（`check_batch.main()` 同一条告诫）。"""
+    empty_lane = tmp_path / "empty_lane"
+    (empty_lane / "data").mkdir(parents=True)
+    with pytest.raises(pcheck.W4NotAvailable):
+        pcheck.w4_full(mini.label, empty_lane, repo=mini.root)
+
+
+def test_cli_w4_full(mini, tmp_path, capsys):
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    rc = pcheck.main(["--seg", mini.label, "--w4-full", "--lane-dir", str(lane),
+                      "--repo", str(mini.root)])
+    assert rc == 0
+    cap = capsys.readouterr()
+    assert "1 处" in cap.out
+    assert "id 10" in cap.err
+
+
+def test_cli_w4_full_unavailable_is_rc2(mini, tmp_path, capsys):
+    """索引建不起来 → rc=2（"没能检查"与"检查通过"在退出码上就可区分）。"""
+    empty_lane = tmp_path / "empty_lane"
+    (empty_lane / "data").mkdir(parents=True)
+    rc = pcheck.main(["--seg", mini.label, "--w4-full", "--lane-dir", str(empty_lane),
+                      "--repo", str(mini.root)])
+    assert rc == 2
+    assert "未能执行" in capsys.readouterr().err

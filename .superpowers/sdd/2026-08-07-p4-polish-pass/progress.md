@@ -225,3 +225,17 @@ Task 11: fix round 1/5 —
   B（Minor，一并修）：`polishlib.is_ignored_extra` 的 `IGNORE_DIR_NAMES & set(p.parts)`
     不区分该段是不是文件自身 basename——评审实测 `frozen/__pycache__`（普通文件）被错误忽略。
     这道闸的全部意义就是「不能宽到藏住真文件」，缝隙不留。
+Task 11: fix round 1/5 (A+B addressed; commits b51426a..9a01a76) — 702 passed
+Task 11: fix round 2/5 (C addressed; commits 9a01a76..8f3115b) — 706 passed
+  C 由实施者自查 grep 发现：`polish_amplify.scan_prompt()` 与 A 同根因（复用
+  `build_context._render_anchors` 带进自带编号的「## 三、锚点行」）。处置：**不动
+  `build_context.py`（P3 钉死面，canary 复验成本不值得为纯排版问题付）**，改为抽出共享
+  helper `polishlib.demote_anchors_heading()` 供两处共用。
+  复审独立实测：渲染真实 SEG-1 session 1（4883 行 / 709,984 字节）全文 grep——零个带编号
+  顶层标题、零个指向旧编号的交叉引用；amplify 同样干净。B 的六种边角全部符合预期
+  （`frozen/__pycache__` 普通文件不再被忽略，`notes/.DS_Store.md`/`sneaky.md` 照报）。
+  三个变异各自真红。`git diff -- tools/build_context.py` 为空（钉死面未动）。
+  **四个 session 的 prompt_hash 独立用 shasum 重算，与 plan.json 逐个吻合**（无过期哈希）。
+Task 11: complete (commits 58b0656..8f3115b, review clean)
+
+## 全部 11 个任务完成。706 passed（起点 567，净增 139 条测试）。

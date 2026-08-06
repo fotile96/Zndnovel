@@ -1,0 +1,12 @@
+# P4 润色 pass 阈值（spec §9：集中一处；调整记台账；不以自动入库率为优化目标）
+K: 150                 # 每 SEG 请裁配额（总额，多通道共享，含抽检占用）
+sample_rate: 0.10      # 自动清关随机抽检率
+overturn_freeze: 0.20  # 抽检推翻率 ≥ 此值 → 冻结该通道本 SEG 自动清关权
+calib_fail: 0.30       # 准入小考：金标句实质改写占比 ≥ 此值 → 自动清关权初始关闭
+autoclear_abs: 4       # 自动清关幅度 = max(autoclear_abs, len(opus)×autoclear_ratio)
+autoclear_ratio: 0.15
+minor_edit: 4          # 校准三档：edit≤minor_edit 为轻微，>autoclear_limit 为实质
+amplify_rounds: 1
+session_size: 10       # 长对话双帽（沿 P3）
+session_lines: 600
+jp_tail_n: 8           # 回执尾串长度

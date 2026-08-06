@@ -222,3 +222,187 @@ mutation 改成读活仓库后 `ZZZFROZENMARK` 从 prompt 里消失，测试如�
   会话开始时的未暂存改动，未被本任务触碰、未被 add。
 - 未对真实 SEG-1（`seg5-s6-s7f` 及其他任何段）运行 `plan()`/`render()`/
   CLI；全部测试固定用 `tmp_path` 造的 `segX` 替身仓库。
+
+---
+
+# 修复轮 1/N：评审 Important×2（均为真实语料实测发现）
+
+状态：**DONE**
+
+评审用真实 `polish_setup.setup()` 管线与真实 `data/ledger.jsonl`/
+`pilot/lanes/opus/data/forward.jsonl` 抽样实测出两条问题，均非推测。逐一修复。
+
+## Finding 1：`frozen/rulings.md` 完全没进 prompt
+
+**问题**：`render()` 只读了 source/opus/locked/glossary/notes，从未 open
+`fz / "rulings.md"`。spec §6 明写拼接器要读 jp/opus/notes/**rulings**；
+spec §7.4：从 SEG-2 起 `polish_amplify.digest()` 会把裁决意图纪要前馈写进
+下一段的 `rulings.md`——没有读取通路等于这些纪要被永久静默丢弃，且没有
+任何机械信号会响（恒绿闸：闸不存在，永远不会触发）。
+
+**修法**：`render()` 新增读取
+
+```python
+rulings_path = fz / "rulings.md"
+rulings_text = rulings_path.read_text(encoding="utf-8").strip() if rulings_path.exists() else ""
+```
+
+仿 `notes` 的"目录为空则跳过"处理，改为"内容整体为空白则跳过"（`rulings.md`
+在 `polish_setup.setup()` 阶段总会写入占位标题行，因此正常情况下**总是非空**
+并总会出现在 prompt 里——这是设计内行为：SEG-1 阶段占位内容本身也值得让
+执行模型看到"目前无前序裁决"，而不是完全消失不见）：
+
+```python
+if rulings_text:
+    out.append("\n## 五、裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
+                "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
+    out.append(rulings_text)
+```
+
+插入位置在「四、章节纪要」之后、「逐批正文」之前，原「五、逐批正文」「六、
+输出契约」相应改号为「六」「七」（`tools/polish_context.py` 全文的编号
+现为：一 任务说明 / 二 锁定 id / 三 术语风格口调锚点 / 四 章节纪要 /
+五 裁决与前序纪要 / 六 逐批正文 / 七 输出契约）。
+
+## Finding 2：正文行 `【jp】/【opus zh】` 包裹与游戏原生 `【名字】` 控制码嵌套
+
+**问题**：评审用真实数据抽样 id=27 核实（`data/ledger.jsonl`：
+`jp = "【アヤノ】「教室に来たよ」"`；`pilot/lanes/opus/data/forward.jsonl`
+经 resolve 后 `zh = "【アヤノ】「到教室了哦」"`）——旧格式渲染出
+`[b1] 27: 【【アヤノ】「教室に来たよ」】 / 【【アヤノ】「到教室了哦」】`，
+双层方括号，而任务说明第 4 条又明令模型"【…】一律不得增删或挪位"，模型
+无法判断外层是排版噪声还是控制码本身。全库绝大多数对白行都带
+`【名字】` 前缀，这不是边角案例。
+
+**修法**：正文行改用不与本库任何正文标记（`【】`『』`「」`≪≫`≦≧`○`■`）
+冲突的纯 ASCII 标签：
+
+```python
+out.append(f"[b{b}] {i}: JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
+```
+
+顺带核查并修掉了同类风险点——「二、锁定 id 清单」一节原先用
+`「{jp}」→「{opus}」` 包裹现行译文（`「」` 同样是本库对白引号的一部分，
+与 jp 内容里已有的 `「」` 会产生同款嵌套），已同步改为同一套 ASCII 标签：
+
+```python
+out.append(f"- 【锁】{i}（{why.get(str(i), '?')}）："
+            f"JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
+```
+
+（`【锁】` 本身是前置状态标记，不包裹粘贴的原文内容，保留。）
+
+全文逐行核对：`tools/polish_context.py` 里除 `TASK_INSTRUCTIONS` 静态说明
+文字（引用/解释控制码本身，不包裹动态拼入的语料）与 `【锁】` 前置标记外，
+不再有任何位置用 `【】`/`「」`/`『』`/`≪≫`/`≦≧` 包裹动态拼入的 jp/zh 内容：
+
+```
+$ grep -n '「\|」\|【\|】\|『\|』\|≪\|≫\|≦\|≧' tools/polish_context.py
+91: ……下面每一行的「opus zh」都已经是可用译文……          ← 静态说明文字
+99: ……下面「二、锁定 id 清单」里带【锁】标记的 id……      ← 静态说明文字（提及节名/标记名，非包裹语料）
+109:    ≪…≫、≦…≧、【…】、行首 ○/■，一律不得增删或挪位。  ← 静态说明文字（列举控制码集合本身）
+110-111: （【アヤノ】=故事内角色 / 【彩野】=现实人物……）  ← 静态说明文字（举例说明区分规则）
+201: ## 二、锁定 id 清单（【锁】标记；……）                ← 节标题里的固定标记词
+205: f"- 【锁】{i}（...）："                                ← 前置状态标记，不包裹粘贴内容
+```
+
+## 真实语料自查（用户/评审要求：改完须用真实语料抽样自查一遍）
+
+用 `data/ledger.jsonl` 与 `pilot/lanes/opus/data/forward.jsonl`（经
+`resolve_map` 消化 patches）里 id=27 的**真实字面内容**（只读取值，未对
+真实仓库跑任何 `polish_setup`/`polish_context` 命令、未在真实
+`pilot/polish/` 下产生任何文件），塞进一个隔离的 `tmp_path` 替身仓库
+自查渲染结果：
+
+```
+$ uv run python3 -c "
+import json
+print(json.loads([l for l in open('data/ledger.jsonl') if '\"id\": 27,' in l][0]))"
+{'id': 27, 'jp': '【アヤノ】「教室に来たよ」', 'voice': 'AYA00180', ...}
+
+$ uv run python3 -c "
+import sys; sys.path.insert(0,'.')
+from tools.pipelib import read_jsonl
+from tools.resolve import resolve_map
+fwd = read_jsonl('pilot/lanes/opus/data/forward.jsonl')
+pat = read_jsonl('pilot/lanes/opus/data/patches.jsonl')
+print(resolve_map(fwd, pat)[27])"
+【アヤノ】「到教室了哦」
+```
+
+把这两个真实字符串塞进隔离 tmp 仓库、渲染并抽出正文行：
+
+```
+正文行： [b1] 1: JP: 【アヤノ】「教室に来たよ」 / ZH(opus): 【アヤノ】「到教室了哦」
+嵌套自查：通过（无 【【 / 】】 / 「「 / 」」）
+```
+
+控制码 `【アヤノ】「教室に来たよ」` 原样完整出现、无额外包裹，`JP:`/`ZH(opus):`
+标签与其零交集——与 `tests/test_polish_context.py::test_render_body_line_has_no_bracket_nesting_with_speaker_prefix`
+的固定用例断言一致（该测试用的是同一句真实语料，写死进夹具，不依赖临时脚本）。
+
+## 新增测试（4 条）
+
+1. `test_rulings_content_appears_in_prompt`：改写 `frozen/rulings.md` 为
+   模拟"跨段前馈裁决纪要"文本，断言其内容出现在渲染出的 prompt 里。
+2. `test_rulings_section_skipped_when_placeholder_stripped_empty`：
+   `rulings.md` 整体为空白时不应产出空标题节（回归防呆，非评审直接要求，
+   顺手补上）。
+3. `test_render_body_line_has_no_bracket_nesting_with_speaker_prefix`：
+   `mini_seg_speaker` 夹具用真实形态 `【アヤノ】「教室に来たよ」` /
+   `【彩野】「到教室了哦」`（评审 id=27 抽样的复现形态），断言渲染结果
+   不出现 `【【`/`】】`/`「「`/`」」` 嵌套，且改用 `JP:`/`ZH(opus):` 标签。
+4. （配套新增）`_build_mini_seg` 加 `jp_override` 参数（原先只有
+   `zh_override`），用于构造带真实说话人前缀的原文样本。
+
+## 变异自检（两个，逐一记录命令 + 红/绿实况）
+
+均只用 Edit 改动 `tools/polish_context.py` 源码，改后立即用 Edit 逐字还原
+（未用 `git checkout`/`restore`/`stash`）。
+
+### 变异 Finding1：注释掉 rulings 读取/拼接（模拟评审发现的原始缺陷）
+
+```
+$ uv run pytest -q tests/test_polish_context.py::test_rulings_content_appears_in_prompt tests/test_polish_context.py::test_rulings_section_skipped_when_placeholder_stripped_empty
+F.
+assert '【裁决】b1#7' in '# segX 会话 1/1……'
+```
+**RED**——`test_rulings_content_appears_in_prompt` 抓住（改写进 frozen 的
+裁决纪要文本从 prompt 里消失）；`test_rulings_section_skipped_when_placeholder_stripped_empty`
+仍绿（该用例本就断言"不出现"，丢掉整个读取通路后自然仍不出现，属于同一
+缺陷的另一面，不构成假阴性）。已用 Edit 还原为读取+条件拼接 rulings 一节。
+
+### 变异 Finding2：正文行改回 `【jp】/【opus】` 包裹
+
+```
+$ uv run pytest -q tests/test_polish_context.py::test_render_body_line_has_no_bracket_nesting_with_speaker_prefix
+F
+assert '【【' not in p
+E   '【【' is contained here:
+E     [b1] 1: 【【アヤノ】「教室に来たよ」】 / 【【彩野】「到教室了哦」】
+```
+**RED**——精确复现了评审报告里的嵌套形态（`【【…】】`）。已用 Edit 还原为
+`JP: {jp} / ZH(opus): {opus}`。
+
+**判断**：两处变异都真正命中对应测试，不是"测试无牙"也不是"变异没打中"。
+还原后重跑全量确认现场干净。
+
+## 跑测
+
+```
+$ uv run pytest tests/test_polish_context.py -q
+17 passed in 0.27s
+
+$ uv run pytest -q   （全量）
+602 passed in 3.09s   （修复轮前 599 + 本轮新增 3 条（第 4 条是夹具参数扩展，
+                        不是独立测试用例）= 602，吻合）
+```
+
+## 安全核对（本轮）
+
+- `git status`：仅 `tools/polish_context.py`、`tests/test_polish_context.py`
+  显示为修改；`.claude/settings.json`、`data/api_ledger.jsonl` 未被本轮触碰。
+- `ls pilot/polish` 在真实仓库下仍报 `No such file or directory`——真实
+  语料自查全程只读取 `data/ledger.jsonl`/`pilot/lanes/opus/data/forward.jsonl`
+  的字面值，塞进隔离的 `tmp_path` 替身仓库渲染，未对真实 SEG 跑任何
+  `polish_setup`/`polish_context` 命令。

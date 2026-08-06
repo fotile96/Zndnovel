@@ -190,6 +190,9 @@ def render(label, session_no, repo=None) -> str:
             f"\n### 纪要：{p.stem}\n{p.read_text(encoding='utf-8')}\n"
             for p in sorted(notes_dir.glob("*.md")))
 
+    rulings_path = fz / "rulings.md"
+    rulings_text = rulings_path.read_text(encoding="utf-8").strip() if rulings_path.exists() else ""
+
     out = [f"# {label} 会话 {session_no}/{len(sessions)}"
            f"（批次 {batches[0]}–{batches[-1]}，共 {sess['lines']} 行）",
            TASK_INSTRUCTIONS]
@@ -200,7 +203,7 @@ def render(label, session_no, repo=None) -> str:
     if session_locked:
         for i in session_locked:
             out.append(f"- 【锁】{i}（{why.get(str(i), '?')}）："
-                        f"「{id2jp.get(i, '')}」→「{opus.get(i, '')}」")
+                        f"JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
     else:
         out.append("（本会话无锁定 id）")
 
@@ -218,7 +221,12 @@ def render(label, session_no, repo=None) -> str:
         out.append("\n## 四、章节纪要（背景参考）")
         out.append(notes_text)
 
-    out.append("\n## 五、逐批正文（仅列非锁定 id；zh 为现行 opus 译文，即润色起点）")
+    if rulings_text:
+        out.append("\n## 五、裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
+                    "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
+        out.append(rulings_text)
+
+    out.append("\n## 六、逐批正文（仅列非锁定 id；ZH(opus) 为现行 opus 译文，即润色起点）")
     for b in batches:
         ids = ids_by_batch.get(b, [])
         body_ids = [i for i in ids if i not in locked_ids]
@@ -227,9 +235,9 @@ def render(label, session_no, repo=None) -> str:
             out.append("（本批全部为锁定 id，无需产出正文——对应 raw/*.out 应为空文件）")
             continue
         for i in body_ids:
-            out.append(f"[b{b}] {i}: 【{id2jp.get(i, '')}】 / 【{opus.get(i, '')}】")
+            out.append(f"[b{b}] {i}: JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
 
-    out.append("\n## 六、输出契约")
+    out.append("\n## 七、输出契约")
     out.append(OUTPUT_CONTRACT_HEADER)
     for b in batches:
         out.append(f"- `raw/<channel>/b{b}.out`")

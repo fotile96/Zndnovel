@@ -18,13 +18,17 @@ from tools import polish_setup as ps
 from tools.pipelib import read_jsonl, write_jsonl
 
 
-def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(), zh_override=None):
+def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
+                     zh_override=None, jp_override=None):
     """batch_sizes: [(batch_no, n_ids), ...]，按顺序生成 id（从 1 递增）。
     locked_ids: 应该落进 anchors.yaml（=锁定）的 id 集合。
     zh_override: {id: zh} 强制覆盖该 id 的 opus 译文字面内容（用于断言
     "opus 译文确实被嵌进正文"这条——不能靠自动生成的占位字符串验证）。
+    jp_override: {id: jp} 强制覆盖该 id 的原文字面内容（用于构造带真实
+    `【名字】「台词」` 说话人前缀形态的样本，核实 render 不产生括号嵌套）。
     """
     zh_override = zh_override or {}
+    jp_override = jp_override or {}
     repo = tmp_path / "repo"
     (repo / "config").mkdir(parents=True)
     (repo / "data").mkdir(parents=True)
@@ -46,14 +50,15 @@ def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(), zh_overr
         batch_rows.append({"batch": bno, "lane": "main", "ids": ids, "seqs": [bno],
                             "jp_chars": n, "chapter": "s2s", "cut_reason": "budget"})
         for i in ids:
-            ledger_rows.append({"id": i, "jp": f"第{i}句テキスト", "voice": "NONVOICE",
+            jp = jp_override.get(i, f"第{i}句テキスト")
+            ledger_rows.append({"id": i, "jp": jp, "voice": "NONVOICE",
                                  "file": "snr_s2_10_s", "func": "f", "literal": False,
                                  "line": i, "chapter": "s2s", "kind": "story"})
             zh = zh_override.get(i, f"第{i}句译文")
             forward_rows.append({"id": i, "zh": zh, "batch": bno, "backend": "cc",
                                   "model": "m", "ctx": "x", "glossary_v": 1, "ts": "t"})
             if i in locked_ids:
-                anchor_items.append({"id": i, "jp": f"第{i}句テキスト", "zh": zh,
+                anchor_items.append({"id": i, "jp": jp, "zh": zh,
                                       "recall": "测试锚点"})
     write_jsonl(repo / "data" / "batches.jsonl", batch_rows)
 
@@ -98,6 +103,16 @@ def mini_seg_render(tmp_path):
     """
     return _build_mini_seg(tmp_path, [(1, 2), (2, 2)],
                             locked_ids={2, 4}, zh_override={1: "旧译文本样例"})
+
+
+@pytest.fixture
+def mini_seg_speaker(tmp_path):
+    """评审 Finding 2 的真实语料复现：单批 1 个 id，jp/zh 都带真实
+    `【名字】「台词」` 说话人前缀（评审抽样 id=27 的实际形态）。"""
+    return _build_mini_seg(
+        tmp_path, [(1, 1)],
+        jp_override={1: "【アヤノ】「教室に来たよ」"},
+        zh_override={1: "【彩野】「到教室了哦」"})
 
 
 # --- plan()：长对话双帽 ---
@@ -195,6 +210,51 @@ def test_render_reads_frozen_glossary_not_live(mini_seg_render):
     p = pc.render("segX", 1, repo=mini_seg_render.root)
     assert "ZZZFROZENMARK" in p
     assert "活仓库版本" not in p  # 这句只存在于活仓库的 glossary/style.md
+
+
+# --- 评审 Finding 1：frozen/rulings.md 必须进 prompt ---
+
+def test_rulings_content_appears_in_prompt(mini_seg_render):
+    """spec §6/§3：拼接器须读 jp/opus/notes/**rulings**。`polish_setup.setup()`
+    起初写的是占位骨架，这里改写成模拟"跨段前馈裁决纪要"的真实场景
+    （spec §7.4：`polish_amplify.digest()` 会把裁决意图纪要前馈写进下一段的
+    rulings.md）——render() 必须能读到，不能永久静默丢弃。"""
+    rulings_path = mini_seg_render.seg_dir / "frozen" / "rulings.md"
+    rulings_path.write_text(
+        "# segX 润色裁决与前序纪要\n\n"
+        "- 【裁决】b1#7：量词『个』改『位』，理由：指人自然搭配（用户 2026-08-06 裁定）。\n",
+        encoding="utf-8")
+    p = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "【裁决】b1#7" in p
+    assert "指人自然搭配" in p
+
+
+def test_rulings_section_skipped_when_placeholder_stripped_empty(mini_seg_render):
+    """占位骨架非空（"（追加式）"）时仍会出现——这不是 bug；但若 rulings.md
+    的内容整体为空白（理论上的退化情形），渲染不应该产出一个空标题节。"""
+    rulings_path = mini_seg_render.seg_dir / "frozen" / "rulings.md"
+    rulings_path.write_text("   \n\n  ", encoding="utf-8")
+    p = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "裁决与前序纪要" not in p
+
+
+# --- 评审 Finding 2：正文行分隔符不得与游戏原生控制码嵌套 ---
+
+def test_render_body_line_has_no_bracket_nesting_with_speaker_prefix(mini_seg_speaker):
+    """真实语料复现（评审抽样 id=27 的实际形态）：jp/zh 都带
+    `【名字】「台词」` 说话人前缀控制码。渲染出的正文行不得把这类内容
+    包在与游戏原生控制码集合冲突的括号里（【】/『』/「」/≪≫/≦≧），
+    否则模型无法区分"外层括号是排版噪声"还是"必须原样保留的控制码"。"""
+    p = pc.render("segX", 1, repo=mini_seg_speaker.root)
+    assert "【アヤノ】「教室に来たよ」" in p  # 原文控制码本身必须完整保留
+    assert "【彩野】「到教室了哦」" in p
+    # 不得出现"控制码前紧跟一个额外包裹括号"的嵌套形态
+    assert "【【" not in p
+    assert "】】" not in p
+    assert "「「" not in p
+    assert "」」" not in p
+    # 换成不冲突的 ASCII 标签
+    assert "JP:" in p and "ZH(opus):" in p
 
 
 # --- CLI ---

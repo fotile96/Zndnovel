@@ -195,3 +195,14 @@ Task 9: fix round 1/5 (2 addressed, 0 open; commits 2749460..f961f5d) — 682 pa
 Task 9: complete (commits b71ba2d..f961f5d, review clean)
 Task 9: minor (deferred): `scan_prompt()` 要求 triage.json 已存在，否则抛 FileNotFoundError
   而非友好提示（调用顺序的硬依赖，有意为之）。
+Task 10: complete (commits c070ca5..b684b82, review clean) — 693 passed，一次过无修复轮
+  评审做了**跨模块契约端到端实测**（不是只比 JSON 结构）：同一批 5 条小改候选灌进两个已校准
+  通道后跑真实 `polish_triage.triage()`——pass=False 通道全部 autoclear=False、autocleared_ids
+  为空；pass=True 通道全部 True。仅因所在通道校准结果不同，结论完全相反。
+  pass 方向实测无反（大改组 False、不动组 True，channel_state.json 写入值一致）。
+  **边界非恒绿**：金标池为空时 `make()` 响亮抛 ValueError（不足 n_gold）；显式 n_gold=0 时
+  `score()` 走 `total==0 → else False` 返回 **pass=False**（保守关闭），无除零。
+  评审自发查了「id 数值局部性泄漏」假设并用真实数据排除：金标 id 实测 784~16603，而每个 SEG
+  自身 id 范围都横跨约 300~17200（因每段都含 crd 章、卡片脚本 id 散布全书），高度重叠。
+  四个变异（三档阈值互换 / truth 混进 batch / 金标取 patch 行 zh 而非 resolve 现行值 /
+  channel_state 结构写成 Task 7 读不懂）全部真红。

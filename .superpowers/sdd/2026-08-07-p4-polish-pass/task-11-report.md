@@ -666,6 +666,6 @@ ls pilot/polish/seg1-s2/triage.json               # 不存在
 ### 9.8 commit
 
 ```
-<下面填入本轮修复实际提交的短哈希>
+152496c fix: Finding C —— polish_amplify.scan_prompt() 同根因编号撞号
 ```
 

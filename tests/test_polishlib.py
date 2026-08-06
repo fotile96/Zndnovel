@@ -37,3 +37,17 @@ def test_is_ignored_extra_does_not_match_real_files():
     assert not pl.is_ignored_extra(Path("/a/b/sneaky_extra.md"))
     assert not pl.is_ignored_extra(Path("/a/b/DS_Store_backup.txt"))
     assert not pl.is_ignored_extra(Path("/a/b/notes.pyc.md"))
+
+def test_is_ignored_extra_directory_match_excludes_own_basename():
+    """评审 Finding B（Task 11 修复轮）：目录名判据只该看祖先路径段
+    （`p.parts[:-1]`），不含 `p` 自己的 basename。修复前
+    `IGNORE_DIR_NAMES & set(p.parts)` 对全部路径段一视同仁——一个恰好叫
+    `__pycache__` 的**普通文件**（无扩展名，basename 本身撞上目录名单）
+    会被误判成"落在 __pycache__ 目录之下"而放行，破坏"名单不能宽到藏住
+    真文件"这条底线。"""
+    # 文件自身就叫 __pycache__（它是一个文件，不是目录）：不应被忽略。
+    assert not pl.is_ignored_extra(Path("/a/b/__pycache__"))
+    assert not pl.is_ignored_extra(Path("frozen/__pycache__"))
+    # 真正落在 __pycache__ 目录之下的文件（含非 .pyc 后缀）：仍应被忽略——
+    # 目录判据本身没有被削弱，只是不再看 basename 那一段。
+    assert pl.is_ignored_extra(Path("/a/b/__pycache__/somefile.txt"))

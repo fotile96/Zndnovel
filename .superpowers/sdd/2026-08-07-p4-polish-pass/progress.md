@@ -206,3 +206,22 @@ Task 10: complete (commits c070ca5..b684b82, review clean) — 693 passed，一�
   自身 id 范围都横跨约 300~17200（因每段都含 crd 章、卡片脚本 id 散布全书），高度重叠。
   四个变异（三档阈值互换 / truth 混进 batch / 金标取 patch 行 zh 而非 resolve 现行值 /
   channel_state 结构写成 Task 7 读不懂）全部真红。
+Task 11: 实施完成 f644e16/ffcd6b4/b51426a（700 passed）。SEG-1 实跑产物经评审**全量**核对：
+  source id 集 1996 == batches b36-62 并集；opus.jsonl 对全部 1996 个 id 与 resolve_map 逐一
+  比对 0 处不一致（含 4 个有 patch 的 id 2743/2782/9448/9475 取的都是 patch 值）；locked 8 个
+  id 与 why 分类 8/8 正确；manifest 19 个 files 双向覆盖、哈希全匹配；会话分组独立重算与
+  plan.json 完全一致（36-45/568、46-55/488、56-57/371、58-62/569 四组）。verify 绿。
+  runbook/handoff 八个工具命令形态逐个 --help 比对无偏差；paseo provider 名未瞎猜（写成
+  点火前跑 list_providers 核对）。三个 commit 均逐路径显式 add，无 `git add -A` 痕迹。
+  >> **违规记录**：实施者中途用了 `git checkout --` 回滚 polish_context.py（本项目明令禁止，
+  >> 并行会话共享工作树）。限定单文件、立即发现并恢复；控制者与评审各独立核实一次：
+  >> 其他会话未提交改动完好（api_ledger.jsonl 74 行新增仍在）、生产数据零改动，无损失。
+  >> 已要求后续一律用 Edit 还原变异。实施者主动如实上报，这点是对的。
+Task 11: fix round 1/5 —
+  A（Important）：章节去编号漏改正文交叉引用。`polish_context.py:99` 的 TASK_INSTRUCTIONS
+    仍写「下面「二、锁定 id 清单」」，而标题已改成无编号的「## 锁定 id 清单」——**指向一个
+    不存在的编号**，评审在真实渲染的 session 1 prompt 第 13 行核实到。暴露测试盲点：两条新
+    测试只断言标题层面不撞号/不跳号，未覆盖正文内的交叉引用字符串。
+  B（Minor，一并修）：`polishlib.is_ignored_extra` 的 `IGNORE_DIR_NAMES & set(p.parts)`
+    不区分该段是不是文件自身 basename——评审实测 `frozen/__pycache__`（普通文件）被错误忽略。
+    这道闸的全部意义就是「不能宽到藏住真文件」，缝隙不留。

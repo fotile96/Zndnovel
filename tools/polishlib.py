@@ -25,12 +25,20 @@ IGNORE_DIR_NAMES = {"__pycache__"}
 
 
 def is_ignored_extra(p: Path) -> bool:
-    """`p` 是否属于 verify() 反向扫描该忽略的文件系统噪声。"""
+    """`p` 是否属于 verify() 反向扫描该忽略的文件系统噪声。
+
+    **目录名判据只看祖先路径段（`p.parts[:-1]`），不含 `p` 自己的 basename**
+    （Task 11 评审 Finding B 追加，修复前 `IGNORE_DIR_NAMES & set(p.parts)`
+    对全部路径段一视同仁——一个恰好叫 `__pycache__` 的**普通文件**（无扩展名，
+    basename 本身撞上目录名单）会被错误当成目录内容而放行，破坏名单"不能宽到
+    藏住真文件"这条底线。目录名单该管的是"这个文件是不是落在一个真 `__pycache__`
+    目录**之下**"，不该管"这个文件自己是不是叫这个名字"——后者如果真的发生，
+    是一个反常但合法的文件名，理应被正常判成漂移，而不是被目录名单顺手放过。"""
     if p.name in IGNORE_BASENAMES:
         return True
     if p.suffix in IGNORE_SUFFIXES:
         return True
-    if IGNORE_DIR_NAMES & set(p.parts):
+    if IGNORE_DIR_NAMES & set(p.parts[:-1]):
         return True
     return False
 

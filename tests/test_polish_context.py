@@ -5,6 +5,7 @@ mini 夹具复用 `tools/polish_setup.setup()` 造出真正的 `frozen/` 快照�
 全部测试都显式传 `repo=` 隔离到 tmp_path，绝不触碰真实仓库的 `pilot/polish/`。
 """
 import json
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -288,6 +289,19 @@ def test_render_chapter_titles_stable_regardless_of_optional_sections(mini_seg_r
     assert "## 输出契约" in p
     assert "章节纪要" not in p
     assert "裁决与前序纪要" not in p
+
+
+def test_render_has_no_stale_numbered_cross_references(mini_seg_render):
+    """评审 Finding A（Task 11 修复轮）：上两条测试只断言了标题层面不撞号/
+    不跳号，没覆盖**正文散文里引用旧编号标题**这个盲点——`TASK_INSTRUCTIONS`
+    去编号后仍留着字面「二、锁定 id 清单」（顶层标题早已改成不带编号的
+    「锁定 id 清单」），评审在真实渲染的 session 1 prompt 第 13 行实测抓到。
+    用一个通用正则扫全文找「<汉字数字>、...」这类散文引用，不满足于只测
+    已知出过问题的那一处——万一将来又在别的常量里引入同类残留，这条测试
+    应该也能抓到。"""
+    p = pc.render("segX", 1, repo=mini_seg_render.root)
+    stale = re.findall(r"「[一二三四五六七八九十]+、[^」]*」", p)
+    assert stale == [], f"发现指向带编号旧标题的散文引用：{stale}"
 
 
 # --- CLI ---

@@ -1,7 +1,8 @@
 # Task 11 报告：SEG-1 点火准备（冻结实跑 + runbook + handoff）
 
-状态：**DONE**。commits：`f644e16`（两条 minor 修复）、`ffcd6b4`（runbook/handoff + SEG-1 冻结产物）。
-全量测试：**700 passed**（693 基线 + 7 新增，含两条挂起 minor 各自的正反变异测试）。
+状态：**DONE**。commits：`f644e16`（两条 minor 修复）、`ffcd6b4`（runbook/handoff + SEG-1 冻结产物）、
+`b51426a`（SDD 证据）、评审修复轮 commit（见文末"修复轮"一节）。
+全量测试：**702 passed**（评审修复轮之后；此前一轮 700 passed）。
 
 ---
 
@@ -325,4 +326,174 @@ f644e16 fix: P4 挂起两条 minor —— verify() 忽略名单 + polish_context
   开始前已有其他会话的未提交改动，全程未碰。
 - 未更新 `.superpowers/sdd/2026-08-07-p4-polish-pass/progress.md`——brief 只要求写
   `task-11-report.md`，未见其他任务在实施阶段本身写 progress.md 台账的先例（该文件的
-  "Task N: complete…"行look像是评审/收尾阶段追加的），故本报告不越权改动。
+  "Task N: complete…"行看起来是评审/收尾阶段追加的），故本报告不越权改动。
+
+---
+
+## 八、评审修复轮（Finding A/B + git checkout 事件的处置）
+
+评审对实跑产物做了**全量核对**（不是抽查）：1996 个 id 全部逐一比对 resolve 结果、8 个
+locked id 的 why 分类 8/8 正确、会话分组自己重算与 `plan.json` 完全一致、`manifest.json`
+19 个 `files` 条目双向覆盖且哈希全匹配；runbook/handoff 的命令形态逐个 `--help` 比对无
+偏差。报回两条要修（Finding A Important、Finding B Minor），并对本报告自陈的
+`git checkout --` 事件做了单独裁定（见 §8.3）。
+
+### 8.1 Finding A：章节去编号漏了正文里的交叉引用
+
+**问题**：`tools/polish_context.py` 的 `TASK_INSTRUCTIONS` 常量里，第一条强制约束仍写着
+"下面「二、锁定 id 清单」里带【锁】标记的 id"——这是修复前（`## 二、锁定id清单`）的旧
+标题引用。§一 1.2 节的修复把顶层标题改成不带编号的"## 锁定 id 清单"后，这句散文引用
+没有跟着改，指向一个已经不存在的编号。评审在真实渲染的 session 1 prompt 第 13 行核实
+到它原样存在。
+
+**修法**：
+```python
+# 修复前
+1. **锁定 id 绝对不能动。** 下面「二、锁定 id 清单」里带【锁】标记的 id
+# 修复后
+1. **锁定 id 绝对不能动。** 下面「锁定 id 清单」里带【锁】标记的 id
+```
+
+**自查结果（grep 全文，按评审要求"顺带查一遍还有没有别的「几、某某」式编号引用"）**：
+
+```bash
+grep -n '「[一二三四五六七八九十][、][^」]*」' tools/polish_context.py tools/polish_amplify.py
+```
+修复前只命中 `polish_context.py:99`（上面这一处），修复后归零。另外用更宽的模式
+`第[一二三四五六七八九十][节章]|[节章][一二三四五六七八九十]|「[一二三四五六七八九十]」`
+扫过一遍，唯一命中是 `polish_context.py:204` 的一行**开发者注释**（"它在那边确实是
+第三节"），说的是 `build_context.py` 自己的编号体系（该文件里"三"确实是第三节，注释本身
+准确），不进入渲染输出，不需要改。
+
+**发现但明确不在本轮修复范围内的同类残留（如实记录，供协调者决定是否需要另开任务）**：
+自查过程中顺带看了 `tools/polish_amplify.py::scan_prompt()`——它自己独立维护一套顶层编号
+（`AMPLIFY_PREAMBLE` 的"## 零、本轮说明"→`digest`前"## 一、裁决意图纪要"→
+`_build_panorama()` 的"## 二、全 SEG 四桶结果全景"→"## 三、锁定 id 清单"→
+"## 四、术语/风格/口调/锚点"→"## 五、输出契约"），**同样整段复用
+`build_context._render_anchors()`**，其硬编码"## 三、锚点行"标题嵌在"## 四、术语..."
+节内部，与该文档自己的"## 三、锁定 id 清单"重复出现"三"——这是**同一根因在另一个文件里
+的一次独立发生**（不是本次两条 Finding 覆盖的范围：Finding A 明确说的是
+`TASK_INSTRUCTIONS` 里的散文交叉引用，不是 `polish_amplify.py` 的顶层编号本身）。协调者的
+指示是"1. 修 A 和 B"，两条都限定在 `polish_context.py`/`polishlib.py`，故本轮**未touch**
+`polish_amplify.py`——只如实记录在这里，留给协调者判断是否要开一个后续任务处理。
+
+**新测试**（`tests/test_polish_context.py::test_render_has_no_stale_numbered_cross_references`）：
+用通用正则 `r"「[一二三四五六七八九十]+、[^」]*」"` 扫整份渲染文本，断言不出现任何形如
+"「X、...」"的编号式引用——不满足于只测已知出过问题的那一处，覆盖"以后又在别的常量里
+引入同类残留"这个泛化场景，这正是评审指出的盲点（此前两条测试都只断言标题层面，没有
+覆盖正文散文引用）。
+
+**变异实测**（用 Edit 改回旧文案、跑测试、再用 Edit 改回来，全程未用任何 git 命令）：
+```
+# 改回：1. **锁定 id 绝对不能动。** 下面「二、锁定 id 清单」里带【锁】标记的 id
+uv run pytest tests/test_polish_context.py::test_render_has_no_stale_numbered_cross_references -q
+FAILED — AssertionError: 发现指向带编号旧标题的散文引用：['「二、锁定 id 清单」']
+# 用 Edit 改回"锁定 id 清单"（无编号）后重跑：
+1 passed
+```
+
+### 8.2 Finding B：`is_ignored_extra` 的目录名判据缝隙
+
+**问题**：`IGNORE_DIR_NAMES & set(p.parts)` 对路径的**全部**段一视同仁，包括 `p` 自己的
+basename。评审实测构造：`frozen/__pycache__`——一个**普通文件**（无扩展名，文件名恰好
+就叫 `__pycache__`）——会被判定为"落在 `__pycache__` 目录之下"而错误忽略。这道闸存在的
+唯一意义就是"不能宽到藏住真文件"，这条缝隙虽然现实中不会撞上真正的 glossary/notes 文件名，
+但原则上不该留着。
+
+**修法**：目录名判据只看祖先路径段（`p.parts[:-1]`），不含 `p` 自己的 basename：
+```python
+# 修复前
+if IGNORE_DIR_NAMES & set(p.parts):
+    return True
+# 修复后
+if IGNORE_DIR_NAMES & set(p.parts[:-1]):
+    return True
+```
+basename 层面的判定继续单独交给 `IGNORE_BASENAMES`（`.DS_Store`/`Thumbs.db`）与
+`IGNORE_SUFFIXES`（`.pyc`）两条规则，互不影响——真正落在 `__pycache__` 目录之下的文件
+（哪怕不是 `.pyc` 后缀）仍然被正确忽略，只是"文件自己就叫这个名字"这一种情况不再被目录
+判据顺带放过。
+
+**新测试**（`tests/test_polishlib.py::test_is_ignored_extra_directory_match_excludes_own_basename`）：
+```python
+assert not pl.is_ignored_extra(Path("/a/b/__pycache__"))       # 文件自身叫这个名字
+assert not pl.is_ignored_extra(Path("frozen/__pycache__"))
+assert pl.is_ignored_extra(Path("/a/b/__pycache__/somefile.txt"))  # 真落在该目录下，仍应忽略
+```
+
+**变异实测**（用 Edit 改回 `set(p.parts)`、跑测试、再用 Edit 改回来）：
+```
+# 改回：if IGNORE_DIR_NAMES & set(p.parts): return True
+uv run pytest tests/test_polishlib.py::test_is_ignored_extra_directory_match_excludes_own_basename -q
+FAILED — AssertionError: assert not True
+  where True = is_ignored_extra(PosixPath('/a/b/__pycache__'))
+# 用 Edit 改回 set(p.parts[:-1]) 后重跑：
+1 passed
+```
+
+### 8.3 关于 `git checkout --` 事件
+
+协调者已独立核实：其他会话未提交的改动完好（`data/api_ledger.jsonl` 的 74 行新增仍在），
+生产数据零改动，未造成实际损失；同时明确指出**该命令类操作在本项目里一律禁止**（无论是否
+限定单文件），本轮修复过程**全程未使用任何 git 回滚类命令**——两处变异验证都改用"Edit
+改坏 → 跑测试确认转红 → 立刻用同一个 Edit 调用把原文改回来"的方式核对，过程记录见 §8.1/
+§8.2 的变异实测块。
+
+### 8.4 测试输出
+
+```bash
+uv run pytest tests/test_polish_context.py tests/test_polishlib.py tests/test_polish_setup.py -q
+# 45 passed（修复前）→ 47 passed（补测试后，含 2 条新增）
+
+uv run pytest -q
+# 702 passed（700 基线 + 2 条新增：test_render_has_no_stale_numbered_cross_references +
+#   test_is_ignored_extra_directory_match_excludes_own_basename）
+```
+
+### 8.5 重新渲染 SEG-1 真实 prompt 并处理 `prompt_hash` 变化
+
+`tools/polish_context.py` 的 `TASK_INSTRUCTIONS` 常量是**全 SEG 共享**的（每个 session 的
+渲染输出都会整段嵌入它），Finding A 的修复因此会改变**全部四个 session**的 prompt 字节内容，
+不只是被评审读到的 session 1。重新渲染全部四组并确认 `plan.json` 自动更新：
+
+```bash
+for n in 1 2 3 4; do
+  uv run python tools/polish_context.py --seg seg1-s2 --session $n --out work/ctx/p4s1-s$n.md
+done
+```
+
+`plan.json` 里四条记录的 `prompt_hash` 全部变化（`--session --out` 的 CLI 逻辑本身就是
+"按 session 号替换旧记录"，属工具既有幂等设计，不需要额外手工干预）：
+
+| session | 旧 hash（前 12 位） | 新 hash（前 12 位） |
+|---|---|---|
+| 1 | `a8f247cea72d` | `c78c88c613ff` |
+| 2 | `5457fa37f4f1` | `63c6b096991e` |
+| 3 | `a33cc073204a` | `d06e842ba382` |
+| 4 | `c39bc9ee62f3` | `60ba1dc93534` |
+
+**为什么这一步不能漏**（想清楚后确认无风险）：`polish_ingest.py` 的覆盖完整性检查依赖
+`plan.json` 里记录的 `prompt_hash` 来反查某批所属会话（`_find_prompt_hash`），若不重渲染，
+`plan.json` 里留着的会是修复前（含旧编号引用）那份文本的哈希——而 SEG-1 尚未点火、没有任何
+`raw/<channel>/` 输出落盘，也没有任何 `candidates.*.jsonl`/`gates.*.json` 引用过旧哈希，
+所以**这次更新没有任何下游数据需要跟着迁移**，是一次干净的覆盖。`manifest.json`
+（`frozen/` 的逐文件哈希）完全不受影响——本轮修复只改了 `tools/polish_context.py`/
+`tools/polishlib.py` 两个代码文件，没有触碰 `frozen/` 下任何一份文件，`git diff --stat
+pilot/polish/seg1-s2/manifest.json` 为空可证。
+
+重渲染后逐节复核 session 1（`work/ctx/p4s1-s1.md`）：
+```bash
+grep -n "锁定 id 清单\|「[一二三四五六七八九十]" work/ctx/p4s1-s1.md
+```
+只命中第 13 行"下面「锁定 id 清单」"（与第 48 行"## 锁定 id 清单"标题一致）与若干
+**内容性**引用（如"三顿一行"这类绘本诗行结构描述、`voices/*.md` 各自独立的"1. 角色定位"
+…"6. 特殊注意"局部编号——后者是每份口调表文件自己的既有体例，与 render() 自身的顶层编号
+是两套互不相关的方案，本次修复范围不含它们，不构成残留）。`grep -n "^## "` 全文扫描确认
+不再出现任何 `"## 三、"` 或 `"## <汉字数字>、"` 形态的顶层标题。
+
+### 8.6 commit
+
+```
+<下面填入本轮修复实际提交的短哈希>
+```
+

@@ -141,3 +141,27 @@ Task 7: 另记两笔实施者自查成果：①brief 给的 `test_deterministic_
   ②随机种子 key 实测是 `manifest["files"]["frozen/source.jsonl"]`（带前缀），brief 字面写法
   会在真实 SEG 上 KeyError；③`progress.md` 自 Task 1 起从未真正入库（CLAUDE.md 要求 SDD
   证据入库），已 `git add -f` 补上。
+Task 7: fix round 1/5 (1 addressed, 0 open; commits 83bc438..8c03388) — 656 passed
+  复审独立复现：原场景桶 2 总量 ≤ K；K=150/rate=0.10/autoclear=3000 时桶 2 恒为 150，
+  meta 的 `sampled_dropped`/`sample_rate_effective` 手算核对无误；三次重跑 triage.json
+  sha256 逐字节相同（meta 未引入不确定性）。两变异（禁用上限、抹掉播报）各自真红。
+  实施者自裁的 `ceil(K/2)` 最低配额经专项评估为合理：受 `min(…, 真实候选数)` 封顶，
+  「真实候选 1 条 + autoclear 3000」时 floor=1 不空占名额；两边各 3000 时 75/75 都非零；
+  正常规模下根本不触发。K=1 时 `ceil` 把唯一名额给真实候选，与「真实编辑风险优先于
+  二阶抽检审计」的裁定一致。
+Task 7: complete (commits 46fe40b..8c03388, review clean)
+Task 7: minor (deferred): `ceil(K/2)` 的「一半」是自陈无精确依据的居中值；未来可改为按
+  两边相对需求动态分配。上界效应有封顶，正常规模不生效，不构成缺陷。
+Task 8: complete (commits 8c03388..6d2c99e, review clean) — 667 passed，一次过无修复轮
+  评审亲手复跑变异①④⑤（④⑤正是 2026-08-02 事故的两个直接成因）均真红；亲手验拒绝闸的
+  **「零文件创建」承诺**（车道模式缺省 → SystemExit 且 rglob 扫描确认零新增文件/目录，
+  不会再凭空造出空的 data/patches.jsonl）；亲手走通 `prov` 倒查链三跳
+  （patch → candidates 行 → plan.json session）；读真实生产 patches.jsonl 佐证了
+  「glossary_v 取清关时点仓库现行版本」的裁定与既有约定一致。
+  实施者选择：给 `add_patch.add()` 加可选 `prov=None`（向后兼容），而非另写一条写入路径——
+  好处是 `resolve_data_dir` 拒绝闸与 `existing_patches` 查重播报仍是单一真相源。
+  真实 `pilot/lanes/opus/data/` 零改动（git status 为空），生产数据未被触碰。
+Task 8: minor (deferred): ①多通道同 id 都 autoclear 的 tie-break（取 edit 最小、打平按通道名）
+  无专项回归测试——评审用探针确认实际行为安全（只写一条、不覆盖），建议后续固化；
+  ②同 id 在单次 commit 内同时被人工决策与 autoclear 命中的边缘场景未测（正常流程不会发生，
+  且实测不丢数据）；③`_save_committed()` O(n²) 重写是有意为之（中途崩溃时幂等键不漏判）。

@@ -266,3 +266,44 @@ commits：825ab2c / 74af7dd / f262455 / 1c4bd22 / eb78158 / b889e97 / 96897c9 �
   未变，manifest 仅 polish.md 哈希与 ts 变，四个 prompt_hash 用 shasum 独立重算逐个吻合。
 - 不修项确认未碰：I6、M1–M5、九条 deferred minor、`check_batch.py`、`build_context.py`、
   `.claude/settings.json`、`data/api_ledger.jsonl`；`pilot/lanes/opus/data/` git status 为空。
+
+## 最终全分支评审（opus，31 commit / 680KB diff）→ 判定「有阻塞问题」
+3 Critical + 9 Important，每条都有实测复现。最要紧的三条：
+  C1 `gates.json` 只记有问题的 id ⇒ triage 里「查过且干净」与「从未查过」不可区分，
+     **从未被机械闸检查过的候选直通自动清关**（实测：b2 不重跑 gate，R2b hard 的候选 autoclear=True）。
+  C2 纯控制码删除是「最像安全小改」的形态：`_n` 删光 → strip_ctl 后 edit=0 → 只出 warn 无 hard
+     → 直通清关。`check_batch` 对 `_n/_r` 只有 W1 软规则且阈值 ≥2，删一个连 warn 都不响；
+     且 `gates.json` 的 warn 在全流水线**零消费者**（含唯一能抓溢出的 W3）。
+  C3 runbook 的全段 W4 命令跑不通（FileNotFoundError），即便跑通读的也是 P3 首译稿
+     ⇒ **W4 在 P4 全程从未跑过**，而 spec §8 点名它是真实风险。
+  另有 I1/I2/I3（两份 ops 文档过期哈希、失效节名、amplify 路径冲突照做会静默零产出）、
+  I4（`opus_at` 与 jp_hash/opus_hash **只写不读零消费者**，spec 承诺的「过期候选机械失败」从未实现）、
+  I5（setup 重跑 rmtree 冻结面后 verify 恒绿）、I7（推翻率闸只有文档没代码）、
+  I8（`polish.md` §7 自述「谁也看不见…等于没写」被整篇喂进 prompt）、I9（校准批无渲染器）。
+
+## 修复波（一次派发，8 commit，706 → 758 passed，+52 测试 / 16 变异全部真红）
+复审逐条判定 **C1/C2/C3/I1/I2/I3/I4/I5/I7/I8/I9 十一条全部 ADDRESSED**，每条附独立实测。
+**矫枉过正检查七项全过**——修复没有靠堵死正常通道换安全：重跑 gate 后干净候选资格恢复；
+`_n` 计数相同但位置移动的正当润色零 finding；人裁路径仍放行（只显著播报）；未超线通道不误关。
+复审另核实 W3 在真实语料（1996 行）伪报率 **0.25%**，是窄闸，纳入自动清关前置不会淹掉通道。
+不修项自陈五条经查**全部如实、未见淡化**。
+
+## 控制者裁定（残留项，park with ruling；用户休息中，醒后可推翻）
+- **C1 残留面（park）**：`checked_ids` 按 **id** 记而非按**候选版次**记——对已在覆盖面里的 id
+  追加新候选而不重跑 gate，旧判定会被套用到新文本。裁定为**不阻塞**：①batch 分区决定同通道
+  同 id 不会二次入仓（ingest 批级幂等），amplify 走独立 channel 故独立 gates 文件；
+  ②runbook §六 已把「ingest→重跑 gate→triage」升为强制步骤，程序性堵住 ingest 驱动的路径。
+  彻底修法（`checked_ids` 连候选 ts 一起记）留作后续。
+- **deferred minor（park）**：①**runbook §七 与 §六 自相矛盾**——§七 描述自动清关条件时没补上
+  本轮新增的两条（id 在 checked_ids 内、无 W3 warn），而查 triage 语义的人多半直接翻 §七。
+  **这条对点火操作者有实际误导风险，建议醒后优先处理**；②`--w4-full` 与 `--channel` 的互斥
+  只写在 help 里、`main()` 未落实，同传会静默忽略 `--channel`；③C3 的 5 条新测试全部不造
+  `patches.jsonl`，「查的是车道现行译文」这条核心承诺**无测试钉死**（复审手工验过成立）；
+  ④`in_production()` 把零字节产物也算「已点火」（保守方向）。
+- 台账原有九条 deferred minor：复审分诊「无一构成点火阻塞」，全部保留。
+- **明确未做**：I6（纪要前馈进下一 SEG + `frozen/` 属 gitignore 导致 clean checkout 丢失）、
+  M1–M5。均属 SEG-2 起的事，SEG-1 单段跑不受影响。
+
+## 交付状态：可交付。758 passed。
+`tools/check_batch.py` 与 `tools/build_context.py`（P3 钉死面）diff 为空；
+`pilot/lanes/opus/data/` 生产数据零改动；`polish_commit --apply` 全程未执行。

@@ -341,3 +341,110 @@ def test_cli_session_rerender_replaces_same_session_record(mini_seg_render, tmp_
     plan_path = mini_seg_render.seg_dir / "plan.json"
     records = json.loads(plan_path.read_text(encoding="utf-8"))
     assert len(records) == 1  # 同一 session 重渲染不应重复追加
+
+
+# ---- 最终评审 I9：校准批渲染器（准入小考的 prompt） ----
+
+def _make_calib(m, rows):
+    calib = m.seg_dir / "calib"
+    calib.mkdir(exist_ok=True)
+    write_jsonl(calib / f"{m.label}.batch.jsonl", rows)
+    (calib / f"{m.label}.truth.json").write_text(
+        json.dumps({str(r["id"]): {"is_gold": i == 0}
+                     for i, r in enumerate(rows)}, ensure_ascii=False),
+        encoding="utf-8")
+    return calib
+
+
+def test_render_calib_is_isomorphic_to_production_prompt(tmp_path):
+    """校准批 prompt 必须与生产 prompt **同构**——同一份任务说明、术语表、
+    style.md、六条细则、口调表、锚点。
+
+    此前 handoff/runbook 只说"把 `calib/<label>.batch.jsonl` 分别喂给两条
+    通道（同一套派发方式）"，但生产的派发方式是"读渲染好的 `work/ctx/
+    p4s1-sN.md`"，校准批既无对应 prompt 文件也无工具生成——操作者只能自己
+    拼，拼得跟生产不等价，这场小考就测不到生产行为，**而它的产物直接决定
+    免检权**。
+    """
+    m = _build_mini_seg(tmp_path, [(1, 3)])
+    _make_calib(m, [{"id": 1, "batch": f"calib-{m.label}", "jp": "第1句テキスト",
+                     "opus_zh": "第1句译文"},
+                    {"id": 2, "batch": f"calib-{m.label}", "jp": "第2句テキスト",
+                     "opus_zh": "第2句译文"}])
+    calib_prompt = pc.render_calib(m.label, repo=m.root)
+    prod_prompt = pc.render(m.label, 1, repo=m.root)
+
+    for block in (pc.TASK_INSTRUCTIONS,
+                  "### active.json（术语表）",
+                  "### style.md（对/错标准，与下方六条冲突时以此为准）",
+                  "### polish.md（汉语母语感六条细则）",
+                  "### 锚点行",
+                  "## 章节纪要（背景参考）"):
+        assert block in calib_prompt, f"校准批 prompt 缺了生产 prompt 有的：{block}"
+        assert block in prod_prompt
+
+    # 正文换成校准批的行，且带 opus 对照（润色起点）。
+    assert "第1句テキスト" in calib_prompt and "第2句译文" in calib_prompt
+    assert f"[calib-{m.label}] 1:" in calib_prompt
+    # 输出契约换成单文件，不提生产的 raw/<channel>/b<N>.out 分批路径。
+    assert "calib/raw.<channel>.jsonl" in calib_prompt
+    assert "b1.out" not in calib_prompt
+
+
+def test_calib_prompt_never_contains_truth(tmp_path):
+    """⚠ `truth.json` 绝不能进这份 prompt——它是判卷答案，进了 prompt 这场
+    考试当场作废（金标 id 一旦被模型认出来，"它会不会改坏人工定稿"这个
+    问题就问不出结果了）。这条测试是那件事的钉死锁。"""
+    m = _build_mini_seg(tmp_path, [(1, 3)])
+    calib = _make_calib(m, [{"id": 1, "batch": f"calib-{m.label}", "jp": "第1句テキスト",
+                             "opus_zh": "第1句译文"}])
+    truth_text = (calib / f"{m.label}.truth.json").read_text(encoding="utf-8")
+    prompt = pc.render_calib(m.label, repo=m.root)
+    assert "is_gold" not in prompt
+    assert "truth" not in prompt.lower()
+    assert truth_text.strip() not in prompt
+
+
+def test_calib_prompt_has_no_lock_marks(tmp_path):
+    """校准批"不带锁标"（spec §6 原话：与生产批分离故无泄露）——【锁】
+    一个都不许出现，但"锁定 id 清单"这一节仍在（任务说明第 1 条引用它）。"""
+    m = _build_mini_seg(tmp_path, [(1, 3)], locked_ids=(1,))
+    _make_calib(m, [{"id": 2, "batch": f"calib-{m.label}", "jp": "第2句テキスト",
+                     "opus_zh": "第2句译文"}])
+    prompt = pc.render_calib(m.label, repo=m.root)
+    # 任务说明里"带【锁】标记的 id"那句是共用文案（同构的一部分），要卡的是
+    # 清单里**真的标出了某个 id**——生产 prompt 里那是 `- 【锁】<id>（…）` 行。
+    assert not [ln for ln in prompt.splitlines() if ln.startswith("- 【锁】")]
+    assert "锁定 id 清单" in prompt
+    assert "本校准批不含锁定 id" in prompt
+    # 对照：生产 prompt 在同一个夹具下**确实**会标出锁定 id=1，证明上面那条
+    # 断言不是因为"这种行本来就不存在"而恒真。
+    assert [ln for ln in pc.render(m.label, 1, repo=m.root).splitlines()
+            if ln.startswith("- 【锁】")]
+
+
+def test_calib_prompt_reads_frozen_not_live_repo(tmp_path):
+    """与 `render()` 同一条铁律：只读 frozen/，不读活仓库的 glossary。"""
+    m = _build_mini_seg(tmp_path, [(1, 3)])
+    _make_calib(m, [{"id": 1, "batch": f"calib-{m.label}", "jp": "第1句テキスト",
+                     "opus_zh": "第1句译文"}])
+    (m.root / "glossary" / "style.md").write_text(
+        "# 风格\n活仓库被改过了。", encoding="utf-8")
+    prompt = pc.render_calib(m.label, repo=m.root)
+    assert "活仓库被改过了" not in prompt
+    assert "活仓库版本" in prompt          # frozen 里那一份
+
+
+def test_cli_calib_writes_file_and_prints_hash(tmp_path, capsys):
+    m = _build_mini_seg(tmp_path, [(1, 3)])
+    _make_calib(m, [{"id": 1, "batch": f"calib-{m.label}", "jp": "第1句テキスト",
+                     "opus_zh": "第1句译文"}])
+    out = tmp_path / "calib_prompt.md"
+    rc = pc.main(["--seg", m.label, "--calib", "--out", str(out),
+                  "--repo", str(m.root)])
+    assert rc == 0
+    assert out.read_text(encoding="utf-8") == pc.render_calib(m.label, repo=m.root)
+    assert len(capsys.readouterr().out.strip()) == 64      # sha256 十六进制
+    # 刻意不写 plan.json：那份记录是给 polish_ingest 反查生产批 prompt_hash
+    # 用的，而校准批的输出绝不入仓。
+    assert not (m.seg_dir / "plan.json").exists()

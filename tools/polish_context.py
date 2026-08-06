@@ -151,6 +151,111 @@ OUTPUT_CONTRACT_HEADER = """\
 """
 
 
+def _frozen_blocks(fz: Path) -> list:
+    """冻结面里"每一份 prompt 都该带的那几节"：术语表 / style.md / polish.md
+    六条细则 / 口调表 / 锚点行 / 章节纪要 / 裁决与前序纪要。
+
+    抽成共享 helper 是 `render_calib()`（最终评审 I9）的前提——校准批 prompt
+    必须与生产 prompt **同构**，否则那场"准入小考"考的就不是生产行为，而它的
+    产物直接决定该通道有没有免检权。同构靠共用同一段代码保证，不靠两处各自
+    维护一份长得差不多的拼接。
+    """
+    active = json.loads((fz / "glossary" / "active.json").read_text(encoding="utf-8"))
+    style = (fz / "glossary" / "style.md").read_text(encoding="utf-8")
+    polish_md = (fz / "glossary" / "polish.md").read_text(encoding="utf-8")
+    voices = _render_voices(fz / "glossary" / "voices")
+    anchors = _render_anchors(fz / "glossary" / "anchors.yaml")
+
+    out = ["\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）",
+           "### active.json（术语表）",
+           json.dumps(active, ensure_ascii=False),
+           "\n### style.md（对/错标准，与下方六条冲突时以此为准）",
+           style,
+           "\n### polish.md（汉语母语感六条细则）",
+           polish_md]
+    if voices:
+        out.append(voices)
+    out.append(demote_anchors_heading(anchors))
+
+    notes_dir = fz / "notes"
+    if notes_dir.is_dir():
+        notes_text = "".join(
+            f"\n### 纪要：{p.stem}\n{p.read_text(encoding='utf-8')}\n"
+            for p in sorted(notes_dir.glob("*.md")))
+        if notes_text:
+            out.append("\n## 章节纪要（背景参考）")
+            out.append(notes_text)
+
+    rulings_path = fz / "rulings.md"
+    rulings_text = rulings_path.read_text(encoding="utf-8").strip() if rulings_path.exists() else ""
+    if rulings_text:
+        out.append("\n## 裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
+                    "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
+        out.append(rulings_text)
+    return out
+
+
+CALIB_OUTPUT_CONTRACT = """\
+本校准批只产出**一个** JSONL 文件（不分批），路径由派发方给定，约定为：
+
+  `pilot/polish/<label>/calib/raw.<channel>.jsonl`
+
+文件里：
+
+- 校准批里**每个 id 恰好一行**——不多不少，不得合并，不得跳过。
+- 每行是一个 JSON 对象，字段与生产批完全一致：
+  `{"id": <int>, "jp_tail": "<原文控制码剥离后末 %d 字>", "zh": "<润色稿或原样抄 opus>",
+  "score": <0-100 整数>, "note": "<可留空>", "adjudicate": <true/false>}`
+- `jp_tail`：回执尾串，取该行原文剥离 `_n`/`_r`/ruby 注音（`<漢字,かな>` 取
+  前半段）后的**最后 %d 个字符**。
+- 不改的行：`zh` 逐字等于给你的 opus 现行译文；`score`/`note` 仍要给。
+"""
+
+
+def render_calib(label, repo=None) -> str:
+    """渲染**校准批**（准入小考）的 prompt——与生产 prompt 同构（最终评审 I9）。
+
+    此前 handoff/runbook 只说"把 `calib/<label>.batch.jsonl` 分别喂给两条通道
+    （同一套派发方式）"，但生产的派发方式是"读 `work/ctx/p4s1-sN.md` 这份渲染
+    好的 prompt 文件"——校准批既没有对应的 prompt 文件，也没有任何工具能生成。
+    操作者只能自己拼一份；**拼得跟生产 prompt 不等价，这场小考就测不到生产
+    行为**，而它的产物（`channel_state.json`）直接决定该通道有没有自动清关的
+    免检权。
+
+    与 `render()` 的差异只有两处，其余（任务说明、术语表、style.md、六条细则、
+    口调表、锚点、纪要、裁决）逐字共用 `_frozen_blocks()`：
+
+    1. **正文换成 `calib/<label>.batch.jsonl` 的行**，且**不带任何锁标**——
+       `polish_calibrate.make()` 已经把锁定 id 排除在校准批之外，校准批里不
+       存在需要标【锁】的行；锁定 id 清单一节仍然保留（任务说明第 1 条要引用
+       它），内容明写"本校准批不含锁定 id"。
+    2. **输出契约换成单文件**（校准批不分批号，用的是合成批号 `calib-<label>`，
+       结构上不可能被 `polish_ingest` 认领）。
+
+    ⚠ **`calib/<label>.truth.json` 绝不进这份 prompt**——它是判卷答案，进了
+    prompt 这场考试当场作废。本函数只读 `<label>.batch.jsonl`，`truth` 字样在
+    整个渲染路径上不出现；`tests/test_polish_context.py` 有一条专测钉死这件事。
+    """
+    d = _dir_for(label, repo)
+    fz = d / "frozen"
+    rows = read_jsonl(d / "calib" / f"{label}.batch.jsonl")
+
+    out = [f"# {label} 通道准入小考（校准批，共 {len(rows)} 行）",
+           TASK_INSTRUCTIONS]
+    out.append("\n## 锁定 id 清单（【锁】标记；仅供上下文参照，"
+                "禁止在输出的 raw/*.out 中出现这些 id）")
+    out.append("（本校准批不含锁定 id——校准批取样时已排除全部锁定 id）")
+    out.extend(_frozen_blocks(fz))
+
+    out.append("\n## 正文（ZH(opus) 为现行译文，即润色起点）")
+    for r in rows:
+        out.append(f"[{r['batch']}] {r['id']}: JP: {r['jp']} / ZH(opus): {r['opus_zh']}")
+
+    out.append("\n## 输出契约")
+    out.append(CALIB_OUTPUT_CONTRACT % (CFG["jp_tail_n"], CFG["jp_tail_n"]))
+    return "\n".join(out)
+
+
 def render(label, session_no, repo=None) -> str:
     """渲染一个会话组的完整 prompt。只读 `frozen/`——不接触活仓库的
     `glossary/`、`skeleton/anchors.yaml`：一个 SEG 一旦冻结，其润色 prompt
@@ -176,22 +281,6 @@ def render(label, session_no, repo=None) -> str:
     locked = json.loads((fz / "locked.json").read_text(encoding="utf-8"))
     locked_ids = set(locked["ids"])
     why = locked["why"]
-
-    active = json.loads((fz / "glossary" / "active.json").read_text(encoding="utf-8"))
-    style = (fz / "glossary" / "style.md").read_text(encoding="utf-8")
-    polish_md = (fz / "glossary" / "polish.md").read_text(encoding="utf-8")
-    voices = _render_voices(fz / "glossary" / "voices")
-    anchors = _render_anchors(fz / "glossary" / "anchors.yaml")
-
-    notes_dir = fz / "notes"
-    notes_text = ""
-    if notes_dir.is_dir():
-        notes_text = "".join(
-            f"\n### 纪要：{p.stem}\n{p.read_text(encoding='utf-8')}\n"
-            for p in sorted(notes_dir.glob("*.md")))
-
-    rulings_path = fz / "rulings.md"
-    rulings_text = rulings_path.read_text(encoding="utf-8").strip() if rulings_path.exists() else ""
 
     out = [f"# {label} 会话 {session_no}/{len(sessions)}"
            f"（批次 {batches[0]}–{batches[-1]}，共 {sess['lines']} 行）",
@@ -225,24 +314,7 @@ def render(label, session_no, repo=None) -> str:
     else:
         out.append("（本会话无锁定 id）")
 
-    out.append("\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
-    out.append("### active.json（术语表）")
-    out.append(json.dumps(active, ensure_ascii=False))
-    out.append("\n### style.md（对/错标准，与下方六条冲突时以此为准）")
-    out.append(style)
-    out.append("\n### polish.md（汉语母语感六条细则）")
-    out.append(polish_md)
-    if voices:
-        out.append(voices)
-    out.append(demote_anchors_heading(anchors))
-    if notes_text:
-        out.append("\n## 章节纪要（背景参考）")
-        out.append(notes_text)
-
-    if rulings_text:
-        out.append("\n## 裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
-                    "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
-        out.append(rulings_text)
+    out.extend(_frozen_blocks(fz))
 
     out.append("\n## 逐批正文（仅列非锁定 id；ZH(opus) 为现行 opus 译文，即润色起点）")
     for b in batches:
@@ -269,7 +341,10 @@ def main(argv=None):
     ap.add_argument("--seg", required=True, help="段表 label（如 seg1-s2）")
     ap.add_argument("--plan", action="store_true", help="打印会话表（JSON Lines）")
     ap.add_argument("--session", type=int, help="渲染指定会话号的 prompt")
-    ap.add_argument("--out", help="配合 --session：写出 prompt 文件路径")
+    ap.add_argument("--calib", action="store_true",
+                     help="渲染校准批（准入小考）prompt——与生产 prompt 同构，"
+                          "正文换成 calib/<label>.batch.jsonl 的行，不带锁标")
+    ap.add_argument("--out", help="配合 --session/--calib：写出 prompt 文件路径")
     ap.add_argument("--repo", default=None,
                      help="车道根目录（省略时用仓库根；测试用 tmp_path 传替身仓库）")
     args = ap.parse_args(argv)
@@ -277,6 +352,20 @@ def main(argv=None):
     if args.plan:
         for s in plan(args.seg, repo=args.repo):
             print(dumps(s))
+        return 0
+
+    if args.calib:
+        p = render_calib(args.seg, repo=args.repo)
+        digest = hashlib.sha256(p.encode("utf-8")).hexdigest()
+        if args.out:
+            out_path = Path(args.out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(p, encoding="utf-8")
+        # 刻意**不**写 plan.json：那份记录是给 polish_ingest 反查生产批
+        # prompt_hash 用的（`_find_prompt_hash` 按 session/batch 索引），
+        # 而校准批的输出绝不入仓（见 polish_calibrate 模块 docstring
+        # "校准批与生产批分离"）。哈希打到 stdout 供人工留痕即可。
+        print(digest)
         return 0
 
     if args.session is not None:

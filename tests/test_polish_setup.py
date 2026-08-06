@@ -39,6 +39,7 @@ def _mini_repo(tmp_path):
     ], allow_unicode=True), encoding="utf-8")
 
     (repo / "glossary" / "active.json").write_text('{"a":"啊"}', encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text('{"直哉":"直哉"}', encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text("# 润色细则", encoding="utf-8")
     (repo / "glossary" / "voices" / "naoya.md").write_text("# 直哉口调", encoding="utf-8")
@@ -143,10 +144,30 @@ def test_glossary_snapshot_contains_expected_files(mini_repo):
     d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
     g = d / "frozen" / "glossary"
     assert (g / "active.json").exists()
+    assert (g / "speakers.json").exists()
     assert (g / "style.md").exists()
     assert (g / "polish.md").exists()
     assert (g / "voices" / "naoya.md").exists()
     assert (g / "anchors.yaml").exists()
+
+
+def test_speakers_json_frozen_matches_source_and_tracked_by_manifest(mini_repo):
+    """评审 Task 6 finding 的回归锁：speakers.json 必须真正进冻结面（内容与
+    源一致），且必须落进 manifest 的 files 哈希集——否则 verify() 对它的
+    篡改是瞎的（哈希集里压根没登记这个文件，篡改了也测不出漂移）。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    frozen_sp = d / "frozen" / "glossary" / "speakers.json"
+    assert frozen_sp.read_text(encoding="utf-8") == \
+        (mini_repo.root / "glossary" / "speakers.json").read_text(encoding="utf-8")
+
+    m = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+    assert "frozen/glossary/speakers.json" in m["files"]
+
+    # verify() 必须真的在盯着这个文件：篡改冻结面里的 speakers.json 应报漂移。
+    assert ps.verify("segX", repo=mini_repo.root) == []
+    frozen_sp.write_text('{"直哉":"被篡改的名字"}', encoding="utf-8")
+    drift = ps.verify("segX", repo=mini_repo.root)
+    assert drift and any("speakers.json" in x for x in drift)
 
 
 def test_manifest_glossary_v_uses_highest_version(mini_repo):

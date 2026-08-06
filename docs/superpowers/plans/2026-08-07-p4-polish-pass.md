@@ -200,7 +200,7 @@ git commit -m "feat: P4 润色公共层 polishlib + 集中阈值配置"
 - Consumes: `config/segments.yaml`（段表批号）、`data/batches.jsonl`、opus 车道 `ledger.jsonl/forward.jsonl/patches.jsonl/notes/`、`resolve.resolve_map`、`skeleton/anchors.yaml`、`build_context.glossary_version`
 - Produces:
   - `setup(label, opus_data, repo=None) -> Path`：建 `pilot/polish/<label>/frozen/` + `manifest.json`
-  - frozen 内容：`source.jsonl`（{id, jp, batch}，按段表批号从 ledger 取）、`opus.jsonl`（{id, zh}，resolve 固化）、`locked.json`（锁定 id 清单+来源）、`glossary/`（active.json+voices/+style.md+polish.md+anchors.yaml 拷贝）、`notes/`（该段批号的 notes 拷贝）、`rulings.md`（占位骨架，人工/放大纪要追加）
+  - frozen 内容：`source.jsonl`（{id, jp, batch}，按段表批号从 ledger 取）、`opus.jsonl`（{id, zh}，resolve 固化）、`locked.json`（锁定 id 清单+来源）、`glossary/`（active.json+**speakers.json**+voices/+style.md+polish.md+anchors.yaml 拷贝——speakers.json 是评审 Task 6 时发现的缺口回填：§8 机械闸 R2b 说话人映射要读它，冻结面必须自足，不能让机械闸回落读活仓库）、`notes/`（该段批号的 notes 拷贝）、`rulings.md`（占位骨架，人工/放大纪要追加）
   - `manifest.json`：`{label, batches, glossary_v, files: {rel: sha256}, opus_at: {forward_lines, patches_lines, forward_sha, patches_sha}, ts}`
   - `verify(label) -> list`（frozen 逐文件哈希 ↔ manifest，漂移清单；空=绿）
   - `locked.json` 判据：段内 id ∩（anchors 全部 item id ∪ opus patches 已有 id）
@@ -251,7 +251,7 @@ def setup(label, opus_data, repo=None):
     patched = {r["id"] for r in pat}
     locked = sorted(set(ids) & (anchor_ids | patched))
     (fz / "locked.json").write_text(dumps_locked(locked, anchor_ids, patched))
-    _copy_glossary(repo, fz)                       # active.json/voices/style.md/polish.md/anchors.yaml
+    _copy_glossary(repo, fz)                       # active.json/speakers.json/voices/style.md/polish.md/anchors.yaml
     _copy_notes(Path(opus_data) / "notes", fz / "notes", lo, hi)
     (fz / "rulings.md").write_text(f"# {label} 润色裁决与前序纪要\n（追加式）\n")
     manifest = {..., "files": {rel: sha256_file(p) for ...}, "opus_at": {...}}

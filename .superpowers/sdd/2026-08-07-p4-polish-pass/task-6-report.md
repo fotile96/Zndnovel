@@ -214,4 +214,196 @@ uv run pytest -q
   `_copy_glossary()` 的拷贝清单，彻底消除这个缝隙（本任务未做，因为
   会改动其他任务已提交的文件与测试基线）。
 
+  **（此条 concern 已在下方修复轮里被评审判为 Important 并处置——见
+  "修复轮：speakers.json 补齐冻结面 + frozen-only 无回落"一节。）**
+
+---
+
+# 修复轮：speakers.json 补齐冻结面 + frozen-only 无回落
+
+状态：DONE。commit 见文末。
+
+## Finding 复述（评审判定 Important）
+
+原报告"Concerns"一节自报的那条缝隙被评审确认属实并升级为 Important：
+`_copy_glossary()` 确实从未拷贝 `speakers.json`，而且**根因不在 Task 6，
+在 spec §3 的冻结清单本身**——`docs/superpowers/specs/2026-08-07-p4-polish
+-pass-design.md` §3 列出的 frozen glossary 清单（`active.json + voices/ +
+style.md + polish.md + anchors.yaml`）漏了它，而 §8 又把"R2b 说话人"列为
+机械闸职责的一部分，两处对不上。
+
+评审进一步指出：我原先的处置（`_load_speakers()` 缺失时回落读
+`<repo>/glossary/speakers.json`）**没有关上口子，只是缩小了当前的爆炸
+半径**——这正是 `polish_context.render()` 已经用变异测试钉死过的同一类
+问题（"润色输入只认冻结面，不读活仓库"）。危害是具体的、非假设的：R2b
+的说话人映射**直接影响机械闸的判定结果**；某 SEG 冻结之后，若活仓库的
+`glossary/speakers.json` 被修订，该 SEG 的机械闸结论会**静默漂移**，而
+`polish_setup.verify()` 对此完全失明（它只哈希 frozen 里已登记的文件，
+不知道"活仓库又变了"这件事）。原实现今天能跑对，纯粹是因为仓库根恰好
+有那份文件，不是设计上的保证。
+
+控制者裁定：**补齐冻结面，不回落读活仓库**（不是本任务自己拍板，是
+接到的明确指令，记录在此备查）。
+
+## 处置：跨 Task 3 文件的改动（有意为之，指令要求）
+
+### 1. `tools/polish_setup.py`：`_copy_glossary()` 加拷 `speakers.json`
+
+```python
+shutil.copy2(repo / "glossary" / "active.json", g / "active.json")
+shutil.copy2(repo / "glossary" / "speakers.json", g / "speakers.json")   # 新增
+shutil.copy2(repo / "glossary" / "style.md", g / "style.md")
+...
+```
+函数 docstring 同步加了一段，说明这是"评审 Task 6 时发现并回填的缺口"、
+为什么必须在冻结面里（R2b 依赖 + "冻结之后共读同一份快照"的设计原则 +
+`verify()` 的哈希登记逻辑本来就要求"该在冻结面里的文件必须真的在"）。
+
+**副作用（预期内）**：`manifest.json` 的 `files` 哈希集多了一项
+`frozen/glossary/speakers.json`，凡是"仓库根缺 `glossary/speakers.json`
+就会 setup() 失败"——这是故意的：既然 R2b 需要它，SEG 冻结时仓库根没有
+这份文件本身就该是硬性失败，不是静默跳过。
+
+### 2. `tools/polish_check.py`：`_load_speakers()` 改为 frozen-only
+
+```python
+def _load_speakers(fz: Path) -> dict | None:
+    frozen_p = fz / "glossary" / "speakers.json"
+    if frozen_p.exists():
+        return json.loads(frozen_p.read_text(encoding="utf-8"))
+    return None
+```
+去掉了 `repo` 参数与仓库根回落分支；调用点 `gate()` 里 `_load_speakers(fz,
+repo)` 改回 `_load_speakers(fz)`。模块 docstring"speakers 的取法"一节
+整段重写：不再自称"合理权宜"，改为记录评审判定的缺陷、根因归属
+（Task 3 的清单缺口，不是 Task 6 的锅）、以及"现在只读冻结面、无回落"
+这一定案，并显式对齐 `polish_context.render()` 已确立的同一约定。
+
+### 3. spec 与计划文本（根因所在，不改会再犯）
+
+- `docs/superpowers/specs/2026-08-07-p4-polish-pass-design.md` §3（约第
+  45 行）：frozen glossary 清单加上 `speakers.json`，紧跟一段简短说明
+  （为什么：R2b 需要、冻结面必须自足、SEG 冻结后活仓库再改不该影响
+  已冻结 SEG 的闸结论）。
+- `docs/superpowers/plans/2026-08-07-p4-polish-pass.md` Task 3 的 frozen
+  内容描述（约第 203 行）与骨架代码里 `_copy_glossary` 调用旁的注释
+  （约第 254 行）同步加上 `speakers.json`，并简短点出缘由。
+
+### 4. 补测试
+
+**`tests/test_polish_setup.py`**：
+- `_mini_repo` 夹具补一行 `(repo / "glossary" / "speakers.json").write_text(
+  '{"直哉":"直哉"}', ...)`——不补的话 `_copy_glossary()` 现在会因源文件
+  不存在而 `FileNotFoundError`，所有既有测试会先炸。
+- `test_glossary_snapshot_contains_expected_files` 补一条
+  `assert (g / "speakers.json").exists()`。
+- 新增 `test_speakers_json_frozen_matches_source_and_tracked_by_manifest`：
+  三段式验证——①`frozen/glossary/speakers.json` 内容与仓库根源文件逐字
+  一致；②`manifest.json["files"]` 里含 `"frozen/glossary/speakers.json"`
+  这个 key（即 `verify()` 真的在盯着它，不是白拷贝一份没人核验的文件）；
+  ③篡改冻结面里的 `speakers.json` 内容后 `verify()` 必须报出漂移（用
+  `any("speakers.json" in x for x in drift)` 断言，与既有的
+  `test_verify_missing_file_reported` 等测试同一手法）。
+
+**`tests/test_polish_check.py`**：
+- 原 `test_speakers_fallback_to_repo_root_when_frozen_copy_absent`（验证
+  "回落"这一行为本身）改名为 `test_speakers_read_from_frozen_copy`，语义
+  从"验证回落生效"改为"验证现在从冻结面正常读到了这张表"（内容和断言
+  基本不变，因为现在 `_build_mini` 默认就会把 speakers.json 冻结进
+  frozen，效果等价，只是不再依赖回落路径）。
+- 新增 `test_speakers_frozen_only_no_fallback_to_repo_root`（**这条才是
+  真正的回归锁**）：构造对抗场景——手动删掉 frozen 里已拷贝的
+  `speakers.json`（模拟"该 SEG 冻结时点没有这张表"或"缺口未回填"的历史
+  状态），但仓库根仍留着一份内容不同、且**会导致误判**的表
+  （`{"彩野":"彩野"}`）；候选的说话人前缀与原文不同（【绫乃】vs 原文
+  【彩野】，两边结构上都有【】，不触发结构型 R2b），只有"读到了仓库根
+  那份表并按名字映射比对"才会额外触发名字映射型 R2b。断言
+  `"R2b" not in {v["rule"] for v in gates.get(12, {"hard": []})["hard"]}`
+  ——如果发生了回落，这个候选会被误判出一条不该有的 R2b。
+- `_build_mini` 夹具改为**始终**写 `glossary/speakers.json`（默认空字典
+  `{}`，`speakers=` 参数覆盖内容）——原因同上，`polish_setup.setup()`
+  现在硬性要求这个源文件存在；docstring 同步更新，不再提"gate() 的
+  fallback 读取路径"。
+
+**受牵连但与本 finding 无直接关系的两个夹具文件**（`polish_setup.setup()`
+现在硬性要求 `glossary/speakers.json` 存在，凡是自建 mini repo 走
+`ps.setup()` 的夹具都要跟着补，否则会在 setup() 阶段就 `FileNotFoundError`
+炸掉，这不是新增测试而是让既有测试继续能跑）：
+- `tests/test_polish_ingest.py`：三处 `_build_mini`/`_build_mini_recurrence`/
+  `_build_mini_short_collision` 夹具各补一行
+  `(repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")`。
+- `tests/test_polish_context.py`：`_build_mini_seg` 夹具补一行同样的写入
+  （空字典 `{}`——这些测试本来就不依赖 speakers 表的具体内容）。
+
+## 变异红绿实况
+
+命令统一：先跑 `uv run pytest tests/test_polish_setup.py tests/test_polish
+_check.py -q` 定位受影响测试，再跑全量 `uv run pytest -q` 确认没有连带
+破坏；每次变异用 Edit 改一处、跑测、记录、再用 Edit 精确还原（未使用
+`git checkout`/`stash`/`restore`）。
+
+**变异④（本轮新增，验证"frozen-only 无回落"这条修复本身有牙）**：把
+`_load_speakers(fz)` 改回带 `repo` 参数、缺失时回落读
+`<repo>/glossary/speakers.json`（并把 `gate()` 里的调用点同步改回
+`_load_speakers(fz, repo)`，精确复现修复前的完整代码路径）→
+`test_speakers_frozen_only_no_fallback_to_repo_root` 真红：
+```
+AssertionError: assert 'R2b' not in {'R2b'}
+```
+（frozen 里没有表、仓库根有一份会导致误判的表——回落路径一旦被误改
+回来，这条候选立刻被判出不该有的 R2b，证明这条回归锁确实在盯着"是否
+发生了回落"这件事，不是摆设。）其余 10 条既有测试在这次变异下仍然
+通过（`1 failed, 10 passed`）——符合预期：只有专门针对回落场景设计的
+这一条会红，其余测试不依赖回落是否发生。变异后已用 Edit 精确还原两处
+（函数体与调用点），复跑确认 `test_polish_setup.py`/`test_polish_check.py`
+/`test_polish_ingest.py`/`test_polish_context.py` 合计 66 passed。
+
+（Task 6 原报告已有的两个变异①②——"gate 吞掉 hard"、"source_rows 不
+裁剪"——本轮未重跑，因为本轮改动没有触碰 `gate()` 内部这两处逻辑，只
+改了 `_load_speakers()` 的实现与调用参数；已用全量回归测试 637 passed
+确认这两处判据仍然完好。）
+
+## 测试输出
+
+```
+uv run pytest tests/test_polish_setup.py tests/test_polish_check.py -q
+..........................                                                [100%]
+26 passed in 0.40s
+
+# 修 test_polish_ingest.py / test_polish_context.py 夹具前（受
+# _copy_glossary() 新增源文件依赖牵连，非本 finding 直接范围）：
+uv run pytest -q
+597 passed, 40 errors in 3.98s
+
+# 三处 test_polish_ingest.py 夹具 + 一处 test_polish_context.py 夹具补
+# glossary/speakers.json 后：
+uv run pytest tests/test_polish_ingest.py tests/test_polish_context.py \
+  tests/test_polish_setup.py tests/test_polish_check.py -q
+..................................................................       [100%]
+66 passed in 0.40s/0.42s
+
+uv run pytest -q
+637 passed in 3.36s~3.44s   # 625（Task 6 开始前基线）+ 10（Task 6 初版）
+                            # + 2（本轮新增：test_polish_setup 1 条 +
+                            #   test_polish_check 净增 1 条）
+```
+
+## 与指令的关系 / 偏差
+
+1. 指令明确要求"跨 Task 3 的文件，这是有意的"——`tools/polish_setup.py`
+   与 `tests/test_polish_setup.py` 的改动均按此执行，未额外征询。
+2. 指令要求"更新断言时要确认你改的是期望值而不是把测试改松"——
+   `test_glossary_snapshot_contains_expected_files` 只是**增加**一条
+   `assert (g / "speakers.json").exists()`，未删减/放松任何既有断言；
+   新增的 `test_speakers_json_frozen_matches_source_and_tracked_by_manifest`
+   是全新的强断言（内容一致 + manifest 登记 + 篡改可检测三重验证），
+   不是放松版本。
+3. 指令范围外、但为了让全量测试保持绿而必须一并处理的连带修复：
+   `tests/test_polish_ingest.py`（三处夹具）与
+   `tests/test_polish_context.py`（一处夹具）补 `glossary/speakers.json`
+   源文件——这些改动只是"让 `ps.setup()` 不因缺源文件而炸"，不改变
+   这两个文件里任何测试的断言逻辑或期望值。
+4. C2（`gates.json` 落盘 str key / 内存 int key）按指令"本轮不用处理"
+   保持原样，等待 Task 7 指令点明。
+
 ---

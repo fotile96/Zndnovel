@@ -69,6 +69,7 @@ def _build_mini(tmp_path, label="segX", channel="chA"):
         {"chapter": "global", "items": anchor_items},
     ], allow_unicode=True), encoding="utf-8")
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
@@ -237,6 +238,7 @@ def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
         {"chapter": "global", "items": []},
     ], allow_unicode=True), encoding="utf-8")
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
@@ -304,6 +306,7 @@ def _build_mini_short_collision(tmp_path, label="segS", channel="chA"):
         {"chapter": "global", "items": []},
     ], allow_unicode=True), encoding="utf-8")
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")

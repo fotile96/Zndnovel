@@ -66,6 +66,7 @@ def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
         {"chapter": "global", "items": anchor_items},
     ], allow_unicode=True), encoding="utf-8")
     (repo / "glossary" / "active.json").write_text('{"あ":"啊"}', encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text('{}', encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格\n活仓库版本。", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text(
         "# 汉语母语感六条细则\n\n1. 量词。\n2. 语序。\n", encoding="utf-8")

@@ -42,7 +42,12 @@ pilot/polish/<seg>/
     opus.jsonl          opus 现行译文固化＝resolve 在冻结时点的输出
     notes/              该 SEG 的 opus 生产 notes
     rulings.md          该 SEG 相关裁决台账摘录 ＋ 前序 SEG 的润色意图纪要（§6 前馈）
-    glossary/           active.json + voices/ + style.md + polish.md + anchors.yaml
+    glossary/           active.json + speakers.json + voices/ + style.md + polish.md + anchors.yaml
+                        # speakers.json：§8 机械闸的 R2b 说话人映射要读它——
+                        # 冻结面必须自足，不能让机械闸悄悄回落读活仓库（否则
+                        # SEG 冻结之后活仓库改了 speakers.json，该 SEG 的闸
+                        # 结论会静默漂移，verify() 也看不见，因为它只哈希
+                        # frozen 里的文件）。评审 Task 6 时发现的缺口，回填。
   manifest.json         逐文件哈希 + glossary_v + opus 固化时点（forward/patches 行数与内容哈希）
   raw/<channel>/<batch>.out      通道原始输出（§5）
   candidates.<channel>.jsonl     每通道各自的保税仓候选（§4）

@@ -25,27 +25,30 @@ id 出稿，锁定 id 从不出现在候选里）——两个集合按定义就�
 的又一种形态（参见 `check_batch.py`/`polish_ingest.py` 里同类告诫）。本模块
 的自检变异②专门验证"不裁剪会导致这种恒绿闸重新出现"（见测试文件）。
 
-## speakers 的取法——与 brief 补充信息的一处已知偏差
+## speakers 的取法——frozen-only，无回落（评审修复轮定案）
 
-Task 需求方给出的补充信息里写"`speakers` 取 `glossary/speakers.json`（本
-任务应取冻结面的那份：`frozen/glossary/speakers.json`）"。**实测发现这个
-文件目前并不存在**：`tools/polish_setup.py` 的 `_copy_glossary()` 只拷贝
-`active.json` / `style.md` / `polish.md` / `voices/` 四项外加
-`skeleton/anchors.yaml`，从未把 `glossary/speakers.json` 纳入 SEG 冻结快照
-（已用临时仓库实测确认：`setup()` 之后 `frozen/glossary/` 目录下没有
-`speakers.json`）。这是 Task 4 遗留的一个真实缺口，不是本模块的臆测。
+初版实现在 `frozen/glossary/speakers.json` 缺失时退化读 `<repo>/glossary/
+speakers.json`（活仓库）。**评审判定这条退化本身就是缺陷（Important）**：
+它复现了 `polish_context.render()` 专门用变异测试钉死过的同一类问题（"润色
+输入只认冻结面，不读活仓库"，见 spec §3/`docs/superpowers/specs/
+2026-08-07-p4-polish-pass-design.md`）——R2b 的说话人映射是**影响判定
+结果**的输入，一旦某 SEG 冻结之后活仓库的 `glossary/speakers.json` 被
+修订，该 SEG 的机械闸结论会**静默漂移**，而 `polish_setup.verify()` 对此
+完全失明（它只哈希 frozen 里已登记的文件，不知道"活仓库又变了"这件事）。
+初版能跑对纯粹是因为仓库根恰好有这份文件，不是设计上的保证。
 
-本模块处理方式：`_load_speakers()` 优先读 `frozen/glossary/speakers.json`
-（一旦上游把这个缺口补上，本模块无需任何改动就会自动切到读冻结面）；该
-文件不存在时，退化到 `<repo>/glossary/speakers.json`（车道/仓库根）—— 这
-与 `check_batch.py` 自身 CLI（`main()`）的既有约定完全一致（它就是从
-`groot / "glossary" / "speakers.json"` 读，`groot` 可以是 `--lane-dir` 或
-仓库根，从未要求必须来自某个 SEG 的冻结快照）。这不是本模块"发明"了新
-约定，只是复用了 `check_batch.py` 已经在用的那一条。选择"退化"而不是
-"报错阻断"：speakers 表本身变动频率远低于正文译文（不是 opus 车道那种
-"易变数据"），仓库根这份缺乏 SEG 级冻结并不构成实质风险；选择不去顺手
-修 `polish_setup.py`：那是另一个任务已提交的文件，修补它不在本任务范围
-内，且会改变其他任务的测试基线，风险收益不对等。
+**根因不在本模块，在 `tools/polish_setup.py` 的冻结清单本身漏了
+`speakers.json`**（spec §3 的 frozen glossary 清单与 §8 机械闸依赖 R2b
+两处对不上）——已回填：`_copy_glossary()` 现在会把 `glossary/speakers.json`
+一并拷进 `frozen/glossary/`（连带更新了 spec §3 清单、计划文本 Task 3
+描述、`tests/test_polish_setup.py` 的 mini 夹具与新增回归测试）。
+
+本模块现在**只读 `frozen/glossary/speakers.json`，不做任何回落**：文件
+不存在时 `_load_speakers()` 返回 `None`（`check()` 内部对应分支会跳过
+名字映射校验，但 R2b 的**结构对齐**检查恒查、不受影响，见 `check_batch.py`
+的 P1c 硬化）。这与 `polish_context.render()` 已确立的"frozen-only，无
+回落"约定一致，也用变异④验证了"回落"这条老代码路径一旦被误改回来，测试
+必须真正抓到（见测试文件 `test_polish_check.py`）。
 
 ## W4 不在此跑——分工说明
 
@@ -94,16 +97,13 @@ def _dir_for(label, repo) -> Path:
     return repo / "pilot" / "polish" / label
 
 
-def _load_speakers(fz: Path, repo) -> dict | None:
-    """见模块 docstring"speakers 的取法"一节：优先 frozen 冻结面，缺失时退化
-    到车道/仓库根——与 `check_batch.py` CLI 自身的既有约定一致。"""
+def _load_speakers(fz: Path) -> dict | None:
+    """见模块 docstring"speakers 的取法"一节：frozen-only，无回落——不存在
+    就是 None，绝不去读活仓库（`polish_context.render()` 已确立的同一约定；
+    评审判定"回落读活仓库"本身是缺陷，见 docstring）。"""
     frozen_p = fz / "glossary" / "speakers.json"
     if frozen_p.exists():
         return json.loads(frozen_p.read_text(encoding="utf-8"))
-    root = Path(repo) if repo is not None else REPO
-    root_p = root / "glossary" / "speakers.json"
-    if root_p.exists():
-        return json.loads(root_p.read_text(encoding="utf-8"))
     return None
 
 
@@ -145,7 +145,7 @@ def gate(label, channel, repo=None) -> dict:
     cropped_source = [{"id": i, "jp": src_jp[i]} for i in ids]
     draft_rows = [{"id": i, "zh": last_by_id[i]["zh"]} for i in ids]
 
-    speakers = _load_speakers(fz, repo)
+    speakers = _load_speakers(fz)
     glossary_path = fz / "glossary" / "active.json"
     glossary = (json.loads(glossary_path.read_text(encoding="utf-8"))
                 if glossary_path.exists() else None)

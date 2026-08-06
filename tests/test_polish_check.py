@@ -45,8 +45,14 @@ def _build_mini(tmp_path, zh_overrides=None, label="segX", channel="chA",
                  speakers=None):
     """造一个单批（batch 1）的 SEG：非锁定 10/11/12 + 锁定 13。ingest 一次
     raw（内容按 DEFAULT_ZH 叠加 zh_overrides），产出真正的
-    candidates.<channel>.jsonl。speakers 非 None 时额外写一份
-    glossary/speakers.json 到仓库根（gate() 的 fallback 读取路径）。"""
+    candidates.<channel>.jsonl。
+
+    `glossary/speakers.json` 现在是 `polish_setup._copy_glossary()` 的必需
+    拷贝源（评审修复轮回填），仓库根必须始终存在这份文件，`ps.setup()`
+    才不会 `FileNotFoundError`——`speakers` 参数控制它的内容（默认空字典，
+    等价于"没有名字映射，只查结构"），`setup()` 会把它原样拷进
+    `frozen/glossary/speakers.json`，`gate()` 因此默认就能读到冻结面的这
+    份表（frozen-only，见模块 docstring）。"""
     repo = tmp_path / "repo"
     (repo / "config").mkdir(parents=True)
     (repo / "data").mkdir(parents=True)
@@ -73,9 +79,9 @@ def _build_mini(tmp_path, zh_overrides=None, label="segX", channel="chA",
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
-    if speakers is not None:
-        (repo / "glossary" / "speakers.json").write_text(
-            json.dumps(speakers, ensure_ascii=False), encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text(
+        json.dumps(speakers if speakers is not None else {}, ensure_ascii=False),
+        encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
     (opus_data / "notes").mkdir(parents=True)
@@ -222,22 +228,48 @@ def test_stray_candidate_id_skipped_not_crashed(mini, capsys):
     assert "999999" in err
 
 
-# ---- speakers 取法：frozen 优先，缺失时退化到仓库根 ----
+# ---- speakers 取法：frozen-only，无回落（评审修复轮定案） ----
 
-def test_speakers_fallback_to_repo_root_when_frozen_copy_absent(tmp_path):
-    """`polish_setup._copy_glossary()` 目前不拷贝 speakers.json 进
-    frozen/glossary/（见模块 docstring 记录的已知偏差）。本测试确认 gate()
-    在这种现实情况下仍能用仓库根的 glossary/speakers.json 生效——用一个
-    "名字映射错误"的候选验证 R2b 的名字映射分支确实被触发了（不是恰好没
-    读到表、走了"表未覆盖=不查名字"的宽松分支）。"""
+def test_speakers_read_from_frozen_copy(tmp_path):
+    """正路：`polish_setup._copy_glossary()` 现在会把 speakers.json 拷进
+    frozen/glossary/（评审修复轮回填），gate() 从这份冻结面读表、名字映射
+    分支生效——用一个"名字映射错误"的候选验证 R2b 确实触发了（不是恰好
+    走了"表未覆盖=不查名字"的宽松分支）。"""
     speakers = {"彩野": "彩野"}
     m = _build_mini(tmp_path, speakers=speakers,
                      zh_overrides={12: "【绫乃】「今天天气真好啊」"})
-    assert not (m.d / "frozen" / "glossary" / "speakers.json").exists()
+    assert (m.d / "frozen" / "glossary" / "speakers.json").exists()
     gates = pcheck.gate(m.label, m.channel, repo=m.root)
     assert 12 in gates
     msgs = [v["msg"] for v in gates[12]["hard"] if v["rule"] == "R2b"]
     assert any("彩野" in msg for msg in msgs)
+
+
+def test_speakers_frozen_only_no_fallback_to_repo_root(tmp_path):
+    """R2b 的名字映射只认冻结面，绝不回落读活仓库——评审 finding 的回归锁。
+
+    构造刻意制造"若发生回落就会被抓包"的对抗场景：frozen 里没有
+    speakers.json（模拟该 SEG 冻结时点确实没有这张表，或缺口尚未回填的
+    历史状态——手动删掉冻结面里已拷贝的那份），而仓库根有一份内容不同、
+    且**会导致误判**的表。候选的说话人前缀与原文不同（【绫乃】vs 原文
+    【彩野】），但两边结构上都带着【】，不会触发结构型 R2b；只有"读到了
+    仓库根那份表、按名字映射比对"才会额外触发名字映射型 R2b。
+
+    断言：gate() 的结论只能是"没有 speakers 表，只查结构"这一种——12 不
+    应带任何 R2b。这条断言在"回落"代码路径被误改回来时必须真正转红（见
+    变异④）。
+    """
+    speakers = {"彩野": "彩野"}
+    m = _build_mini(tmp_path, speakers=speakers,
+                     zh_overrides={12: "【绫乃】「今天天气真好啊」"})
+    # 模拟 frozen 里没有这张表：手动删掉冻结面已拷贝的副本。
+    (m.d / "frozen" / "glossary" / "speakers.json").unlink()
+    # 仓库根这份还在（_build_mini 写入时的内容），若发生回落就会被读到。
+    assert (m.root / "glossary" / "speakers.json").exists()
+
+    gates = pcheck.gate(m.label, m.channel, repo=m.root)
+    rules12 = {v["rule"] for v in gates.get(12, {"hard": []})["hard"]}
+    assert "R2b" not in rules12
 
 
 # ---- CLI ----

@@ -75,13 +75,24 @@ def _locked_payload(locked_ids, anchor_ids, patched_ids) -> dict:
 
 
 def _copy_glossary(repo, fz: Path) -> None:
-    """glossary/ 术语层拷贝：active.json + voices/ + style.md + polish.md，
-    外加 skeleton/anchors.yaml（伏笔锚点定译——正文润色对照的一部分，放进
-    同一个 glossary/ 子目录，与执行通道读取路径一致）。"""
+    """glossary/ 术语层拷贝：active.json + speakers.json + voices/ + style.md
+    + polish.md，外加 skeleton/anchors.yaml（伏笔锚点定译——正文润色对照的
+    一部分，放进同一个 glossary/ 子目录，与执行通道读取路径一致）。
+
+    **speakers.json 是评审 Task 6 时发现并回填的缺口**：`check_batch.check()`
+    的 R2b（【】说话人结构对齐 + 名字映射）需要这份表，`tools/polish_check.py`
+    的机械闸读它——而"冻结之后所有执行通道共读同一份快照，不再各自去读
+    易变的活仓库数据"是本模块顶部 docstring 明写的设计原则（`polish_context.
+    render()` 也专门有变异测试钉死这一点：从活仓库读 glossary 必须让测试
+    变红）。原实现漏拷这一个文件，等于让 R2b 的判定结果绕过冻结面直接依赖
+    活仓库当前状态——SEG 冻结后若活仓库的 speakers.json 被改动，该 SEG 的
+    机械闸结论会静默漂移，且 `verify()` 完全看不见（它只哈希 frozen 里已
+    登记的文件，不知道"本该拷贝但没拷贝"这件事）。"""
     repo = Path(repo)
     g = fz / "glossary"
     g.mkdir(parents=True, exist_ok=True)
     shutil.copy2(repo / "glossary" / "active.json", g / "active.json")
+    shutil.copy2(repo / "glossary" / "speakers.json", g / "speakers.json")
     shutil.copy2(repo / "glossary" / "style.md", g / "style.md")
     shutil.copy2(repo / "glossary" / "polish.md", g / "polish.md")
     shutil.copytree(repo / "glossary" / "voices", g / "voices")

@@ -76,6 +76,17 @@
 （它对缺失/不识别的形状的保守缺省就是关闭）——后果不是报错，是**准入
 结论悄悄失效**，故本模块的测试直接调用 `polish_triage._channel_autoclear_
 power()` 来校验落盘格式，而不是自己重新发明一套解析逻辑自我验证。
+
+## 与 `polish_audit.py`（抽检推翻率闸）的关系：小考不得解冻
+
+`score()` 每次判卷都会重写该通道在 `channel_state.json` 里的条目。推翻率闸
+（最终评审 I7 新增）冻结一个通道的方式恰恰也是改这个文件，若 `score()` 照旧
+**整条覆盖**，那么"重跑一次准入小考"就能把刚落的冻结悄悄解掉——一道能被无意
+中撤销的闸等于没有闸。故：
+
+- 落盘改成"保留原条目其它键，只更新 `autoclear`"；
+- 原条目带 `autoclear_frozen_by` 时，即使本次小考 pass 也**强制判 False**
+  并显著播报（解冻必须是人看过存量回滚之后的显式动作，不是一条命令的副作用）。
 """
 import argparse
 import json
@@ -268,7 +279,20 @@ def score(label, raw_path, channel, repo=None) -> dict:
 
     state_path = d / "channel_state.json"
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
-    state[channel] = {"autoclear": passed}
+    prev = dict(state.get(channel) or {})
+    # 推翻率闸（`tools/polish_audit.py`）冻结过的通道不得被一次重跑小考悄悄
+    # 解冻——见本模块 docstring「与 polish_audit 的关系」。
+    if prev.get("autoclear_frozen_by") and passed:
+        print(f"⚠ {channel} 的自动清关权已被 {prev['autoclear_frozen_by']} 闸冻结"
+              f"（{prev.get('frozen_ts')}，推翻率 {prev.get('overturn_rate')}），"
+              "本次准入小考虽然通过，**不予重新开启**——先按 runbook §十二 处理完"
+              "存量回滚复审，确认原因后再人工改 channel_state.json。", file=sys.stderr)
+        passed = False
+        result["pass"] = False
+        result["blocked_by"] = prev["autoclear_frozen_by"]
+    entry = dict(prev)
+    entry["autoclear"] = passed
+    state[channel] = entry
     state_path.write_text(dumps(state), encoding="utf-8")
 
     print(KNOWN_BIAS, file=sys.stderr)

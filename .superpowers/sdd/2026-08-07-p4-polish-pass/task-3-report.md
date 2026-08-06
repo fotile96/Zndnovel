@@ -213,3 +213,92 @@ $ git status --short
 `.claude/settings.json` 与 `data/api_ledger.jsonl`。仅写代码与测试，未对真实 SEG 跑
 `setup()`——`pilot/polish/` 目录未被创建（`test_setup_never_touches_real_repo` 亦以断言
 的形式钉住这一点）。
+
+---
+
+## 评审回补：Important——verify() 单向核对，凭空多出的文件永远不报警
+
+评审自己动手实测（非推测）：`setup()` 之后往 `frozen/glossary/voices/` 塞一个
+manifest 从未登记过的新文件（如 `sneaky_extra.md`），或往 `frozen/notes/` 塞一份
+新的章节 notes（如 `s3s.md`），`verify()` 都返回 `[]`——因为原实现的循环体是
+`for rel, want in manifest.get("files", {}).items()`，只单向核对"manifest 登记的
+文件是否存在、哈希对不对"，从没反向扫描 `frozen/` 实际目录树里有没有 manifest
+没登记的东西。brief 写的是"frozen 逐文件哈希 **↔** manifest 比对"，`↔` 就是
+双向；且 `frozen/notes/`、`frozen/glossary/voices/` 下游是按目录整体消费的，
+误拷一份未经审的文件进去、只要不覆盖已登记的文件名，闸就永远不响。
+
+### 改法
+
+`tools/polish_setup.py::verify()` 在原有正向核对循环之后，新增反向扫描：
+
+```python
+fz = d / "frozen"
+if fz.is_dir():
+    for p in sorted(fz.rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(d).as_posix()
+            if rel not in known:
+                drift.append(f"{rel}: 未登记（凭空多出）")
+return drift
+```
+
+（`known = manifest.get("files", {})`，把原来内联在 for 循环里的 `manifest.get(...)`
+提成变量以便反向扫描复用同一份已登记集合。）只算文件不算目录（`p.is_file()`
+过滤掉 `rglob("*")` 递归产出的目录节点）；drift 项统一为 `f"{rel}: 未登记（凭空
+多出）"`，与既有的 `": 缺失"` `": 哈希不符"` 后缀风格一致，一眼能分清是哪一类
+（缺失 / 内容变了 / 多出未登记）。
+
+### 新测试
+
+`tests/test_polish_setup.py` 新增两条（对应评审实测的两个复现位置）：
+
+- `test_verify_detects_unregistered_extra_file`：`setup()` 后先确认 `verify() == []`，
+  再往 `frozen/glossary/voices/` 塞 `sneaky_extra.md`，断言 drift 非空且含该文件名。
+- `test_verify_detects_unregistered_extra_notes_file`：往 `frozen/notes/` 塞一份未在
+  段表 `chapters` 里的 `s3s.md`，断言同样被抓住。
+
+### 变异（反向扫描去掉，确认新测试转红）
+
+```python
+fz = d / "frozen"
+if False and fz.is_dir():  # MUTATION: 去掉反向扫描
+    for p in sorted(fz.rglob("*")):
+        ...
+return drift
+```
+
+命令：
+```
+uv run pytest -q tests/test_polish_setup.py::test_verify_detects_unregistered_extra_file tests/test_polish_setup.py::test_verify_detects_unregistered_extra_notes_file
+```
+结果：**RED**（两条全部失败）
+```
+FAILED test_verify_detects_unregistered_extra_file - assert ([])
+FAILED test_verify_detects_unregistered_extra_notes_file - assert ([])
+```
+判断：命中——两条新测试各自独立地在反向扫描被去掉后转红，证明这条闸的存在
+就是测试通过与否的唯一原因，不是巧合绿。已用 Edit 去掉插入的
+`if False and fz.is_dir():` 条件短路，还原为 `if fz.is_dir():`。
+
+### 两次测试输出
+
+```
+$ uv run pytest tests/test_polish_setup.py -q
+14 passed in 0.18s
+
+$ uv run pytest -q   （全量）
+585 passed in 2.93s   （追加前 583 + 本次 2 = 585，吻合）
+```
+
+### 收尾核对
+
+```
+$ git status --short
+ M .claude/settings.json      ← 其他会话未提交改动，全程未触碰
+ M data/api_ledger.jsonl      ← 同上，全程未触碰
+ M tests/test_polish_setup.py
+ M tools/polish_setup.py
+
+$ ls pilot/
+lanes                          ← 未新增 polish/，未对真实 SEG 跑过 setup()
+```

@@ -176,15 +176,22 @@ def setup(label, opus_data, repo=None) -> Path:
 
 
 def verify(label, repo=None) -> list:
-    """frozen/ 逐文件哈希 ↔ manifest.json 比对。空列表=绿。不得抛异常——
-    manifest 缺失、frozen 里某文件被删，都要落成可读的漂移描述。"""
+    """frozen/ 逐文件哈希 ↔ manifest.json **双向**比对。空列表=绿。不得抛异常——
+    manifest 缺失、frozen 里某文件被删，都要落成可读的漂移描述。
+
+    双向：①manifest 登记的每个文件是否存在、哈希对不对（正向）；②frozen/ 实际
+    目录树里是否有 manifest 从未登记过的文件（反向）。只查正向会漏掉"setup() 之
+    后有人往 frozen/notes/、frozen/glossary/voices/ 这类整目录消费的地方多丢了
+    一个文件"——只要不覆盖已登记的文件名，正向扫描永远看不见它，而下游会把它
+    当成这个 SEG 冻结集的一部分一并读走。"""
     d = _dir_for(label, repo)
     mp = d / "manifest.json"
     if not mp.exists():
         return [f"{mp} 不存在——尚未 setup() 或已被清理"]
     manifest = json.loads(mp.read_text(encoding="utf-8"))
+    known = manifest.get("files", {})
     drift = []
-    for rel, want in manifest.get("files", {}).items():
+    for rel, want in known.items():
         p = d / rel
         if not p.exists():
             drift.append(f"{rel}: 缺失")
@@ -192,6 +199,13 @@ def verify(label, repo=None) -> list:
         got = sha256_file(p)
         if got != want:
             drift.append(f"{rel}: 哈希不符")
+    fz = d / "frozen"
+    if fz.is_dir():
+        for p in sorted(fz.rglob("*")):
+            if p.is_file():
+                rel = p.relative_to(d).as_posix()
+                if rel not in known:
+                    drift.append(f"{rel}: 未登记（凭空多出）")
     return drift
 
 

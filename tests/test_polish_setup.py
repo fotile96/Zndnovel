@@ -170,3 +170,26 @@ def test_verify_missing_file_reported(mini_repo):
     (d / "frozen" / "opus.jsonl").unlink()
     drift = ps.verify("segX", repo=mini_repo.root)
     assert drift and any("opus.jsonl" in x for x in drift)
+
+
+def test_verify_detects_unregistered_extra_file(mini_repo):
+    """反向扫描：evidence 评审实测发现的漏洞——setup() 之后往 frozen/ 下按目录
+    整体消费的位置（glossary/voices/、notes/）多丢一个 manifest 从未登记过的
+    文件，只要不覆盖已登记文件名，纯正向核对（只查 manifest 里的文件是否存在/
+    哈希对不对）永远看不见它。verify() 必须双向：也要反过来扫 frozen/ 实际
+    目录树，把「磁盘上有、manifest 没登记」的文件计入 drift。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    assert ps.verify("segX", repo=mini_repo.root) == []
+    (d / "frozen" / "glossary" / "voices" / "sneaky_extra.md").write_text(
+        "# 未经审的口调表", encoding="utf-8")
+    drift = ps.verify("segX", repo=mini_repo.root)
+    assert drift and any("sneaky_extra.md" in x for x in drift)
+
+
+def test_verify_detects_unregistered_extra_notes_file(mini_repo):
+    """同一漏洞的第二个复现位置（评审实测的另一半）：notes/ 下多出一份未登记
+    的章节 notes（如误拷了一份未经审的 s3s.md）也必须被反向扫描抓住。"""
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    (d / "frozen" / "notes" / "s3s.md").write_text("# 误拷的章节纪要", encoding="utf-8")
+    drift = ps.verify("segX", repo=mini_repo.root)
+    assert drift and any("s3s.md" in x for x in drift)

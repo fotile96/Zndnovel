@@ -42,12 +42,17 @@ def existing_patches(id, data) -> list:
     return [r for r in read_jsonl(p) if r["id"] == id]
 
 
-def add(id, zh, reason, glossary_v, ts=None, data=None, *, announce=True) -> list:
+def add(id, zh, reason, glossary_v, ts=None, data=None, *, announce=True, prov=None) -> list:
     """追加一条修订到 patches.jsonl；返回**追加之前**该 id 已有的 patch 列表。
 
     追加前把既有 patch 播报出来（`announce=True`），是为了把「先 grep 查一下有没有
     被裁过」这条**靠记忆的纪律**换成工具自己出声。重复 patch 本身是合法的（同一行
     可以被多轮裁决层层修订），所以这里**不拒绝执行**——要防的是「以为没被裁过」。
+
+    `prov`（可选，`tools/polish_commit.py` 引入）：清关来源的回指信息，如
+    `{"channel", "candidate_ts", "seg"}`。默认 `None`（其余全部既有调用方的行为，
+    行里完全不出现这个键）；`resolve.resolve_map()` 只读 `id`/`zh` 两个键，多出
+    的 `prov` 键对它和其它既有下游消费者都是向后兼容的。
     """
     data = Path(data or DATA)
     prior = existing_patches(id, data)
@@ -61,6 +66,8 @@ def add(id, zh, reason, glossary_v, ts=None, data=None, *, announce=True) -> lis
               f"（grep）对 17 条带空格体的老 patch 恒返回 0，不可信。", file=sys.stderr)
     ts = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
     row = {"id": id, "zh": zh, "reason": reason, "glossary_v": glossary_v, "ts": ts}
+    if prov is not None:
+        row["prov"] = prov
     append_jsonl(data / "patches.jsonl", [row])
     return prior
 

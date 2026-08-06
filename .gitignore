@@ -29,3 +29,12 @@ pilot/lanes/*/data/*
 # 否则目录被 data/* 排除后其内文件的否定规则不生效（git 的目录排除优先规则）
 !pilot/lanes/*/data/notes/
 !pilot/lanes/*/data/notes/*.md
+
+# P4 润色 pass（pilot/polish/<seg>/）：与上面 P2 车道同一惯例——`frozen/` 是
+# SEG 冻结时点的整体拷贝（source/opus/notes/glossary 全部已在别处入库或可
+# 由 `polish_setup.setup()` 从冻结时点的车道数据+仓库 glossary 重新生成），
+# 体量随 SEG 增长、可由 manifest.json 的逐文件哈希追溯，故忽略；`manifest.json`
+# / `plan.json` / `calib/`（校准批+truth+通道准入结果）/ `raw/<channel>/`
+# （执行模型原始产出）/ `candidates.<channel>.jsonl` / `decisions.jsonl` 都不
+# 可重新生成（前二者含哈希与时间戳，后三者是真实生产台账），一律入库。
+pilot/polish/*/frozen/

@@ -227,3 +227,72 @@ git status --short pilot/lanes/opus/data/    # 应只剩本轮新增的 patches.
 git status --short pilot/polish/seg1-s2/     # 按 runbook §一 入库清单逐路径 add，不要 git add -A
 uv run pytest -q                              # 确认全量测试仍绿
 ```
+
+---
+
+## 点火速查（SEG-1，命令形态已逐个 `--help` 核对）
+
+一页纸的执行序列。详细语义仍以 runbook 为准；两处冲突时**以 runbook 为准**。
+
+**前提**：SEG-1 的四个生产 prompt 与校准 prompt 已渲染在 `work/ctx/`，`plan.json` 的哈希与
+它们一致。**不要无故重渲染**——重渲染会刷新 `plan.json` 里的 `prompt_hash`。
+
+```bash
+cd /Users/fotile96/Zndnovel
+
+# 0 开跑前
+uv run python tools/polish_setup.py --verify seg1-s2          # 期望：冻结校验：无漂移
+uv run python tools/polish_context.py --seg seg1-s2 --plan
+```
+
+会话分组（实测）：s1=b36–45(568 行) / s2=b46–55(488) / s3=b56–57(371) / s4=b58–62(569)，
+对应 `work/ctx/p4s1-s{1,2,3,4}.md`；校准 prompt = `work/ctx/p4s1-calib.md`（20 句）。
+
+```bash
+# 1 准入小考（两通道各一次，必须先于生产批）
+#   把 work/ctx/p4s1-calib.md 发给通道，输出按同一契约落盘，然后判卷：
+uv run python tools/polish_calibrate.py --seg seg1-s2 --score \
+  --channel fable-wf --raw work/out/calib-fable-wf.out
+uv run python tools/polish_calibrate.py --seg seg1-s2 --score \
+  --channel ds-flash --raw work/out/calib-ds-flash.out
+```
+
+不跑这一步 → `channel_state.json` 不存在 → 两通道都按「自动清关权关闭」处理（保守缺省：
+没考过试就不许免检）。paseo 的 provider 名**先 `list_providers` 核对**，不要猜。
+
+```bash
+# 2 生产会话：每通道每会话一次，raw 落绝对路径（一个会话产多个批文件）
+#   /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/raw/<channel>/b<批号>.out
+
+# 3 入仓 → 机械闸 → 分流（顺序不可颠倒）
+uv run python tools/polish_ingest.py --seg seg1-s2 --channel fable-wf --all
+uv run python tools/polish_check.py  --seg seg1-s2 --channel fable-wf
+uv run python tools/polish_ingest.py --seg seg1-s2 --channel ds-flash --all
+uv run python tools/polish_check.py  --seg seg1-s2 --channel ds-flash
+uv run python tools/polish_triage.py --seg seg1-s2
+```
+
+**`ingest` 之后必须重跑 `check` 再 `triage`**：gate 记录「本轮覆盖了哪些 id」，不在覆盖面里的
+候选没有自动清关资格。跳过不报错，只是新候选全部拿不到免检权。看一眼 `triage.json` 的 `meta`。
+
+```bash
+# 4 段末裁决：读 queue.md，逐条 append decisions.jsonl
+#   {"id":…, "verdict":"adopt|edit|keep_opus", "chosen_channel":…, "edited_zh":…,
+#    "reason_code":"量词|语序|补主语|过度归化|术语|口调|漂移|其他", "ts":…}
+
+# 5 推翻率闸 → 放大扫描（每 SEG 限一轮）
+uv run python tools/polish_audit.py   --seg seg1-s2
+uv run python tools/polish_amplify.py --seg seg1-s2 --digest
+uv run python tools/polish_amplify.py --seg seg1-s2 --scan-prompt --out work/ctx/p4s1-amp.md
+#   放大产物固定落 raw/amplify/b<批号>.out、固定 --channel amplify，回炉后再 ingest→check→triage
+
+# 6 清关（唯一写生产数据的一步）
+uv run python tools/polish_commit.py --seg seg1-s2 --data-dir pilot/lanes/opus/data
+uv run python tools/polish_commit.py --seg seg1-s2 --data-dir pilot/lanes/opus/data --apply
+
+# 7 清关后必跑
+uv run python tools/polish_check.py --seg seg1-s2 --w4-full --lane-dir pilot/lanes/opus
+uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml --data-dir pilot/lanes/opus/data
+```
+
+dry-run 里的 `⚠ id N 已有 M 条 patch` 一条都别滑过。

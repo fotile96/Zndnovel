@@ -86,7 +86,16 @@ def _build_mini(tmp_path, label="segX", channel="chA"):
          "ctx": "x", "glossary_v": 1, "ts": "t"}
         for i in all_ids
     ])
-    write_jsonl(opus_data / "patches.jsonl", [])
+    # 两个锁定 id（13/23）同时落一条内容相同的 patch，使它们在新的硬锁/
+    # 软锁分类下仍归为**硬锁**（patched 优先于 anchor，见 polish_setup._
+    # locked_payload）——保留本文件既有测试对"锁定 id 一律不得出稿"的假设，
+    # 不因锚点行改软锁而大范围改写。软锁专属行为见本文件下方的
+    # `_build_mini_soft_lock` 夹具与相关测试。
+    write_jsonl(opus_data / "patches.jsonl", [
+        {"id": spec["locked"], "zh": zh[spec["locked"]], "reason": "review",
+         "glossary_v": 1, "ts": "t"}
+        for spec in BATCHES.values()
+    ])
 
     d = ps.setup(label, opus_data, repo=repo)
 
@@ -479,6 +488,167 @@ def test_discipline_accumulates_across_batches(mini):
     pi.ingest(mini.label, mini.channel, 2, repo=mini.root)
     disc = json.loads((mini.d / f"discipline.{mini.channel}.json").read_text(encoding="utf-8"))
     assert disc["locked_hits"] == 2
+
+
+# --- 2026-08-07 用户裁定：锚点行从硬锁改软锁 ---
+
+def _build_mini_soft_lock(tmp_path, label="segSoft", channel="chA"):
+    """专用夹具：单批 3 个 id——10（普通）、20（软锁＝纯 anchor，不带
+    patch）、30（同上，第二个软锁 id，用于批完整性/多行场景）。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    ids = [10, 20, 30]
+    jp = {10: "第10句原文テキスト", 20: "锚点第20句原文テキスト",
+          30: "锚点第30句原文テキスト"}
+    opus = {10: "第10句译文", 20: "锚点第20句定译", 30: "锚点第30句定译"}
+
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+    # 20/30 只进 anchors.yaml，不落任何 patch——纯软锁。
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": [
+            {"id": 20, "jp": jp[20], "zh": opus[20], "recall": "软锁测试锚点20"},
+            {"id": 30, "jp": jp[30], "zh": opus[30], "recall": "软锁测试锚点30"},
+        ]},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"} for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": opus[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    locked = json.loads((d / "frozen" / "locked.json").read_text(encoding="utf-8"))
+    assert locked["hard_ids"] == [] and set(locked["soft_ids"]) == {20, 30}
+
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-soft"},
+    ]), encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label, channel=channel, jp=jp, opus=opus)
+
+
+def _write_soft_raw(m, rows_by_id):
+    """rows_by_id: {id: {"zh":..., "adjudicate":...}}——10 一律照抄 opus
+    （非锁定 id 必须出现且规规矩矩），20/30 按调用方给定内容出稿。"""
+    raw_dir = m.d / "raw" / m.channel
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    ids = [10, 20, 30]
+    lines = []
+    for i in ids:
+        spec = rows_by_id.get(i, {"zh": m.opus[i], "adjudicate": False})
+        lines.append(dumps({"id": i, "jp_tail": jp_tail(m.jp[i]), "zh": spec["zh"],
+                             "score": 90, "note": spec.get("note", ""),
+                             "adjudicate": spec.get("adjudicate", False)}))
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.fixture
+def mini_soft(tmp_path):
+    return _build_mini_soft_lock(tmp_path)
+
+
+def test_soft_lock_unchanged_survives_no_special_treatment(mini_soft):
+    """软锁行若 zh 逐字等于 opus（不改），正常入仓，不算违规。"""
+    _write_soft_raw(mini_soft, {20: {"zh": mini_soft.opus[20]},
+                                 30: {"zh": mini_soft.opus[30]}})
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 3 and r["dead"] == []
+    ids_in = {row["id"] for row in read_jsonl(mini_soft.d / f"candidates.{mini_soft.channel}.jsonl")}
+    assert ids_in == {10, 20, 30}
+    assert not (mini_soft.d / f"discipline.{mini_soft.channel}.json").exists()
+
+
+def test_soft_lock_changed_with_adjudicate_survives(mini_soft):
+    """软锁行改动 + adjudicate=true → 正常入仓（后续由 polish_triage 强制
+    摘进裁决队列，本模块只负责放行）。"""
+    _write_soft_raw(mini_soft, {
+        20: {"zh": "改写后的第20句", "adjudicate": True, "note": "六条细则第5条更顺口"},
+        30: {"zh": mini_soft.opus[30]},
+    })
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 3 and r["dead"] == []
+    rows = read_jsonl(mini_soft.d / f"candidates.{mini_soft.channel}.jsonl")
+    row20 = next(x for x in rows if x["id"] == 20)
+    assert row20["zh"] == "改写后的第20句"
+    assert row20["adjudicate"] is True
+    assert not (mini_soft.d / f"discipline.{mini_soft.channel}.json").exists()
+
+
+def test_soft_lock_changed_without_adjudicate_killed(mini_soft):
+    """软锁行改动但没带 adjudicate=true → 判死，计入 soft_lock_violations
+    （对应变异：若判死逻辑被删掉，这条会转红——"锚点被静默改动"是最该响
+    的失败模式）。"""
+    _write_soft_raw(mini_soft, {
+        20: {"zh": "偷偷改写的第20句", "adjudicate": False},
+        30: {"zh": mini_soft.opus[30]},
+    })
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 2
+    assert any(d["id"] == 20 and "adjudicate" in d["reason"] for d in r["dead"])
+    ids_in = {row["id"] for row in read_jsonl(mini_soft.d / f"candidates.{mini_soft.channel}.jsonl")}
+    assert 20 not in ids_in
+    disc = json.loads((mini_soft.d / f"discipline.{mini_soft.channel}.json").read_text(encoding="utf-8"))
+    assert disc["soft_lock_violations"] == 1
+    assert disc.get("locked_hits", 0) == 0   # 不是硬锁违规，不该混进这个计数
+
+
+def test_soft_lock_id_must_still_appear_in_output(mini_soft):
+    """软锁 id 不在"硬锁不得出稿"的豁免范围里——批完整性检查现在也要求
+    软锁 id 出现一行；完全不提这个 id（截断/模型误以为不用管）应判整批
+    失败，不能悄悄放过。"""
+    raw_dir = mini_soft.d / "raw" / mini_soft.channel
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    lines = [dumps({"id": 10, "jp_tail": jp_tail(mini_soft.jp[10]), "zh": mini_soft.opus[10],
+                     "score": 90, "note": "", "adjudicate": False}),
+              dumps({"id": 30, "jp_tail": jp_tail(mini_soft.jp[30]), "zh": mini_soft.opus[30],
+                     "score": 90, "note": "", "adjudicate": False})]
+    # 故意漏掉 id=20（软锁）——这在旧语义下是"锁定 id 本不该出现，漏了正常"，
+    # 新语义下必须判整批失败。
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert not r["ok"]
+    assert "覆盖不完整" in r["reason"]
+    assert not (mini_soft.d / f"candidates.{mini_soft.channel}.jsonl").exists()
+
+
+def test_legacy_locked_json_without_hard_soft_keys_treats_all_as_hard(mini_soft, monkeypatch):
+    """向后兼容：SEG 冻结面改版之前落盘的旧格式 `locked.json`（没有
+    `hard_ids`/`soft_ids` 键）——退化为把 `ids` 整体当硬锁，`soft_ids` 空。
+    不能因为读到旧格式就意外放行本来不该出稿的锚点行。"""
+    locked_path = mini_soft.d / "frozen" / "locked.json"
+    old_locked = json.loads(locked_path.read_text(encoding="utf-8"))
+    legacy = {"ids": old_locked["ids"], "why": old_locked["why"]}  # 无 hard_ids/soft_ids
+    locked_path.write_text(dumps(legacy), encoding="utf-8")
+
+    _write_soft_raw(mini_soft, {20: {"zh": "改写后的第20句", "adjudicate": True}})
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 1   # 只有 10 存活；20/30 都被当硬锁判死
+    ids_in = {row["id"] for row in read_jsonl(mini_soft.d / f"candidates.{mini_soft.channel}.jsonl")}
+    assert ids_in == {10}
+    assert any(d["id"] == 20 and "硬锁" in d["reason"] for d in r["dead"])
 
 
 # --- 评审 Critical 修复轮：zh↔jp 错位侦测 + 空 zh 判死 ---

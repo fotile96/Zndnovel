@@ -20,9 +20,13 @@ from tools.pipelib import read_jsonl, write_jsonl
 
 
 def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
-                     zh_override=None, jp_override=None):
+                     patched_ids=(), zh_override=None, jp_override=None):
     """batch_sizes: [(batch_no, n_ids), ...]，按顺序生成 id（从 1 递增）。
-    locked_ids: 应该落进 anchors.yaml（=锁定）的 id 集合。
+    locked_ids: 应该落进 anchors.yaml（=锚点）的 id 集合。
+    patched_ids: 应该额外落一条 patches.jsonl 记录的 id 集合——2026-08-07
+    裁定后，锚点行默认只是**软锁**；要造出**硬锁**场景（该 id 冻结时点
+    已有人裁 patch），必须显式把它也放进这个集合（可以是 locked_ids 的
+    子集，也可以是 locked_ids 之外单独打 patch 的 id）。
     zh_override: {id: zh} 强制覆盖该 id 的 opus 译文字面内容（用于断言
     "opus 译文确实被嵌进正文"这条——不能靠自动生成的占位字符串验证）。
     jp_override: {id: jp} 强制覆盖该 id 的原文字面内容（用于构造带真实
@@ -30,6 +34,7 @@ def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
     """
     zh_override = zh_override or {}
     jp_override = jp_override or {}
+    patched_ids = set(patched_ids)
     repo = tmp_path / "repo"
     (repo / "config").mkdir(parents=True)
     (repo / "data").mkdir(parents=True)
@@ -78,7 +83,11 @@ def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
     (opus_data / "notes").mkdir(parents=True)
     write_jsonl(opus_data / "ledger.jsonl", ledger_rows)
     write_jsonl(opus_data / "forward.jsonl", forward_rows)
-    write_jsonl(opus_data / "patches.jsonl", [])
+    zh_by_id = {r["id"]: r["zh"] for r in forward_rows}
+    write_jsonl(opus_data / "patches.jsonl", [
+        {"id": i, "zh": zh_by_id[i], "reason": "review", "glossary_v": 1, "ts": "t"}
+        for i in sorted(patched_ids)
+    ])
     (opus_data / "notes" / "s2s.md").write_text("# s2s 纪要", encoding="utf-8")
 
     d = ps.setup(label, opus_data, repo=repo)
@@ -99,10 +108,21 @@ def mini_seg11(tmp_path):
 
 @pytest.fixture
 def mini_seg_render(tmp_path):
-    """2 批各 2 个 id：batch1=[10(普通),11(锁=anchor)]，batch2=[12(普通),13(锁=anchor)]。
+    """2 批各 2 个 id：batch1=[10(普通),11(锁)]，batch2=[12(普通),13(锁)]。
     id=10 的 opus 译文强制写成 "旧译文本样例"——用于断言 opus 现行译文确实被
     嵌进 prompt 正文（这不是自动生成的占位串，字面内容由测试直接指定）。
+    锁定 id（2、4）同时进 anchors.yaml 与 patches.jsonl——按 2026-08-07 裁定
+    的 tie-break 规则归为**硬锁**，保留本文件既有测试对"锁定 id 绝不出稿"
+    的假设；纯软锁（anchor-only）场景见下方 `mini_seg_soft_render`。
     """
+    return _build_mini_seg(tmp_path, [(1, 2), (2, 2)],
+                            locked_ids={2, 4}, patched_ids={2, 4},
+                            zh_override={1: "旧译文本样例"})
+
+
+@pytest.fixture
+def mini_seg_soft_render(tmp_path):
+    """同上但锁定 id（2、4）只进 anchors.yaml、不落 patch——纯软锁场景。"""
     return _build_mini_seg(tmp_path, [(1, 2), (2, 2)],
                             locked_ids={2, 4}, zh_override={1: "旧译文本样例"})
 
@@ -152,7 +172,7 @@ def test_plan_session_numbers_start_at_1(mini_seg):
 
 def test_render_marks_locked_and_embeds_opus(mini_seg_render):
     p = pc.render("segX", 1, repo=mini_seg_render.root)
-    assert "【锁】" in p and "锁定 id" in p
+    assert "【硬锁】" in p and "硬锁 id 清单" in p
     assert "旧译文本样例" in p  # opus zh 在正文里
 
 
@@ -168,13 +188,26 @@ def test_render_output_contract_uses_real_batch_numbers(mini_seg_render):
 
 
 def test_render_locked_ids_excluded_from_body(mini_seg_render):
-    """锁定 id（2、4）不得出现在「逐批正文」的 [bN] id: 形式里——它们只应
-    出现在「锁定 id 清单」一节。"""
+    """硬锁 id（2、4）不得出现在「逐批正文」的 [bN] id: 形式里——它们只应
+    出现在「硬锁 id 清单」一节。"""
     p = pc.render("segX", 1, repo=mini_seg_render.root)
     assert "[b1] 2:" not in p
     assert "[b2] 4:" not in p
     assert "[b1] 1:" in p
     assert "[b2] 3:" in p
+
+
+def test_render_soft_locked_ids_appear_in_body_with_marker(mini_seg_soft_render):
+    """2026-08-07 裁定：软锁（纯 anchor，未落 patch）id 必须像普通行一样
+    出现在正文里（带【软锁】标记），不再被排除——这是与硬锁行为唯一的
+    分叉点。"""
+    p = pc.render("segX", 1, repo=mini_seg_soft_render.root)
+    assert "（本会话无硬锁 id）" in p
+    assert "## 软锁 id 清单" in p
+    assert "【软锁】2" in p or "- 【软锁】2：" in p
+    assert "[b1] 2 【软锁】:" in p
+    assert "[b2] 4 【软锁】:" in p
+    assert "[b1] 1:" in p  # 普通 id 不受影响，格式不带多余空格
 
 
 def test_render_embeds_full_glossary_set(mini_seg_render):
@@ -283,7 +316,8 @@ def test_render_chapter_titles_stable_regardless_of_optional_sections(mini_seg_r
     shutil.rmtree(mini_seg_render.seg_dir / "frozen" / "notes")
     p = pc.render("segX", 1, repo=mini_seg_render.root)
     assert "## 任务说明（润色契约）" in p
-    assert "## 锁定 id 清单" in p
+    assert "## 硬锁 id 清单" in p
+    assert "## 软锁 id 清单" in p
     assert "## 术语 / 风格 / 口调 / 锚点" in p
     assert "## 逐批正文" in p
     assert "## 输出契约" in p
@@ -406,21 +440,27 @@ def test_calib_prompt_never_contains_truth(tmp_path):
 
 
 def test_calib_prompt_has_no_lock_marks(tmp_path):
-    """校准批"不带锁标"（spec §6 原话：与生产批分离故无泄露）——【锁】
-    一个都不许出现，但"锁定 id 清单"这一节仍在（任务说明第 1 条引用它）。"""
-    m = _build_mini_seg(tmp_path, [(1, 3)], locked_ids=(1,))
+    """校准批"不带锁标"（spec §6 原话：与生产批分离故无泄露）——【硬锁】/
+    【软锁】一个都不许出现在具体标出某个 id 的行里，但"硬锁/软锁 id 清单"
+    这一节仍在（任务说明引用它）。夹具里 id=1 是硬锁（anchor+patch），
+    id=3 是软锁（纯 anchor）。"""
+    m = _build_mini_seg(tmp_path, [(1, 3)], locked_ids=(1, 3), patched_ids=(1,))
     _make_calib(m, [{"id": 2, "batch": f"calib-{m.label}", "jp": "第2句テキスト",
                      "opus_zh": "第2句译文"}])
     prompt = pc.render_calib(m.label, repo=m.root)
-    # 任务说明里"带【锁】标记的 id"那句是共用文案（同构的一部分），要卡的是
-    # 清单里**真的标出了某个 id**——生产 prompt 里那是 `- 【锁】<id>（…）` 行。
-    assert not [ln for ln in prompt.splitlines() if ln.startswith("- 【锁】")]
-    assert "锁定 id 清单" in prompt
-    assert "本校准批不含锁定 id" in prompt
-    # 对照：生产 prompt 在同一个夹具下**确实**会标出锁定 id=1，证明上面那条
-    # 断言不是因为"这种行本来就不存在"而恒真。
-    assert [ln for ln in pc.render(m.label, 1, repo=m.root).splitlines()
-            if ln.startswith("- 【锁】")]
+    # 任务说明里"带【硬锁】/【软锁】标记"这类共用文案是同构的一部分，要卡的
+    # 是清单里**真的标出了某个 id**——生产 prompt 里那是 `- 【硬锁】<id>（…）`
+    # / `- 【软锁】<id>：` 这类行。
+    assert not [ln for ln in prompt.splitlines()
+                if ln.startswith("- 【硬锁】") or ln.startswith("- 【软锁】")]
+    assert "硬锁 / 软锁 id 清单" in prompt
+    assert "普通陪考句**取样时已排除" in prompt
+    assert "本校准批不含锁定 id" not in prompt  # 旧措辞已修正，不该再出现
+    # 对照：生产 prompt 在同一个夹具下**确实**会标出锁定 id=1（硬）与 3
+    # （软），证明上面那条断言不是因为"这种行本来就不存在"而恒真。
+    prod_lines = pc.render(m.label, 1, repo=m.root).splitlines()
+    assert [ln for ln in prod_lines if ln.startswith("- 【硬锁】")]
+    assert [ln for ln in prod_lines if ln.startswith("- 【软锁】")]
 
 
 def test_calib_prompt_reads_frozen_not_live_repo(tmp_path):

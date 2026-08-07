@@ -67,12 +67,37 @@ def _anchor_ids(repo) -> set:
 
 
 def _locked_payload(locked_ids, anchor_ids, patched_ids) -> dict:
-    """来源标注：两者都命中时按用户裁定固定选 anchor（稳定可复现，不看运行
-    时 set 遍历顺序）。"""
+    """硬锁/软锁分类（2026-08-07 用户裁定：锚点行从硬锁改软锁）。
+
+    - **硬锁**（`hard_ids`）＝该 id 在冻结时点已有人裁 patch（`patched_ids`）
+      ——不得出稿，出稿即判死（`polish_ingest`）。
+    - **软锁**（`soft_ids`）＝`skeleton/anchors.yaml` 锚点行，且**不**在
+      `patched_ids` 里——可以出稿；`zh` 有改动必须带 `adjudicate=true`
+      （否则判死），且改动行永不自动清关、必进裁决队列不被 K 挤出
+      （`polish_triage`）。
+    - **两者都命中时按裁定固定归为硬锁**：`patched_ids` 是这个 id 在冻结
+      时点已经有的一条**具体、更新**的人裁决定，比 anchors.yaml 的一般性
+      定译指引更"重"——一个 id 若已经被单独裁过，理应比一条通用锚点指引
+      更不可触碰，取更保守（更严格）的那一档。`hard_ids`/`soft_ids` 因此
+      互斥、并集恒等于 `locked_ids`（=`anchor_ids | patched_ids`，与旧版
+      `ids` 字段定义逐位相同，向后兼容）。
+
+    `why` 字段保留（旧消费者只用它做展示标注，不做行为判断），取值与
+    `hard_ids`/`soft_ids` 的分类口径同步（tie-break 从旧版的固定标 "anchor"
+    改为固定标 "patched"——旧版两档行为完全一样，标哪个纯属展示用词；现在
+    行为分叉了，`why` 的字面值必须如实反映真正生效的那一档，不能自相矛盾）。
+    """
+    hard_ids = set(locked_ids) & patched_ids
+    soft_ids = set(locked_ids) & anchor_ids - patched_ids
     why = {}
     for i in sorted(locked_ids):
-        why[str(i)] = "anchor" if i in anchor_ids else "patched"
-    return {"ids": sorted(locked_ids), "why": why}
+        why[str(i)] = "patched" if i in patched_ids else "anchor"
+    return {
+        "ids": sorted(locked_ids),
+        "why": why,
+        "hard_ids": sorted(hard_ids),
+        "soft_ids": sorted(soft_ids),
+    }
 
 
 def _copy_glossary(repo, fz: Path) -> None:

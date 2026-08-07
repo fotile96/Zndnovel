@@ -88,8 +88,31 @@ def test_setup_freezes_and_locks(mini_repo):
     locked = json.loads((d / "frozen" / "locked.json").read_text(encoding="utf-8"))
     assert set(locked["ids"]) == {11, 13}          # 11=anchor, 13=已有 patch
     assert locked["why"]["11"] == "anchor" and locked["why"]["13"] == "patched"
+    # 2026-08-07 裁定：锚点行从硬锁改软锁——11（纯 anchor）是软锁，
+    # 13（已有 patch）是硬锁。
+    assert locked["hard_ids"] == [13]
+    assert locked["soft_ids"] == [11]
     m = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     assert m["opus_at"]["patches_lines"] == 1
+
+
+def test_locked_payload_overlap_resolves_to_hard(mini_repo):
+    """一个 id 既是 anchor 又已有 patch 时，按裁定固定归为硬锁（更保守的
+    那一档）——`hard_ids`/`soft_ids` 必须互斥，并集仍等于旧版 `ids`。"""
+    (mini_repo.root / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": [
+            {"id": 11, "jp": "锚点原文", "zh": "锚点定译", "recall": "测试锚点"},
+            {"id": 13, "jp": "第十三句", "zh": "补丁后文本", "recall": "重叠锚点"},
+        ]},
+    ], allow_unicode=True), encoding="utf-8")
+    d = ps.setup("segX", mini_repo.opus_data, repo=mini_repo.root)
+    locked = json.loads((d / "frozen" / "locked.json").read_text(encoding="utf-8"))
+    assert set(locked["ids"]) == {11, 13}
+    assert locked["hard_ids"] == [13]      # 13 既是 anchor 又已有 patch → 硬锁
+    assert locked["soft_ids"] == [11]      # 11 只是 anchor → 软锁
+    assert locked["why"]["13"] == "patched"
+    assert not (set(locked["hard_ids"]) & set(locked["soft_ids"]))
+    assert set(locked["hard_ids"]) | set(locked["soft_ids"]) == set(locked["ids"])
 
 
 def test_opus_snapshot_is_resolved(mini_repo):

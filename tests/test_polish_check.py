@@ -95,7 +95,14 @@ def _build_mini(tmp_path, zh_overrides=None, label="segX", channel="chA",
          "ctx": "x", "glossary_v": 1, "ts": "t"}
         for i in ids
     ])
-    write_jsonl(opus_data / "patches.jsonl", [])
+    # LOCKED（13）同时落一条内容相同的 patch，使它在硬锁/软锁分类下仍归为
+    # **硬锁**（2026-08-07 裁定：patched 优先于 anchor）——保留本文件"锁定
+    # id 不出稿"的既有假设，本文件不测软锁专属行为（那已在
+    # test_polish_{ingest,triage,context}.py 覆盖）。
+    write_jsonl(opus_data / "patches.jsonl", [
+        {"id": LOCKED, "zh": DEFAULT_ZH[LOCKED], "reason": "review",
+         "glossary_v": 1, "ts": "t"},
+    ])
 
     d = ps.setup(label, opus_data, repo=repo)
     (d / "plan.json").write_text(dumps([

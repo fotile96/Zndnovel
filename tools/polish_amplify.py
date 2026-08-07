@@ -177,19 +177,34 @@ def _dir_for(label, repo) -> Path:
 
 
 def _load_frozen(d: Path):
+    """返回 `(source_rows, id2jp, id2opus, hard_ids, soft_ids, batches)`。
+
+    2026-08-07 裁定（锚点行从硬锁改软锁）：`locked.json` 现在区分
+    `hard_ids`（该 id 冻结时点已有人裁 patch，禁止出稿）与 `soft_ids`
+    （anchors.yaml 锚点行，可以斟酌但改动须 adjudicate=true）——本模块
+    只做展示用途（放大扫描 prompt 的锁定 id 清单、桶 0 全景），不做任何
+    出稿判死（那是 `polish_ingest`/`polish_triage` 的职责），但展示文案
+    不该继续把两者混在一起说"禁止改动"，那对软锁 id 不成立。旧格式
+    `locked.json`（无 hard_ids/soft_ids 键）向后兼容：整体当硬锁，与
+    `polish_ingest`/`polish_triage` 同一兼容口径。"""
     fz = d / "frozen"
     source_rows = read_jsonl(fz / "source.jsonl")
     id2jp = {r["id"]: r["jp"] for r in source_rows}
     id2opus = {r["id"]: r["zh"] for r in read_jsonl(fz / "opus.jsonl")}
     locked = json.loads((fz / "locked.json").read_text(encoding="utf-8"))
-    locked_ids = set(locked.get("ids", []))
+    if "hard_ids" in locked or "soft_ids" in locked:
+        hard_ids = set(locked.get("hard_ids", []))
+        soft_ids = set(locked.get("soft_ids", []))
+    else:
+        hard_ids = set(locked.get("ids", []))
+        soft_ids = set()
     # 批号按 source_rows 里的出现顺序去重——与 polish_context.plan() 同一
     # 惯例，保证批次在文档里的呈现顺序与玩家实际经历顺序一致。
     batches = []
     for r in source_rows:
         if r["batch"] not in batches:
             batches.append(r["batch"])
-    return source_rows, id2jp, id2opus, locked_ids, batches
+    return source_rows, id2jp, id2opus, hard_ids, soft_ids, batches
 
 
 def _all_candidates(d: Path) -> dict:
@@ -262,7 +277,7 @@ def _build_digest_text(label, repo=None) -> str:
     但不该在装配失败/被闸拒绝时也把纪要重复 append 进 rulings.md）。
     """
     d = _dir_for(label, repo)
-    _, id2jp, id2opus, _locked_ids, _batches = _load_frozen(d)
+    _, id2jp, id2opus, _hard_ids, _soft_ids, _batches = _load_frozen(d)
     all_cands = _all_candidates(d)
 
     decisions_path = d / "decisions.jsonl"
@@ -337,7 +352,7 @@ def _bucket3_reason(row: dict) -> str:
             "当前译文**仍是 opus 原文**，这条候选从未被任何人看过")
 
 
-def _build_panorama(d: Path, id2jp, id2opus, locked_ids, all_cands) -> str:
+def _build_panorama(d: Path, id2jp, id2opus, hard_ids, soft_ids, all_cands) -> str:
     triage_path = d / "triage.json"
     if not triage_path.exists():
         raise FileNotFoundError(
@@ -354,8 +369,11 @@ def _build_panorama(d: Path, id2jp, id2opus, locked_ids, all_cands) -> str:
 
     out = ["## 全 SEG 四桶结果全景（`polish_triage.triage()` 的分流快照）\n"]
 
-    out.append(f"### 桶 0（锁定 id，禁止改动，共 {len(locked_ids)} 个）\n")
-    out.append("、".join(str(i) for i in sorted(locked_ids)) or "（本 SEG 无锁定 id）")
+    out.append(f"### 桶 0（硬锁 id，禁止改动，共 {len(hard_ids)} 个）\n")
+    out.append("、".join(str(i) for i in sorted(hard_ids)) or "（本 SEG 无硬锁 id）")
+    out.append(f"\n### 软锁 id（锚点行，可以斟酌但改动须 adjudicate=true，"
+               f"共 {len(soft_ids)} 个——不属于桶 0/1/2/3 任何一桶，单独列出仅供参照）\n")
+    out.append("、".join(str(i) for i in sorted(soft_ids)) or "（本 SEG 无软锁 id）")
 
     b1 = sorted((r for r in rows if r["bucket"] == 1), key=lambda r: (r["id"], r["channel"]))
     out.append(f"\n### 桶 1（零改动——已确认这些行的候选与 opus 逐字相同，共 {len(b1)} 条）\n")
@@ -419,8 +437,9 @@ AMPLIFY_PREAMBLE = """\
 改动，却因为人工裁决配额有限而从未被人看过，目前默认原样保留 opus（或
 已被机械判定为"安全"而自动清关，但同样没有人确认过）。
 
-**这不是只扫桶 3。** 输出契约要求你对本 SEG 每一批、批内每一个非锁定 id
-都产出一行——桶 0/1/2 里那些已经确认没问题的行，也请原样抄一遍现行 zh
+**这不是只扫桶 3。** 输出契约要求你对本 SEG 每一批、批内每一个非硬锁 id
+（含软锁 id——像普通行一样给出一行，改动仍须 adjudicate=true）都产出
+一行——桶 0/1/2 里那些已经确认没问题的行，也请原样抄一遍现行 zh
 （与常规批次同一份契约，"不改的行 zh 逐字抄现行译文"同样适用；桶 2 已经
 过一次人工裁决的行，`zh` 请照抄裁决结果里的最终译文，不要回退去抄更早
 的候选或 opus）。真正需要你运用纪要里学到的判断尺度去重新斟酌的，是桶 3
@@ -466,7 +485,7 @@ def scan_prompt(label, repo=None) -> str:
             f"{label} 已用完放大扫描轮次配额（已装配 {round_count} 轮，"
             f"上限 CFG['amplify_rounds']={limit}）——拒绝再装配")
 
-    _, id2jp, id2opus, locked_ids, batches = _load_frozen(d)
+    _, id2jp, id2opus, hard_ids, soft_ids, batches = _load_frozen(d)
     all_cands = _all_candidates(d)
 
     digest_text = _build_digest_text(label, repo=repo)
@@ -490,15 +509,23 @@ def scan_prompt(label, repo=None) -> str:
     out.append("## 裁决意图纪要\n")
     out.append(digest_text)
 
-    out.append(_build_panorama(d, id2jp, id2opus, locked_ids, all_cands))
+    out.append(_build_panorama(d, id2jp, id2opus, hard_ids, soft_ids, all_cands))
 
-    out.append("\n## 锁定 id 清单（禁止在输出中出现这些 id）\n")
-    if locked_ids:
-        for i in sorted(locked_ids):
-            out.append(f"- 【锁】{i}（{why.get(str(i), '?')}）："
+    out.append("\n## 硬锁 id 清单（禁止在输出中出现这些 id）\n")
+    if hard_ids:
+        for i in sorted(hard_ids):
+            out.append(f"- 【硬锁】{i}（{why.get(str(i), '?')}）："
                        f"JP: {id2jp.get(i, '')} / ZH(opus): {id2opus.get(i, '')}")
     else:
-        out.append("（本 SEG 无锁定 id）")
+        out.append("（本 SEG 无硬锁 id）")
+
+    out.append("\n## 软锁 id 清单（锚点行，可以斟酌——不改就照抄现行 zh，"
+                "改了必须 adjudicate=true 并在 note 里写清楚理由）\n")
+    if soft_ids:
+        for i in sorted(soft_ids):
+            out.append(f"- 【软锁】{i}：JP: {id2jp.get(i, '')} / ZH(opus): {id2opus.get(i, '')}")
+    else:
+        out.append("（本 SEG 无软锁 id）")
 
     out.append("\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）")
     out.append("### active.json（术语表）")

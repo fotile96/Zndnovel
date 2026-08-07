@@ -6,9 +6,8 @@
 全绿的候选可以不经人工裁决直接入库（`channel_state.json` 的
 `{channel: {"autoclear": true}}`）。这条免检权对哪个执行通道开放，不能
 凭感觉——本模块把若干条**人工裁决定稿句**（金标，模型不知情）混进一批
-校准批喂给该通道，看它会不会把这些"已经拍板"的句子改坏。改坏比例超线
-（`CFG["calib_fail"]`），该通道本 SEG 的自动清关权就初始关闭（候选照样
-能产，但一律走人裁排队）。
+校准批喂给该通道，看它会不会把这些"已经拍板"的句子改坏。判卷不合格，
+该通道本 SEG 的自动清关权就初始关闭（候选照样能产，但一律走人裁排队）。
 
 ## 金标池：从哪来、取哪个版本
 
@@ -21,22 +20,61 @@
 定稿在此刻的样子"。取错等于拿一个已被推翻的旧版本去考模型——模型把它
 改回现行版本反而会被误判成"改坏了金标"。
 
-## 三档分档：unchanged / minor / substantive
+## 三档分档：unchanged / minor / substantive（2026-08-07 缺陷修复）
 
-对每条金标，量 `edit_distance(strip_ctl(model_zh), strip_ctl(ref_zh))`
-（`ref_zh` = 该金标的现行文本，即 batch 里给模型的起点，也是这里的"标准
-答案"），按 `config/polish.yaml` 的两个阈值切三档（该文件里
-`minor_edit` 一行的注释就是这个三档表的定义）：
+**根因（首次真实跑准入小考暴露）**：旧版把 `edit ≤ minor_edit` 记成
+"unchanged"（"未改动"），实际含义是"未改动**或轻微改动**"——SEG-1 首次
+真实小考里两条通道都报了 `gold_unchanged=10`，操作者读到会以为"一句金标
+都没碰"，但独立核算显示 fable-wf 实际改了 3/10、ds-flash 改了 2/10（编辑
+距离都在 1–2 字这个"轻微"区间，被旧判据悄悄计进了"未改动"）。**字段名
+说的是"未改动"，字面意思却是"改动幅度不超过 4 字"——这是报告在说谎**，
+比报告难看更严重。
 
-  - `edit ≤ minor_edit`                        → **unchanged**（基本没动）
-  - `minor_edit < edit ≤ autoclear_limit(ref)`  → **minor**（有改动，但仍在
-    "正常候选也会被判定可自动清关"的幅度内——这个量级的改动即使发生在
-    普通候选身上也不会被拦下，所以不计入"实质改写"）
-  - `edit > autoclear_limit(ref)`               → **substantive**（改动幅度
-    已经超出自动清关本该允许的范围——这才是真正要防的：模型把一句人工
-    拍板的定稿，改成了一个普通流程都不会放过的大改写）
+现在三档改成与字面意思完全一致（只用 `minor_edit` 一个阈值，不再牵涉
+`autoclear_limit`——那本是给普通候选定的自动清关阈值，用来定义"金标有没
+有被动过"这件事从一开始就文不对题）：
 
-`pass = substantive / (unchanged+minor+substantive) < CFG["calib_fail"]`。
+  - `edit == 0`                    → **unchanged**（逐字未动）
+  - `0 < edit ≤ minor_edit`        → **minor**（动了，但幅度不大）
+  - `edit > minor_edit`            → **substantive**（大改写）
+
+## pass 判定：以"改动是否被显式请裁"为基准，不再只看改动幅度
+
+**更根本的问题**：对金标句而言，编辑距离本身就是错的判据。实测证据
+（`pilot/polish/seg1-s2/calib/raw.{fable-wf,ds-flash}.jsonl` 对 id=5684
+的真实输出）——
+
+```
+人裁定稿:  得厅那支曲子才行。          ← きく 三换字的 v13 裁定
+ds-flash:  得听那支曲子才行。          edit=1, adjudicate=false  ← 静默推翻裁决
+fable-wf:  得问问那支曲子才行。        edit=2, adjudicate=true   ← 改了但请裁了
+```
+
+1 个字推翻一条裁定，和大段改写一样严重——**动了就是信号，幅度不重要**。
+`adjudicate` 才是这里真正有信息量的信号："察觉到并显式请裁"与"静默改动"
+是完全不同的可信度。故本模块引入两个新分类（与 unchanged/minor/
+substantive 三档并存，三档只做展示用的幅度分布，不再是 pass 的直接依据）：
+
+  - **`changed_adjudicated`**：`edit > 0` 且该行 `adjudicate=true`
+    ——通道"改了但主动说了"，这是我们希望看到的行为，不该被视为失败。
+  - **`changed_silent`**：`edit > 0` 且 `adjudicate` 不是 `true`——通道
+    "悄悄推翻了一条人工裁定"，这是本次修复要防的最危险失败模式。模型
+    漏输出这个 id（截断/跳过）同样计入这一档最坏情形（没有 `adjudicate`
+    可言，且内容视为"整句被换掉"，`edit` 按空串起手算，几乎必然 > 0）。
+
+`silent_override_rate = changed_silent / total`；
+`pass = silent_override_rate < CFG["calib_silent_override_fail"]`
+（新配置项，**不复用** `CFG["calib_fail"]`——那个键原本是"实质改写占比"
+的阈值，语义已经不适用于新判据，静默改变一个既有配置项的含义比新增一个
+键更危险；`calib_fail` 保留在 `config/polish.yaml` 里但不再被本模块读取，
+仅作历史阈值可追溯）。默认 `calib_silent_override_fail=0.10`——10 句金标
+下 1 句静默覆盖就会落到边界（`0.10` 不小于 `0.10`，判 fail），阈值故意
+收得接近零容忍：这类失败模式一旦发生就该被拦下，不是"多几次才算数"的
+统计噪音。
+
+结果里另外提供**逐条明细**（`details` 字段：每条金标 id 的 edit/分档/
+`adjudicate`/是否静默覆盖），操作者不需要像本次一样自己写脚本核算就能
+看清楚每一条金标到底发生了什么。
 
 ## ⚠ 已知偏差（贯穿本模块的免责声明，别当质量分用）
 
@@ -96,7 +134,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import REPO, dumps, read_jsonl, write_jsonl
-from tools.polishlib import CFG, autoclear_limit, edit_distance, strip_ctl
+from tools.polishlib import CFG, edit_distance, strip_ctl
 from tools.resolve import resolve_map
 
 KNOWN_BIAS = (
@@ -242,7 +280,9 @@ def score(label, raw_path, channel, repo=None) -> dict:
         last_by_id[r["id"]] = r  # 同 id 取最后一条（容错同生产 ingest 口径）
 
     gold_unchanged = gold_minor = gold_substantive = 0
-    for id_str, info in truth.items():
+    changed_adjudicated = changed_silent = 0
+    details = []
+    for id_str, info in sorted(truth.items(), key=lambda kv: int(kv[0])):
         if not info.get("is_gold"):
             continue
         cid = int(id_str)
@@ -252,29 +292,60 @@ def score(label, raw_path, channel, repo=None) -> dict:
         ref_zh = ref_row["opus_zh"]
         out_row = last_by_id.get(cid)
         # 模型漏输出这个 id（截断/跳过）视为最坏情形——不能因为拿不到
-        # 输出就悄悄跳过不计分，那等于让"没交卷"免于被判"实质改写"。
+        # 输出就悄悄跳过不计分：既不给它"未改动"的清白，也不给它
+        # "已请裁"的信任状（下面 adjudicate 取值同理默认 False）。
         model_zh = out_row.get("zh") if out_row else None
+        adjudicate_flag = bool(out_row.get("adjudicate", False)) if out_row else False
 
         edit = _content_edit(model_zh, ref_zh)
-        limit = autoclear_limit(ref_zh)
-        if edit <= CFG["minor_edit"]:
+        # 三档：只用 minor_edit 一个阈值，字段名与含义严格一致——见模块
+        # docstring"2026-08-07 缺陷修复"一节。`gold_unchanged` 现在真的
+        # 只计"逐字未动"，不再把"改了但幅度小"混进"未改动"里。
+        if edit == 0:
             gold_unchanged += 1
-        elif edit <= limit:
+            tier = "unchanged"
+        elif edit <= CFG["minor_edit"]:
             gold_minor += 1
+            tier = "minor"
         else:
             gold_substantive += 1
+            tier = "substantive"
+
+        # 真正决定 pass 的信号：改了但有没有显式请裁——"动了就是信号，
+        # 幅度不重要"，1 个字的静默推翻和大段改写同样危险。
+        silent_override = False
+        if edit > 0:
+            if adjudicate_flag:
+                changed_adjudicated += 1
+            else:
+                changed_silent += 1
+                silent_override = True
+
+        details.append({
+            "id": cid, "edit": edit, "tier": tier,
+            "adjudicate": adjudicate_flag,
+            "missing_output": out_row is None,
+            "silent_override": silent_override,
+            "ref_zh": ref_zh, "model_zh": model_zh,
+        })
 
     total = gold_unchanged + gold_minor + gold_substantive
     # total==0（校准批里没有金标，理论上不该发生）保守判 False——没有证据
     # 就不给通过，呼应 channel_state 缺省关闭同一哲学。
-    passed = (gold_substantive / total) < CFG["calib_fail"] if total else False
+    silent_override_rate = (changed_silent / total) if total else None
+    passed = (silent_override_rate is not None
+              and silent_override_rate < CFG["calib_silent_override_fail"])
 
     result = {
         "gold_unchanged": gold_unchanged,
         "gold_minor": gold_minor,
         "gold_substantive": gold_substantive,
+        "changed_adjudicated": changed_adjudicated,
+        "changed_silent": changed_silent,
+        "silent_override_rate": silent_override_rate,
         "pass": passed,
         "known_bias": KNOWN_BIAS,
+        "details": details,
     }
 
     state_path = d / "channel_state.json"

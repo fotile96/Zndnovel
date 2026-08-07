@@ -13,6 +13,35 @@ def test_jp_tail_strips_ctl_and_ruby():
     # （brief 原断言 "よろしく漢字ね"[-8:] 只有 7 字、恒不相等——用户已裁定按此改正）
     assert pl.jp_tail(s) == "はよろしく漢字ね"
 
+# ---- 2026-08-07：把 jp_tail 三个边角契约写死进测试（先读实现确认实际行为，
+#      不是照着 brief 的措辞想当然）----
+
+def test_jp_tail_shorter_than_n_takes_whole_string():
+    """不足 8 字的原文——取剥离控制码后的全串，不报错、不补空格补齐（Python
+    切片 `s[-8:]` 对短串天然返回整串，这里钉死这个"天然行为"就是契约本身）。"""
+    s = "短句"
+    assert pl.jp_tail(s) == "短句"
+    assert len(pl.jp_tail(s)) < 8
+
+
+def test_jp_tail_includes_speaker_prefix():
+    """`【説話人】` 前缀算原文的一部分，参与"剥离控制码后取末 8 字"的计算，
+    不能被当成排版噪声跳过单独从台词正文算起。"""
+    s = "【アヤノ】「教室に来たよ」"
+    # strip_ctl 不移除【】/「」（只处理 _n/_r/ruby），故整串（含前缀）参与
+    # 取尾——若前缀被跳过，尾串会不同。
+    assert pl.jp_tail(s) == pl.strip_ctl(s)[-8:]
+    assert pl.jp_tail(s) != pl.strip_ctl("教室に来たよ」")[-8:]
+
+
+def test_jp_tail_counts_spaces_as_characters():
+    """空格算一个字符，不在取尾前被去掉——真实语料里带全角/半角空格断句的
+    行（如 s5 章节日记体）尾串对齐依赖这一点。"""
+    s = "为什么 大半夜 还吵个不停"
+    assert pl.jp_tail(s) == s[-8:]
+    assert pl.jp_tail(s) != s.replace(" ", "")[-8:]
+
+
 def test_edit_distance_basic():
     assert pl.edit_distance("abc", "abc") == 0
     assert pl.edit_distance("abc", "axc") == 1

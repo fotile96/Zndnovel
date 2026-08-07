@@ -13,20 +13,60 @@ deepseek/未来第三个）的自报分不可比。分桶靠的是客观信号�
 打平"时做同档内的精细排序。任何把 `score` 变成阈值（比如"score<60 才
 autoclear"）的实现都是错的——本模块通篇不出现这种比较。
 
-## 桶判定顺序（brief 原文，逐字照抄）
+## 桶判定顺序（2026-08-07 用户裁定更新：锚点行从硬锁改软锁）
 
 对每一条 `(id, channel)` 候选行：
-1. **locked → 0**：id 在 `frozen/locked.json` 的锁定集合里。理论上
-   `polish_ingest.ingest()` 已经在入仓时判死锁定 id 出稿，候选文件里
-   不应该出现锁定 id——这里是**兜底**（防御 `locked.json` 在 ingest 之后
+1. **硬锁 → 0**：id 在 `frozen/locked.json` 的 `hard_ids` 里。理论上
+   `polish_ingest.ingest()` 已经在入仓时判死硬锁 id 出稿，候选文件里
+   不应该出现硬锁 id——这里是**兜底**（防御 `locked.json` 在 ingest 之后
    被新裁决 patch 更新、或任何绕过 ingest 直接写入 candidates 文件的
    异常路径）。
 2. **`zh == opus`（归一后逐字相等）→ 1**：见下方"零改动判据"专节，
-   这里刻意只做**空白归一**，不剥控制码/ruby。
-3. 其余（有真实改动的候选）进入排队池，按 id 分组（见"K 配额与多通道
+   这里刻意只做**空白归一**，不剥控制码/ruby。软锁 id 若没改动，同样走
+   这一档，**无特殊待遇**（spec 原话）。
+3. **软锁 id 且有真实改动 → 强制摘进桶 2**（见"软锁强制进队列"专节）：
+   `polish_ingest` 已经保证这类候选必然带 `adjudicate=true`（没带的在
+   入仓阶段就判死了），但本层不重新校验这个前提——只要"是软锁 id 且真的
+   改了"就无条件强制排队，永不自动清关、不参与 K 配额竞争（**不被 K
+   挤出**，即使这意味着桶 2 总量超出 K）。
+4. 其余（有真实改动的普通候选）进入排队池，按 id 分组（见"K 配额与多通道
    同 id"专节）用（`adjudicate` 显式请裁优先 → `edit` 大→小 → 同 edit
-   按 `score` 低→高 → id 升序兜底去重）排序，前 `K − 抽检占用` 个 id
-   → 2；其余 → 3。
+   按 `score` 低→高 → id 升序兜底去重）排序，前 `K − 抽检占用 − 软锁强制
+   占用` 个 id → 2；其余 → 3。
+
+## 软锁强制进队列（spec §5：可出稿、永不自动清关、必进裁决队列不被 K 挤出）
+
+`soft_ids`（`frozen/locked.json`）代表 anchors.yaml 锚点行——用户裁定它们
+"翻译轨结束时的认知"允许在润色阶段再议，但**动了就必须有人看一眼**，且
+"看一眼"这件事不能因为 K 配额被别的候选占满就被挤掉（spec 原话："若软锁
+行本身就超过 K，那是真信号，要显著播报而不是静默截断"）。
+
+**顺序（用户建议的展开，避免与"K 减抽检"的既有循环依赖再叠加一层）**：
+"软锁改动行先占位，其余名额再按原排序分配"——具体地：
+
+1. 逐行遍历候选时，`cid in soft_ids` 且 `not _ws_equal(zh, opus)` 的行
+   直接归入 `forced_soft`（按 id 分组），**完全跳过** `_eligible` 计算与
+   `pool` 插入——它不参与自动清关判定（永不清关，与 gates/channel_state
+   无关），也不参与排序竞争。
+2. `forced_soft_ids = sorted(forced_soft)`——这些 id 的**全部**候选行
+   （可能有多个通道）无条件 `bucket=2`，直接写入 `rows`，不受任何后续
+   步骤影响。
+3. 后续"K 减抽检"的既有推导（`rank_floor`/`sample_cap`/`quota`）里，
+   K 先减去 `len(forced_soft_ids)`（`K_remaining = max(0, K -
+   len(forced_soft_ids))`），再按原逻辑分配抽检/排位——软锁强制占用
+   排在抽检占用之前，与用户"先占位"的顺序一致。
+4. **`len(forced_soft_ids) > K`（软锁改动行本身就超过人工预算）**：
+   `K_remaining` 钳到 0（抽检/排位名额全部让出），并 stderr **显著播报**
+   （不是普通告警级别的一行字，是带明确"预算已耗尽"字样的告警），且
+   `triage.json` 的 `meta` 记 `forced_soft_over_budget=True`——这是真信号
+   （anchors.yaml 这段时间被大量改动），不能被这道分配逻辑悄悄吸收掉。
+
+`queue.md` 对这类强制进队列的 id 单独标注"进入队列原因"为
+"软锁改动（锚点行，强制进入队列，不受 K 名额影响）"——比笼统的"进入本轮
+裁决队列"更明确地告诉裁决者这条为什么会出现在这里，且**不违反**"抽检
+不泄露"的既有设计（那条设计只针对"审计已经清关的候选"这一种隐藏动机，
+软锁强制排队没有类似的心理暗示风险——反而应该让裁决者知道这是锚点句，
+需要格外审慎）。
 
 ## 自动清关（从桶 2/3 前"截流"——见"K 配额"专节展开这句话到底什么顺序）
 
@@ -402,7 +442,14 @@ def triage(label, repo=None) -> dict:
     opus_rows = read_jsonl(fz / "opus.jsonl")
     id2opus = {r["id"]: r["zh"] for r in opus_rows}
     locked = json.loads((fz / "locked.json").read_text(encoding="utf-8"))
-    locked_ids = set(locked.get("ids", []))
+    # 旧格式兼容：没有 hard_ids/soft_ids 键时，把 ids（旧版全集）整体当硬锁
+    # ——与 `polish_ingest.ingest()` 的同款兼容口径一致，见其模块 docstring。
+    if "hard_ids" in locked or "soft_ids" in locked:
+        hard_ids = set(locked.get("hard_ids", []))
+        soft_ids = set(locked.get("soft_ids", []))
+    else:
+        hard_ids = set(locked.get("ids", []))
+        soft_ids = set()
 
     manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     seed_hash = manifest["files"]["frozen/source.jsonl"]
@@ -417,6 +464,7 @@ def triage(label, repo=None) -> dict:
 
     rows = []       # 已定桶（0/1）或即将定桶（2/3）的全部候选行，最终输出源
     pool = {}       # id -> [row, ...]：尚待裁决/自动清关判定的候选
+    forced_soft_ids = set()   # 软锁 id 且真的改了——强制桶 2，不进 pool
 
     for channel in channels:
         candidates = read_jsonl(d / f"candidates.{channel}.jsonl")
@@ -443,13 +491,25 @@ def triage(label, repo=None) -> dict:
                 "_score": c.get("score"), "_adjudicate": bool(c.get("adjudicate", False)),
             }
 
-            if cid in locked_ids:
+            if cid in hard_ids:
                 row["bucket"] = 0
                 rows.append(row)
                 continue
             if _ws_equal(zh, opus_zh):
                 row["bucket"] = 1
                 rows.append(row)
+                continue
+            if cid in soft_ids:
+                # 软锁（锚点）行且真的改了——无条件强制进队列，永不自动
+                # 清关、不参与 K 配额排序竞争。见模块 docstring"软锁强制
+                # 进队列"专节。`polish_ingest` 已保证这类候选带
+                # `adjudicate=true`，本层不重新校验这个前提，只按"是软锁
+                # 且真的改了"这一条件本身触发（belt-and-suspenders：即使
+                # 某条候选绕开 ingest 直接写入 candidates 文件，本层依然
+                # 会把它按最严格的方式对待）。
+                row["bucket"] = 2
+                rows.append(row)
+                forced_soft_ids.add(cid)
                 continue
 
             # --- 机械闸证据（最终评审 C1/C2 修复后的三段判定）---
@@ -483,15 +543,29 @@ def triage(label, repo=None) -> dict:
     # 比 K 还大（评审 Important：autoclear 候选量足够大时必然发生）。真正
     # 的 K 帽在下面单独一段处理，见模块 docstring"抽检 K 帽与最小配额"专节。
     K = CFG["K"]
+    forced_soft_ids = sorted(forced_soft_ids)
+    n_forced_soft = len(forced_soft_ids)
+    forced_soft_over_budget = n_forced_soft > K
+    if forced_soft_over_budget:
+        print(f"!!!! polish_triage: {label} 软锁（锚点行）改动数 {n_forced_soft} "
+              f"超过人工预算 K={K}——这些行仍然全部强制进入裁决队列（不受 K 限制、"
+              "也不可能被自动清关），但已经没有名额留给抽检/正常排位。这是真信号"
+              "（近期大量改动了锚点行），不是本工具的截断，需要立即关注，不能被"
+              "静默吸收。", file=sys.stderr)
+    # 软锁强制占用排在抽检占用之前分配（用户裁定的顺序："软锁改动行先占位，
+    # 其余名额再按原排序分配"）——K 先扣掉软锁强制占用，下面抽检/排位的
+    # 全部推导都改用这个"剩余预算"，恒 >= 0。
+    K_remaining = max(0, K - n_forced_soft)
+
     desired_sampled_ids = sorted(cid for cid in autoclear_ids
                                   if rng.random() < CFG["sample_rate"])
 
-    # 给"正常排位"（真实改动候选）留一个最小配额：最多 K 的一半（ceil，K
-    # 为奇数时最后一个名额偏向排位而不是抽检——理由见 docstring），但不会
-    # 预留超过排位池实际需要的量（没有真实候选就不占空）。抽检能用的名额
-    # 上限 = K 减去这个保底。
-    rank_floor = min((K + 1) // 2, len(non_autoclear_ids))
-    sample_cap = max(0, K - rank_floor)
+    # 给"正常排位"（真实改动候选）留一个最小配额：最多 K_remaining 的一半
+    # （ceil，K 为奇数时最后一个名额偏向排位而不是抽检——理由见 docstring），
+    # 但不会预留超过排位池实际需要的量（没有真实候选就不占空）。抽检能用
+    # 的名额上限 = K_remaining 减去这个保底。
+    rank_floor = min((K_remaining + 1) // 2, len(non_autoclear_ids))
+    sample_cap = max(0, K_remaining - rank_floor)
     if len(desired_sampled_ids) > sample_cap:
         sampled_ids = set(desired_sampled_ids[:sample_cap])
         sampled_dropped = len(desired_sampled_ids) - sample_cap
@@ -535,9 +609,10 @@ def triage(label, repo=None) -> dict:
         return (not adjudicate_flag, -max_edit, min_score, cid)
 
     ranked_ids = sorted(non_autoclear_ids, key=_sort_key)
-    # K 减去(已经封顶过的)抽检占用——不变量：len(sampled_ids) + len(top_ids)
-    # <= K 恒成立（sampled_ids 已经被上面的 sample_cap 逻辑封顶过）。
-    quota = max(0, K - len(sampled_ids))
+    # K_remaining 减去(已经封顶过的)抽检占用——不变量：len(sampled_ids) +
+    # len(top_ids) + n_forced_soft <= K 恒成立（sampled_ids 已经被上面的
+    # sample_cap 逻辑封顶过，而 sample_cap 本身就是基于 K_remaining 算的）。
+    quota = max(0, K_remaining - len(sampled_ids))
     top_ids = set(ranked_ids[:quota])
 
     for cid in ranked_ids:
@@ -559,31 +634,42 @@ def triage(label, repo=None) -> dict:
         "autoclear_eligible_total": len(autoclear_ids),
         "sampled_count": len(sampled_ids),
         "sampled_dropped": sampled_dropped,
+        "forced_soft_count": n_forced_soft,
+        "forced_soft_over_budget": forced_soft_over_budget,
     }
     result = {"rows": out_rows, "queue_ids": queue_ids, "meta": meta}
 
     d.mkdir(parents=True, exist_ok=True)
     (d / "triage.json").write_text(dumps(result), encoding="utf-8")
-    _write_queue_md(d, queue_ids, rows, id2jp, id2opus)
+    _write_queue_md(d, queue_ids, rows, id2jp, id2opus, set(forced_soft_ids))
     return result
 
 
-def _write_queue_md(d: Path, queue_ids, rows, id2jp, id2opus) -> None:
-    """人读的裁决队列。同 id 的多通道候选并排列出；"为什么进队列"只分
-    两档（显式请裁 / 进入本轮裁决队列），刻意不区分"正常排位"与"抽检"
-    ——见模块 docstring"queue.md：抽检项标出来但不泄露"专节。"""
+def _write_queue_md(d: Path, queue_ids, rows, id2jp, id2opus, forced_soft_ids=frozenset()) -> None:
+    """人读的裁决队列。同 id 的多通道候选并排列出；"为什么进队列"分三档：
+    软锁改动（锚点行，强制进队列，不受 K 名额影响）/ 显式请裁 / 进入本轮
+    裁决队列（刻意不再细分"正常排位"与"抽检"——见模块 docstring
+    "queue.md：抽检项标出来但不泄露"专节）。软锁这一档单独标注是有意的：
+    与"隐藏抽检来源以防止裁决者放松审查"的顾虑不同，让裁决者知道这是
+    锚点句只会让审查更审慎，不构成同类风险。"""
     by_id_rows = {}
     for r in rows:
         if r["bucket"] == 2:
             by_id_rows.setdefault(r["id"], []).append(r)
 
-    lines = ["# 裁决队列\n", f"共 {len(queue_ids)} 个待裁 id（K 配额内）。\n"]
+    lines = ["# 裁决队列\n", f"共 {len(queue_ids)} 个待裁 id（K 配额内，"
+             "软锁强制进队列的 id 不计入 K 但同样列在下面）。\n"]
     for cid in queue_ids:
         group = sorted(by_id_rows.get(cid, []), key=lambda r: r["channel"])
         lines.append(f"## id {cid}\n")
         lines.append(f"- 日文原文：{id2jp.get(cid, '')}")
         lines.append(f"- 现行译文（opus）：{id2opus.get(cid, '')}")
-        reason = "显式请裁" if any(r["_adjudicate"] for r in group) else "进入本轮裁决队列"
+        if cid in forced_soft_ids:
+            reason = "软锁改动（锚点行，强制进入队列，不受 K 名额影响）"
+        elif any(r["_adjudicate"] for r in group):
+            reason = "显式请裁"
+        else:
+            reason = "进入本轮裁决队列"
         lines.append(f"- 进入队列原因：{reason}")
         for r in group:
             note = f"（批注：{r['_note']}）" if r["_note"] else ""
@@ -612,6 +698,10 @@ def main(argv=None):
     if dropped:
         print(f"!! 抽检覆盖率被 K 压缩：少抽 {dropped} 条（详见 stderr 告警与 "
               "triage.json 的 meta 字段）")
+    n_forced = result["meta"]["forced_soft_count"]
+    if n_forced:
+        over = "（已超出 K 预算！）" if result["meta"]["forced_soft_over_budget"] else ""
+        print(f"软锁（锚点行）改动强制进队列 {n_forced} 个 id{over}")
     return 0
 
 

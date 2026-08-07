@@ -13,12 +13,38 @@
 文件），且只有在一整批的完整性通过之后才落盘——宁可整批判死，也不能让一行
 来路不明的数据无声进仓。
 
+## 硬锁 / 软锁（2026-08-07 用户裁定：锚点行从硬锁改软锁）
+
+`frozen/locked.json` 现在区分 `hard_ids`（该 id 冻结时点已有人裁 patch）与
+`soft_ids`（`skeleton/anchors.yaml` 锚点行，且未被覆盖为硬锁——见
+`polish_setup._locked_payload` 的 tie-break 规则）。两者待遇不同：
+
+- **硬锁**：不得出稿，出稿即判死（`locked_hits`），与旧版行为完全一致。
+- **软锁**：**可以出稿**——它不再被排除在"批内非锁定 id 必须覆盖完整"的
+  期望之外（`expected_id_set` 只再扣掉硬锁），模型必须像对待普通行一样为
+  它产出一行：
+  - `zh` 归一后（`_norm`，仅 `.strip()`）与该 id 的 opus 逐字相同 → 视为
+    "没改"，正常放行，走后续候选/misalignment 检测，最终在 `polish_triage`
+    里落桶 1，无特殊待遇；
+  - `zh` 与 opus 不同（真的动了这一行）但 `adjudicate` 不是 `true` →
+    判死（`soft_lock_violations`）——这是"锚点句被静默改动"，必须显式
+    请裁才放行；
+  - `zh` 与 opus 不同且 `adjudicate=true` → 正常放行，`polish_triage`
+    那一层会把它强制摘进裁决队列（不进自动清关、不被 K 挤出）。
+
+旧格式 `locked.json`（没有 `hard_ids`/`soft_ids` 键，SEG 冻结面改版之前
+落盘的产物）向后兼容：退化为"把 `ids`（旧版全集）整体当硬锁、`soft_ids`
+为空集"——即完全复现旧版行为（不出稿即安全），不会因为读到旧格式冻结面
+就意外放行本来不该出现的锚点行。
+
 ## 判死 vs 整批失败
 
 **判死**（该行不入仓，同批其余合法行照常入仓）：
 - id 不在这一批里（批号对不上，或者干脆不是这个 SEG 的任何 id）；
-- 锁定 id 出稿（额外计入 `discipline.<channel>.json`——纪律画像，衡量该
-  通道有多少次试图对锁定行出稿）；
+- 硬锁 id 出稿（额外计入 `discipline.<channel>.json`——纪律画像，衡量该
+  通道有多少次试图对硬锁行出稿）；
+- 软锁 id 改动但未显式 `adjudicate=true`（额外计入 `discipline.<channel>.
+  json` 的 `soft_lock_violations`）；
 - 批内该 id 出现不止一行（重复 id——模型输出错位的典型征兆，见下）；
 - `jp_tail` 与 frozen 重算的期望值不符；
 - `zh` 为空串或缺 `zh` 字段——空译文没有任何下游用途，让它进仓只会把问题
@@ -271,8 +297,15 @@ def ingest(label, channel, batch, repo=None) -> dict:
     id2opus = {r["id"]: r["zh"] for r in opus_rows}
 
     locked = _load_json(fz / "locked.json", {"ids": [], "why": {}})
-    locked_ids = set(locked.get("ids", []))
-    expected_id_set = batch_id_set - locked_ids
+    # 旧格式兼容：没有 hard_ids/soft_ids 键时，把 ids（旧版全集）整体当硬锁
+    # ——完全复现旧版"锚点行也不得出稿"的行为，不因读到旧冻结面就意外放行。
+    if "hard_ids" in locked or "soft_ids" in locked:
+        hard_ids = set(locked.get("hard_ids", []))
+        soft_ids = set(locked.get("soft_ids", []))
+    else:
+        hard_ids = set(locked.get("ids", []))
+        soft_ids = set()
+    expected_id_set = batch_id_set - hard_ids
 
     prompt_hash = _find_prompt_hash(d / "plan.json", batch, channel=channel)
     if prompt_hash is None:
@@ -319,14 +352,15 @@ def ingest(label, channel, batch, repo=None) -> dict:
     dead = []
     locked_hits = 0
     misaligned_hits = 0
+    soft_violations = 0
     candidates = []
     for row in parsed:
         rid = row.get("id")
         if rid not in batch_id_set:
             dead.append({"id": rid, "reason": "id 不在批内"})
             continue
-        if rid in locked_ids:
-            dead.append({"id": rid, "reason": "锁定 id 出稿"})
+        if rid in hard_ids:
+            dead.append({"id": rid, "reason": "硬锁 id 出稿"})
             locked_hits += 1
             continue
         if rid in dup_ids:
@@ -351,6 +385,17 @@ def ingest(label, channel, batch, repo=None) -> dict:
         zh_norm = _norm(zh_raw)
         if not zh_norm:
             dead.append({"id": rid, "reason": "zh 为空串或缺失"})
+            continue
+
+        # 软锁（锚点行）改动必须显式 adjudicate=true，否则判死——见模块
+        # docstring"硬锁/软锁"专节。判据同 `polish_triage._ws_equal`：只做
+        # 空白归一（`_norm` 即 `.strip()`），不剥控制码/ruby——一次纯控制码
+        # 改动同样算"动了这一行"，不能被悄悄放过不请裁。
+        if rid in soft_ids and zh_norm != batch_opus_norm.get(rid, "") \
+                and not row.get("adjudicate", False):
+            dead.append({"id": rid,
+                         "reason": "软锁 id（锚点行）有改动但未显式 adjudicate=true，判死"})
+            soft_violations += 1
             continue
 
         # 收窄（评审真实语料伪报统计后追加）：这一行的 zh 若与它自身 id 的
@@ -380,7 +425,7 @@ def ingest(label, channel, batch, repo=None) -> dict:
     appeared_ids = {r.get("id") for r in parsed}
     missing = expected_id_set - appeared_ids
     if missing:
-        reason = f"批内非锁定 id 覆盖不完整（截断特征）：缺失 {sorted(missing)}"
+        reason = f"批内非硬锁 id 覆盖不完整（截断特征，含软锁 id——它们也要出现一行）：缺失 {sorted(missing)}"
         print(f"ingest 整批失败：{reason}")
         return {"ok": False, "added": 0, "dead": [], "reason": reason}
 
@@ -402,11 +447,13 @@ def ingest(label, channel, batch, repo=None) -> dict:
 
     append_jsonl(d / f"candidates.{channel}.jsonl", out_rows)
 
-    if locked_hits or misaligned_hits:
+    if locked_hits or misaligned_hits or soft_violations:
         disc_path = d / f"discipline.{channel}.json"
-        disc = _load_json(disc_path, {"locked_hits": 0, "misaligned_hits": 0})
+        disc = _load_json(disc_path, {"locked_hits": 0, "misaligned_hits": 0,
+                                       "soft_lock_violations": 0})
         disc["locked_hits"] = disc.get("locked_hits", 0) + locked_hits
         disc["misaligned_hits"] = disc.get("misaligned_hits", 0) + misaligned_hits
+        disc["soft_lock_violations"] = disc.get("soft_lock_violations", 0) + soft_violations
         disc_path.write_text(dumps(disc), encoding="utf-8")
 
     ingested["batches"] = sorted(set(ingested.get("batches", [])) | {batch})
@@ -414,7 +461,9 @@ def ingest(label, channel, batch, repo=None) -> dict:
 
     extra_bits = []
     if locked_hits:
-        extra_bits.append(f"锁定违规 {locked_hits} 次")
+        extra_bits.append(f"硬锁违规 {locked_hits} 次")
+    if soft_violations:
+        extra_bits.append(f"软锁未请裁 {soft_violations} 次")
     if misaligned_hits:
         extra_bits.append(f"疑似错位 {misaligned_hits} 次")
     extra = f"，含{'、'.join(extra_bits)}" if extra_bits else ""

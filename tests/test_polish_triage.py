@@ -115,7 +115,12 @@ def _build_mini(tmp_path):
          "backend": "cc", "model": "m", "ctx": "x", "glossary_v": 1, "ts": "t"}
         for i in all_ids
     ])
-    write_jsonl(opus_data / "patches.jsonl", [])
+    # id 13 同时落一条内容相同的 patch，使它在新的硬锁/软锁分类下仍归为
+    # **硬锁**（patched 优先于 anchor）——保留本文件既有测试对"锁定 id 一律
+    # 判死"的假设不变；软锁专属行为见下方 `_build_mini_soft_lock` 夹具。
+    write_jsonl(opus_data / "patches.jsonl", [
+        {"id": 13, "zh": OPUS[13], "reason": "review", "glossary_v": 1, "ts": "t"},
+    ])
 
     d = ps.setup(LABEL, opus_data, repo=repo)
     (d / "plan.json").write_text(dumps([
@@ -449,6 +454,153 @@ def test_partial_channel_eligibility_blocks_whole_id_autoclear(tmp_path):
     assert not by_id(t, 30, ch="chY")["autoclear"]
     # 既然没被自动清关摘走，两行应该落在同一个桶里——同 id 并排裁决。
     assert by_id(t, 30, ch="chX")["bucket"] == by_id(t, 30, ch="chY")["bucket"]
+
+
+# ---- 2026-08-07 用户裁定：锚点行从硬锁改软锁——强制进队列、不被 K 挤出、永不自动清关 ----
+
+def _build_mini_soft_lock(tmp_path, label="segSoft"):
+    """单批 3 个 id：40（普通，大改，用来占满 K）、41（软锁＝纯 anchor，
+    小改+adjudicate=true，gates 干净，channel 自动清关权开启——若"软锁永不
+    自动清关"这条规则被删掉，它会满足全部四项 autoclear 条件）、42（普通，
+    小改，gates 干净，autoclear 权开启——用来确认软锁强制占位不会误伤
+    正常自动清关候选）。"""
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    ids = [40, 41, 42]
+    jp = {40: "教室の窓が风で鸣った。", 41: "これは锚点的な台词だよ2。",
+          42: "由加里が本を片付けた。"}
+    opus = {40: "教室的窗户被风吹得响了。", 41: "这是锚点台词哦2。",
+            42: "由加里收拾了书本。"}
+    cand = {
+        40: "教室的窗户在风中剧烈震颤,发出令人不安的响声,久久不散。",  # 大改
+        41: "这是锚点台词哦2改。",   # 软锁小改
+        42: opus[42] + "呢",         # 普通小改（edit=1，远小于 autoclear_limit=4）
+    }
+
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": [
+            {"id": 41, "jp": jp[41], "zh": opus[41], "recall": "软锁测试锚点"},
+        ]},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"} for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": opus[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    locked = json.loads((d / "frozen" / "locked.json").read_text(encoding="utf-8"))
+    assert locked["soft_ids"] == [41] and locked["hard_ids"] == []
+
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-soft"},
+    ]), encoding="utf-8")
+
+    raw_dir = d / "raw" / "chS"
+    raw_dir.mkdir(parents=True)
+    lines = [dumps({"id": 40, "jp_tail": jp_tail(jp[40]), "zh": cand[40],
+                     "score": 90, "note": "", "adjudicate": False}),
+              dumps({"id": 41, "jp_tail": jp_tail(jp[41]), "zh": cand[41],
+                     "score": 90, "note": "斟酌后觉得这里更顺", "adjudicate": True}),
+              dumps({"id": 42, "jp_tail": jp_tail(jp[42]), "zh": cand[42],
+                     "score": 90, "note": "", "adjudicate": False})]
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    r = pi.ingest(label, "chS", 1, repo=repo)
+    assert r["ok"], f"ingest 失败：{r}"
+    pcheck.gate(label, "chS", repo=repo)
+
+    (d / "channel_state.json").write_text(
+        dumps({"chS": {"autoclear": True}}), encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label, jp=jp, opus=opus, cand=cand)
+
+
+def test_soft_lock_edit_forced_into_queue_never_autoclears(tmp_path, monkeypatch):
+    """id 41 是软锁+小改+gates 干净+通道自动清关权开启——若没有"软锁永不
+    自动清关"这条专门规则，它满足全部四项普通 autoclear 条件，本该被判
+    `autoclear=True`。这条测试直接钉死：无论普通条件多满足，软锁改动
+    永远 `autoclear=False`、`bucket=2`。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)   # 充足预算，排除"被 K 挤到桶3"的解释
+    m = _build_mini_soft_lock(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    row41 = by_id(t, 41, ch="chS")
+    assert row41["bucket"] == 2
+    assert row41["autoclear"] is False
+    assert row41["sampled"] is False
+
+
+def test_soft_lock_edit_not_squeezed_out_by_zero_K(tmp_path, monkeypatch):
+    """K=0（人工预算完全耗尽）——普通改动候选（id 40）理应进不了桶 2，但
+    软锁改动（id 41）必须依然强制进队列，不被 K 挤出。这是"软锁不被 K
+    挤出"这条规则唯一能在"K 帽已经收紧到 0"这个极端下被验证到的场景。"""
+    monkeypatch.setitem(pt.CFG, "K", 0)
+    m = _build_mini_soft_lock(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 41, ch="chS")["bucket"] == 2
+    assert by_id(t, 40, ch="chS")["bucket"] == 3   # 普通大改，K=0 时挤不进队列
+    assert t["meta"]["forced_soft_count"] == 1
+    assert t["meta"]["forced_soft_over_budget"] is True  # n_forced(1) > K(0)
+
+
+def test_soft_lock_unchanged_gets_bucket1_no_special_treatment(tmp_path, monkeypatch):
+    """软锁 id 若 zh 逐字等于 opus（没改），正常走桶 1，没有任何特殊标记
+    ——spec 原话"无特殊待遇"。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_soft_lock(tmp_path)
+    # 改造：把 41 的候选替换成"没改"（zh 逐字等于 opus）。
+    p = m.d / "candidates.chS.jsonl"
+    rows = read_jsonl(p)
+    for r in rows:
+        if r["id"] == 41:
+            r["zh"] = m.opus[41]
+            r["adjudicate"] = False
+    write_jsonl(p, rows)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 41, ch="chS")["bucket"] == 1
+
+
+def test_soft_lock_forced_does_not_starve_normal_autoclear(tmp_path, monkeypatch):
+    """软锁强制占位只该占用 K 名额，不该额外污染普通候选自己的 autoclear
+    资格判定——id 42（普通小改，gates 干净，autoclear 权开启）依然应该被
+    正常自动清关。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_soft_lock(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 42, ch="chS")["autoclear"] is True
+
+
+def test_soft_lock_queue_md_labels_forced_reason(tmp_path, monkeypatch):
+    m = _build_mini_soft_lock(tmp_path)
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    pt.triage(m.label, repo=m.root)
+    text = (m.d / "queue.md").read_text(encoding="utf-8")
+    assert "id 41" in text
+    assert "软锁改动" in text
+    assert "不受 K 名额影响" in text
 
 
 # ---- 落盘结构 ----

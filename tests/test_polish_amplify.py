@@ -127,7 +127,13 @@ def _build_mini(tmp_path, *, decisions=None):
          "backend": "cc", "model": "m", "ctx": "x", "glossary_v": 1, "ts": "t"}
         for i in all_ids
     ])
-    write_jsonl(opus_data / "patches.jsonl", [])
+    # id 10 同时落一条内容相同的 patch，使它在 2026-08-07 裁定的硬锁/软锁
+    # 分类下仍归为**硬锁**（patched 优先于 anchor）——保留本文件既有测试对
+    # "锁定 id 桶 0、不出稿"的假设不变（本文件不测软锁专属行为，那已在
+    # test_polish_{ingest,triage,context}.py 覆盖）。
+    write_jsonl(opus_data / "patches.jsonl", [
+        {"id": 10, "zh": OPUS[10], "reason": "review", "glossary_v": 1, "ts": "t"},
+    ])
 
     d = ps.setup(LABEL, opus_data, repo=repo)
     (d / "plan.json").write_text(dumps([
@@ -272,9 +278,24 @@ def test_scan_prompt_includes_bucket3_full_text(mini):
     assert "channel" in text.lower() or "raw/amplify" in text
     assert "raw/amplify/b1.out" in text
     assert "raw/amplify/b2.out" in text
-    # 锁定 id 不应作为可改行出现在契约体里（不校验全文没有数字 10，只校验
-    # 有锁定小节且候选体里没有把它当普通行）
-    assert "锁定 id" in text
+    # 硬锁 id（10）不应作为可改行出现在契约体里（不校验全文没有数字 10，
+    # 只校验有硬锁小节且候选体里没有把它当普通行）
+    assert "硬锁 id" in text
+
+
+# ---- 2026-08-07 裁定：锚点行从硬锁改软锁——放大扫描全景/清单不该把两者混说 ----
+
+def test_scan_prompt_splits_hard_and_soft_lock_sections(mini):
+    """夹具里 id 10 是硬锁（anchor+patch）、没有任何软锁 id——"硬锁 id 清单"
+    应标出 10，"软锁 id 清单"应显式说明为空，两节不得混为一谈（旧版把
+    两者统称"锁定 id"，行为分叉之后继续这么说会误导执行模型）。"""
+    text = amp.scan_prompt(LABEL, repo=mini.root)
+    assert "## 硬锁 id 清单" in text
+    assert "- 【硬锁】10" in text
+    assert "## 软锁 id 清单" in text
+    assert "（本 SEG 无软锁 id）" in text
+    assert "### 桶 0（硬锁 id，禁止改动，共 1 个）" in text
+    assert "本 SEG 无软锁 id" in text  # 桶 0 全景旁的软锁陈列同样显式说明为空
 
 
 def test_scan_prompt_has_no_duplicate_or_skipped_chapter_numbers(mini):

@@ -2,7 +2,19 @@
 K: 150                 # 每 SEG 请裁配额（总额，多通道共享，含抽检占用）
 sample_rate: 0.10      # 自动清关随机抽检率
 overturn_freeze: 0.20  # 抽检推翻率 ≥ 此值 → 冻结该通道本 SEG 自动清关权
-calib_fail: 0.30       # 准入小考：金标句实质改写占比 ≥ 此值 → 自动清关权初始关闭
+calib_fail: 0.30       # 已废弃，score() 不再读取（2026-08-07 缺陷修复：这个阈值原本
+                       # 卡的是"实质改写占比"，但把 edit<=minor_edit 一律记成
+                       # "未改动"导致该判据从未真正生效——见 calib_silent_override_fail
+                       # 与 tools/polish_calibrate.py 模块 docstring。保留原值只为
+                       # 历史阈值可追溯，不删除这个键、也不改它的含义（避免"静默
+                       # 改变既有配置项含义"），新判据走下面这个新键。
+calib_silent_override_fail: 0.10   # 准入小考新判据：金标句"改动但未显式 adjudicate=true"
+                       # （静默推翻人工裁决）占比 ≥ 此值 → pass=False。10 句金标下
+                       # 即 1 句静默覆盖就会失败——"动了就是信号，幅度不重要"，
+                       # 这是本轮修复要防的最危险失败模式，阈值故意收紧到接近
+                       # 零容忍（不设 0 是留一点点冗余给"金标行恰好与某条正常
+                       # 改动撞了名字判定误差"这类极端边界，实测数据见
+                       # postcalib-fix-report.md）。
 autoclear_abs: 4       # 自动清关幅度 = max(autoclear_abs, len(opus)×autoclear_ratio)
 autoclear_ratio: 0.15
 minor_edit: 4          # 校准三档：edit≤minor_edit 为轻微，>autoclear_limit 为实质

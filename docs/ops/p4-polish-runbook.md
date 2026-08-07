@@ -67,9 +67,13 @@ uv run python tools/polish_setup.py --verify <label>
   session 的 prompt 并更新 `plan.json`（见 `glossary/polish.md` §7.3）。
 - setup 会硬性要求该 SEG 涉及的全部 id 在 opus 车道 `forward`+`patches` 里已有译文（`resolve_map`
   覆盖），没覆盖直接抛 `KeyError`——这是故意的：**P4 不对着还没译完的 SEG 冻结**。
-- 锁定集合 = `anchors.yaml` 命中的 id ∪ 已有 patch 的 id（`locked.json` 的 `why` 字段区分两者，
-  两者都命中时固定标 `anchor`）；锁定的行只喂给模型做上下文，任何通道对锁定 id 出稿在 ingest
-  阶段一律判死。
+- 锁定集合 = `anchors.yaml` 命中的 id ∪ 已有 patch 的 id。**2026-08-07 用户裁定：锚点行从
+  硬锁改软锁**——`locked.json` 现在拆成 `hard_ids`（该 id 冻结时点已有人裁 patch，两者都
+  命中时固定归为这一档）与 `soft_ids`（纯 anchors.yaml 锚点、未被覆盖为硬锁）。硬锁行只喂
+  给模型做上下文，任何通道对硬锁 id 出稿在 ingest 阶段一律判死；软锁行**可以出稿**——不改
+  就正常走桶 1，改了必须带 `adjudicate=true`（没带的判死），且这类改动在 `polish_triage`
+  里永不自动清关、无条件强制进裁决队列（不被 K 挤出）。`ids`/`why` 字段保留向后兼容（旧
+  消费者只用来展示），新代码应读 `hard_ids`/`soft_ids`。
 
 ## 三、通道准入小考（`polish_calibrate.py`）——两通道各跑一次，没考过不许免检
 
@@ -104,11 +108,23 @@ uv run python tools/polish_calibrate.py --seg <label> --score --channel ds-flash
 
 - `--score` 会把结果写进 `channel_state.json` 的 `{channel: {"autoclear": bool}}`——**只更新
   自己这个通道的键**，两条通道分别跑不会互相覆盖。
-- `pass=False`（金标实质改写占比 ≥ `calib_fail`=0.30）不阻止该通道产候选、跑生产批——只是
-  本 SEG 内它的候选一律强制走人工裁决队列（`_channel_autoclear_power` 返回 False），不能
+- **2026-08-07 缺陷修复**：判卷不再看"实质改写占比"（旧判据 `edit ≤ minor_edit` 被计成
+  "未改动"，SEG-1 首次真实小考两条通道都报 `gold_unchanged=10`，独立核算发现实际分别改了
+  3/10、2/10——报告在说谎）。三档改为字面一致的 `gold_unchanged`（`edit==0`）/`gold_minor`
+  （`0<edit≤minor_edit`）/`gold_substantive`（`edit>minor_edit`），但**这三档只做展示，不
+  再直接决定 pass**。真正决定 pass 的是「改了但有没有显式请裁」：`changed_adjudicated`
+  （改了且 `adjudicate=true`，不算失败信号）与 `changed_silent`（改了但没请裁，静默推翻
+  人工裁决——本次修复要防的最危险失败模式）。`pass=False` 判据是
+  `changed_silent/total ≥ calib_silent_override_fail`（默认 0.10，10 句金标 1 句静默覆盖
+  就会判 fail——"动了就是信号，幅度不重要"，1 个字的静默推翻和大段改写同样危险）。旧的
+  `calib_fail`（0.30）不再被读取，留在 `config/polish.yaml` 仅作历史阈值可追溯，**不要
+  以为改它还能影响 pass 判定**。`pass=False` 不阻止该通道产候选、跑生产批——只是本 SEG
+  内它的候选一律强制走人工裁决队列（`_channel_autoclear_power` 返回 False），不能
   自动清关。**`channel_state.json` 缺失或某通道压根不在里面时，`polish_triage.py` 对它的
   默认判定同样是"自动清关权关闭"**——即两条通道哪怕都没跑过小考，生产也能正常进行，只是
   一律进人裁队列，不会因为"忘了跑小考"而误开免检权。
+- 结果自带 `details` 字段（逐条金标的 edit/三档/`adjudicate`/是否静默覆盖），操作者不需要
+  再像 2026-08-07 那次一样自己写脚本核算才能核实报告是否准确。
 - 已知偏差（工具自己会打印）：金标是"曾出问题/值得记录"的非随机子集，**pass 率不是质量排行榜**，
   只做门槛判断。
 
@@ -187,9 +203,11 @@ uv run python tools/polish_triage.py --seg <label>
 ```
 
 跨**全部**已入仓通道一次性分流，产出 `triage.json`（机器可读）与 `queue.md`（人读裁决队列）。
-四桶：0=锁定（不出稿）/ 1=零改动（`zh==opus`，空白归一）/ 2=进人工裁决队列（K 配额内）/
-3=有改动但配额外（保留 opus，放大扫描可捞回）。自动清关（从 2/3 前截流）需要该 id 组内**全部**
-通道候选同时满足下列**五条**：
+四桶：0=硬锁（不出稿）/ 1=零改动（`zh==opus`，空白归一，含软锁行未改动的情形）/
+2=进人工裁决队列（K 配额内的普通改动 **+ 软锁行任何改动，后者无条件强制进队列、不占用
+K、不与其他候选竞争排位**）/ 3=有改动但配额外（保留 opus，放大扫描可捞回；软锁行不会落
+到这一桶）。自动清关（从 2/3 前截流，**软锁行永不适用**）需要该 id 组内**全部**通道候选
+同时满足下列**五条**：
 
 1. `edit ≤ autoclear_limit(opus)`；
 2. 该行所在通道 gates 里这个 id 的 **hard 为空**；
@@ -202,6 +220,11 @@ uv run python tools/polish_triage.py --seg <label>
    纳入前置不会淹掉免检通道。）
 5. 该通道自动清关权开启（`channel_state.json`；文件不存在或该通道不在其中 → 一律视为关闭）。
 
+**软锁行的 K 配额顺序**：软锁改动行先无条件占位进桶 2（`triage.json` 的 `meta.forced_
+soft_count`），剩余名额（`K − forced_soft_count`）再按既有顺序分配给抽检占用/正常排位。
+若软锁改动行数本身超过 K（`meta.forced_soft_over_budget=true`），stderr 会显著播报——
+这是真信号（近期大量改动了锚点行），不是本工具的截断。
+
 ⚠ 另有一条独立于分流、在**清关时**才生效的拒绝：某 id 若在本 SEG 冻结之后新落过
 `reason ∈ {review, recall}` 的人裁 patch，**自动清关路径一律拒绝写入**（人裁路径可放行，
 但会显著播报）。见 §十。
@@ -209,7 +232,8 @@ uv run python tools/polish_triage.py --seg <label>
 **必看 `meta` 字段**：
 ```json
 {"K":150,"sample_rate_configured":0.10,"sample_rate_effective":0.083,
- "autoclear_eligible_total":..,"sampled_count":..,"sampled_dropped":..}
+ "autoclear_eligible_total":..,"sampled_count":..,"sampled_dropped":..,
+ "forced_soft_count":..,"forced_soft_over_budget":false}
 ```
 `sample_rate_effective < sample_rate_configured`（或 `sampled_dropped > 0`）说明抽检被 K 硬
 预算压缩了——工具会在 stderr 显式告警"少抽了多少条"，**这条一定要看一眼再往下走**：它是
@@ -380,9 +404,11 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
 
 ## 十二、阈值调整记台账
 
-`config/polish.yaml` 的全部阈值（`K`/`sample_rate`/`overturn_freeze`/`calib_fail`/
-`autoclear_abs`/`autoclear_ratio`/`minor_edit`/`amplify_rounds`/`session_size`/`session_lines`）
-集中在一处；首个 SEG（seg1-s2）实测后若需要调整，**只认抽检推翻率与裁决实感**——spec §9
+`config/polish.yaml` 的全部阈值（`K`/`sample_rate`/`overturn_freeze`/`calib_fail`（已废弃，
+不再被读取，仅留存历史值）/`calib_silent_override_fail`（2026-08-07 新增，取代
+`calib_fail` 用于准入小考 pass 判定）/`autoclear_abs`/`autoclear_ratio`/`minor_edit`/
+`amplify_rounds`/`session_size`/`session_lines`）集中在一处；首个 SEG（seg1-s2）实测后
+若需要调整，**只认抽检推翻率与裁决实感**——spec §9
 明写"任何阈值调整不得以自动入库率为优化目标"。调整记录格式参照 P3 runbook §四的"判定记录"
 体例：改了什么、为什么、影响哪些在产 SEG、全量测试结果。
 

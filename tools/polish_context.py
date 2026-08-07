@@ -96,18 +96,25 @@ pass**——不是从头翻译。下面每一行的「opus zh」都已经是可�
 
 **强制约束（不可协商，不是风格建议）：**
 
-1. **锁定 id 绝对不能动。** 下面「锁定 id 清单」里带【锁】标记的 id
-   属于锚点定译（`anchors.yaml`）或已裁决的 patch，这里把它们的现行译文
+1. **硬锁 id 绝对不能动。** 下面「硬锁 id 清单」里带【硬锁】标记的 id是
+   这个 SEG 冻结时点已经有人裁 patch 定过的行——这里把它们的现行译文
    列出来只是为了让你读懂上下文——**你产出的输出文件里绝不能出现这些 id
    对应的行**，哪怕你觉得"一字不改也该确认一下"也不行。
-2. **术语表（active.json）、角色口调表（voices/*.md）、锚点定译对照都是
+2. **软锁 id 可以斟酌，但改动门槛更高。** 下面「软锁 id 清单」里带
+   【软锁】标记的 id 来自 `anchors.yaml` 锚点定译——这是翻译轨结束时的
+   认知，不是不可动摇的铁律，润色阶段允许再议。它们和普通行一样**必须**
+   在你的输出里各占一行：认为不用改，`zh` 逐字照抄 opus 即可，跟普通行
+   同等对待；如果你确实认为这一行现在读起来别扭、值得改，**必须**把
+   `adjudicate` 设为 `true`，并在 `note` 里写清楚你为什么觉得这处锚点
+   值得再议——**不写理由的改动会被机械判死**，不会静默入库。
+3. **术语表（active.json）、角色口调表（voices/*.md）、锚点定译对照都是
    强制性的**，不是参考——命中锚点的行、术语表里出现的词、角色专属的
    语气，一律按给定的走，不得凭个人语感覆盖。
-3. **判断"这行不用改"本身就是合法结论**：认为不需要润色的行，`zh` 字段
+4. **判断"这行不用改"本身就是合法结论**：认为不需要润色的行，`zh` 字段
    必须**逐字**照抄给你的 opus 现行译文，不要为了"看起来有产出"硬改。
-4. **控制码原样保留**：`_n`、`_r`、`<漢字,かな>` 这类 ruby 注音、
+5. **控制码原样保留**：`_n`、`_r`、`<漢字,かな>` 这类 ruby 注音、
    `≪…≫`、`≦…≧`、`【…】`、行首 `○`/`■`，一律不得增删或挪位。
-5. **片假名角色名与汉字角色名的区分是剧情机关**（【アヤノ】=故事内角色 /
+6. **片假名角色名与汉字角色名的区分是剧情机关**（【アヤノ】=故事内角色 /
    【彩野】=现实人物，其余角色同理），润色时不得混用、不得替换掉这层
    区分。
 
@@ -117,6 +124,12 @@ pass**——不是从头翻译。下面每一行的「opus zh」都已经是可�
 格"，能反映"这处改动我有多大把握"即可；判断这行不用动，同样要给分
 （分数可以给高，表示"我确认这行没问题"）。
 
+**`adjudicate: true` 时 `zh` 该放什么**：放**你认为更好的那一版建议稿**
+（可以是你想改成的样子，也可以是"我觉得不该改但按规则我不确定"时维持
+opus 不变的样子），不要为了"避免出错"就机械照抄 opus 敷衍了事——opus
+原文本来就已经在 prompt 里给裁决者对照，你给出的是你的判断依据，裁决者
+会连同 `note` 一起参照决定最终怎么定，不是要你"猜哪个安全就抄哪个"。
+
 **什么时候必须显式 `adjudicate: true`**：
 
 - 你认为某处**不该**按六条细则改，或六条细则与 `style.md`/术语表/口调表/
@@ -124,7 +137,13 @@ pass**——不是从头翻译。下面每一行的「opus zh」都已经是可�
 - 涉及片假名/汉字人名区分、可能触及"复现句族"（同一句式反复出现、疑似
   已入 anchors 但你不确定）——你判断不了到底该不该动的情形；
 - 涉及双层叙事真相（现实层/故事层）的措辞，你担心润色会改变信息量或
-  提前泄露伏笔。
+  提前泄露伏笔；
+- **软锁 id（见上面第 2 条）任何改动**，无一例外；
+- **你怀疑这一行本身就是错译或错字**（不是"读着别扭"，而是"这句翻错了/
+  打错字了"）——润色契约本身假定 opus 是可用译文、只管母语感，你不负责
+  校对，但真撞上明显的错译/错字时不能视而不见，也不该自己动手改判定：
+  把 `adjudicate` 设为 `true`，`note` 里写清楚"疑似错译/错字"以及具体
+  在哪、为什么这么判断，交给裁决者核实。
 
 出现以上情形，把该行 `adjudicate` 设为 `true`，并在 `note` 里写清楚
 你犹豫的具体理由——**不要自己下判断硬改或硬不改**。普通的"顺手把量词/
@@ -136,14 +155,21 @@ OUTPUT_CONTRACT_HEADER = """\
 （`<channel>` 由实际执行你的模型/车道决定，如 `fable`/`deepseek`）；文件名
 按批号命名，本会话需要产出的具体文件名见本节末尾列表。每个文件里：
 
-- 批内**每个非锁定 id 恰好一行**——不多不少，不得合并，不得跳过。
-- 锁定 id **绝对不能出现**在这个文件的任何一行里。
+- 批内**每个非硬锁 id 恰好一行**——不多不少，不得合并，不得跳过。**软锁
+  id 也要出现一行**（像普通行一样：不改就照抄 opus，改了必须
+  `adjudicate: true`）——只有硬锁 id 才是真正要排除的。
+- 硬锁 id **绝对不能出现**在这个文件的任何一行里。
 - 每行是一个 JSON 对象，字段：
   `{"id": <int>, "jp_tail": "<原文控制码剥离后末 8 字>", "zh": "<润色稿或原样抄 opus>",
   "score": <0-100 整数>, "note": "<可留空>", "adjudicate": <true/false>}`
 - `jp_tail`：你回显用的核对回执（下游不会重新计算哈希核对你写的是哪一行，
   只靠这个尾串核对）——取该行原文剥离 `_n`/`_r`/ruby 注音（`<漢字,かな>`
-  取前半段）后的**最后 8 个字符**。
+  取前半段）后的**最后 8 个字符**。三条边界规则：
+  ①原文剥离控制码后不足 8 字的，**取剥离后的全串**（不是报错，也不是
+  补空格补齐）；
+  ②行首 `【説話人】` 这类说话人前缀**算原文的一部分**，一并参与"剥离
+  控制码"与"取末 8 字"，不要跳过它单独从台词正文算起；
+  ③空格**算一个字符**，不要在计数或取尾串前先去掉空格。
 - 不改的行：`zh` 逐字等于本会话给你的 opus 现行译文；`score`/`note` 仍要
   给（比如给高分表示"我确认这行不用动"）。
 
@@ -242,9 +268,21 @@ def render_calib(label, repo=None) -> str:
 
     out = [f"# {label} 通道准入小考（校准批，共 {len(rows)} 行）",
            TASK_INSTRUCTIONS]
-    out.append("\n## 锁定 id 清单（【锁】标记；仅供上下文参照，"
-                "禁止在输出的 raw/*.out 中出现这些 id）")
-    out.append("（本校准批不含锁定 id——校准批取样时已排除全部锁定 id）")
+    out.append("\n## 硬锁 / 软锁 id 清单（仅供上下文参照，禁止在输出的 "
+                "raw/*.out 中出现硬锁 id）")
+    # 2026-08-07 措辞修正（fable-wf 实测报告指出批内出现的金标 id 与随发的
+    # 全局锚点表冲突）：旧文案"本校准批不含锁定 id"过度概括，实际只对
+    # **普通陪考句**成立——`polish_calibrate.make()` 的 norm_candidates 确实
+    # 排除了本 SEG 冻结面的全部锁定 id（硬锁+软锁）。但**金标句**抽自全车道
+    # 人工裁决历史（`patches.jsonl` reason∈review/recall 的现行文本，见
+    # `polish_calibrate._gold_pool()`），这是与"本 SEG 锁定面"完全独立的
+    # 另一个维度——金标句可能恰好也是某条锚点/锁定行（两个筛选维度巧合
+    # 重叠），这不是矛盾，只是两件事不该被混为一谈。锁定语义与生产批一致：
+    # 硬锁不得出稿，软锁可以出稿但改动须 adjudicate=true。
+    out.append("（本校准批的**普通陪考句**取样时已排除本 SEG 冻结面里的全部"
+                "锁定 id（硬锁+软锁）；但**金标句**抽自全车道人工裁决历史，"
+                "与「本 SEG 锁定面」是两个独立维度，金标句可能恰好也是某条"
+                "锚点/锁定行——这不算矛盾，只是巧合重叠。）")
     out.extend(_frozen_blocks(fz))
 
     out.append("\n## 正文（ZH(opus) 为现行译文，即润色起点）")
@@ -279,8 +317,15 @@ def render(label, session_no, repo=None) -> str:
 
     opus = {r["id"]: r["zh"] for r in read_jsonl(fz / "opus.jsonl")}
     locked = json.loads((fz / "locked.json").read_text(encoding="utf-8"))
-    locked_ids = set(locked["ids"])
     why = locked["why"]
+    # 旧格式兼容：没有 hard_ids/soft_ids 键的冻结面（改版之前落盘的产物）
+    # 整体当硬锁——同 `polish_ingest`/`polish_triage` 的兼容口径。
+    if "hard_ids" in locked or "soft_ids" in locked:
+        hard_ids = set(locked.get("hard_ids", []))
+        soft_ids = set(locked.get("soft_ids", []))
+    else:
+        hard_ids = set(locked.get("ids", []))
+        soft_ids = set()
 
     out = [f"# {label} 会话 {session_no}/{len(sessions)}"
            f"（批次 {batches[0]}–{batches[-1]}，共 {sess['lines']} 行）",
@@ -304,28 +349,40 @@ def render(label, session_no, repo=None) -> str:
     # scan_prompt()` 复用同一个函数同一份处理，两处不再各自维护一份
     # `.replace(...)`，见评审 Finding C），使其读起来是"术语/风格/口调/
     # 锚点"节下的一个子块，而不是一段孤零零带着"三"字的顶层标题。
-    session_locked = [i for b in batches for i in ids_by_batch.get(b, []) if i in locked_ids]
-    out.append("\n## 锁定 id 清单（【锁】标记；仅供上下文参照，"
+    session_hard = [i for b in batches for i in ids_by_batch.get(b, []) if i in hard_ids]
+    session_soft = [i for b in batches for i in ids_by_batch.get(b, []) if i in soft_ids]
+
+    out.append("\n## 硬锁 id 清单（【硬锁】标记；仅供上下文参照，"
                 "禁止在输出的 raw/*.out 中出现这些 id）")
-    if session_locked:
-        for i in session_locked:
-            out.append(f"- 【锁】{i}（{why.get(str(i), '?')}）："
+    if session_hard:
+        for i in session_hard:
+            out.append(f"- 【硬锁】{i}（{why.get(str(i), '?')}）："
                         f"JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
     else:
-        out.append("（本会话无锁定 id）")
+        out.append("（本会话无硬锁 id）")
+
+    out.append("\n## 软锁 id 清单（【软锁】标记；锚点行，可以斟酌——"
+                "不改就照抄 opus，改了必须 adjudicate=true 并在 note 里写清楚理由）")
+    if session_soft:
+        for i in session_soft:
+            out.append(f"- 【软锁】{i}：JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
+    else:
+        out.append("（本会话无软锁 id）")
 
     out.extend(_frozen_blocks(fz))
 
-    out.append("\n## 逐批正文（仅列非锁定 id；ZH(opus) 为现行 opus 译文，即润色起点）")
+    out.append("\n## 逐批正文（仅排除硬锁 id；软锁 id 像普通行一样列出，前面带"
+                "【软锁】标记；ZH(opus) 为现行 opus 译文，即润色起点）")
     for b in batches:
         ids = ids_by_batch.get(b, [])
-        body_ids = [i for i in ids if i not in locked_ids]
+        body_ids = [i for i in ids if i not in hard_ids]
         out.append(f"\n### 批次 b{b}")
         if not body_ids:
-            out.append("（本批全部为锁定 id，无需产出正文——对应 raw/*.out 应为空文件）")
+            out.append("（本批全部为硬锁 id，无需产出正文——对应 raw/*.out 应为空文件）")
             continue
         for i in body_ids:
-            out.append(f"[b{b}] {i}: JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
+            prefix = f"[b{b}] {i} 【软锁】" if i in soft_ids else f"[b{b}] {i}"
+            out.append(f"{prefix}: JP: {id2jp.get(i, '')} / ZH(opus): {opus.get(i, '')}")
 
     out.append("\n## 输出契约")
     out.append(OUTPUT_CONTRACT_HEADER)

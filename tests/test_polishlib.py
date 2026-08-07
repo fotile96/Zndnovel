@@ -4,7 +4,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import polishlib as pl
 
 def test_cfg_loads():
-    assert pl.CFG["K"] == 150 and 0 < pl.CFG["sample_rate"] < 1
+    # 断言「配置能加载且取值合理」，**不钉 K 的字面值**：K 是 runbook §十二 明确
+    # 预期会被调整的可调阈值（调整走 docs/ops/p4-threshold-ledger.md 记台账），
+    # 钉死字面量会让每一次合规调整都把这条冒烟测试打红，而它本来要守的是
+    # 「polish.yaml 读得进来、键在、类型对」，不是某个具体数值。
+    # （2026-08-07：K 由 150 上调至 500 时暴露，见台账 T1。）
+    assert isinstance(pl.CFG["K"], int) and pl.CFG["K"] > 0
+    assert 0 < pl.CFG["sample_rate"] < 1
 
 def test_jp_tail_strips_ctl_and_ruby():
     s = "こんにちは_nよろしく<漢字,かんじ>ね"

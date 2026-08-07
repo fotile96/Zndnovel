@@ -9,16 +9,30 @@ math snr_story_main.lua / snr_fragment_main.lua use via `plotState[n]` to
 layerClip() these thumbnails at runtime). See build/plot_layout_spec.md for
 the full measurement writeup and evidence chain.
 
+Each cell's lower ~40% is a scene-thumbnail/CG background with the original
+Japanese caption baked on top of it in the top area. There is no clean
+background plate to fall back to (searched all of png/bg + png/event,
+confirmed as a dead end -- see the report), so the caption region is covered
+with a deliberately-translucent color band (not fully erased) sized to the
+ACTUAL vertical extent of ink in that specific cell, not a fixed box -- see
+decide_band()/ink_bbox_of_cell() below. This keeps as much of the original
+artwork visible as each cell's real caption height allows, instead of the
+old approach's flat 28px-tall opaque strip on every cell regardless of how
+short its caption was.
+
 Usage:
     uv run python3 tools/bake_plot.py            # write build/plot_zh/*
     uv run python3 tools/bake_plot.py --check     # bake in-memory, run the
                                                    # pixel-preservation self
                                                    # check, print report, but
                                                    # do not write files
+    uv run python3 tools/bake_plot.py --cellzoom  # also write
+                                                   # build/plot_zh/_cellzoom.png
 
 png/, skeleton/ are read-only inputs. All output goes to build/ (gitignored).
 """
 import argparse, json, os, re, sys
+from collections import namedtuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -55,13 +69,116 @@ FILL_COLOR = (255, 255, 255, 255)
 STROKE_COLOR = (0, 0, 0, 255)
 STROKE_WIDTH = 1
 
-# Region that gets fully erased + redrawn per cell. Must comfortably contain
-# MAX_LINES lines at the metrics above (line2 bottom ~= TEXT_Y + LINE_HEIGHT
-# + glyph height + stroke ~= 2+12+11+1 = 26) with a small safety margin, and
-# must stay clear of the original's own max ink row (~23, measured) too.
-TEXT_BOX = (0, 0, CELL_W, 28)
-
 ELLIPSIS = "…"
+
+# ---------------------------------------------------------------------------
+# Ink detection (see build/plot_layout_spec.md addendum "band" section for
+# the 195-cell empirical validation of every threshold below).
+#
+# A pixel counts as "ink" only if it is BOTH near-white (the glyph fill,
+# matches the original's measured fill ~(238,238,238)) AND has a near-black
+# pixel (the glyph stroke, matches the original's measured stroke
+# ~(0,0,0)/(1,1,1)) within a small neighborhood. Brightness alone is NOT
+# enough: bright photographic content (sky, white school uniforms, a pool)
+# triggers the brightness test constantly but essentially never has a
+# stroke-dark pixel immediately adjacent, so requiring the *pairing* is what
+# keeps bright backgrounds from being misread as caption ink. This was
+# validated over all 195 real cells, not assumed -- see the report.
+# ---------------------------------------------------------------------------
+INK_BRIGHT_THRESH = 200   # near-white fill core.
+INK_DARK_THRESH = 90      # near-black stroke.
+INK_NEIGHBOR_RADIUS = 2   # Chebyshev radius a dark pixel must be within.
+INK_MIN_ROW_PIXELS = 3    # a row only counts as an "ink row" if at least
+                           # this many qualifying (bright+dark-adjacent)
+                           # pixels are found in it -- rejects one-off
+                           # coincidental bright/dark photo edges.
+INK_MAX_PLAUSIBLE_BOTTOM = 30  # sanity cap. The 195-cell survey's real max
+                           # detected ink bottom is y=23 (a 2-line caption);
+                           # nothing legitimate should ever measure past 30.
+                           # A detection past this is treated as the
+                           # detector having been fooled, not a giant
+                           # caption -- falls back rather than trusting it.
+INK_BOTTOM_MARGIN = 1     # tiny safety pad appended past the last detected
+                           # ink row (anti-aliased stroke edges fade out a px
+                           # past the hard threshold used to find them). This
+                           # stays part of the FULL-alpha zone -- see
+                           # decide_band -- specifically so the one thing
+                           # that must never be under-covered (real ink)
+                           # never lands inside the cosmetic feather ramp.
+ZH_BOTTOM_MARGIN = 1      # same pad appended past the last actually-rendered
+                           # zh glyph row, same full-alpha-zone reasoning.
+
+# Used ONLY when ink detection fails to find any ink row, or the result is
+# rejected as implausible (see decide_band). This is the sole surviving
+# remnant of the old fixed TEXT_BOX concept -- kept exclusively as a
+# conservative fallback height, never as the default path. Value inherited
+# unchanged from the old TEXT_BOX=(0,0,82,28): it was measured to
+# comfortably contain 2 JP lines + margin (spec section 4/6), so it's a
+# reasonable "when in doubt" choice.
+FALLBACK_BAND_BOTTOM = 28
+
+# ---------------------------------------------------------------------------
+# Band visual parameters -- see build/plot_layout_spec.md addendum for the
+# full quantitative sweep and the visual dead-end these were picked from.
+#
+# IMPORTANT, hard-won finding: a single UNIFORM alpha for the whole covered
+# region cannot satisfy both goals at once. The original captions are
+# near-maximum-contrast (white fill ~238 on black stroke ~0-1), and even a
+# small residual of that after alpha blending (e.g. 19/255 = 7.5% at
+# alpha=235, or 5/255 = 2% at alpha=250) still reads as LEGIBLE ghost text
+# once your eye locks onto the familiar glyph shape against a near-black
+# field -- confirmed both by a quantitative worst-case-residual sweep AND by
+# isolated (non-downscaled) visual review; a uniform alpha only became
+# genuinely clean at alpha=255, i.e. fully opaque, at which point it isn't
+# translucent there at all. See the report for the full walk (including a
+# methodological trap: viewing many cells tiled into one large PNG can
+# itself introduce faint ringing/ghosting-looking artifacts from the image
+# transport's own downscaling -- a flat synthetic-cell control ruled that
+# out as the explanation here, but it's a real trap to watch for).
+#
+# The resolution actually used: a PER-ROW hard/soft alpha profile, not a
+# single constant.
+#   - Rows that DEMONSTRABLY HELD real ink (BandDecision.hard_range, from
+#     the measured ink envelope, or the ENTIRE content_bottom zone when
+#     ink detection fell back and the true location is simply unknown) are
+#     forced to HARD_ALPHA=255 -- fully opaque, zero possible residual, no
+#     exceptions. This is the one thing that must never be under-covered.
+#   - Rows that never held ink (the top/bottom cosmetic feather, and any
+#     "extra" rows a longer zh caption needs beyond what the JP ink
+#     needed -- e.g. card 25, JP ink is 1 line but zh wraps to 2) use the
+#     genuinely translucent BAND_ALPHA. There is nothing to hide there, so
+#     translucency is free -- this is what keeps the band from being a
+#     de-facto solid patch everywhere despite the hard zone.
+# ---------------------------------------------------------------------------
+BAND_COLOR = (0, 0, 0)
+HARD_ALPHA = 255            # opacity forced over rows that actually held ink
+                            # (or the whole zone, on fallback). Not a design
+                            # choice so much as a measured necessity -- see
+                            # the block comment above.
+BAND_ALPHA = 200            # translucent alpha for rows that never held ink.
+                            # Doesn't need the same rigor as HARD_ALPHA since
+                            # there's no high-contrast content to leak
+                            # through there in the first place -- 200 (~78%)
+                            # was checked visually on the cells where it's
+                            # actually used (card 25's second zh-only line,
+                            # every card's feather edges) and reads as a
+                            # clearly non-opaque dark band over the photo.
+BAND_TOP_FEATHER_PX = 2    # top edge ramp (alpha 0 -> BAND_ALPHA). Small and
+                           # safe: the 195-cell survey never found ink above
+                           # y=3, so a 2px fade-in at the very top of the
+                           # cell never eats into real content.
+BAND_BOTTOM_FEATHER_PX = 4  # bottom edge ramp (alpha BAND_ALPHA -> 0), added
+                           # strictly BEYOND content_bottom -- never carved
+                           # out of it. An earlier version feathered the
+                           # last few rows of band_bottom unconditionally,
+                           # which silently ate into real 2nd-line ink
+                           # coverage; caught by visual review, not by the
+                           # pixel-preservation gate (which only checks
+                           # OUTSIDE the box -- under-coverage INSIDE it is
+                           # exactly what that bug produced).
+HARD_TRANSITION_PX = 2      # short ramp between the hard (255) sub-range and
+                           # the surrounding soft alpha, purely so the two
+                           # zones don't meet at a visible hard seam.
 
 
 def cell_position(card):
@@ -182,26 +299,61 @@ def collect_overflow(titles, font, max_width=MAX_TEXT_W, max_lines=MAX_LINES):
     return out
 
 
-def reconstruct_box(cell, box=TEXT_BOX):
-    """Return a new image for `box`'s region with the original JP text fully
-    erased: each column is flat-filled with the pixel color sampled from the
-    cell just below the box (box's bottom row). This is a deliberately
-    simple, deterministic, ghost-free technique -- see
-    build/plot_layout_spec.md section 6 for why (per-pixel ink-detection +
-    blur/nearest-fill inpainting were tried first and left visible ghosting
-    of the old glyphs due to anti-aliasing) and its trade-off (loses
-    within-box vertical background texture)."""
-    x0, y0, x1, y1 = box
-    w = x1 - x0
-    out = cell.crop(box)
-    opx = out.load()
-    src = cell.load()
-    sample_y = min(y1, cell.height - 1)
+# ---------------------------------------------------------------------------
+# Ink detection + band sizing.
+# ---------------------------------------------------------------------------
+
+def _is_bright(rgb, thresh=INK_BRIGHT_THRESH):
+    r, g, b = rgb
+    return min(r, g, b) >= thresh
+
+
+def _is_dark(rgb, thresh=INK_DARK_THRESH):
+    r, g, b = rgb
+    return max(r, g, b) <= thresh
+
+
+def ink_bbox_of_cell(cell, bright_thresh=INK_BRIGHT_THRESH,
+                      dark_thresh=INK_DARK_THRESH, radius=INK_NEIGHBOR_RADIUS,
+                      min_row_px=INK_MIN_ROW_PIXELS):
+    """Find the vertical extent of the ORIGINAL caption glyphs baked into
+    `cell`, using the joint bright+adjacent-dark criterion described above
+    the module constants. Returns (top, bottom) row indices (inclusive,
+    0-based within the cell) of the full ink extent, or None if no row met
+    the density threshold anywhere in the cell.
+
+    Implementation note: the "dark pixel within `radius`" test is done as a
+    separable square-neighborhood dilation of the dark mask (row-pass then
+    column-pass) so the whole cell (82x48) is O(w*h) rather than O(w*h*r^2)
+    -- this runs in well under a second for all 195 real cells combined.
+    """
+    rgb = cell.convert("RGB")
+    w, h = rgb.size
+    px = rgb.load()
+
+    dark = [[_is_dark(px[x, y], dark_thresh) for x in range(w)] for y in range(h)]
+    row_dilated = [[False] * w for _ in range(h)]
+    for y in range(h):
+        row = dark[y]
+        for x in range(w):
+            lo, hi = max(0, x - radius), min(w, x + radius + 1)
+            row_dilated[y][x] = any(row[lo:hi])
+    dark_dilated = [[False] * w for _ in range(h)]
     for x in range(w):
-        color = src[x0 + x, sample_y]
-        for y in range(y1 - y0):
-            opx[x, y] = color
-    return out
+        col = [row_dilated[y][x] for y in range(h)]
+        for y in range(h):
+            lo, hi = max(0, y - radius), min(h, y + radius + 1)
+            dark_dilated[y][x] = any(col[lo:hi])
+
+    ink_rows = []
+    for y in range(h):
+        cnt = 0
+        for x in range(w):
+            if dark_dilated[y][x] and _is_bright(px[x, y], bright_thresh):
+                cnt += 1
+        if cnt >= min_row_px:
+            ink_rows.append(y)
+    return (min(ink_rows), max(ink_rows)) if ink_rows else None
 
 
 def render_text_layer(size, lines, font, x=TEXT_X, y=TEXT_Y, line_height=LINE_HEIGHT):
@@ -216,23 +368,191 @@ def render_text_layer(size, lines, font, x=TEXT_X, y=TEXT_Y, line_height=LINE_HE
     return layer
 
 
+def measure_rendered_text_bottom(lines, font, size=(CELL_W, CELL_H), x=TEXT_X,
+                                  y=TEXT_Y, line_height=LINE_HEIGHT):
+    """Render `lines` exactly the way bake_cell will, and return the
+    bottom-most row (inclusive) that actually has a non-transparent pixel.
+    This is a real measurement of what OUR rendering needs, not a formula
+    guess -- if font/metrics ever change this stays correct automatically."""
+    layer = render_text_layer(size, lines, font, x=x, y=y, line_height=line_height)
+    bbox = layer.split()[-1].getbbox()  # alpha channel bbox
+    if bbox is None:
+        return y
+    return bbox[3] - 1  # getbbox()'s lower bound is exclusive
+
+
+BandDecision = namedtuple("BandDecision", [
+    "band_bottom",       # final total band height incl. cosmetic feather
+                          # zone (rows [0, band_bottom))
+    "content_bottom",     # coverage requirement: max(ink, zh), each with
+                          # only its tiny anti-alias margin -- everything up
+                          # to here is at least soft-covered (BAND_ALPHA),
+                          # nothing here is allowed to fade to 0.
+    "hard_range",         # (top, bottom): rows that MUST render at
+                          # HARD_ALPHA=255 -- the measured ink envelope (+
+                          # margin), or the WHOLE content_bottom zone when
+                          # ink detection fell back and the true ink
+                          # location is unknown. See the BAND_ALPHA comment
+                          # block above the constants for why this exists.
+    "ink_bbox",           # (top, bottom) detected in the ORIGINAL cell, or None
+    "ink_bottom_used",    # ink-derived candidate bottom (post margin/fallback)
+    "zh_bottom_used",     # zh-render-derived candidate bottom (post margin)
+    "fallback",           # bool: did ink detection fail/get rejected?
+    "fallback_reason",    # str or None
+])
+
+
+def decide_band(cell, lines, font):
+    """Decide how tall the translucent cover band needs to be for this cell:
+    max(vertical extent of the ORIGINAL jp ink actually detected in the art,
+    vertical extent OUR OWN zh rendering actually needs). Both are measured,
+    not guessed, and the LARGER of the two is used -- using only the ink
+    height would clip a zh caption that needs more lines than the original
+    JP one did (real example: card 25, JP ink is a single line but the zh
+    title wraps to 2 lines); using only the zh height would leave original
+    JP ink exposed below a too-short band on cells where the JP caption was
+    taller than the zh one needs to be (real example: card 6, JP ink spans
+    2 lines but the zh title is a short single line).
+
+    content_bottom (the max() above, each side with only its 1px anti-alias
+    margin) is the region that MUST be at least soft-covered -- the visual
+    bottom-edge feather (see render_band_layer) is added strictly BEYOND
+    content_bottom, never carved out of it, so cosmetic softening can never
+    under-cover real ink or clip real zh glyphs.
+
+    hard_range additionally marks which part of that zone must be FULLY
+    opaque rather than merely soft-covered: the measured ink envelope
+    itself (a uniform BAND_ALPHA was tried and measured/viewed to leave the
+    original high-contrast stroke text legibly visible underneath -- see
+    the constants block -- so real ink gets forced opaque, full stop). On
+    fallback (ink location unknown) the entire content_bottom zone is
+    treated as hard, since there's no envelope to trust and "unknown" must
+    default to the safe side, not the pretty side.
+    """
+    ink = ink_bbox_of_cell(cell)
+    fallback = False
+    reason = None
+    if ink is None:
+        ink_bottom = FALLBACK_BAND_BOTTOM
+        fallback = True
+        reason = "no_ink_detected"
+    elif ink[1] > INK_MAX_PLAUSIBLE_BOTTOM:
+        ink_bottom = FALLBACK_BAND_BOTTOM
+        fallback = True
+        reason = f"implausible_ink_bottom_{ink[1]}"
+    else:
+        ink_bottom = ink[1] + INK_BOTTOM_MARGIN
+
+    zh_bottom = measure_rendered_text_bottom(lines, font) + ZH_BOTTOM_MARGIN
+
+    content_bottom = min(max(ink_bottom, zh_bottom), CELL_H)
+    band_bottom = min(content_bottom + BAND_BOTTOM_FEATHER_PX, CELL_H)
+
+    if fallback:
+        hard_range = (0, content_bottom)
+    else:
+        hard_top = max(0, ink[0] - INK_BOTTOM_MARGIN)
+        hard_bottom = min(ink[1] + INK_BOTTOM_MARGIN, content_bottom)
+        hard_range = (hard_top, hard_bottom)
+
+    return BandDecision(band_bottom, content_bottom, hard_range, ink,
+                         ink_bottom, zh_bottom, fallback, reason)
+
+
+def collect_ink_fallbacks(decisions):
+    """decisions: {card: BandDecision}. Returns sorted [(card, reason), ...]
+    for every cell whose ink detection failed or was rejected as
+    implausible and fell back to FALLBACK_BAND_BOTTOM. MUST be called and
+    its result surfaced (report/manifest/CLI) -- never discarded -- so a
+    fallback never happens silently. A cell relying on the fallback got a
+    height nobody actually measured for it; a human needs to know which
+    cells those are."""
+    return sorted((c, d.fallback_reason) for c, d in decisions.items() if d.fallback)
+
+
+def _soft_alpha_at(y, content_bottom, band_bottom, alpha, top_feather, bottom_feather):
+    """The cosmetic soft-coverage profile: 0 -> alpha ramp over the first
+    `top_feather` rows, flat `alpha` through content_bottom, then alpha -> 0
+    ramp over the trailing `bottom_feather` rows up to band_bottom."""
+    if y >= content_bottom:
+        bf = band_bottom - content_bottom
+        return alpha * (band_bottom - y) / (bf + 1) if bf > 0 else 0
+    tf = min(top_feather, content_bottom) if content_bottom > 0 else 0
+    if tf > 0 and y < tf:
+        return alpha * (y + 1) / (tf + 1)
+    return alpha
+
+
+def _hard_alpha_at(y, hard_top, hard_bottom, alpha, transition):
+    """The mandatory-opaque profile: 0 outside [hard_top, hard_bottom),
+    `alpha` (HARD_ALPHA) inside it, with a short ramp at each inner edge so
+    the hard zone doesn't meet the surrounding soft zone at a visible hard
+    seam. Never smaller than a flat 0/alpha step if the range is too short
+    to fit both transitions."""
+    if hard_bottom <= hard_top or not (hard_top <= y < hard_bottom):
+        return 0
+    span = hard_bottom - hard_top
+    t = min(transition, span // 2) if span > 1 else 0
+    if t > 0 and y < hard_top + t:
+        return alpha * (y - hard_top + 1) / (t + 1)
+    if t > 0 and y >= hard_bottom - t:
+        return alpha * (hard_bottom - y) / (t + 1)
+    return alpha
+
+
+def render_band_layer(size, decision, color=BAND_COLOR, soft_alpha=BAND_ALPHA,
+                       hard_alpha=HARD_ALPHA, top_feather=BAND_TOP_FEATHER_PX,
+                       bottom_feather=BAND_BOTTOM_FEATHER_PX,
+                       hard_transition=HARD_TRANSITION_PX):
+    """A cell-sized RGBA layer covering rows [0, decision.band_bottom):
+    per-row alpha is max(soft profile, hard profile) -- see
+    _soft_alpha_at/_hard_alpha_at. Rows inside decision.hard_range (real
+    detected ink, or the whole zone on fallback) render fully opaque
+    (hard_alpha); every other row in [0, band_bottom) is genuinely
+    translucent (soft_alpha, feathered at the very top/bottom edges).
+    Everything at y >= band_bottom stays fully transparent, which is what
+    keeps the pixel-preservation gate meaningful: nothing outside the box
+    the gate checks is ever painted."""
+    w, h = size
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    px = layer.load()
+    content_bottom = max(0, min(decision.content_bottom, h))
+    band_bottom = max(content_bottom, min(decision.band_bottom, h))
+    hard_top, hard_bottom = decision.hard_range
+    hard_top = max(0, min(hard_top, content_bottom))
+    hard_bottom = max(hard_top, min(hard_bottom, content_bottom))
+    for y in range(band_bottom):
+        soft = _soft_alpha_at(y, content_bottom, band_bottom, soft_alpha,
+                               top_feather, bottom_feather)
+        hard = _hard_alpha_at(y, hard_top, hard_bottom, hard_alpha, hard_transition)
+        a = round(min(255, max(soft, hard)))
+        for x in range(w):
+            px[x, y] = (color[0], color[1], color[2], a)
+    return layer
+
+
 def bake_cell(cell, lines, font):
     """cell: CELL_W x CELL_H RGBA image (one card's thumbnail+title).
-    Returns a new image: TEXT_BOX region fully replaced (erased original +
-    new Chinese text drawn on top); every pixel outside TEXT_BOX is
-    byte-identical to `cell`."""
-    recon = reconstruct_box(cell, TEXT_BOX)
-    new_cell = cell.copy()
-    new_cell.paste(recon, TEXT_BOX)
-    layer = render_text_layer(cell.size, lines, font)
-    return Image.alpha_composite(new_cell, layer)
+    Returns (new_cell, decision): new_cell has a cover band composited over
+    rows [0, decision.band_bottom) -- fully opaque over decision.hard_range
+    (the real detected ink), genuinely translucent elsewhere in that span --
+    with the new zh caption drawn on top; every pixel at
+    y >= decision.band_bottom is byte-identical to `cell`."""
+    decision = decide_band(cell, lines, font)
+    band = render_band_layer(cell.size, decision)
+    text = render_text_layer(cell.size, lines, font)
+    new_cell = Image.alpha_composite(cell.convert("RGBA"), band)
+    new_cell = Image.alpha_composite(new_cell, text)
+    return new_cell, decision
 
 
-def find_outside_box_diffs(orig_cell, new_cell, box=TEXT_BOX):
+def find_outside_box_diffs(orig_cell, new_cell, box):
     """Return list of (x,y) pixels OUTSIDE box where orig_cell != new_cell.
-    Empty list == the non-text-region-preserved invariant holds for this
-    cell. This is the pixel-preservation safety gate; it must actually be
-    called (and asserted empty) by the baking pipeline, not just exist."""
+    Empty list == the non-covered-region-preserved invariant holds for this
+    cell. `box` is the PER-CELL band region (0, 0, CELL_W, band_bottom) --
+    dynamic, not a fixed constant -- this is the pixel-preservation safety
+    gate; it must actually be called (and asserted empty) by the baking
+    pipeline, not just exist."""
     x0, y0, x1, y1 = box
     w, h = orig_cell.size
     opx = orig_cell.load()
@@ -248,23 +568,29 @@ def find_outside_box_diffs(orig_cell, new_cell, box=TEXT_BOX):
 
 
 def bake_sheet(sheet_num, titles, font):
-    """Return (new_sheet_image, per_cell_diffs) where per_cell_diffs maps
-    card -> list of outside-box pixel diffs (should be [] for every card)."""
+    """Return (new_sheet_image, per_cell_diffs, per_cell_decisions).
+    per_cell_diffs maps card -> list of outside-band-region pixel diffs
+    (should be [] for every card). per_cell_decisions maps card ->
+    BandDecision (used to build the ink-fallback report and band-height
+    stats)."""
     path = os.path.join(PLOT_DIR, f"plot_{sheet_num}_a.png")
     sheet = Image.open(path).convert("RGBA")
     new_sheet = sheet.copy()
     diffs = {}
+    decisions = {}
     lo = (sheet_num - 1) * CARDS_PER_SHEET + 1
     hi = min(sheet_num * CARDS_PER_SHEET, NUM_CARDS)
     for card in range(lo, hi + 1):
         _, box = cell_box(card)
         cell = sheet.crop(box)
         lines, truncated = wrap_title(titles[card], font)
-        new_cell = bake_cell(cell, lines, font)
-        d = find_outside_box_diffs(cell, new_cell)
+        new_cell, decision = bake_cell(cell, lines, font)
+        check_box = (0, 0, CELL_W, decision.band_bottom)
+        d = find_outside_box_diffs(cell, new_cell, check_box)
         diffs[card] = d
+        decisions[card] = decision
         new_sheet.paste(new_cell, box)
-    return new_sheet, diffs
+    return new_sheet, diffs, decisions
 
 
 def build_compare_image(pairs):
@@ -291,7 +617,82 @@ def build_compare_image(pairs):
     return canvas
 
 
-def run(write=True):
+# Cells hand-picked to stress the riskiest parts of the new pipeline for
+# human review -- see the report for why each one was picked. Intentionally
+# NOT "the nicest-looking cells": card 162 is the one real ink-detection
+# failure in the whole 195-card set (falls back), 6/25 are the two real
+# cells that prove decide_band's max() actually matters in both directions,
+# 59/195/101 are bright-background cells (pool water / sky / paper) chosen
+# because bright backgrounds are the ink-detector's main false-positive
+# risk, 115 is the darkest cell in the set (near-black scene, a different
+# failure mode risk), 170 is a real cell whose second wrapped line is short
+# enough that the ink band should visibly NOT reach the old fixed 28px, 180
+# is the longest 2-line JP title (worst-case coverage need), 9 is a short
+# single-line cell chosen to show how much background area a short caption
+# now gets back compared to the old fixed-28 approach.
+CELLZOOM_CARDS = [162, 6, 25, 59, 195, 101, 115, 170, 180, 9]
+CELLZOOM_SCALE = 6
+
+
+def build_cellzoom_image(titles, font, cards=CELLZOOM_CARDS, scale=CELLZOOM_SCALE):
+    """Two rows per card: original cell (top) and baked cell (bottom),
+    each scaled up `scale`x with nearest-neighbor, labeled with the card
+    number and its fallback status. This is the primary artifact a human
+    reviews the band-sizing decisions against."""
+    sheets_cache = {}
+
+    def get_sheet(n):
+        if n not in sheets_cache:
+            sheets_cache[n] = Image.open(
+                os.path.join(PLOT_DIR, f"plot_{n}_a.png")).convert("RGBA")
+        return sheets_cache[n]
+
+    cell_disp_w = CELL_W * scale
+    cell_disp_h = CELL_H * scale
+    label_h = 14
+    gap = 8
+    col_w = cell_disp_w + gap
+    row_h = label_h + cell_disp_h * 2 + gap
+    n = len(cards)
+    cols = 5
+    rows = (n + cols - 1) // cols
+    canvas_w = cols * col_w + gap
+    canvas_h = rows * row_h + gap
+    canvas = Image.new("RGBA", (canvas_w, canvas_h), (24, 24, 24, 255))
+    d = ImageDraw.Draw(canvas)
+
+    for i, card in enumerate(cards):
+        sheet_num, box = cell_box(card)
+        cell = get_sheet(sheet_num).crop(box)
+        lines, _truncated = wrap_title(titles[card], font)
+        new_cell, decision = bake_cell(cell, lines, font)
+
+        col = i % cols
+        row = i // cols
+        x = gap + col * col_w
+        y = gap + row * row_h
+
+        tag = "FALLBACK" if decision.fallback else f"content={decision.content_bottom} band={decision.band_bottom}"
+        d.text((x, y), f"#{card} {titles[card][:8]} [{tag}]", fill=(255, 255, 0, 255))
+        y2 = y + label_h
+        canvas.paste(cell.resize((cell_disp_w, cell_disp_h), Image.NEAREST), (x, y2))
+        canvas.paste(new_cell.resize((cell_disp_w, cell_disp_h), Image.NEAREST),
+                     (x, y2 + cell_disp_h))
+        # marker lines on both rows: cyan = content_bottom (must-cover, full
+        # alpha up to here), magenta = band_bottom (cosmetic feather ends
+        # here) -- makes the two zones visible against the art.
+        for dy_off in (0, cell_disp_h):
+            cy = y2 + dy_off + decision.content_bottom * scale
+            d.line([(x, cy), (x + cell_disp_w, cy)], fill=(0, 255, 255, 200), width=1)
+            fy = y2 + dy_off + decision.band_bottom * scale
+            d.line([(x, fy), (x + cell_disp_w, fy)], fill=(255, 0, 255, 160), width=1)
+
+    return canvas
+
+
+def run(write=True, with_cellzoom=None):
+    if with_cellzoom is None:
+        with_cellzoom = write
     font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
     titles = load_titles_zh()
     overflow = collect_overflow(titles, font)
@@ -299,17 +700,30 @@ def run(write=True):
     new_sheets = []
     orig_sheets = []
     all_diffs = {}
+    all_decisions = {}
     for sheet_num in range(1, NUM_SHEETS + 1):
-        new_sheet, diffs = bake_sheet(sheet_num, titles, font)
+        new_sheet, diffs, decisions = bake_sheet(sheet_num, titles, font)
         new_sheets.append(new_sheet)
         orig_sheets.append(Image.open(os.path.join(PLOT_DIR, f"plot_{sheet_num}_a.png")).convert("RGBA"))
         all_diffs.update(diffs)
+        all_decisions.update(decisions)
 
     bad_cells = [c for c, d in all_diffs.items() if d]
+    fallbacks = collect_ink_fallbacks(all_decisions)
+    band_bottoms = {c: d.band_bottom for c, d in all_decisions.items()}
+
     report = {
         "num_cards": NUM_CARDS,
         "overflow": [{"card": c, "title_zh": t, "lines": l} for c, t, l in overflow],
         "pixel_preservation_violations": bad_cells,
+        "ink_fallback_cards": [{"card": c, "reason": r} for c, r in fallbacks],
+        "ink_detection_summary": {
+            "total": NUM_CARDS,
+            "detected": NUM_CARDS - len(fallbacks),
+            "fallback": len(fallbacks),
+        },
+        "band_bottom_min": min(band_bottoms.values()),
+        "band_bottom_max": max(band_bottoms.values()),
     }
 
     if write:
@@ -318,6 +732,9 @@ def run(write=True):
             sheet.convert("RGBA").save(os.path.join(OUT_DIR, f"plot_{i}_a.png"))
         compare = build_compare_image(list(zip(orig_sheets, new_sheets)))
         compare.save(os.path.join(OUT_DIR, "_compare.png"))
+        if with_cellzoom:
+            cellzoom = build_cellzoom_image(titles, font)
+            cellzoom.save(os.path.join(OUT_DIR, "_cellzoom.png"))
         with open(os.path.join(OUT_DIR, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
 
@@ -333,6 +750,15 @@ def main():
     print(f"overflow (truncated) titles: {len(report['overflow'])}")
     for o in report["overflow"]:
         print(f"  card {o['card']}: {o['title_zh']!r} -> {o['lines']!r}")
+    s = report["ink_detection_summary"]
+    print(f"ink detection: {s['detected']}/{s['total']} cells detected, "
+          f"{s['fallback']} fell back to FALLBACK_BAND_BOTTOM={FALLBACK_BAND_BOTTOM}")
+    if report["ink_fallback_cards"]:
+        print("  fallback cards (MUST be reviewed by a human -- band height "
+              "for these was never measured):")
+        for f in report["ink_fallback_cards"]:
+            print(f"    card {f['card']}: {f['reason']}")
+    print(f"band_bottom range: {report['band_bottom_min']}..{report['band_bottom_max']}")
     print(f"pixel-preservation violations: {len(report['pixel_preservation_violations'])}")
     if report["pixel_preservation_violations"]:
         print(f"  cards: {report['pixel_preservation_violations']}")

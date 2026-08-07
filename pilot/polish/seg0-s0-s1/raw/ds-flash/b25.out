@@ -1,0 +1,105 @@
+{"id": 7862, "jp_tail": "ぐらいだし……。", "zh": "嘛，毕竟也只是说了句『要是有时间就来』而已……。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7863, "jp_tail": "て事になるよね。", "zh": "……这么一来，不去也没关系了吧。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7864, "jp_tail": "に帰る事にした。", "zh": "我决定和ユウイチ一起回家。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7865, "jp_tail": "ユウイチと歩く。", "zh": "和他走在平时上下学的那条路上。", "score": 60, "note": "叙述行且紧邻行 7864 已出现ユウイチ，按 polish.md §5(d)/R1 换代词；「一如往常的上学路」改「平时上下学的那条路」顺口（通学路是上下学那条路，此处为放学同行）。", "adjudicate": false}
+{"id": 7866, "jp_tail": "かったのかな？」", "zh": "【アヤノ】「呐，这样真的好吗？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7867, "jp_tail": "たって、何が？」", "zh": "【ユウイチ】「好不好的，你指什么？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7868, "jp_tail": "てって言うこと」", "zh": "【アヤノ】「就是说，就这么直接回家这件事」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7869, "jp_tail": "ウイチは答えた。", "zh": "ユウイチ一边挠着头，一边『啊——』地应道。", "score": 60, "note": "原译把应答声挂在『挠头』上（『啊——』地挠了挠头）；原文 あー、と…答えた，声音伴随的是答话，改为一边挠头一边应道。", "adjudicate": false}
+{"id": 7870, "jp_tail": "んの？ アヤノ」", "zh": "【ユウイチ】「怎么，还在介意啊？ アヤノ」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7871, "jp_tail": "か謝っておけば」", "zh": "【ユウイチ】「没事的啦。明天碰上的时候，道个歉说『临时有点事，去不了了』不就行了」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7872, "jp_tail": "らぼうに答える。", "zh": "ユウイチ答得有些生硬。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7873, "jp_tail": "、誘ったんだし」", "zh": "【ユウイチ】「アヤノ要是不好开口，我这边替你说一声就是了。说到底，放学后本来就是我拉你去的」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7874, "jp_tail": "いいよ、大丈夫」", "zh": "【アヤノ】「诶，不用了，没关系」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7875, "jp_tail": "黙ってしまった。", "zh": "心里还留着一丝放不下的牵挂，可身旁的ユウイチ只是有些不高兴地说没必要在意，之后便再没开口。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7876, "jp_tail": "日」もなかった。", "zh": "和ユウイチ在家门口分别的时候也一样，ユウイチ只是抬起一只手作答，没有「再见」，也没有「明天见」。", "score": 95, "note": "软锁锚点行，逐字照抄 anchors 定译（含「再见」「明天见」引号形制），不改。", "adjudicate": false}
+{"id": 7877, "jp_tail": "魔が襲ってきた。", "zh": "回到家，吃了饭，看了电视，往床上一躺，睡意立刻就袭了上来。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7878, "jp_tail": "ふう。なんだか。", "zh": "……呼。不知怎么的。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7879, "jp_tail": "れていたみたい。", "zh": "今天好像比自己以为的还要累。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7880, "jp_tail": "一ヶ月が過ぎた。", "zh": "○_n一个月过去了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7881, "jp_tail": "勝ったんだから」", "zh": "【アヤノ】「你看吧！ 这次赢的可是我」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7882, "jp_tail": "、仕方ねえなあ」", "zh": "【ユウイチ】「……切，没办法咯」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7883, "jp_tail": "、外で食べ――」", "zh": "【アヤノ】「我可要挑一大——堆好吃的哦。天气也这么好，就在外面吃――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7884, "jp_tail": "上げた時だった。", "zh": "就在这么说着、抬头望向天空的时候。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7885, "jp_tail": "アヤノ】「……」", "zh": "【アヤノ】「……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7886, "jp_tail": "なに出せねえぞ」", "zh": "【ユウイチ】「干嘛啊アヤノ，突然不吭声了。我这个月手头也紧，可掏不出那么多啊」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7887, "jp_tail": "か居なかった？」", "zh": "【アヤノ】「不是啦，ユウイチ。刚才那边的天台上，是不是有人？」", "score": 90, "note": "与 s2s 9176 同形复现句，逐字对齐 voices/ayano_story §5 例 4，维持。", "adjudicate": false}
+{"id": 7888, "jp_tail": "】「……屋上？」", "zh": "【ユウイチ】「……天台？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7889, "jp_tail": "と目を凝らした。", "zh": "ユウイチ把视线投向天台的方向，凝神细看了一阵。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7890, "jp_tail": "、なんもないよ」", "zh": "【ユウイチ】「没——有，什么都没有啊」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7891, "jp_tail": "「そんな事――」", "zh": "【アヤノ】「怎么会――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7892, "jp_tail": "を凝らしてみる。", "zh": "我试着凝神细看。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7893, "jp_tail": "がしたんだけど」", "zh": "【アヤノ】「咦？ 难道是错觉吗。可刚才，总觉得有什么动了一下」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7894, "jp_tail": "は確かに誰か――", "zh": "奇怪，刚才确实是有谁――", "score": 50, "note": "「明明确实」叠用冗余，取其一（确实），更合叙述节奏。", "adjudicate": false}
+{"id": 7895, "jp_tail": "んて、いるかな？", "zh": "可是在夏天这个季节里，会特意跑去天台那座灼热地狱的学生，能有吗？", "score": 90, "note": "", "adjudicate": false}
+{"id": 7896, "jp_tail": "て顔してんだよ」", "zh": "【ユウイチ】「干嘛啊，摆出一副没法接受的表情」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7897, "jp_tail": "関係ないだろ？」", "zh": "【ユウイチ】「再说了，就算那上面真有谁在，跟アヤノ你也没关系吧？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7898, "jp_tail": "んだけどね……」", "zh": "【アヤノ】「嘛，话是这么说没错啦……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7899, "jp_tail": "ば確かにそうだ。", "zh": "被这么一说，的确是这样。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7900, "jp_tail": "事もありそうだ。", "zh": "说不定只是碰巧看到了巡视的老师的身影。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7901, "jp_tail": "納得は行かない。", "zh": "可是，心里总还是不太能接受。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7902, "jp_tail": "を、感じたのだ。", "zh": "我感觉到了某种不可思议的、像是心里发慌一样的东西。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7903, "jp_tail": "よ？ 行くぞー」", "zh": "【ユウイチ】「アヤノ，你杵在那儿发什么呆呢？ 走啦——」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7904, "jp_tail": "「う、うん――」", "zh": "【アヤノ】「嗯、嗯――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7905, "jp_tail": "気が頬を撫でた。", "zh": "走出校舍，夏天特有的、闷腾腾的热气拂过脸颊。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7906, "jp_tail": "へー、あちー！」", "zh": "【ユウイチ】「呜哇——，好热——！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7907, "jp_tail": "を落としていた。", "zh": "太阳快要落山，夕阳在树木上投下长长的影子。", "score": 50, "note": "「太阳快要落下」改「落山」，中文里太阳搭配落山更顺口。", "adjudicate": false}
+{"id": 7908, "jp_tail": "いるだけだった。", "zh": "抬头望向天空，只有头顶上还看得见一点点云。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7909, "jp_tail": "立、大丈夫そう」", "zh": "【アヤノ】「云也没有呢。今天的雷阵雨，应该没事」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7910, "jp_tail": "とと帰りますか」", "zh": "【ユウイチ】「这暑气还真是赖着不走啊。赶紧回家咯」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7911, "jp_tail": "ちろん、途中で」", "zh": "【アヤノ】「――当然，路上」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7912, "jp_tail": "肩をつかまえた。", "zh": "我抓住了正想快步走开的ユウイチ的肩膀。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7913, "jp_tail": "。ユウイチさん」", "zh": "【アヤノ】「要找个地方吃点好吃的哦。ユウイチ先生」", "score": 90, "note": "揶揄敬称位按 style.md v13 定表作ユウイチ先生（アヤノ/ユウイチ 4 处之一），维持。", "adjudicate": false}
+{"id": 7914, "jp_tail": "っぱ覚えてた？」", "zh": "【ユウイチ】「……果然还记得啊？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7915, "jp_tail": "っかりじゃない」", "zh": "【アヤノ】「我说你呀。刚才不是才跟我说过嘛」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7916, "jp_tail": "ウイチは答えた。", "zh": "ユウイチ『唔——』地哼了一声，回答道。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7917, "jp_tail": "が出したんだし」", "zh": "【ユウイチ】「车站前的快餐店不就行了？ 上次也是アヤノ你出的钱嘛」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7918, "jp_tail": "たりしたっけ？」", "zh": "【アヤノ】「诶，上次？ 我请过ユウイチ你吗？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7919, "jp_tail": "』とか言ってさ」", "zh": "【ユウイチ】「因为你之前不是……。对了，就那时候，你不是说什么『钱仙什么什么的』嘛」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7920, "jp_tail": "いよ、そんなの」", "zh": "【アヤノ】「钱仙？ 那是什么？ 我不知道哦，那种东西」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7921, "jp_tail": "と私の顔を見た。", "zh": "ユウイチ目不转睛地盯着我的脸看。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7922, "jp_tail": "な、なによ急に」", "zh": "【アヤノ】「干、干什么呀突然」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7923, "jp_tail": "って、お前――」", "zh": "【ユウイチ】「可是你啊――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7924, "jp_tail": "たりしたっけ？」", "zh": "【アヤノ】「再说了，我最近有请过ユウイチ你吗？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7925, "jp_tail": "、俺、アヤノに」", "zh": "【ユウイチ】「诶？ 可是啊，之前――是上个月吧。我明明是被アヤノ你请了一顿的」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7926, "jp_tail": "出してません！」", "zh": "【アヤノ】「没——有，我没有出过钱！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7927, "jp_tail": "して貰ったし！」", "zh": "【ユウイチ】「不对，不可能的。アヤノ你明明说过的！ 钱也是你替我出的！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7928, "jp_tail": "るんじゃない？」", "zh": "【アヤノ】「反正又是跟别的什么人搞混了吧？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7929, "jp_tail": "まり話さないし」", "zh": "【ユウイチ】「怎么会。再说了，除了你以外的女生，我基本也不怎么说话」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7930, "jp_tail": "あ。そうなんだ」", "zh": "【アヤノ】「啊。是这样啊」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7931, "jp_tail": "はいいんだけど」", "zh": "【ユウイチ】「嘛，这个倒是无所谓」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7932, "jp_tail": "きながら言った。", "zh": "ユウイチ像是害羞了似的，一边挠着头一边说。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7933, "jp_tail": "さあ……だって」", "zh": "【ユウイチ】「可是啊……可是嘛」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7934, "jp_tail": "顔を何度も見る。", "zh": "ユウイチ嘟嘟囔囔地念叨着『真奇怪啊』之类的，一次又一次地看我的脸。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7935, "jp_tail": "の背中を叩いた。", "zh": "我拍了一下ユウイチ的背。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7936, "jp_tail": "】「痛ってえ！」", "zh": "【ユウイチ】「疼死了！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7937, "jp_tail": "げさなんだから」", "zh": "【アヤノ】「真是的，就爱大惊小怪」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7938, "jp_tail": "っちの方だって。", "zh": "……真是的。奇怪的明明是你那边才对。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7939, "jp_tail": "混んじゃうし！」", "zh": "【アヤノ】「快点走啦！ 店里要挤满人了！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7940, "jp_tail": "りましたよっと」", "zh": "【ユウイチ】「真没办法——。好啦好啦，知道了知道了」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7941, "jp_tail": "てたの？ 私が」", "zh": "【アヤノ】「哦——。『钱仙』啊。我说过那种话吗？ 我」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7942, "jp_tail": "ああ、と頷いた。", "zh": "ユウイチ啊啊地应着，点了点头。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7943, "jp_tail": "市伝説とか――」", "zh": "【アヤノ】「我记得，什么学校的啦、七大不可思议啦、都市传说啦――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7944, "jp_tail": "ね、そーゆーの」", "zh": "【アヤノ】「那种东西，在灵异类里可是老一套了呢」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7945, "jp_tail": "うではあるけど」", "zh": "【ユウイチ】「唔——，嘛，确实是这样没错」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7946, "jp_tail": "やってみない？」", "zh": "【アヤノ】「唔——。有兴趣是有兴趣，可从来没做过呢。呐ユウイチ，下次要不要试试看？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7947, "jp_tail": "の、ごめんだね」", "zh": "【ユウイチ】「免了免了。那种玩意儿，我可不奉陪」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7948, "jp_tail": "と首をかしげた。", "zh": "ユウイチ『嗯？』地歪了歪头。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7949, "jp_tail": "絶対したって！」", "zh": "【ユウイチ】「……不对，这段对话，果然绝对是说过的啊！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7950, "jp_tail": "んじゃないの？」", "zh": "【アヤノ】「真是的——，烦不烦呀。我都说了没听过。你是做梦梦到的吧？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7951, "jp_tail": "れ？ でも――」", "zh": "【ユウイチ】「怎么可能！ 咦？ 可是――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7952, "jp_tail": "くさ言っている。", "zh": "ユウイチ嘟嘟囔囔地念叨着「果然这段对话……」什么的。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7953, "jp_tail": "ヤノ】「もう！」", "zh": "【アヤノ】「真是的！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 7954, "jp_tail": "○結局。", "zh": "○_n到头来。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7955, "jp_tail": "た』と言って――", "zh": "那之后ユウイチ还一直说着『放学后绝对是约好了的』――", "score": 90, "note": "", "adjudicate": false}
+{"id": 7956, "jp_tail": "たのだけれど――", "zh": "一遍又一遍地，向我说明当时的事――", "score": 90, "note": "", "adjudicate": false}
+{"id": 7957, "jp_tail": "覚えがなかった。", "zh": "可我果然还是完全没有印象。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7958, "jp_tail": "うようになった。", "zh": "只是，在一次次听着ユウイチ说明的过程中，我渐渐觉得，说不定『那件事』真的是有过的。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7959, "jp_tail": "らないんだけど。", "zh": "至于为什么我不记得『那件事』……我就不明白了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7960, "jp_tail": "んて、私は思う。", "zh": "话虽如此，那件事好像已经是一个月以前的事了。记得住反倒才更难吧，我这么想着。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7961, "jp_tail": "放課後の学校。", "zh": "放学后的学校。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7962, "jp_tail": "していたらしい。", "zh": "那一天，我似乎是和『谁』有约在先，出了学校一趟之后，还约好了要再回去。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7963, "jp_tail": "ていたんだろう。", "zh": "如果那时候，我『回到了学校』，后来会怎么样呢。", "score": 70, "note": "纪要 b25 §7 提请人工确认：句尾「后来会怎么样呢」与锚点 6085「那时如果抓紧了她的手，后来会怎么样呢」同构互文（故事层 没回学校 ↔ 现实层 没抓住手）。我判断保留呼应更优，维持现行译法；若裁为译者加戏，可回退为中性「会变成怎样呢」。", "adjudicate": true}
+{"id": 7964, "jp_tail": "のかもしれない。", "zh": "说不定，那个举动，那个微不足道的小小选择，会大大地改变自己的人生，改变我的活法。", "score": 90, "note": "", "adjudicate": false}
+{"id": 7965, "jp_tail": "■ゲームオーバー", "zh": "■游戏结束", "score": 90, "note": "", "adjudicate": false}
+{"id": 17122, "jp_tail": "ち、行動しよう。", "zh": "【（提示）】对故事产生兴趣，行动起来吧。", "score": 90, "note": "", "adjudicate": false}

@@ -250,11 +250,12 @@ uv run python tools/polish_context.py --seg seg1-s2 --plan
 
 ```bash
 # 1 准入小考（两通道各一次，必须先于生产批）
-#   把 work/ctx/p4s1-calib.md 发给通道，输出按同一契约落盘，然后判卷：
+#   把 work/ctx/p4s1-calib.md 发给通道；输出落盘路径按该 prompt 的输出契约：
+#     pilot/polish/seg1-s2/calib/raw.<channel>.jsonl   ← 单个文件，不分批
 uv run python tools/polish_calibrate.py --seg seg1-s2 --score \
-  --channel fable-wf --raw work/out/calib-fable-wf.out
+  --channel fable-wf --raw pilot/polish/seg1-s2/calib/raw.fable-wf.jsonl
 uv run python tools/polish_calibrate.py --seg seg1-s2 --score \
-  --channel ds-flash --raw work/out/calib-ds-flash.out
+  --channel ds-flash --raw pilot/polish/seg1-s2/calib/raw.ds-flash.jsonl
 ```
 
 不跑这一步 → `channel_state.json` 不存在 → 两通道都按「自动清关权关闭」处理（保守缺省：

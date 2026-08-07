@@ -183,6 +183,15 @@ def _dir_for(label, repo) -> Path:
     return repo / "pilot" / "polish" / label
 
 
+def _ws_equal(a, b) -> bool:
+    """同 `polish_triage._ws_equal` 的判据（独立定义，不跨模块耦合）：只做
+    `.strip()` 空白归一，`_n`/`_r`/ruby 原样参与比较——够用即可，这里只是
+    "要不要打一条信息级提示"的软判断，不是安全闸，不需要更严格的归一化。"""
+    sa = a.strip() if isinstance(a, str) else ""
+    sb = b.strip() if isinstance(b, str) else ""
+    return sa == sb
+
+
 def _load_committed(path) -> set:
     p = Path(path)
     if not p.exists():
@@ -271,6 +280,13 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
     decisions = read_jsonl(decisions_path) if decisions_path.exists() else []
     committed_path = d / "committed.json"
     committed = _load_committed(committed_path)
+
+    # D3 追加：零改动+请裁的行（见 polish_triage 模块 docstring）若被人工裁成
+    # adopt/edit 而最终文本又与冻结时点 opus 逐字相同，见下方循环里的信息级
+    # 提示——这里先把 opus 现行译文表读出来，供那条检查用。
+    opus_fz = d / "frozen" / "opus.jsonl"
+    id2opus = ({r["id"]: r["zh"] for r in read_jsonl(opus_fz)}
+               if opus_fz.exists() else {})
 
     gv = glossary_version(repo_root)
     minted_ts = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -419,6 +435,17 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
               f"ts={item['candidate_ts']}) → prompt_hash={item['prompt_hash']}",
               file=sys.stderr)
         print(f"{tag}   zh：{item['zh']}", file=sys.stderr)
+        # D3 信息级提示（不阻断）：人工裁决（adopt/edit）落地的文本若与冻结
+        # 时点 opus 逐字相同，这是一条"空 diff"patch——常见于零改动+请裁
+        # 的行被人工 adopt 确认（见 polish_triage 模块 docstring"polish_commit
+        # 侧的对应处理"专节）。不是错误，`add_patch.add()` 照常写入，但要
+        # 提醒操作者：这类确认通常应该用 keep_opus（不产生任何 patch），
+        # 用 adopt/edit 会在 patches.jsonl 里留下一条文字未变的记录。
+        if item["verdict"] in ("adopt", "edit") and _ws_equal(item["zh"], id2opus.get(cid)):
+            print(f"{tag}   ℹ️ 提示：这条 patch 的译文与冻结时点 opus 逐字相同"
+                  "（空 diff）——通常是零改动+请裁的行被人工确认维持原译，"
+                  "keep_opus 才是这类确认的正常归宿（不产生任何 patch）；"
+                  "本次仍会按 adopt/edit 正常写入，不阻断。", file=sys.stderr)
 
         if dry_run:
             _announce_prior(cid, data_dir, tag=tag)

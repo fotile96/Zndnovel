@@ -494,3 +494,54 @@ def test_shrunken_patches_file_is_conservative(mini, capsys):
     result = pc.commit(LABEL, mini.data_dir, dry_run=True, repo=mini.root)
     assert 14 not in {r["id"] for r in result}
     assert "append-only 约定被破坏" in capsys.readouterr().err
+
+
+# ---- D3 收尾：零改动+请裁的行若被人工裁成 adopt，必须安全落地 ----
+# （pilot/polish/seg0-s0-s1/channel_feedback.md D3 节 + polish_triage.py
+#  模块 docstring"polish_commit 侧的对应处理"专节：正常归宿是 keep_opus，
+#  但 adopt 这条路径不能因为候选文本与 opus 逐字相同就出错或产生损坏数据）
+
+def test_adopt_zero_edit_candidate_writes_safe_noop_patch(tmp_path, capsys):
+    """id 10 是零改动候选（`CAND_CHA[10] == OPUS[10]`）——若裁决者仍然选择
+    adopt（比如想显式留一条"人工确认过"的痕迹，而不是留白的 keep_opus），
+    commit() 必须：不崩溃、写出一条 zh 与 opus 逐字相同的合法 patch、prov
+    倒查链完整、`resolve_map()` 消费这条 patch 是幂等的（现行译文不变），
+    并额外打一条信息级提示（不阻断——人已经做了决定，工具只负责提醒）。"""
+    m = _build_mini(tmp_path, decisions=[
+        {"id": 10, "verdict": "adopt", "chosen_channel": "chA",
+         "edited_zh": None, "reason_code": "queue_review",
+         "ts": "2026-08-01T00:00:00+00:00"},
+    ])
+    result = pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+
+    p10 = by_id(result, 10)
+    assert p10["zh"] == OPUS[10] == CAND_CHA[10]
+    assert p10["reason"] == "polish"
+    assert p10["prov"]["channel"] == "chA"
+    assert p10["prov"]["candidate_ts"]
+
+    patches = read_jsonl(m.data_dir / "patches.jsonl")
+    p10_disk = by_id(patches, 10)
+    assert p10_disk["zh"] == OPUS[10]
+
+    # 幂等性：叠加这条"空 diff" patch 之后，现行译文与叠加之前完全一样。
+    forward = read_jsonl(m.data_dir / "forward.jsonl")
+    cur = resolve_map(forward, patches)
+    assert cur[10] == OPUS[10]
+
+    err = capsys.readouterr().err
+    assert "空 diff" in err
+    assert "keep_opus" in err
+
+    # 重复 --apply 仍然是 no-op（幂等键不受"内容未变"影响）。
+    result2 = pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    assert 10 not in {r["id"] for r in result2}
+
+
+def test_adopt_changed_candidate_does_not_print_noop_note(mini, capsys):
+    """对照组：id 11 是真实大改，adopt 落地的文本与 opus 不同——不应该触发
+    D3 那条"空 diff"提示，证明这条提示是有差别地打印，不是无脑贴在每条
+    adopt/edit 上。"""
+    pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    err = capsys.readouterr().err
+    assert "空 diff" not in err

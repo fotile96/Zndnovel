@@ -422,6 +422,107 @@ def test_w4_full_reports_sibling_divergence(mini, tmp_path):
     assert on_disk["findings"] == findings
 
 
+def test_w4_full_msg_lists_every_member_no_truncation():
+    """`_w4_full_msg()` 与 P3 钉死面 `check_batch._w4_msg()`（按文本去重、
+    截断到 3 种 + "共 N 种异译"摘要）刻意不同——全段收敛检查要求逐个列出，
+    5 个互不相同的译法一个都不能少。"""
+    others = [(i, f"译法{i}") for i in range(1, 6)]
+    msg = pcheck._w4_full_msg(others, id2label={1: "segA"})
+    for i in range(1, 6):
+        assert f"id={i}" in msg
+    assert "共 5 个其他成员" in msg
+    assert "id=1@segA" in msg
+    assert "id=2@未知段" in msg   # 不在 id2label 里 -> 未知段，不是被吞掉
+
+
+# ---- D4 修复：finding 报出全族成员，不是只报一个（SEG-0 实测：7894 的句族
+# 有三个成员 7894/9186/11407，旧代码按文本去重只报出 9186，11407 要等下
+# 一轮重跑才暴露）----
+
+def test_w4_full_reports_all_members_not_just_one(mini, tmp_path):
+    """id 900 与 901 的旧译文**字面相同**——这正是 D4 的复现条件：
+    `check_batch._w4_msg()` 按 `zh` 文本去重，会把 900/901 只留一个代表；
+    `w4_full()` 必须把两个都点出来，且 `siblings` 结构化字段本身也要能
+    查到（不能只藏在 `msg` 字符串里）。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13],
+                900: JP[10], 901: JP[10]},
+        current={10: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13],
+                 900: DEFAULT_ZH[10], 901: DEFAULT_ZH[10]})
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    f = findings[0]
+
+    sibling_ids = {s["id"] for s in f["siblings"]}
+    assert sibling_ids == {900, 901}
+    zh_by_id = {s["id"]: s["zh"] for s in f["siblings"]}
+    assert zh_by_id[900] == zh_by_id[901] == DEFAULT_ZH[10]
+    assert "900" in f["msg"] and "901" in f["msg"]
+
+    on_disk = json.loads((mini.d / "w4_full.json").read_text(encoding="utf-8"))
+    assert on_disk["findings"] == findings
+
+
+def test_w4_full_siblings_report_segment_label(mini, tmp_path):
+    """`siblings` 里每个成员标注"所属段"——经 `forward.jsonl` 的 `batch`
+    号落进 `config/segments.yaml` 的 `batches` 区间解出。runbook D4 表格
+    此前靠人工交叉核对才填出"伙伴所在段"这一列，现在应由机器直接给出。"""
+    (mini.root / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": "segX", "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+        {"seg": 2, "label": "segY", "lane": "main", "batches": [2, 2],
+         "chapters": ["s3s"], "jp_chars": 1, "review_focus": "测试段2"},
+    ], allow_unicode=True), encoding="utf-8")
+
+    lane = tmp_path / "lane_cross_seg"
+    (lane / "data").mkdir(parents=True)
+    write_jsonl(lane / "data" / "ledger.jsonl", [
+        {"id": i, "jp": jp, "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"}
+        for i, jp in {10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13],
+                      900: JP[10]}.items()])
+    write_jsonl(lane / "data" / "forward.jsonl", [
+        {"id": 10, "zh": "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", "batch": 1,
+         "backend": "cc", "model": "m", "ctx": "x", "glossary_v": 1, "ts": "t"},
+        {"id": 11, "zh": DEFAULT_ZH[11], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"},
+        {"id": 12, "zh": DEFAULT_ZH[12], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"},
+        {"id": 13, "zh": DEFAULT_ZH[13], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"},
+        # 900 属于 segY（batch=2）——跨段兄弟行，与 runbook D4 表里
+        # "seg2-s3(b66/b67)"/"seg5-s6-s7f(b152)" 这类越段伙伴同一形态。
+        {"id": 900, "zh": DEFAULT_ZH[10], "batch": 2, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"},
+    ])
+
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    f = findings[0]
+    assert f["siblings"] == [{"id": 900, "zh": DEFAULT_ZH[10], "seg": "segY"}]
+    assert "900@segY" in f["msg"]
+
+
+def test_w4_full_siblings_seg_unknown_when_batch_out_of_range(mini, tmp_path):
+    """所属段解不出来（batch 号不落在任何已知段的区间里）时标"未知段"，
+    不是报错、也不是悄悄漏掉这个成员——顾问级标注缺失不影响告警本身。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    fwd = read_jsonl(lane / "data" / "forward.jsonl")
+    for r in fwd:
+        if r["id"] == 900:
+            r["batch"] = 999   # mini 的 segments.yaml 只覆盖 batch=1
+    write_jsonl(lane / "data" / "forward.jsonl", fwd)
+
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    assert findings[0]["siblings"][0]["seg"] is None
+    assert "未知段" in findings[0]["msg"]
+
+
 def test_w4_full_green_when_family_consistent(mini, tmp_path):
     lane = _build_lane(
         tmp_path,

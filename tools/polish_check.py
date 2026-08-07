@@ -80,6 +80,51 @@ ruby 良构不良构"，**整个 ruby 被删掉**它一声不吭。
 临时目录，P3 跑完早已不存在；即便重建，它读的草稿是 P3 **首译稿**而不是清关
 后的现行译文）——spec §8 点名的"润色只改同 jp 兄弟句之一"全程无闸。
 
+### D4 修复：每条 finding 报出全族成员，不只报一个（SEG-0 实测缺陷）
+
+**实测缺陷**（`pilot/polish/seg0-s0-s1/channel_feedback.md` D4 节）：SEG-0
+清关后 W4 复检，7894 的复现句族其实有**三个**成员（7894/9186/11407），但
+finding 只点名了 9186；同步完 9186 重跑才暴露 11407——"同步→重跑"循环了
+两轮才收敛。
+
+**根因不在"漏扫"，在消息汇总的截断/去重**：`others`（该 jp 句族里、与本
+行现行译文不同的其它成员）这一步本身已经是**全量**的（`w4_full()` 逐 id
+遍历时对 `siblings.get(jp, [])` 不做任何截断）；问题出在旧代码复用
+`check_batch._w4_msg()` 生成人读 `msg`——那个函数**按 `zh` 文本去重**
+（`seen.add(szh)`）、只挑前 3 种文本变体各展示一个代表 id，这在 P3"批内
+交互复核"的语境下是合理的克制（避免消息过长），但在 P4"全段收敛检查"的
+语境下是缺陷：**当两个不同 id 恰好带着完全相同的（错的）译法时，去重会
+把其中一个 id 的存在感抹掉**——裁决者只看见"id=9186 作「…」"，据此同步了
+9186，完全不知道 11407 也带着同一段文字、同样需要单独同步（`patches.jsonl`
+是按 id 落 patch 的，两个 id 各自需要一条）。7894/9186/11407 正是这个模式：
+9186 与 11407 的旧译文字面相同，`_w4_msg` 的按文本去重只留下了先出现的
+9186。
+
+**不能改 `check_batch._w4_msg`/`check_batch.check()` 本身**——那是 P3 生产
+在用的钉死面（CLAUDE.md「三类操作强制开分支」之外的另一条硬约束：这两个
+文件本轮任务明确不让碰），且它在"按批交互复核"场景下截断/去重本身没有错，
+问题只出在 P4 的"全段收敛"场景对它的复用不合适。修法：`w4_full()` 改用
+本文件自己的 `_w4_full_msg()`——**不按文本去重、不截断**，逐个成员列出
+`id`/`zh`/`所属段`（后者按该 id 首译时的 `batch` 号落进
+`config/segments.yaml` 的 `batches` 区间解出，查不到时标"未知段"，不阻断
+——这是顾问级标注，缺了不影响告警本身是否触发）。finding 结构同时新增
+`siblings` 字段（`[{"id","zh","seg"}, ...]`，全族成员的结构化列表），`msg`
+字段保留（人读摘要，格式改为逐个列出，不再是"...共 N 种异译"的截断句）。
+
+**下游消费者检查**（"想清楚会不会破坏 `w4_full.json` 的既有读者"，全仓
+grep 过）：`w4_full.json` 除本模块自身与 `tests/test_polish_check.py` 外
+**无任何其它消费者**（`polish_commit.py`/`polish_audit.py`/`polish_triage.py`
+都不读这个文件），`msg` 字段格式改变、新增 `siblings` 字段对现有生产流程
+零风险。
+
+**"循环直到收敛"这条纪律还需不需要**——仍需要，但循环次数会显著下降：
+报全一族之后，单轮同步就能看全 7894/9186/11407 三者，不用等第二轮才暴露
+11407；但"同步伙伴行"这个动作本身会改写文本、可能触发新的族内不一致
+（比如把 A 改成跟 B 一致后，族里第三个从未被提及的 C 现在又与新文本不一致
+了——这与"报全一族"是否落地无关，是"编辑行为本身产生新差异"这一层因果，
+报全一族解决不了它），故 runbook §十一 仍保留"循环重跑直到本轮引入项归零"
+这条纪律，只是更新说明"现在一遍能看全一个族，循环次数应显著下降"。
+
 ## 与 check_batch.check() 的接口对齐——id 集裁剪（本模块最关键的一步）
 
 `check_batch.check(source_rows, draft_rows, ...)` 开头就断言两者 id 集合
@@ -154,7 +199,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.check_batch import _w4_msg, check, load_siblings
+from tools.check_batch import check, load_siblings
 from tools.pipelib import REPO, dumps, read_jsonl
 from tools.resolve import resolve_map
 
@@ -294,6 +339,74 @@ class W4NotAvailable(RuntimeError):
     告诫（"闸没跑"必须与"闸跑了没报"在输出上可区分）。"""
 
 
+def _load_segment_ranges(repo) -> list:
+    """`config/segments.yaml` → `[(label, batch_lo, batch_hi), ...]`，供
+    `_id_to_label_map()` 把 id 解到"所属段"用。文件缺失或解析失败时返回空
+    列表——W4 的"所属段"标注因此退化为「未知段」，这是顾问级信息，缺了不
+    影响 W4 告警本身是否触发（见模块 docstring D4 修复专节）。"""
+    import yaml
+    p = Path(repo) / "config" / "segments.yaml"
+    if not p.exists():
+        return []
+    try:
+        rows = yaml.safe_load(p.read_text(encoding="utf-8")) or []
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        b = r.get("batches")
+        if r.get("label") and isinstance(b, list) and len(b) == 2:
+            out.append((r["label"], b[0], b[1]))
+    return out
+
+
+def _id_to_label_map(repo, lane_dir) -> dict:
+    """`{id: label}`——经 `<lane_dir>/data/forward.jsonl` 的 `batch` 字段
+    （首译批号；润色 patch 不带 `batch` 字段、也不改这个历史事实）落进
+    `config/segments.yaml` 的 `batches` 区间解出该 id 原本属于哪个 SEG。
+
+    任何一步数据缺失（`forward.jsonl` 不存在、`segments.yaml` 解不出区间）
+    都返回空字典——调用方按"查不到"统一处理（呈现为"未知段"），不需要
+    再区分"到底是哪一步查不到"，那不影响 W4 告警本身。
+    """
+    fwd_p = Path(lane_dir) / "data" / "forward.jsonl"
+    if not fwd_p.exists():
+        return {}
+    ranges = _load_segment_ranges(repo)
+    if not ranges:
+        return {}
+    id2batch = {}
+    for r in read_jsonl(fwd_p):
+        # 同 id 理论上不会在 forward.jsonl 里重复（那是 P3 首译落盘、不是
+        # 润色 patch），这里用 setdefault 兜底取最先出现的一条，不需要
+        # "后写者胜"那套语义（那是给 zh 内容用的，这里只要批号）。
+        id2batch.setdefault(r["id"], r.get("batch"))
+    out = {}
+    for cid, batch in id2batch.items():
+        if batch is None:
+            continue
+        for label, lo, hi in ranges:
+            if lo <= batch <= hi:
+                out[cid] = label
+                break
+    return out
+
+
+def _w4_full_msg(others, id2label=None) -> str:
+    """全段 W4 复检专用的人读消息——**报出全部成员，不按 zh 文本去重、不
+    截断**（D4 修复，见模块 docstring 专节）。与 P3 钉死面
+    `check_batch._w4_msg()` 刻意不同：那个函数为"批内交互复核"场景按文本
+    去重、只挑 3 个代表——在这里复用会把"两个不同 id 恰好带着同一段错译"
+    压成一条，隐藏其中一个 id 的存在（seg0-s0-s1 的 7894/9186/11407 实测
+    正是如此：9186、11407 文本相同，旧代码去重后只报了 9186）。
+    """
+    id2label = id2label or {}
+    parts = [f"id={sid}@{id2label.get(sid) or '未知段'} 作「{szh}」"
+             for sid, szh in others]
+    return (f"复现句族内不一致（同一 jp 另有译法，共 {len(others)} 个其他"
+            f"成员）：" + "；".join(parts))
+
+
 def w4_full(label, lane_dir, repo=None) -> list:
     """**清关后全段 W4 复检**：对该 SEG 的全部 id，用车道**现行**译文
     （`resolve.resolve_map(forward, patches)`，即已经叠加过本轮 polish patch
@@ -312,8 +425,12 @@ def w4_full(label, lane_dir, repo=None) -> list:
     的兄弟条都要能被报出来；**文本 = 车道现行译文**；**索引 = 全库兄弟索引**
     （`check_batch.load_siblings`，跨 SEG，因为复现句族本来就散布全书）。
 
-    返回 `[{"id":…, "rule": "W4", "msg":…}, …]`（按 id 升序）。索引建不起来时
-    抛 `W4NotAvailable`——不返回空列表。
+    返回 `[{"id":…, "rule": "W4", "msg":…, "siblings": […]}, …]`（按 id 升序）。
+    `siblings` 是该 jp 句族**全部**其他成员的结构化列表
+    （`[{"id","zh","seg"}, ...]`，D4 修复——见模块 docstring 专节，此前
+    `msg` 借用 `check_batch._w4_msg()` 按文本去重、只挑 3 个代表，会漏报
+    "两个不同 id 恰好带着同一段错译"里的其中一个）。索引建不起来时抛
+    `W4NotAvailable`——不返回空列表。
     """
     d = _dir_for(label, repo)
     lane_dir = Path(lane_dir)
@@ -328,6 +445,7 @@ def w4_full(label, lane_dir, repo=None) -> list:
     fwd_p, pat_p = lane_dir / "data" / "forward.jsonl", lane_dir / "data" / "patches.jsonl"
     cur = resolve_map(read_jsonl(fwd_p) if fwd_p.exists() else [],
                       read_jsonl(pat_p) if pat_p.exists() else [])
+    id2label = _id_to_label_map(repo if repo is not None else REPO, lane_dir)
 
     out = []
     for i in seg_ids:
@@ -337,7 +455,12 @@ def w4_full(label, lane_dir, repo=None) -> list:
         others = [(sid, szh) for sid, szh in siblings.get(jp, [])
                   if sid != i and szh != zh]
         if others:
-            out.append({"id": i, "rule": "W4", "msg": _w4_msg(others)})
+            out.append({
+                "id": i, "rule": "W4",
+                "msg": _w4_full_msg(others, id2label),
+                "siblings": [{"id": sid, "zh": szh, "seg": id2label.get(sid)}
+                             for sid, szh in others],
+            })
     (d / "w4_full.json").write_text(dumps({"lane": str(lane_dir), "findings": out}),
                                      encoding="utf-8")
     return out

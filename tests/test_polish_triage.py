@@ -603,6 +603,174 @@ def test_soft_lock_queue_md_labels_forced_reason(tmp_path, monkeypatch):
     assert "不受 K 名额影响" in text
 
 
+# ---- SEG-0 D3 修复：adjudicate=true 的候选无论有无改动都必须强制进队列 ----
+# （pilot/polish/seg0-s0-s1/channel_feedback.md D3 节：17002/7963 两例被
+#  静默丢进桶 1，靠人工发现才手工捞回——这里钉死机制层面的保证，不再靠人）
+
+def _build_mini_adjudicate_forced(tmp_path, label="segAdj"):
+    """单批 4 个 id，单通道 chZ：
+    50（对照组：零改动，`adjudicate=False`——正常走桶 1，不受本次修复影响）；
+    51（D3 原始场景：零改动，但 `adjudicate=True`——通道原样照抄 opus，只在
+      note 里提问"我不改，但请你裁"。旧实现会被 `zh==opus` 分支拦下直接
+      丢进桶 1，本次修复要求它无论如何都进桶 2）；
+    52（D3 的隐藏镜像面：有改动，`adjudicate=True`，但改动幅度极小
+      （edit=2 ≤ autoclear_limit=4）、gates 干净、通道自动清关权开启——
+      若不做本次修复，它会满足 `_eligible` 的全部四项条件，被 autoclear
+      判定为"安全小改"直接清关掉，同样不会出现在 queue.md 里，只是触发
+      路径与 51 不同）；
+    53（对照组：有改动，`adjudicate=False`，同样是小改+gates 干净+自动
+      清关权开启——用来确认"adjudicate 强制进队列"这条新规则不会误伤
+      正常的自动清关候选，即 52 被拦下不代表 autoclear 机制本身坏了）。
+    """
+    repo = tmp_path / "repo"
+    (repo / "config").mkdir(parents=True)
+    (repo / "data").mkdir(parents=True)
+    (repo / "skeleton").mkdir(parents=True)
+    (repo / "glossary" / "voices").mkdir(parents=True)
+
+    ids = [50, 51, 52, 53]
+    jp = {50: "彩野は时计を见た。", 51: "終了しました。",
+          52: "これは小さな改动のテストだよ。", 53: "由加里は本を闭じた。"}
+    opus = {50: "彩野看了看时钟。", 51: "已完结。",
+            52: "这是一个小改动的测试哦。", 53: "由加里合上了书本。"}
+    cand = {
+        50: opus[50],                    # 零改动，adjudicate=False -> 桶1
+        51: opus[51],                    # 零改动，adjudicate=True（D3 原始场景）
+        52: opus[52] + "呢",              # 小改（edit=1），adjudicate=True（D3 镜像面）
+        53: opus[53] + "呢",              # 小改（edit=1），adjudicate=False（对照组）
+    }
+
+    (repo / "config" / "segments.yaml").write_text(yaml.safe_dump([
+        {"seg": 1, "label": label, "lane": "main", "batches": [1, 1],
+         "chapters": ["s2s"], "jp_chars": 1, "review_focus": "测试段"},
+    ], allow_unicode=True), encoding="utf-8")
+    write_jsonl(repo / "data" / "batches.jsonl", [
+        {"batch": 1, "lane": "main", "ids": ids, "seqs": [1], "jp_chars": len(ids),
+         "chapter": "s2s", "cut_reason": "budget"},
+    ])
+    (repo / "skeleton" / "anchors.yaml").write_text(yaml.safe_dump([
+        {"chapter": "global", "items": []},
+    ], allow_unicode=True), encoding="utf-8")
+    (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
+    (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
+
+    opus_data = tmp_path / "opus_data"
+    (opus_data / "notes").mkdir(parents=True)
+    write_jsonl(opus_data / "ledger.jsonl", [
+        {"id": i, "jp": jp[i], "voice": "NONVOICE", "file": "f", "func": "f",
+         "literal": False, "line": i, "chapter": "s2s", "kind": "story"} for i in ids
+    ])
+    write_jsonl(opus_data / "forward.jsonl", [
+        {"id": i, "zh": opus[i], "batch": 1, "backend": "cc", "model": "m",
+         "ctx": "x", "glossary_v": 1, "ts": "t"} for i in ids
+    ])
+    write_jsonl(opus_data / "patches.jsonl", [])
+
+    d = ps.setup(label, opus_data, repo=repo)
+    (d / "plan.json").write_text(dumps([
+        {"session": 1, "batches": [1], "prompt_hash": "hash-adj"},
+    ]), encoding="utf-8")
+
+    raw_dir = d / "raw" / "chZ"
+    raw_dir.mkdir(parents=True)
+    lines = [
+        dumps({"id": 50, "jp_tail": jp_tail(jp[50]), "zh": cand[50],
+               "score": 90, "note": "", "adjudicate": False}),
+        dumps({"id": 51, "jp_tail": jp_tail(jp[51]), "zh": cand[51],
+               "score": 90, "note": "我不改，但请你裁：跨段术语一致性存疑",
+               "adjudicate": True}),
+        dumps({"id": 52, "jp_tail": jp_tail(jp[52]), "zh": cand[52],
+               "score": 90, "note": "小改但吃不准，请裁", "adjudicate": True}),
+        dumps({"id": 53, "jp_tail": jp_tail(jp[53]), "zh": cand[53],
+               "score": 90, "note": "", "adjudicate": False}),
+    ]
+    (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    r = pi.ingest(label, "chZ", 1, repo=repo)
+    assert r["ok"], f"ingest 失败：{r}"
+    pcheck.gate(label, "chZ", repo=repo)
+
+    (d / "channel_state.json").write_text(
+        dumps({"chZ": {"autoclear": True}}), encoding="utf-8")
+
+    return SimpleNamespace(root=repo, d=d, label=label, jp=jp, opus=opus, cand=cand)
+
+
+def test_adjudicate_zero_edit_forced_into_queue_not_bucket1(tmp_path, monkeypatch):
+    """D3 原始场景：51 零改动但 `adjudicate=True`——必须落桶 2，不能被
+    `zh==opus` 分支拦下丢进桶 1。50（零改动+adjudicate=False）作为对照，
+    仍然正常走桶 1——本次修复不改变"真的没什么好说"的候选的命运。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_adjudicate_forced(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 51, ch="chZ")["bucket"] == 2
+    assert by_id(t, 51, ch="chZ")["autoclear"] is False
+    assert by_id(t, 50, ch="chZ")["bucket"] == 1
+
+
+def test_adjudicate_small_edit_never_autoclears(tmp_path, monkeypatch):
+    """D3 的隐藏镜像面：52（小改+adjudicate=True，gates 干净，自动清关权
+    开启）满足全部四项普通 autoclear 条件，若"adjudicate 强制进队列"这
+    条规则被删掉或被限定成"只管零改动"，它会被判 autoclear=True 直接
+    清关掉——这条测试钉死"无论有没有改动"这几个字，不是只堵了 D3 报告里
+    明确点名的那一个子场景。53（小改+adjudicate=False，其余条件相同）
+    作为对照，必须正常被 autoclear，证明这条新规则没有连带破坏正常的
+    自动清关机制。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_adjudicate_forced(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 52, ch="chZ")["bucket"] == 2
+    assert by_id(t, 52, ch="chZ")["autoclear"] is False
+    assert by_id(t, 52, ch="chZ")["sampled"] is False
+    assert by_id(t, 53, ch="chZ")["autoclear"] is True
+
+
+def test_adjudicate_forced_not_squeezed_out_by_zero_K(tmp_path, monkeypatch):
+    """K=0（人工预算完全耗尽）——请裁强制项与软锁强制项同等待遇，必须依然
+    不被 K 挤出。"""
+    monkeypatch.setitem(pt.CFG, "K", 0)
+    m = _build_mini_adjudicate_forced(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert by_id(t, 51, ch="chZ")["bucket"] == 2
+    assert by_id(t, 52, ch="chZ")["bucket"] == 2
+    assert t["meta"]["forced_adjudicate_count"] == 2
+    assert t["meta"]["forced_total_count"] == 2
+    assert t["meta"]["forced_total_over_budget"] is True
+
+
+def test_adjudicate_queue_md_marks_unchanged_row_not_empty_looking(tmp_path, monkeypatch):
+    """queue.md 呈现要求：零改动+请裁的行不能看着像空记录——id 级"进入
+    队列原因"要显式写"未改动"，且该通道那一行末尾要有明确的"未改动"标记。
+    52（有改动+请裁）走"显式请裁"一档、不应被打上"未改动"标记，用来确认
+    这条呈现规则不是无差别地扣在所有 forced_adjudicate 行头上。"""
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_adjudicate_forced(tmp_path)
+    pt.triage(m.label, repo=m.root)
+    text = (m.d / "queue.md").read_text(encoding="utf-8")
+
+    import re
+    block51 = re.search(r"## id 51\n.*?(?=\n## id |\Z)", text, re.S).group(0)
+    assert "请裁·未改动" in block51
+    assert "不是空记录" in block51
+    assert "[本通道未改动，与 opus 逐字相同]" in block51
+
+    block52 = re.search(r"## id 52\n.*?(?=\n## id |\Z)", text, re.S).group(0)
+    assert "显式请裁" in block52
+    assert "未改动" not in block52.split("进入队列原因")[1].split("\n")[0]
+
+
+def test_meta_forced_adjudicate_fields_present(tmp_path, monkeypatch):
+    monkeypatch.setitem(pt.CFG, "K", 150)
+    m = _build_mini_adjudicate_forced(tmp_path)
+    t = pt.triage(m.label, repo=m.root)
+    assert t["meta"]["forced_adjudicate_count"] == 2   # id 51、52
+    assert t["meta"]["forced_soft_count"] == 0          # 本夹具无软锁 id
+    assert t["meta"]["forced_total_count"] == 2
+    assert t["meta"]["forced_total_over_budget"] is False
+
+
 # ---- 落盘结构 ----
 
 def test_triage_json_matches_return_value(mini):

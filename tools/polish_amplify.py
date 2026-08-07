@@ -13,9 +13,13 @@
    句全文**——这是放大扫描存在的唯一理由：这些候选曾经产生过真实改动，
    却因 K 配额或抽检未命中而从未被人看过，默认原样保留 opus）+ 与生产批
    一致的输出契约（channel 固定 `amplify`）。
-3. 轮数闸：`scan_prompt()` 每次成功装配都会在 `frozen/rulings.md` 里留一个
-   不会被自然文本撞到的标记；下次调用先数标记数，达到
-   `CFG["amplify_rounds"]`（默认 1）就拒绝再装配——**每段最多放大一轮**。
+3. 轮数闸：`frozen/rulings.md` 里一个不会被自然文本撞到的标记
+   （`<!-- amplify-round:N -->`）达到 `CFG["amplify_rounds"]`（默认 1）就
+   拒绝再装配——**每段最多放大一轮**。**2026-08-07 修正**：标记不在
+   `scan_prompt()` 装配成功时写（那只是"渲染看看"，SEG-1 实测证明装配
+   之后完全可能被临时放弃执行），改在 `polish_ingest.ingest()` 以
+   `channel="amplify"` 把这一轮全部批号**真正入仓完毕**时，由
+   `mark_round_if_complete()` 写入——见该函数与 `scan_prompt()` 文档字符串。
 
 放大产物的回炉路径不在本模块之内：模型按输出契约产出 `raw/amplify/b<N>
 .out`，`polish_ingest --channel amplify` 原样入仓、`polish_triage`（Task 7
@@ -65,7 +69,7 @@ autoclear-and-not-sampled 候选**自动铸造**的（`reason_code` 恒为字面
 验证"混进一条 auto 决策后，分布表/代表例里都不应该出现字面量 autoclear
 这一类，且总计数不受影响"。
 
-## 设计点 2：轮数闸的标记形态与检测
+## 设计点 2：轮数闸的标记形态与检测（2026-08-07 修正：标记改由 ingest 侧写）
 
 标记是一行只会由本模块写入、且不会被"看起来像它"的普通中文正文撞到的
 字符串：`<!-- amplify-round:N -->`（HTML 注释语法，`rulings.md` 是纯
@@ -75,10 +79,25 @@ markdown，人工/模型都不会往里面写字面意义上的 HTML 注释；`N
 （`>=`，不是 `>`：`amplify_rounds=1` 时，已经出现过 1 条标记就该拒绝第
 2 次装配，不是要等出现第 2 条才拦）。
 
-标记只在 `scan_prompt()` **成功装配之后**追加（gate 检查通过 → 组装内容
-→ append 标记 → 返回文本）：如果提前在检查之前就写标记，一次因为其他
-原因（比如 frozen 缺文件）中途抛异常的调用也会消耗掉本该属于"真正装配
-成功一次"的轮次配额，是不诚实的记账。
+**缺陷（SEG-1 实测暴露）与修正**：初版把标记写在 `scan_prompt()` 装配
+成功之后——这把"渲染看看这份 prompt 长什么样"与"真的跑完了一轮放大扫描"
+两件事混为一谈。SEG-1 段末装配过一次 `scan_prompt()`（想看看内容），随后
+判断桶 3 已经空了、收益已经提前兑现，主动放弃执行——没有派发任何子代理、
+没有产出 `raw/amplify/`、没有 `polish_ingest --channel amplify` 入仓过
+一行。但轮数闸只看"装配过几次"，`frozen/rulings.md` 里已经留下一条
+`<!-- amplify-round:1 -->`，把根本没发生过的事记成了发生过——这正是
+`CLAUDE.md` 反复强调的"静默写错比报错更坏"的具体案例：往后任何一次
+`--seg seg1-s2 --scan-prompt` 都会被这条假标记拒绝，而拒绝的理由
+（"已经跑过一轮"）是假的。
+
+**修正**：标记不再由 `scan_prompt()` 写，改由 `mark_round_if_complete()`
+在 `polish_ingest.ingest()` 侧、且仅当 `channel == "amplify"` 的入仓
+**真正覆盖了这一轮要求的全部批号**时才写（见下方新函数）。`scan_prompt()`
+本身仍然读同一条标记做轮数闸判断（"这一轮是否已经真正跑完，跑完了就
+拒绝再装配"），但**不再是标记的写入方**——装配 prompt 只是"看看/准备
+派发"，不再消耗轮次配额；配额只在模型输出真正入仓、覆盖到这一轮全部批号
+那一刻才被消耗。这意味着 `scan_prompt()` 现在可以被反复调用（比如纪要
+更新后想重渲染一份新的 prompt 再派发），直到真的有一轮被完整入仓为止。
 
 `digest()` 本身**不**受这道闸约束、也不写这个标记——`digest()` 只是纪要
 写入，可以被调用任意次（比如中途想先看看归纳结果长什么样，或者纪要要
@@ -343,6 +362,62 @@ def _round_count(rulings_text: str) -> int:
     return len(AMPLIFY_MARKER_RE.findall(rulings_text))
 
 
+def mark_round_if_complete(label, repo=None) -> bool:
+    """`polish_ingest.ingest()` 的钩子：`channel == "amplify"` 且这次调用
+    `ok=True` 时应当调用本函数。只有在 `ingested.amplify.json` 记录的批号
+    **完全覆盖**这个 SEG 的全部批号（`_load_frozen()` 算出的 `batches`，
+    与 `scan_prompt()` 装配输出契约时要求模型逐批产出 `raw/amplify/bN.out`
+    的那同一份批号集合）时，才判定"这一轮放大扫描真正跑完了"，此刻才在
+    `frozen/rulings.md` 追加 `<!-- amplify-round:N -->` 消耗一次轮次配额；
+    覆盖不全（`polish_ingest --channel amplify --all` 通常是按批一批批
+    调用，中途每一次都会经过这里）则什么也不做，返回 `False`。
+
+    返回 `True` 仅当本次调用**真正新写入**了一条标记；否则返回 `False`
+    （尚未覆盖齐全，或该 SEG 轮次配额已经用完——见下方 `round_count >=
+    limit` 分支，这也保证了幂等：一轮只会被标记一次，即使
+    `ingest(..., "amplify", ...)` 在同一批号上被调用第二次、或在覆盖
+    齐全之后又被别的批号触发一次多余检查，都不会重复追加标记）。
+
+    找不到 `frozen/rulings.md`（SEG 还没冻结）或 `ingested.amplify.json`
+    （还没有任何 amplify 批入仓过）都视为"未完成"，安静返回 `False`——
+    不抛异常：这个钩子在调用方（`polish_ingest.ingest()`）看来只是"顺手
+    问一句这一轮完事了没"，不该因为它自己的前置条件不满足而打断真正的
+    ingest 流程本身。
+    """
+    d = _dir_for(label, repo)
+    fz = d / "frozen"
+    rulings_path = fz / "rulings.md"
+    if not rulings_path.exists():
+        return False
+    rulings_text = rulings_path.read_text(encoding="utf-8")
+
+    round_count = _round_count(rulings_text)
+    limit = CFG["amplify_rounds"]
+    if round_count >= limit:
+        return False
+
+    ingested_path = d / "ingested.amplify.json"
+    if not ingested_path.exists():
+        return False
+    ingested = json.loads(ingested_path.read_text(encoding="utf-8"))
+    ingested_batches = set(ingested.get("batches", []))
+
+    try:
+        _, _, _, _, _, batches = _load_frozen(d)
+    except FileNotFoundError:
+        return False
+    if not batches or not set(batches).issubset(ingested_batches):
+        return False
+
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    marker = (f"\n## 放大扫描 · 第 {round_count + 1} 轮已真正入仓完成"
+              f"（{ts}，覆盖全部 {len(batches)} 批）\n"
+              f"<!-- amplify-round:{round_count + 1} -->\n")
+    with open(rulings_path, "a", encoding="utf-8") as f:
+        f.write(marker)
+    return True
+
+
 def _bucket3_reason(row: dict) -> str:
     if row.get("autoclear") and not row.get("sampled"):
         return ("已判定安全、自动清关（未抽中复核样本）——生产车道当前译文"
@@ -466,12 +541,25 @@ def scan_prompt(label, repo=None) -> str:
 
     轮数闸：`frozen/rulings.md` 里已有的 `<!-- amplify-round:N -->` 标记数
     达到 `CFG["amplify_rounds"]` 就拒绝——抛 `AmplifyRoundLimitError`，不做
-    任何写入（见模块 docstring 设计点 2：标记只在装配成功后才追加）。
+    任何写入。**2026-08-07 修正**：本函数自己**不再**写这个标记（见模块
+    docstring 设计点 2）——标记只在 `polish_ingest.ingest()` 以
+    `channel="amplify"` 把这一轮全部批号真正入仓完毕时，由
+    `mark_round_if_complete()` 写入。这意味着 `scan_prompt()` 现在可以
+    被反复调用而不消耗轮次配额（例如纪要更新后想重新渲染一份 prompt），
+    直到某一轮真正被完整执行、入仓为止；轮数闸依旧生效，只是判据从"装配
+    过几次"改成了"真正跑完过几次"。
 
     成功装配后还会往 `plan.json` 追加一条 `channel="amplify"` 的专属会话
     记录（`prompt_hash` = 本次返回文本自身的 sha256），供
     `polish_ingest.ingest(label, "amplify", batch)` 精确反查——见模块
-    docstring"`plan.json`/`prompt_hash` 的 channel 精确性"专节。
+    docstring"`plan.json`/`prompt_hash` 的 channel 精确性"专节。**这一条
+    每次调用都会追加**（不受轮数闸约束之外的限制），重复调用
+    `scan_prompt()` 会在 `plan.json` 里留下多条 `channel="amplify"` 记录
+    ——`_find_prompt_hash()` 按批号+channel 找到的是**第一条**匹配，故
+    只有第一次 `scan_prompt()` 产出的文本哈希会被 `ingest()` 采信；若
+    中途重渲染过 prompt，请确保派发给模型/子代理的是同一份最初渲染的
+    文本，或在真正派发前只调用一次 `scan_prompt()`——这是既有行为，本次
+    修复未改变，此处仅记录在案供操作者注意。
     """
     d = _dir_for(label, repo)
     fz = d / "frozen"
@@ -547,11 +635,6 @@ def scan_prompt(label, repo=None) -> str:
 
     prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
     _upsert_amplify_plan_record(d / "plan.json", batches, prompt_hash)
-
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    marker = f"\n## 放大扫描 · 第 {round_count + 1} 轮已装配（{ts}）\n<!-- amplify-round:{round_count + 1} -->\n"
-    with open(rulings_path, "a", encoding="utf-8") as f:
-        f.write(marker)
 
     return text
 

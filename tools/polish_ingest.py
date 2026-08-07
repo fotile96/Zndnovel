@@ -175,6 +175,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.pipelib import REPO, append_jsonl, dumps, read_jsonl
+from tools.polish_amplify import mark_round_if_complete
 from tools.polishlib import jp_tail as _jp_tail
 
 
@@ -257,6 +258,22 @@ def _find_prompt_hash(plan_path, batch, channel=None):
     return None
 
 
+def _maybe_mark_amplify_round(label, channel, repo) -> None:
+    """`ingest()` 对每一次 `ok=True` 的调用都会喊一句——`channel != "amplify"`
+    时是零成本 no-op（普通生产通道的 ingest 不该被这一条拖慢，也不该受
+    amplify 专属逻辑影响）。真正的判定（"这一轮是否已经真正覆盖全部批号、
+    该不该在此刻消耗一次轮次配额"）全部委托给
+    `tools.polish_amplify.mark_round_if_complete()`——本模块不重复实现
+    一份"什么算完成一轮"的逻辑，那是 `polish_amplify` 的业务知识（轮数闸
+    标记格式、`CFG['amplify_rounds']`、SEG 全部批号从哪读），`polish_
+    ingest` 只负责"amplify 通道成功入仓了一次，问一句要不要记账"。见
+    2026-08-07 修复：旧版标记写在 `polish_amplify.scan_prompt()` 装配
+    时，导致"渲染了 prompt 但从未真正执行"的一轮被误记成"已经跑完"
+    （SEG-1 `seg1-s2` 实测踩到）。"""
+    if channel == "amplify":
+        mark_round_if_complete(label, repo=repo)
+
+
 def ingest(label, channel, batch, repo=None) -> dict:
     """核验单个 (label, channel, batch) 的模型输出并入仓。
 
@@ -272,6 +289,7 @@ def ingest(label, channel, batch, repo=None) -> dict:
     ingested = _load_json(ingested_path, {"batches": []})
     if batch in ingested.get("batches", []):
         print(f"ingest: {label}/{channel} 批 {batch} 已入仓，跳过（幂等 no-op）")
+        _maybe_mark_amplify_round(label, channel, repo)
         return {"ok": True, "added": 0, "dead": [], "reason": "already ingested"}
 
     try:
@@ -469,6 +487,7 @@ def ingest(label, channel, batch, repo=None) -> dict:
     extra = f"，含{'、'.join(extra_bits)}" if extra_bits else ""
     print(f"ingest: {label}/{channel} 批 {batch} 入仓 {len(out_rows)} 行，"
           f"判死 {len(dead)} 行{extra}")
+    _maybe_mark_amplify_round(label, channel, repo)
     return {"ok": True, "added": len(out_rows), "dead": dead, "reason": ""}
 
 

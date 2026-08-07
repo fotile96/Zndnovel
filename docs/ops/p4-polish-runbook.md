@@ -398,6 +398,18 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
 - 第 2 步命中即说明某题库参考答案逐字引用的译文被本轮回改覆盖掉了，需人工核对是"译文改对了
   但题库答案没跟上"（更新题库引文）还是"回改本身有问题"（回到 §八 补一条裁决）。P3 runbook
   记录过首次跑即在 7 份题库里查出 5 处真失同步——这类闸此前完全不存在，**不要跳过**。
+  **2026-08-07 加的抑制清单**：`config/qa_quote_suppressions.yaml`（与题库本身分开存放，
+  评审时一眼看全"我们一共豁免了什么"）——SEG-1 5 处命中里有 1 处是伪报（id 10038，
+  `seg1-s2.yaml`，片段「，ユウイチ像是」：题库自身叙述句与旧译的偶然子串重合，非引用），
+  此前闸没有抑制机制，此后每次 SEG 强制复跑都会再报一次同一条已知伪报。抑制粒度精确到
+  `(qa, id, fragment)` 三元组——只豁免这一条确切命中，`id` 换个片段（同一行未来再出现新的
+  真实漂移）不会被连坐放过；`reason` **必填**，`load_suppressions()` 缺一条就拒绝加载
+  整份清单（不是跳过那一条静默继续）。默认路径就是 `config/qa_quote_suppressions.yaml`，
+  不用在命令行加任何 flag；`check_qa_quotes.py` 的输出会显式区分"本次命中 N 处，其中 M 处
+  豁免，K 处需要处理"，被豁免的命中仍打印（标 `[豁免]`），只是不计入 `--strict` 的退出码
+  ——**豁免绝不能悄悄消失在输出里**，藏起来等于把闸变恒绿。新增一条豁免前，先确认这确实是
+  伪报（不是"看着报得烦就抑掉"），并把 `reason`/`date`/`source` 写清楚，供日后复核这条豁免
+  是否还成立。
 - 两步都过（或已人工核对差异）后，`git status --short pilot/lanes/opus/data/` 应只剩
   `patches.jsonl`（本轮新增的 polish patch）与（若更新了题库）`config/ayano_qa/<label>.yaml`
   的改动；`pilot/polish/<label>/` 下的产物按 §一 的入库清单逐路径 `git add`。

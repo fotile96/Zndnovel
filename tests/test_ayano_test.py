@@ -402,9 +402,20 @@ def test_real_card_chapter_data_gate():
                     真相，五年前真相章节
            142      s8f 黎明结局——更晚段
          防止 C 这类"某一条映射被误改成更早的段"的回归。
-      3) 每段非空：对 segments.yaml 全部 9 段各跑一遍 assemble_context，断言过滤
-         后前缀卡数 > 0——防止过滤/白名单写过头把某段前缀清空（工具从"恒绿"变
-         "恒错"同样无用）。
+      3) 每段非空（游玩顺序上**并非最早**的段）：对 segments.yaml 里除
+         "seg 字段最小的那一段"之外的全部段各跑一遍 assemble_context，断言
+         过滤后前缀卡数 > 0——防止过滤/白名单写过头把某段前缀清空（工具从
+         "恒绿"变"恒错"同样无用）。
+         2026-08-07 补 seg1-s0-s1（b1–35，序章+第1章，游玩顺序上真正最早的
+         段）后，这一条不能再对**全部**段成立：最早的段之前没有任何"此前
+         剧情"，前缀卡数=0 才是正确答案，不是过滤写过头。此前 seg1-s2
+         "顺理成章"地有非空前缀，只是因为它借了 `PRE_P3_CHAPTERS` 白名单
+         的光——那份白名单把 s0f/s1s/s1f 硬编码成"确知早于全部段"，而
+         seg1-s2 恰好是（旧表里）唯一在读它们的段。新表里这三章有了自己
+         真正的归属段（seg1-s0-s1），`chapter_max_seg` 能从 segments.yaml
+         直接算出真实排序，白名单退化成"表里查不到时才用"的兜底——这条
+         测试因此还顺带验证了 `is_before_cur_seg()` 优先吃 segments.yaml
+         算出的真实值这条路径没有被绕过。
     """
     card_chapter = yaml.safe_load(
         (REPO / "config" / "card_chapter.yaml").read_text(encoding="utf-8"))
@@ -423,13 +434,21 @@ def test_real_card_chapter_data_gate():
         assert body, f"卡{card_num} 在 cards.zh.yaml 里没有 body_zh，测不出泄露"
         assert body not in ctx, f"卡{card_num} 泄进了 seg1-s2 前缀（回归到 Critical）"
 
-    # 3) 每段非空
+    # 3) 每段非空——游玩顺序上最早的那一段（seg 字段最小）例外：它之前没有
+    # 任何"此前剧情"，前缀卡数=0 是正确答案，不是过滤写过头（见上方 docstring
+    # 2026-08-07 补记）。
+    earliest_seg = min(s["seg"] for s in segs)
     for s in segs:
         seg_ctx, _ = assemble_context(s["label"], lane, repo=REPO)
         head = seg_ctx.index("此前剧情的卡片梗概")
         tail = seg_ctx.index("最新一段正文")
         n = seg_ctx[head:tail].count("【卡")
-        assert n > 0, f"{s['label']}（seg={s['seg']}）前缀被滤空"
+        if s["seg"] == earliest_seg:
+            assert n == 0, (f"{s['label']}（seg={s['seg']}，游玩顺序最早段）前缀本该"
+                             f"为空，实际有 {n} 张卡——反剧透过滤可能把"
+                             "更晚的段错算成了'早于'它")
+        else:
+            assert n > 0, f"{s['label']}（seg={s['seg']}）前缀被滤空"
 
 
 def test_parse_verdict_survives_the_judging_label_drift():

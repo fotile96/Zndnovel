@@ -93,6 +93,53 @@ def _common_runs(a: str, b: str, min_len: int) -> list:
     return hits
 
 
+def load_suppressions(path) -> list:
+    """读取带理由的抑制清单（默认 `config/qa_quote_suppressions.yaml`，与题库
+    本身分开存放——评审要能一眼看全"我们一共豁免了什么"，不该混进题库文件）。
+
+    路径不存在 → 视为空抑制清单（`[]`），不是错误：多数场景下没有任何已知
+    伪报需要豁免。
+
+    **`reason` 必填**：任何一条缺 `reason`（缺字段，或字段为空/纯空白）都会
+    让整个清单拒绝加载（抛 `ValueError`），不是跳过那一条静默继续——一条
+    没有理由的抑制等于把闸悄悄关掉一块，这个纪律不能靠人自觉，必须机械拦。
+    """
+    import yaml
+    p = Path(path)
+    if not p.exists():
+        return []
+    items = yaml.safe_load(p.read_text(encoding="utf-8")) or []
+    for it in items:
+        if not (it.get("reason") or "").strip():
+            raise ValueError(
+                f"{path} 有一条抑制记录缺 reason（qa={it.get('qa')!r}, "
+                f"id={it.get('id')!r}, fragment={it.get('fragment')!r}）"
+                "——理由必填，拒绝加载整份抑制清单")
+    return items
+
+
+def split_suppressed(hits: list, suppressions: list) -> tuple:
+    """→ (kept, suppressed)：按 (qa, id, fragment) 三元组**精确**匹配抑制清单。
+
+    粒度故意收窄到这三个字段全部相同才算命中——不支持"这个 id 以后都别报"
+    或"这份题库别报了"这种粗粒度豁免（那种粒度会在将来真出现新漂移时静默
+    放过，是这份工具存在的理由本身要防的事）。任一字段变化（哪怕只是命中
+    片段因为后续再次回改而变长/变短）都不再匹配，会作为一条新的、未豁免的
+    命中出现在 `kept` 里，需要人工重新判断——安全方向：宁可让已经复核过的
+    情形再被看一眼，也不能让判据留出"这条以后永远别报"的口子。
+
+    两边都返回完整的 hit 记录（不静默丢弃 suppressed 一侧）——被抑制的命中
+    仍然要被上层统计/播报，只是不计入退出码。"""
+    sup_keys = {(s.get("qa"), s.get("id"), s.get("fragment")) for s in suppressions}
+    kept, suppressed = [], []
+    for h in hits:
+        if (h["qa"], h["id"], h["fragment"]) in sup_keys:
+            suppressed.append(h)
+        else:
+            kept.append(h)
+    return kept, suppressed
+
+
 def check(qa_paths, data_dir, min_len=8, *, any_line=False) -> list:
     """→ [{qa, id, fragment}]：题库里引着已作废译文的片段。"""
     import yaml
@@ -129,6 +176,9 @@ def check(qa_paths, data_dir, min_len=8, *, any_line=False) -> list:
     return out
 
 
+DEFAULT_SUPPRESSIONS_PATH = "config/qa_quote_suppressions.yaml"
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(
@@ -140,7 +190,12 @@ def main(argv=None):
     ap.add_argument("--any-line", action="store_true",
                     help="放宽：只要该 id 的现行值里没有就报（不再要求全库都没有）。"
                          "会多出大量伪报，仅在排查时用")
-    ap.add_argument("--strict", action="store_true", help="有命中即退出码 1")
+    ap.add_argument("--suppressions", default=DEFAULT_SUPPRESSIONS_PATH,
+                    help=f"带理由的抑制清单路径（默认 {DEFAULT_SUPPRESSIONS_PATH}，"
+                         "不存在则视为空清单）。豁免的命中仍会照常统计/打印，"
+                         "只是不计入 --strict 的退出码")
+    ap.add_argument("--strict", action="store_true",
+                    help="有**未豁免**命中即退出码 1（被抑制清单豁免的命中不计入）")
     a = ap.parse_args(argv)
     data = Path(a.data_dir)
     if not (data / "forward.jsonl").exists():
@@ -148,16 +203,27 @@ def main(argv=None):
               f"**零命中在这种情况下不代表没问题**，多半是 --data-dir 指错了。",
               file=sys.stderr)
     hits = check(a.qa, data, a.min_len, any_line=a.any_line)
+    suppressions = load_suppressions(a.suppressions)
+    kept, suppressed = split_suppressed(hits, suppressions)
     old = superseded(data)
     print(f"被回改覆盖过的 id：{len(old)} 个（data-dir={data}，min-len={a.min_len}）")
-    if not hits:
-        print(f"✅ {len(a.qa)} 份题库都没有引用已作废的译文")
-    for h in hits:
+    print(f"本次命中 {len(hits)} 处，其中 {len(suppressed)} 处按抑制清单"
+          f"（{a.suppressions}）豁免，{len(kept)} 处需要处理")
+    if not kept:
+        if suppressed:
+            print(f"✅ {len(a.qa)} 份题库除 {len(suppressed)} 处已豁免命中外，"
+                  "未发现失同步引用")
+        else:
+            print(f"✅ {len(a.qa)} 份题库都没有引用已作废的译文")
+    for h in suppressed:
+        print(f"  ○ [豁免] {h['qa']} 引着 id {h['id']} 的旧译文片段："
+              f"「{h['fragment']}」")
+    for h in kept:
         print(f"  ⚠ {h['qa']} 引着 id {h['id']} 的旧译文片段：「{h['fragment']}」")
-    if hits:
+    if kept:
         print("→ 这些片段在旧译文里有、在现行译文里没有。题库须跟着回改更新，"
               "否则受试照现行译文作答会被判错。")
-    return 1 if (hits and a.strict) else 0
+    return 1 if (kept and a.strict) else 0
 
 
 if __name__ == "__main__":

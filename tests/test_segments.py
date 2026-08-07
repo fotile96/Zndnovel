@@ -1,5 +1,7 @@
 """config/segments.yaml 与 data/batches.jsonl 的锁定测试：
-分割必须恰好覆盖 b36–339 各一次，jp_chars 与实算一致，label/seg 唯一有序。"""
+分割必须恰好覆盖 b1–339 各一次（2026-08-07 补 seg1-s0-s1 覆盖此前遗漏的
+b1–35 之后，覆盖范围从 b36–339 扩到 b1–339），jp_chars 与实算一致，
+label/seg 唯一有序。"""
 import json
 from pathlib import Path
 
@@ -15,13 +17,13 @@ def _load():
     return segs, {r["batch"]: r for r in rows}
 
 
-def test_segments_partition_b36_to_339():
+def test_segments_partition_b1_to_339():
     segs, by = _load()
     covered = []
     for s in segs:
         lo, hi = s["batches"]
         covered.extend(range(lo, hi + 1))
-    assert covered == list(range(36, 340))
+    assert covered == list(range(1, 340))
 
 
 def test_segments_jp_chars_match_batches():
@@ -69,3 +71,27 @@ def test_segments_lane_field_matches_batches():
         lo, hi = s["batches"]
         lanes = {by[b]["lane"] for b in range(lo, hi + 1)}
         assert lanes == {s["lane"]}, s["label"]
+
+
+def test_seg1_s0_s1_covers_b1_to_35_prologue_and_chapter1():
+    """显式钉死新增段本身（2026-08-07 P4 seg2-prep）——不是只靠上面几条通用
+    循环测试"顺带"覆盖它：b1–35 是 P2 试点批次遗留、P3 建段表时"只切余下
+    304 批"而从未纳入 config/segments.yaml 的开头整块（序章 + 第1章 + 相关
+    卡片剧情），此前任何一份检查段计划都不包含它。这条测试独立锁定其身份
+    （label/seg 编号/批号区间/实算 jp_chars），防止未来有人"顺手"把它从
+    段表里删掉或改错编号却让上面的通用分区/唯一性测试碰巧继续通过
+    （比如误删这一段、同时把 test_segments_partition_b1_to_339 的下界也
+    错改回 36——那种双重误改才会被这条测试之外的机制放过，故这条测试只
+    钉一半：真正的"分区不能有洞"仍然靠 partition 测试兜底，这条测试钉的
+    是"这一段的身份没被张冠李戴"）。"""
+    segs, by = _load()
+    hit = next((s for s in segs if s["label"] == "seg1-s0-s1"), None)
+    assert hit is not None, "config/segments.yaml 里找不到 label=seg1-s0-s1"
+    assert hit["seg"] == 1
+    assert hit["batches"] == [1, 35]
+    assert hit["lane"] == "main"
+    assert hit["jp_chars"] == sum(by[b]["jp_chars"] for b in range(1, 36))
+    assert hit["jp_chars"] == 116282
+    actual_chapters = {by[b]["chapter"] for b in range(1, 36)}
+    assert set(hit["chapters"]) == actual_chapters
+    assert actual_chapters == {"s0f", "crd", "s1s", "sys", "s1f", "s2s"}

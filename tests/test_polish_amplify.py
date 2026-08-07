@@ -328,19 +328,98 @@ def test_scan_prompt_has_no_stale_numbered_cross_references(mini):
     assert stale == [], f"发现指向带编号旧标题的散文引用：{stale}"
 
 
-def test_scan_prompt_round_gate_blocks_second_call(mini):
+def _write_full_amplify_raw(mini):
+    """把 mini 固件两批的 amplify raw 落盘（覆盖率齐全：batch1 非硬锁 id
+    11/12/13/14/15 全部出现，batch2 的 20 出现）——不做 ingest，调用方
+    自己决定 ingest 到什么程度。"""
+    raw_amp = mini.d / "raw" / "amplify"
+    raw_amp.mkdir(parents=True, exist_ok=True)
+    lines_b1 = [dumps({"id": i, "jp_tail": jp_tail(JP[i]), "zh": CAND_CHA.get(i, OPUS[i]),
+                        "score": 90, "note": "", "adjudicate": False})
+                for i in (11, 12, 13, 14, 15)]
+    (raw_amp / "b1.out").write_text("\n".join(lines_b1) + "\n", encoding="utf-8")
+    lines_b2 = [dumps({"id": 20, "jp_tail": jp_tail(JP[20]), "zh": CAND_CHA[20],
+                        "score": 90, "note": "", "adjudicate": False})]
+    (raw_amp / "b2.out").write_text("\n".join(lines_b2) + "\n", encoding="utf-8")
+
+
+# ---- 2026-08-07 修复：轮数标记的归属从 scan_prompt() 移到 ingest() ----
+#
+# 缺陷背景（SEG-1 实测）：旧版标记写在 scan_prompt() 装配成功之后——渲染看看
+# 一份 prompt 长什么样，和真的执行完一轮放大扫描，被混成了同一件事。SEG-1
+# 段末只装配过一次 scan_prompt()（想看看内容），随后判断收益已提前兑现、
+# 主动放弃执行——从未派发、从未 ingest 过一行 amplify 候选，但
+# frozen/rulings.md 里已经留了一条 <!-- amplify-round:1 -->，把没发生过的
+# 事记成了已发生。下面这组测试钉死新语义：装配不花配额、真正入仓覆盖全 SEG
+# 才花配额。
+
+def test_scan_prompt_can_be_recalled_freely_before_round_is_ingested(mini):
+    """装配本身不再消耗轮次配额——反复渲染（比如纪要更新后想重新看一眼）
+    在真正执行之前应该始终允许，且不留下任何轮数闸标记。"""
     text1 = amp.scan_prompt(LABEL, repo=mini.root)
-    assert isinstance(text1, str) and text1
-    with pytest.raises(amp.AmplifyRoundLimitError):
-        amp.scan_prompt(LABEL, repo=mini.root)
+    text2 = amp.scan_prompt(LABEL, repo=mini.root)
+    text3 = amp.scan_prompt(LABEL, repo=mini.root)
+    for t in (text1, text2, text3):
+        assert isinstance(t, str) and t
+    rulings = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
+    assert not amp.AMPLIFY_MARKER_RE.search(rulings)
 
 
-def test_scan_prompt_writes_marker_only_after_success(mini):
+def test_ingest_marks_round_only_after_full_seg_coverage(mini):
+    """核心断言：标记只在 channel="amplify" 的入仓真正覆盖 SEG 全部批号
+    那一刻才写——中途只入了一批（SEG 还有别的批没覆盖）不该写。"""
+    amp.scan_prompt(LABEL, repo=mini.root)
+    _write_full_amplify_raw(mini)
+
     rulings_before = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
     assert not amp.AMPLIFY_MARKER_RE.search(rulings_before)
-    amp.scan_prompt(LABEL, repo=mini.root)
+
+    assert pi.ingest(LABEL, "amplify", 1, repo=mini.root)["ok"]
+    rulings_mid = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
+    assert not amp.AMPLIFY_MARKER_RE.search(rulings_mid), \
+        "只入了 batch1，SEG 还有 batch2 未覆盖，不该记一轮"
+
+    assert pi.ingest(LABEL, "amplify", 2, repo=mini.root)["ok"]
     rulings_after = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
-    assert len(amp.AMPLIFY_MARKER_RE.findall(rulings_after)) == 1
+    assert len(amp.AMPLIFY_MARKER_RE.findall(rulings_after)) == 1, \
+        "batch1+batch2 已覆盖 SEG 全部批号，应该记恰好一条标记"
+
+
+def test_ingest_marking_is_idempotent_across_repeat_calls(mini):
+    """重复 ingest（幂等 no-op 路径）与"覆盖齐全之后又调用一次"都不应该
+    重复追加标记——一轮只值一条标记。"""
+    amp.scan_prompt(LABEL, repo=mini.root)
+    _write_full_amplify_raw(mini)
+    assert pi.ingest(LABEL, "amplify", 1, repo=mini.root)["ok"]
+    assert pi.ingest(LABEL, "amplify", 2, repo=mini.root)["ok"]
+    # 覆盖齐全后再次对已入仓的批调用（幂等 no-op 路径）
+    assert pi.ingest(LABEL, "amplify", 1, repo=mini.root)["ok"]
+    assert pi.ingest(LABEL, "amplify", 2, repo=mini.root)["ok"]
+    rulings = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
+    assert len(amp.AMPLIFY_MARKER_RE.findall(rulings)) == 1
+
+
+def test_mark_round_hook_is_noop_for_non_amplify_channel(mini):
+    """`_maybe_mark_amplify_round` 只对 channel=="amplify" 生效——夹具搭建
+    阶段已经把 "chA" 通道的两批全部 ingest 过，不该在 rulings.md 里留下
+    任何轮数闸标记（否则真正的 amplify 轮次配额会被一个不相关的普通通道
+    平白消耗掉）。"""
+    rulings = (mini.d / "frozen" / "rulings.md").read_text(encoding="utf-8")
+    assert not amp.AMPLIFY_MARKER_RE.search(rulings)
+
+
+def test_round_gate_blocks_scan_prompt_only_after_real_ingest(mini):
+    """轮数闸新判据：不是"装配过几次"，是"真正入仓覆盖过几轮"——装配两次
+    仍然放行，真正入仓覆盖全 SEG 之后第三次装配才被拦。"""
+    assert amp.scan_prompt(LABEL, repo=mini.root)
+    assert amp.scan_prompt(LABEL, repo=mini.root)  # 装配不花配额，允许重渲染
+
+    _write_full_amplify_raw(mini)
+    assert pi.ingest(LABEL, "amplify", 1, repo=mini.root)["ok"]
+    assert pi.ingest(LABEL, "amplify", 2, repo=mini.root)["ok"]
+
+    with pytest.raises(amp.AmplifyRoundLimitError):
+        amp.scan_prompt(LABEL, repo=mini.root)
 
 
 # ---- CLI ----
@@ -362,12 +441,27 @@ def test_cli_scan_prompt_writes_out_file(mini, tmp_path):
     assert CAND_CHA[15] in text
 
 
-def test_cli_scan_prompt_second_call_rejected(mini, capsys):
+def test_cli_scan_prompt_repeated_calls_succeed_before_ingest(mini, capsys):
+    """CLI 层同一断言：装配不消耗配额，真正入仓之前反复渲染都该成功。"""
     rc1 = amp.main(["--seg", LABEL, "--scan-prompt", "--repo", str(mini.root)])
     assert rc1 == 0
     capsys.readouterr()
     rc2 = amp.main(["--seg", LABEL, "--scan-prompt", "--repo", str(mini.root)])
-    assert rc2 == 1
+    assert rc2 == 0
+
+
+def test_cli_scan_prompt_rejected_after_round_really_ingested(mini, capsys):
+    """真正跑完一轮（CLI `polish_ingest --channel amplify --all` 覆盖全
+    SEG）之后，再装配才应该被轮数闸拦下。"""
+    amp.main(["--seg", LABEL, "--scan-prompt", "--repo", str(mini.root)])
+    capsys.readouterr()
+
+    _write_full_amplify_raw(mini)
+    rc_ingest = pi.main(["--seg", LABEL, "--channel", "amplify", "--all", "--repo", str(mini.root)])
+    assert rc_ingest == 0
+
+    rc = amp.main(["--seg", LABEL, "--scan-prompt", "--repo", str(mini.root)])
+    assert rc == 1
     err = capsys.readouterr().err
     assert "轮次配额" in err or "拒绝" in err
 

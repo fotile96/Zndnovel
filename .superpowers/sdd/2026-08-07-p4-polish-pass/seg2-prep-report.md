@@ -1,14 +1,23 @@
 # SEG-2 准备三件小改动——报告
 
 > 上游：SEG-1（seg1-s2）P4 润色 pass 首个 SEG 跑完后，用户裁定的三条独立收尾项。
-> 基线：`uv run pytest -q` 780 passed（改动前实测），本轮改完 **798 passed**（新增
-> 18 条测试：Change 3 净 +4、Change 2 +13、Change 1 +1）。
+> 基线：`uv run pytest -q` 780 passed（改动前实测），第一轮改完 798 passed，
+> 经协调者复核后二次修正段号方案（见改动一"二次修正"小节），最终 **799 passed**。
 > 全程未跑 `polish_setup`/`polish_commit --apply`，未碰
 > `pilot/lanes/opus/data/`（`git status --short pilot/lanes/opus/data/` 收尾核对为空），
 > 未碰 `.claude/settings.json`/`data/api_ledger.jsonl`/`glossary/polish.md`（这三个文件
 > 在会话开始时已是其他会话的未提交改动，本轮逐路径显式 add 时不包含它们）。
 
-## 改动一：补上段表漏掉的开头段（SEG-0 → seg1-s0-s1）
+## 改动一：补上段表漏掉的开头段（seg0-s0-s1）
+
+> ⚠ **本节记录的是最终方案**（`seg: 0`、`label: seg0-s0-s1`，其余 9 段 `seg` 字段维持
+> 原值 1–9）。首次提交时曾用过另一版方案（新段占 `seg: 1`、原 9 段整体 `seg` +1 到
+> 2–10、label 不变）——协调者复核后指出该版会导致"seg1-s0-s1"与"seg1-s2"两个 label
+> **同时自称"seg1"**，因为 label 是目录名/git tag/题库文件名的既定文本、不能跟着
+> renumber 改名。"新段 seg 数值必须小于全部既有段"这条核心判断本身是对的（协调者
+> 复核时也认可），错的是"用 +1 挤出空位"这个具体做法——正确做法是让新段占用比现有
+> 最小值更小的数字（`0`），不去动其余 9 段的编号。下面按最终方案叙述；二次修正的
+> diff 与理由见本节末尾"二次修正记录"。
 
 ### 实算数据
 
@@ -19,34 +28,40 @@ lane 全部 `main`，chapter 分布（按批数）：`s1s 14 / crd 12 / s1f 3 / 
 
 ### 设计裁定
 
-**label**：`seg1-s0-s1`。不用 `seg0-…`——`test_segments_labels_unique_and_ordered` 要求
-`seg` 字段严格是 `1..N`（不含 0），叫"seg0"容易让人误以为对应 `seg: 0`。
+**label**：`seg0-s0-s1`。
 
-**seg 编号 / 排序位置（关键裁定，非拍脑袋）**：新段插到列表**最前面**，编号 `seg: 1`；
-原有 9 段的 `seg` 字段整体 **+1**（1–9 → 2–10），**`label` 字符串保持不变**（`seg1-s2`
-现在 `seg` 字段是 2，`label` 前缀数字与 `seg` 字段从此不再逐位对应——这是历史命名遗留，
-已在 `config/segments.yaml` 顶部注释里写清楚，不是打错）。
+**seg 编号 / 排序位置（关键裁定）**：新段用 `seg: 0`，插到列表**最前面**；原有 9 段的
+`seg` 字段**维持原值 1–9 不变**，`label` 字符串同样不变。这样 `seg N ↔ label segN-…`
+的对应关系对全部 10 条都成立，不再需要"历史命名遗留、数字对不上"这种解释。
 
-理由：`tools/ayano_test.py::_chapter_max_seg()`/`is_before_cur_seg()` 拿 `seg` 字段的
-**数值大小**做反剧透卡组前缀的排序依据（`chapter_max_seg[ch] < cur_seg` 判定"这一章严格
-早于当前段"）。若图省事把新段**追加到末尾**（`seg: 10`），会把 `chapter_max_seg["s0f"/"s1s"/
-"s1f"]` 顶到 10——这三章原本靠 `PRE_P3_CHAPTERS` 白名单被硬编码成"确知早于全部段"（无条件
-放行），新段一旦被表收录，`ch in chapter_max_seg` 分支会先于白名单命中，若这个值是 10，
-则对 seg2–9 的**每一段**，`10 < cur_seg` 恒假——这三章的卡组前缀会从"无条件早于"静默退化成
-"从不早于"，每一段的彩野测试 harness 前缀都会悄悄变薄。这正是"静默写错比报错更坏"的具体
-案例，且是我在动手前推理出来、而非事后从测试报告里发现的——推理过程：
-1. 读 `tools/ayano_test.py` 全文，发现 `PRE_P3_CHAPTERS = {"s0f","s1s","s1f"}` 与其注释
-   "对应 b1–32/35，故 segments.yaml 里查不到它们"——这句注释本身就是"新增条目会改变这个
-   不变量"的信号。
-2. 手推 `is_before_cur_seg()` 的分支顺序：`ch in chapter_max_seg` 先于白名单判定，新增条目
-   一旦让这三章"可查到"，白名单分支就变成死代码，真正生效的是数值比较。
-3. 由此倒推：新段的 `seg` 数值必须小于全部既有段，唯一做法是插到最前面并整体重排后续编号。
+理由分两层：
+
+**为什么新段的 `seg` 数值必须小于全部既有段**（这条判断本身在首次提交时就已推理出来，
+复核后依然成立，未变）：`tools/ayano_test.py::_chapter_max_seg()`/`is_before_cur_seg()`
+拿 `seg` 字段的**数值大小**做反剧透卡组前缀的排序依据（`chapter_max_seg[ch] < cur_seg`
+判定"这一章严格早于当前段"）。若把新段**追加到末尾**（数值最大），会把
+`chapter_max_seg["s0f"/"s1s"/"s1f"]` 顶到一个比其余任何段都大的数——这三章原本靠
+`PRE_P3_CHAPTERS` 白名单被硬编码成"确知早于全部段"（无条件放行），新段一旦被表收录，
+`ch in chapter_max_seg` 分支会先于白名单命中，若这个值最大，则对其余**每一段**，
+`该值 < cur_seg` 恒假——这三章的卡组前缀会从"无条件早于"静默退化成"从不早于"，每一段
+的彩野测试 harness 前缀都会悄悄变薄。这是"静默写错比报错更坏"的具体案例。
+
+**为什么用 `seg: 0` 而不是"新段占 1、其余 +1"**（首次提交选错的地方，协调者复核后
+指出）：`seg` 字段在代码里纯粹是**序数**，只在上面两处参与数值比较，`0 < 1 < 2 < … < 9`
+单调递增已经完全满足"新段早于全部既有段"这条语义，**不需要新段去占用 `seg:1` 这个具体
+数值**。而"新段占 1、其余整体 +1"的代价是实打实的：原 9 段的 `label` 字符串已被
+`pilot/polish/<label>/`（已有完整生产产物）、git tag `prod-opus-<label>-done`、
+`config/ayano_qa/<label>.yaml`、docs/ops/*.md 里全部既有 handoff/台账引用，**不能
+跟着 renumber 改名**——于是"seg1-s0-s1"（新段）与"seg1-s2"（`seg` 字段变成 2 但
+label 文字不变的原段）两个 label 会**同时自称"seg1"**，「SEG-1」在项目里有了两个
+所指。用 `seg:0` 插到最前面、其余段编号不动，这个歧义从根上不存在，且改动面更小
+（只新增一条记录，不触碰其余 9 条的 `seg` 字段）。
 
 **验证**（非合成 fixture，用仓库真实数据）：`tests/test_ayano_test.py::
 test_real_card_chapter_data_gate` 直接读 `REPO` 下的真实 `config/segments.yaml` +
 `config/card_chapter.yaml` + `skeleton/cards.zh.yaml` + `pilot/lanes/opus` 车道数据，对
-**全部**段跑 `assemble_context()`。这条测试在我改完 `segments.yaml`（尚未改 `test_ayano_test.py`
-本身）后**真红**过一次：
+**全部**段跑 `assemble_context()`。这条测试在我第一次改完 `segments.yaml`（尚未改
+`test_ayano_test.py` 本身，当时新段还叫 `seg1-s0-s1`/`seg=1`）后**真红**过一次：
 
 ```
 AssertionError: seg1-s0-s1（seg=1）前缀被滤空
@@ -57,13 +72,16 @@ assert 0 > 0
 剧情"，前缀卡数=0 才是正确答案；旧版"每段非空"断言的前提（每段都有非空前缀）只在"最早的
 段恰好靠 `PRE_P3_CHAPTERS` 白名单借到别处的卡"这个巧合下成立，新增真正最早的段之后这个
 巧合不再适用于它。修法：把断言改成"除游玩顺序最早的段（`seg` 字段最小）外，其余段前缀非
-空；最早的段前缀必须为空"，两个方向都断言到（不是简单删掉断言）。改完后我又做了一次
-Edit/还原的显式变异（把"最早段应为空"那条断言替换成 `if False: ...`，等价于恢复旧版对
-全部段一视同仁的错误假设）验证它会真红回同一条 `AssertionError`，然后原样还原。
+空；最早的段前缀必须为空"，两个方向都断言到（不是简单删掉断言）。这条判据用
+`min(s["seg"] for s in segs)` 泛型取"游玩顺序最早的段"，不硬编码具体数值——**二次修正
+把新段的 `seg` 从 1 改成 0 之后，这条测试不需要任何改动**（`min()` 自动算出新的最小值
+0），改完后我又做了一次 Edit/还原的显式变异（把"最早段应为空"那条断言替换成
+`if False: ...`，等价于恢复旧版对全部段一视同仁的错误假设）验证它会真红回同一形状的
+`AssertionError`（`seg0-s0-s1（seg=0，游玩顺序最早段）前缀本该为空...`），然后原样还原。
 
 修完后 `tests/test_ayano_test.py`（21 项，含这条真实数据闸）与全量测试全绿——即用仓库
-**真实**车道数据、真实卡组、真实题库确认了这次重排没有让任何既有段的反剧透前缀塌缩，也
-没有让新段意外泄露不该有的卡。
+**真实**车道数据、真实卡组、真实题库确认了新增这一段没有让任何既有段的反剧透前缀塌缩，也
+没有让新段意外泄露不该有的卡；二次修正段号方案后重新全量跑过一遍同样全绿。
 
 **chapters**：`[s0f, crd, s1s, sys, s1f, s2s]`（实算集合，含 crd，遵循既有条目"卡片批次
 与剧本批次交错、抽读范围须包含它们"的口径）。**jp_chars**：`116282`（实算）。
@@ -81,27 +99,66 @@ Edit/还原的显式变异（把"最早段应为空"那条断言替换成 `if Fa
   天然参与累加，不是"恰好绕过"。
 - `tests/test_segments.py::test_segments_jp_chars_match_batches`/
   `test_segments_chapters_match_actual_chapters`/`test_each_segment_covers_exactly_one_lane`/
-  `test_segments_lane_field_matches_batches`/`test_segments_labels_unique_and_ordered`——
-  均对 `for s in segs` 泛型遍历，新条目自动纳入，无需改动即生效。
-- 新增 `test_seg1_s0_s1_covers_b1_to_35_prologue_and_chapter1`：显式钉死新条目的
-  label/seg/batches/lane/jp_chars/chapters，防止"删掉这一段、同时把 partition 测试下界也
-  错改回 36"这种双重误改被其余通用测试放过（docstring 里写明这条测试只钉"身份没被张冠
-  李戴"这一半，分区完整性仍由 partition 测试兜底）。
+  `test_segments_lane_field_matches_batches`——均对 `for s in segs` 泛型遍历，新条目自动
+  纳入，无需改动即生效。
+- `test_segments_labels_unique_and_ordered`：`seg` 字段期望值由
+  `list(range(1, len(segs)+1))` 改为 `list(range(0, len(segs)))`（二次修正：新段占 0，
+  其余段编号不变，故整个列表变成 `[0,1,…,9]` 而不是 `[1,…,10]`）。
+- 新增 `test_seg0_s0_s1_covers_b1_to_35_prologue_and_chapter1`（二次修正前叫
+  `test_seg1_s0_s1_…`，`seg` 断言值由 1 改为 0，label 断言值由 `seg1-s0-s1` 改为
+  `seg0-s0-s1`）：显式钉死新条目的 label/seg/batches/lane/jp_chars/chapters，防止"删掉
+  这一段、同时把 partition 测试下界也错改回 36"这种双重误改被其余通用测试放过（docstring
+  里写明这条测试只钉"身份没被张冠李戴"这一半，分区完整性仍由 partition 测试兜底）。
+- **新增 `test_seg_field_matches_label_prefix_number`**（二次修正专门补的闸，对应协调者
+  第 4 点要求"补一条测试钉死 seg 数值序与 label 前缀序一致"）：对每条记录用
+  `^seg(\d+)-` 正则从 `label` 里提出前缀数字，断言与该条目的 `seg` 字段相等——**这条
+  测试直接对应首次提交出的那个问题本身**：判据不依赖"seg 字段是否连续无重复"这类间接
+  信号（首次提交的错误方案里 seg 字段确实连续无重复，1..10，只是与 label 对不上），而是
+  拿 label 的文本反过来核对 seg 字段，精确复现"两个 label 同时自称同一个 seg 数字"这类
+  失败模式。
 - `tests/test_ayano_test.py::test_real_card_chapter_data_gate` 的"每段非空"改为
-  "除最早段外每段非空 + 最早段必须为空"（见上）。
+  "除最早段外每段非空 + 最早段必须为空"（见上），判据用 `min(s["seg"] for s in segs)`
+  泛型取最早段，二次修正改 seg 数值时这条测试**未改动任何代码**，天然适配。
+- `tools/ayano_test.py` 里 `PRE_P3_CHAPTERS` 的注释按协调者要求整段重写：说明"现状"（这
+  三章现在能从 segments.yaml 查到，白名单分支对它们已是死代码，但不影响判定结果——推导
+  见代码注释本身）与"为什么仍要保留"（承载"查不到→默认排除"这条安全语义的载体，防未来
+  真正未知的章节短码被静默当"最早"纳入前缀）。
 
 ### 变异（Edit 应用 → 验证真红 → Edit 还原）
 
 1. `batches: [1,35] → [1,34]`（制造覆盖缺口）：`test_segments_partition_b1_to_339`（b35 未
    覆盖）、`test_segments_jp_chars_match_batches`（116282≠113389）、
-   `test_seg1_s0_s1_covers_b1_to_35_prologue_and_chapter1`（batches 不等）**三条真红**。已还原。
+   `test_seg0_s0_s1_covers_b1_to_35_prologue_and_chapter1`（batches 不等）**三条真红**。已还原。
 2. `chapters` 去掉 `sys`：`test_segments_chapters_match_actual_chapters`（缺 sys）、
-   `test_seg1_s0_s1_covers_b1_to_35_prologue_and_chapter1`（集合不等）**两条真红**。已还原。
+   `test_seg0_s0_s1_covers_b1_to_35_prologue_and_chapter1`（集合不等）**两条真红**。已还原。
 3. `tests/test_ayano_test.py` 里把"最早段前缀应为空"的断言短路成 `if False`（等价于恢复旧版
    "全部段非空"的错误假设）：`test_real_card_chapter_data_gate` **真红**（
    `seg1-s0-s1（seg=1）前缀被滤空`，与我改 `segments.yaml` 那一刻自然产生的红一致）。已还原。
+4. **二次修正新增的变异**——把新段的 `label` 从 `seg0-s0-s1` 改回 `seg1-s0-s1`（重现协调者
+   指出的确切错误）：`test_seg_field_matches_label_prefix_number`（label 前缀数字 1 与
+   `seg` 字段 0 不一致）、`test_seg0_s0_s1_covers_b1_to_35_prologue_and_chapter1`（找不到
+   `label=seg0-s0-s1`）**两条真红**。已还原。
+5. **二次修正新增的变异**——把 `seg1-s2` 的 `seg` 字段从 1 改回 2（重现首次提交的错误方案，
+   label 不变）：`test_segments_labels_unique_and_ordered`（`[0,2,2,…]` 与
+   `range(0,10)` 不符）、`test_seg_field_matches_label_prefix_number`（label 前缀数字 1
+   与 `seg` 字段 2 不一致）**两条真红**——第二条正是协调者报告里那个具体错位的精确复现。
+   已还原。
 
-三轮变异后 `grep -rn "MUTATION" tools/ tests/ config/` 为空，`git diff --stat` 与还原前一致。
+五轮变异后 `grep -rn "MUTATION" tools/ tests/ config/` 为空，`git diff --stat` 与还原前一致。
+
+### 二次修正记录
+
+第一轮提交（commit `c404d60`）用的是"新段占 seg:1、原 9 段 seg 字段整体 +1 到 2–10、
+label 不变"方案。协调者复核后指出：`seg1-s0-s1`（新段）与 `seg1-s2`（`seg` 字段变成 2
+但 label 文字仍是"seg1-…"的原段）两个 label **同时自称"seg1"**，是命名歧义的具体案例，
+而 label 是目录名/git tag/题库文件名的既定文本，早在派单时就提醒过"别用会引起歧义的
+名字"。协调者认可"新段 seg 数值必须小于全部既有段"这条核心判断，指出问题出在"用 +1 挤
+出空位"这个具体做法，改法：**新段用 `seg:0`，其余 9 段 `seg` 字段改回原值 1–9**。
+
+本节按最终方案（`seg:0`）重写；本报告与 `config/segments.yaml`/`tests/test_segments.py`/
+`tests/test_ayano_test.py`/`tools/ayano_test.py` 均已按最终方案统一，无半新半旧状态
+残留（逐处核对：`grep -rn "seg1-s0-s1\|seg=1）前缀被滤空" .superpowers/sdd/2026-08-07-p4-polish-pass/seg2-prep-report.md`
+命中的只剩"第一轮真红证据"这类明确标注为历史记录的引用，其余全部指向 `seg0-s0-s1`/`seg=0`）。
 
 ---
 
@@ -284,10 +341,13 @@ $ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml --data-dir 
 
 ```
 $ uv run pytest -q
-798 passed in 4.14s
+799 passed in 4.13s
 ```
 
-（改动前基线 780 passed；净增 18：改动一 +1、改动二 +13、改动三 净 +4。）
+（改动前基线 780 passed；净增 19：改动一 +2（`test_seg0_s0_s1_covers_…` +
+`test_seg_field_matches_label_prefix_number`）、改动二 +13、改动三 净 +4。第一轮提交时
+是 798（改动一当时只 +1，`test_seg_field_matches_label_prefix_number` 是二次修正才补的），
+二次修正净增 1 条测试、最终 799。）
 
 ```
 $ git status --short pilot/lanes/opus/data/
@@ -315,12 +375,14 @@ $ grep -rn "MUTATION" tools/ tests/ config/
 
 ## 涉及文件
 
-- `config/segments.yaml`（新增 seg1-s0-s1，原 9 段 `seg` 字段 +1，label 不变）
+- `config/segments.yaml`（新增 `seg:0 / label:seg0-s0-s1`，原 9 段 `seg` 字段维持 1–9
+  不变、label 不变——二次修正后的最终方案）
 - `config/qa_quote_suppressions.yaml`（新建）
 - `tools/check_qa_quotes.py`（`load_suppressions`/`split_suppressed`/`main` 改动）
 - `tools/polish_amplify.py`（`mark_round_if_complete` 新增，`scan_prompt` 不再写标记）
 - `tools/polish_ingest.py`（`_maybe_mark_amplify_round` 钩子接入 `ingest()`）
-- `tests/test_segments.py`、`tests/test_ayano_test.py`、`tests/test_check_qa_quotes.py`、
-  `tests/test_polish_amplify.py`
+- `tools/ayano_test.py`（`PRE_P3_CHAPTERS` 注释按现状重写，二次修正新增）
+- `tests/test_segments.py`（含二次修正新增的 `test_seg_field_matches_label_prefix_number`）、
+  `tests/test_ayano_test.py`、`tests/test_check_qa_quotes.py`、`tests/test_polish_amplify.py`
 - `docs/ops/p4-polish-runbook.md`（§十一 补抑制清单说明）
 - `pilot/polish/seg1-s2/frozen/rulings.md`（本地清理，gitignored，不入库）

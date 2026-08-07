@@ -26,14 +26,27 @@ JUDGE_SYS = ("你是判分员。根据【问题】【标准答案】【受试回
              "只输出一行，格式：判定|一句话依据。")
 
 # P3（b36–339）开工前就已译完的章节白名单——这是唯一允许"确知早于全部段"的例外，
-# 不是 fallback 默认值。config/segments.yaml 的 9 段 chapters 只覆盖 P3 范围内的
-# 章节，s0f/s1s/s1f（对应 pilot/lanes/opus/data/batches.jsonl 的 b1–32，序章+第1章
-# 故事层/现实层）早于 b36 就已入线，故 segments.yaml 里查不到它们——这与"查不到
-# 章节=未知/无法判定"是两回事，必须显式列出来区分（P3 devwave1 task-7 复评 M1
-# 修复：之前 `chapter_max_seg.get(ch, 0)` 的 fallback 把"查不到"和"确知最早"混为
-# 一谈，若未来某个真正未知/晚期的章节短码意外没被 segments.yaml 收录，会被这条
-# fallback 静默当作段 0 纳入前缀——方向反了）。任何不在这个白名单、也不在
-# segments.yaml chapters 里的章节短码，一律按"未知→默认排除"处理。
+# 不是 fallback 默认值。
+#
+# **2026-08-07 现状更新**：s0f/s1s/s1f 三章原本"查不到"（config/segments.yaml 当时
+# 只覆盖 P3 范围 b36–339 按章切的 9 段，b1–35 的 P2 试点批次遗留内容从未纳入表里），
+# 只能靠这份白名单硬编码放行。P4 seg2-prep 给 b1–35 补了新段 `seg0-s0-s1`
+# （`config/segments.yaml`）之后，s0f/s1s/s1f（连同 crd/sys/s2s）**现在能在
+# segments.yaml 里查到**——`is_before_cur_seg()` 里 `if ch in chapter_max_seg` 分支
+# 先于本白名单命中，对这三章而言本白名单**已经是死代码**（不会被执行到，也不会
+# 改变判定结果：`chapter_max_seg["s0f"/"s1s"/"s1f"]` 现在等于 `seg0-s0-s1` 自己的
+# `seg` 字段 0，对其余任何 `cur_seg ≥ 1` 的段，`0 < cur_seg` 恒真，与白名单"无条件
+# 放行"的旧效果一致）。
+#
+# **本白名单仍然保留**（不是遗留垃圾，故意不删）：它是"查不到章节→默认排除"这条
+# 安全语义的载体（P3 devwave1 task-7 复评 M1 修复：之前 `chapter_max_seg.get(ch, 0)`
+# 的 fallback 把"查不到"和"确知最早"混为一谈，若未来某个真正未知/晚期的章节短码
+# 意外没被 segments.yaml 收录，会被那条 fallback 静默当作"最早"纳入前缀——方向反
+# 了）。删掉白名单本身不会立刻出错（当前三个成员都已能从 segments.yaml 查到），
+# 但会让"未来新增一个真正查不到的章节短码时，代码里还能不能表达'我确知它早于
+# 全部段'这种例外"这件事失去出口——留着它是为了保留这个例外机制本身，不是为了
+# 这三个具体的字符串。任何不在这个白名单、也不在 segments.yaml chapters 里的章节
+# 短码，一律按"未知→默认排除"处理。
 PRE_P3_CHAPTERS = {"s0f", "s1s", "s1f"}
 
 

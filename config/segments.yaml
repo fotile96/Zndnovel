@@ -1,24 +1,30 @@
 # P3 检查段切分表（spec §2）：opus 侦察全量余下 304 批（b36–339）按章切 9 段
-# （现为 seg 2–10，见下方 2026-08-07 补记）。
+# （seg 1–9，与下方每条的 label 前缀数字一一对应）。
 #
 # 2026-08-07 P4 seg2-prep 补：b1–35（116282 jp_chars、4282 行，P2 试点批次遗留、
-# P3 建表时"只切余下 304 批"而从未纳入本表的开头整块）补成新的 seg 1
-# （label: seg1-s0-s1）。原 seg 1–9 的 `seg` 字段整体 +1 → 2–10——`seg` 字段
-# 必须与游玩顺序单调递增（`tools/ayano_test.py` 的 `_chapter_max_seg()`/
-# `is_before_cur_seg()` 拿它做反剧透卡组前缀过滤的排序依据：`chapter_max_seg[ch]
-# < cur_seg` 判定"这一章是否严格早于当前段"），新段在游玩顺序上早于原全部 9 段，
-# 只能插到最前面、不能追加到末尾——追加到末尾会让 s0f/s1s/s1f 三章从"确知早于
-# 全部段"变成"（几乎）晚于全部段"，静默削弱其余每一段 assemble_context() 算出的
-# 卡组前缀（`tests/test_ayano_test.py::test_real_card_chapter_data_gate` 用仓库
-# 真实数据对全部段跑过"每段前缀非空"，已验证本次改动后仍然通过）。
+# P3 建表时"只切余下 304 批"而从未纳入本表的开头整块）补成新段 **seg: 0**
+# （label: seg0-s0-s1）。
 #
-# **原 9 段的 `label` 字符串保持不变**（已被 `pilot/polish/<label>/`、git tag
-# `prod-opus-<label>-done`、`docs/ops/*.md` 等大量引用，不可改名）——故那些
-# label 前缀数字与其现行 `seg` 字段不再逐位对应（如 `label: seg1-s2` 现在的
-# `seg` 是 2，不是 1）：这是历史命名遗留，不是打错。新段自身刻意不叫
-# "seg0-…"——`tests/test_segments.py::test_segments_labels_unique_and_ordered`
-# 要求 `seg` 字段严格等于 `1..N`（不含 0），用"seg0"命名容易让人误以为对应
-# `seg: 0`。
+# 为什么是 seg:0、不是把其余 9 条 seg 字段整体 +1、新段占 seg:1（首次提交时
+# 这么做过，用户复核后指出问题、二次修正为现在这版）：
+#   - `seg` 字段在代码里纯粹是**序数**，只在 `tools/ayano_test.py` 的两处参与
+#     数值比较：`_chapter_max_seg()` 里 `max(out.get(ch, 0), s["seg"])`、
+#     `is_before_cur_seg()` 里 `chapter_max_seg[ch] < cur_seg`（反剧透卡组前缀
+#     过滤，判定"这一章是否严格早于当前段"）。`0 < 1 < 2 < … < 9` 单调递增，
+#     新段在游玩顺序上早于原全部 9 段这条语义完全不需要新段去占 `seg:1`——
+#     排在最前面用 0 表达就够了。
+#   - 原 9 段的 `label` 字符串已被 `pilot/polish/<label>/`（已有完整生产产物）、
+#     git tag `prod-opus-<label>-done`、`config/ayano_qa/<label>.yaml`、
+#     docs/ops/*.md 里全部既有 handoff/台账等大量引用，**不能改名**。首次提交
+#     把新段占了 `seg:1`、原 `seg1-s2` 被迫挤成 `seg:2` 而 label 文字不变，
+#     于是 "seg1-s0-s1"（新段）与 "seg1-s2"（原段）两个 label **同时自称
+#     "seg1"**——「SEG-1」在项目里有了两个所指，是命名歧义的具体案例
+#     （用户在最初派单时提醒过"label 会用作目录名、别用会引起歧义的名字"，
+#     首次提交没接住，现已改正）。
+#   - 用 `seg:0` 后，`seg N ↔ label segN-…` 对全部 10 条都成立，不再有任何
+#     两个 label 共享同一个"seg 数字所指"；
+#     `tests/test_segments.py::test_seg_field_matches_label_prefix_number`
+#     把这条约束钉成机械闸。
 #
 # 段完成 = 机检全绿 + 用户按 review_focus 抽读 + git tag prod-opus-<label>-done + 段末小裁决。
 # jp_chars / batches 区间 / chapters / 段内 lane 唯一，全部由 tests/test_segments.py
@@ -26,8 +32,8 @@
 # chapters 是该段的**实算**章别集合（含 crd——正文段里章节梗概卡批次与剧本批次交错，
 # 抽读范围认知必须包含它们）。extra 轨的「章别」是源 lua 脚本名，故 seg8-extra 的
 # 列表很长；这是实况，不是可以省略的装饰。
-- seg: 1
-  label: seg1-s0-s1
+- seg: 0
+  label: seg0-s0-s1
   lane: main
   batches: [1, 35]
   chapters: [s0f, crd, s1s, sys, s1f, s2s]
@@ -38,59 +44,59 @@
     s1s_330 正常完结与 2 处 GAMEOVER 支线；s1f 第1章现实层框架剧情；crd 教程卡与常规场景/
     关键词卡片谜题；sys 系统提示/教程串（UI 烤字对版式，非正文）；末两批（b33–35）已进入
     第2章 s2s 开头，与 seg1-s2（b36 起）首批衔接处注意分段边界不要漏读/重读。"
-- seg: 2
+- seg: 1
   label: seg1-s2
   lane: main
   batches: [36, 62]
   chapters: [s2s, s2f, crd]
   jp_chars: 53183
   review_focus: "ナゾトキ多层选择迷宫（答对/答错影响 s2s_260_sel 选项集）；s2s_390 夜晚成立判定三条件；周末プール/プラネタリウム伏笔；s2f 章终框架剧情"
-- seg: 3
+- seg: 2
   label: seg2-s3
   lane: main
   batches: [63, 90]
   chapters: [s3s, s3fa, crd]
   jp_chars: 49685
   review_focus: "楼梯怪谈线；s3s_50_sel→s6、s3s_300_sel→s4 跨章门控句；s3s_620/641_sel 的 3A 分支（ユウイチとキス）；s3fa 现实层"
-- seg: 4
+- seg: 3
   label: seg3-s4
   lane: main
   batches: [91, 117]
   chapters: [s4s, s4fa, s4fb, crd]
   jp_chars: 61226
   review_focus: "ユウイチ视点开场的人称与口吻；s4s_30_sel「私じゃない」回 s3s_340；s4s_100_sel→e1、s4s_490_sel→s8 门控；4A（消えたサクラ）/4B（サクラを待つ）双结局"
-- seg: 5
+- seg: 4
   label: seg4-s3tail-s5
   lane: main
   batches: [118, 138]
   chapters: [s3s, s3fb, s3fc, s5s, s5f, crd]
   jp_chars: 47299
   review_focus: "s3fc_90 绘本『总有一天你会看到的故事。』全文（童谣体，全篇最高难度润色位）；s5 日记体日期格式（9/13→2/13 + 返信）；「发作」选择 GAMEOVER 支线；s5s_680→e2 门控"
-- seg: 6
+- seg: 5
   label: seg5-s6-s7f
   lane: main
   batches: [139, 154]
   chapters: [s6s, s6f, s7f, crd]
   jp_chars: 36767
   review_focus: "s6『True Color』大谜题与中庭の雪；s7f 全盘揭示章＝全知纪律最危险段（递卡段逐张核对、雪乃名字首次揭示位）；第一次 staff roll"
-- seg: 7
+- seg: 6
   label: seg6-s8-e1
   lane: main
   batches: [155, 166]
   chapters: [s8s, s8f, s4s, e1s, e1f, crd]
   jp_chars: 30037
   review_focus: "s8 黎明结局：坠落抓手句族与 anchors 逐字核对；五年后尾声与『True Color，』逗号；e1 ユカリ第一人称 25 连场的语域"
-- seg: 8
+- seg: 7
   label: seg7-e2
   lane: main
   batches: [167, 173]
   chapters: [e2s, e2f, crd]
   jp_chars: 36440
   review_focus: "e2s 单边电话/拜访独白（全书对上下文依赖最强段，CLAUDE.md 指定最后翻档位）；e2f if 幸福线＝标题回收章"
-# seg9-extra/seg10-ambient 原本是一个 b174–339 的段，但 b339 是 ambient 轨、b174–338 是 extra 轨，
+# seg8-extra/seg9-ambient 原本是一个 b174–339 的段，但 b339 是 ambient 轨、b174–338 是 extra 轨，
 # 而 gen_plan.select() 只按单一 lane 过滤——`--lane extra --batches 174-339` 会静默
 # 产出 165 批、漏掉 b339（终审 I4）。段内 lane 必须唯一，故拆两段。
-- seg: 9
+- seg: 8
   label: seg8-extra
   lane: extra
   batches: [174, 338]
@@ -118,7 +124,7 @@
     snr_s6_10_f,snr_s6_10_s,snr_s7_10_f,snr_s8_10_f,snr_s8_10_s,snr_story_main]
   jp_chars: 9019
   review_focus: "extra 车道 UI/系统/tr_line 串（str id，chapter＝源 lua 脚本名）：cHan2Zen 全角渲染、数字形制跟随原文、菜单词英日对版式；机械段，抽读以形制一致性为主"
-- seg: 10
+- seg: 9
   label: seg9-ambient
   lane: ambient
   batches: [339, 339]

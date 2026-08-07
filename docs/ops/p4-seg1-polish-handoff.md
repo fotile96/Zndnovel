@@ -5,6 +5,30 @@
 > "怎么点火、两条通道各自怎么执行、并行安全条款"）。
 > 冻结实跑记录：`.superpowers/sdd/2026-08-07-p4-polish-pass/task-11-report.md`。
 
+## 起手状态（2026-08-07，点火会话请先读这一节）
+
+工装侧的准备工作**已经全部做完**，SEG-1 停在「可以直接发第一个生产会话」的位置：
+
+| 项 | 状态 |
+|---|---|
+| 九个 `polish_*.py` 工具 + `polishlib` | 已落地并过评审，**780 passed** |
+| SEG-1 冻结面 `pilot/polish/seg1-s2/frozen/` | 已生成，`--verify` 绿 |
+| 四个生产 prompt `work/ctx/p4s1-s{1,2,3,4}.md` | 已渲染，`plan.json` 哈希与之一致 |
+| 校准 prompt `work/ctx/p4s1-calib.md` | 已渲染 |
+| **准入小考** | **已跑完，两条通道都未通过** → 全部候选走人裁，无自动清关 |
+| `pilot/lanes/opus/data/`（生产译文） | **零改动**，`polish_commit --apply` 从未执行 |
+
+**因此点火会话该做的第一件事不是准入小考，而是直接发 session 1 的两条通道。**
+
+三件开工前值得知道的事：
+
+1. **不要重渲染 prompt**。它们已经渲染好且 `plan.json` 记着对应哈希；无故重渲染会刷新哈希，
+   已入仓候选的倒查链会悬空。只在冻结面真的变了时才重渲染（并同步 `plan.json`）。
+2. **`ingest` 之后必须重跑 `polish_check` 再 `triage`**，顺序不可颠倒。gate 现在记录「本轮
+   覆盖了哪些 id」，不在覆盖面里的候选没有自动清关资格。跳过不报错，只是白等。
+3. 本 SEG 两条通道都没有免检权，所以第 2 条这一轮**实际影响有限**——但流程要按对的走，
+   后续 SEG 通道考过试之后它就是承重的。
+
 ## 你的角色与边界（控制会话）
 
 你是 P4 润色 pass 的**控制会话**：负责冻结校验、渲染 prompt、派发两条执行通道、跑 ingest/
@@ -86,30 +110,71 @@ session 派发两次**，`fable-wf` 与 `ds-flash` 各读同一份 prompt 文件
 
 落完由**控制会话**跑 ingest（见下"落地后"）。
 
-## 通道二：`ds-flash`（paseo 派发，独立 workspace）
+## 通道二：`ds-flash`（paseo 派发）
 
-**点火前必须先确认 provider 实名——不要猜。**
+**2026-08-07 实跑核实过的形态**（准入小考那两次跑出来的，直接用）：
 
-```
-调用 paseo 的 list_providers，核对用户已配置的 deepseek v4 flash endpoint 的确切 provider
-字符串（形如 `deepseek/xxx`，具体名字以 list_providers 实际返回为准）。找不到就停下问用户，
-不要用猜测的字符串去 create_agent——那样要么直接失败，要么（更危险）静默落到另一个模型上，
-使本通道的候选、准入小考结果、计费全部张冠李戴。
+```bash
+paseo run --provider deepseek/deepseek-v4-flash --mode bypassPermissions --json "<提示词>"
 ```
 
-确认 provider 后，为本段建一个独立 workspace（与 fable-wf 隔离，避免两条通道共享文件系统状态）：
+`provider` = `deepseek`（label「DeepSeek V4」），`model` = `deepseek-v4-flash`
+（`paseo provider models deepseek` 可复核）。**换 SEG 或换机器时仍应先跑
+`paseo provider ls` 复核一次**——用猜测的字符串要么直接失败，要么（更危险）静默落到另一个
+模型上，使候选、准入结果、计费全部张冠李戴。
 
-```
-paseo create_workspace（isolation: local 即可——本通道只读 prompt 文件、只写自己的 raw 目录，
-不需要 git 隔离）。
-```
+### 三条实操教训（都是这次踩出来的，别再踩）
 
-对每个 session `N`，`create_agent`（`provider` = 上面核实到的确切字符串，`title` 建议
-`p4-seg1-s2-session<N>-ds-flash`），初始提示词与 fable-wf 那份**内容相同**，只把落盘目录换成：
+1. **`--mode` 的枚举是 provider-specific 的。** `--mode bypass` 会被拒；deepseek 的合法值是
+   `plan / default / acceptEdits / auto / bypassPermissions`。报错信息会把枚举列全，照抄即可。
+2. **workspace 不可跨会话复用。** 第一次跑会 `Created workspace wks_xxx`，但过一阵再用同一个
+   id 就是 `WORKSPACE_NOT_FOUND`——**而退出码仍是 0**。生产批要跑 4 个 session、中间隔着人工
+   裁决，workspace 大概率已被回收。**派发指令里不要写死 workspace id**，每次让 `paseo run`
+   自己新建（省略 `--workspace` 即可，它会打印新建的 id）。
+3. **因此每次派发后必须自己确认产物真的落盘了**：
+
+   ```bash
+   wc -l pilot/polish/seg1-s2/raw/ds-flash/b<批号>.out    # 生产批
+   wc -l pilot/polish/seg1-s2/calib/raw.ds-flash.jsonl    # 校准批
+   ```
+
+   生产链上 `polish_ingest` 对「raw 文件不存在」是整批失败，有闸兜着；但**校准批不走 ingest**，
+   不看一眼就会拿着一个不存在的文件去判卷。这正是本项目一贯警惕的形态——命令退出码 0、
+   看起来跑完了，实际什么都没产出。
+
+### 派发形态
+
+对每个 session `N` 发一次 `paseo run`（省略 `--workspace`，见上面教训 2），初始提示词与
+fable-wf 那份**内容相同**，只把落盘目录换成：
 
 ```
   /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/raw/ds-flash/b<批号>.out
 ```
+
+准入小考那两次实跑用的提示词骨架（照抄改路径即可，已验证 deepseek 能按它产出合规输出）：
+
+```
+你是 P4 润色 pass 的执行通道 `ds-flash`，现在要完成会话 <N>。工作目录 /Users/fotile96/Zndnovel。
+
+任务全部写在这个文件里，请完整读完它再动手（约 4900 行，需要分几次读全）：
+/Users/fotile96/Zndnovel/work/ctx/p4s1-s<N>.md
+
+一切以该文件为准——特别注意它关于什么时候必须把 adjudicate 设为 true 的条款、
+软锁 id 的处置规则、以及 jp_tail 的取法规格。
+
+落盘路径（该文件输出契约里「由派发方给定」的部分）：
+  /Users/fotile96/Zndnovel/pilot/polish/seg1-s2/raw/ds-flash/b<批号>.out
+本会话含多个批号，每个批号一个文件。
+
+只写这些文件。不要修改仓库里任何其他文件，不要跑 git 命令，不要跑测试。
+写完后确认每个文件的行数、每行合法 JSON、字段齐全、id 与该批 id 一一对应不重不漏。
+
+最后简短报告：状态、各文件路径与行数、以及你通读 prompt 时觉得有歧义或难以执行的地方。
+不要把译文贴回来。
+```
+
+⚠ 最后那句「反馈歧义处」不是客套——准入小考时 fable-wf 正是靠它报出了 8 条真问题
+（其中「撞上错译/错字没有条款」一条已被证明对结果有实质影响，见准入小考节的 run1/run2 对照）。
 
 - **计费**：deepseek v4 flash 走 API 调用，每次计费记录追加进仓库跟踪的
   `data/api_ledger.jsonl`（与 `ayano_test.py`/`api_client.py` 同一条既有约定，见
@@ -133,7 +198,64 @@ paseo create_workspace（isolation: local 即可——本通道只读 prompt 文
    `ds-flash` 那边跟上；`polish_triage.py` 本来就是"跨全部已入仓通道一次性分流"，晚到的通道
    下次重跑 triage 自然会被并入。
 
-## 准入小考（两通道各跑一次，点火前必做）
+## 准入小考：**SEG-1 已经跑完了，结论是两条通道都没拿到免检权**
+
+> 2026-08-07 实跑。点火会话**不需要再跑这一步**，直接从「落地后」开始。
+> 本节保留完整流程供后续 SEG 复用；SEG-1 的实测结论与证据见下。
+
+**现状（已落盘，不要重跑覆盖）：**
+
+```json
+// pilot/polish/seg1-s2/channel_state.json
+{"ds-flash": {"autoclear": false}, "fable-wf": {"autoclear": false}}
+```
+
+两条通道**都未通过**准入小考 → SEG-1 的全部候选一律走人工裁决队列，没有自动清关捷径。
+这**不阻止生产**：照常产候选、照常跑完整流水线，只是少一条免检通道。以 K=150 的带宽和
+SEG-1 的规模，首段全人裁本来就是稳妥做法——把免检权留到「实测证明它不误伤既有裁决」之后。
+
+**未通过的原因（两条通道都一样）：都改动了人工裁定过的行。** 判据不是改动幅度而是
+**「改了却没显式请裁」**（`changed_silent`），阈值 `calib_silent_override_fail=0.10`。
+ds-flash 最终 `silent_override_rate=0.1`，卡在线上。
+
+典型的两条：
+
+```
+[5684] 人裁: 得厅那支曲子才行。          ← きく 三换字的 v13 裁定
+       模型: 得听那支曲子才行。          edit=1，把裁定的生僻用字"改正"回常用字
+
+[11127] 人裁: 「因为 电视太 好看了嘛」   ← 绘本行，分かち書き 三顿节奏经人工裁定
+        模型: 「因为 电视 太好看了嘛」   edit=2，移了一个空格让分词更"顺"
+```
+
+**11127 那条特别值得点火会话理解**：模型的行为**完全合规**（普通润色按契约不需要请裁），
+它无从知道自己碰的是裁定过的行——金标是盲的。所以这场考试测的从来不是「模型会不会故意推翻
+裁决」，而是**「模型的正常润色行为会不会误伤既有裁决」**，答案是会。这也是为什么 SEG-1
+全部走人裁是对的。
+
+**一条有实测支撑的结论：prompt 里「撞上疑似错译/错字一律请裁」那条款是有效的。**
+ds-flash 用旧 prompt（run1）与新 prompt（run2）各跑一次同一批 20 句，唯一变化：
+
+| | 金标改动 | 其中静默 | 陪考改动 | 总请裁 |
+|---|---|---|---|---|
+| run1（旧 prompt） | 2 | **2** | 2 | 0 |
+| run2（新 prompt） | 2 | **1** | 2 | 1 |
+
+```
+[5684] run1: edit=1 adjudicate=false  →  run2: edit=1 adjudicate=true
+```
+
+同模型、同批句子，唯一变量是新增条款，那条最危险的改动就从静默推翻变成了显式请裁。
+两轮原始输出都留在 `calib/raw.ds-flash.run1.jsonl` / `raw.ds-flash.jsonl`（fable-wf 的
+run1 同样保留），是「旧判据会放行什么」的实测样本。
+
+**判卷工具本身也是这次修好的**：旧实现把 `gold_unchanged` 统计成 `edit ≤ 4`，两条通道都
+报「10 句金标一句没碰」——**报告在说谎**，实际分别改了 3/10 和 2/10。现在三档字面一致，
+且结果自带 `details` 逐条明细，不必再自己写脚本核算。
+
+---
+
+### 后续 SEG 的准入小考流程（SEG-1 已完成，此处备查）
 
 **没考过试就不许免检**——按 `docs/ops/p4-polish-runbook.md` §三，`polish_calibrate.py --make`
 产出的 20 句校准批，两条通道**各自**跑一遍并 `--score`：

@@ -307,3 +307,42 @@ commits：825ab2c / 74af7dd / f262455 / 1c4bd22 / eb78158 / b889e97 / 96897c9 �
 ## 交付状态：可交付。758 passed。
 `tools/check_batch.py` 与 `tools/build_context.py`（P3 钉死面）diff 为空；
 `pilot/lanes/opus/data/` 生产数据零改动；`polish_commit --apply` 全程未执行。
+
+## 首次真实准入小考（2026-08-07）——小考本身有缺陷，但它产出的证据把缺陷暴露了
+两条通道（fable-wf 经 Agent/fable，ds-flash 经 paseo→deepseek/deepseek-v4-flash）各跑 20 句校准批。
+`score()` 双双报 `gold_unchanged=10, pass=true`，独立核算发现 **fable-wf 实改 3/10、ds-flash 2/10**
+——根因 `gold_unchanged` 统计的是 `edit <= minor_edit(4)` 而非 `edit == 0`，**报告在说谎**。
+更根本的是 edit distance 对金标句是错判据：两通道都动了 id 5684（`得厅`＝きく 三换字的 v13 裁定），
+1 个字推翻一条裁决，与大段改写同样严重。**动了就是信号，幅度不重要。**
+
+### 用户裁定（2026-08-07）：锚点行从硬锁改软锁
+「之前的锚定决策只是说是 translation pass 结束时我们的认知，现在设计的润色流程应当有足够的
+再次斟酌这些行的机制弹性，模型认为确有必要显式请裁即可。」实测规模：SEG-1 anchor 4 + patched 4，
+全库锚点 124 条，负担极小。
+落地：`locked.json` 拆 `hard_ids`（已有人裁 patch，不得出稿）/ `soft_ids`（锚点，可出稿但改动
+必须带 `adjudicate=true`，永不自动清关，强制进队列不被 K 挤出）。
+控制者补充裁定（用户未反对）：**patched 保持硬锁**——它们是比锚点更晚更具体的裁决。
+
+### 判卷修复：换轴
+三档改为字面一致（unchanged=edit0 / minor / substantive），但**pass 不再由幅度决定**，改由
+`changed_silent`（改了却没请裁）判定，新增 `calib_silent_override_fail=0.10`；旧 `calib_fail`
+保留不再读取（不偷改既有配置项含义）。结果自带 `details` 逐条明细。
+重判两通道第一轮输出：**双双 pass=false**（静默覆盖率各 20%），`channel_state.json` 由
+`{true,true}` 修正为 `{false,false}`。
+
+### run1 vs run2 对照：新增的 adjudicate 条款有实测效果
+ds-flash 同一批 20 句，唯一变量是新 prompt 里「撞上疑似错译/错字一律请裁」条款（fable-wf 通读
+时提出的）：金标改动都是 2，但**静默从 2 降到 1**，`[5684] adjudicate false → true`。
+剩下静默的 11127 是绘本行空格位置（分かち書き 三顿节奏经人裁）——**模型行为完全合规**，
+它无从知道碰的是裁定过的行（金标是盲的）。故这场考试测的是「正常润色行为会不会误伤既有裁决」，
+答案是会，`pass=false` 正确。
+
+### paseo 实操教训（已写进 handoff）
+①`--mode` 枚举 provider-specific（deepseek 用 `bypassPermissions` 不是 `bypass`）；
+②**workspace 不可跨会话复用**，复用报 `WORKSPACE_NOT_FOUND` 但**退出码 0**——静默失败、raw 零产出。
+校准批不走 ingest，判卷前必须自己 `wc -l` 看产物，否则会拿不存在的文件去判卷。
+
+### 交接状态
+780 passed；生产数据零改动；`polish_commit --apply` 从未执行。
+SEG-1 停在「可直接发第一个生产会话」的位置，准入小考**不需要重跑**。
+handoff 已补：起手状态节、准入小考实测结论与证据、paseo 三条教训、ds-flash 提示词骨架。

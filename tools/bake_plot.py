@@ -108,14 +108,28 @@ INK_BOTTOM_MARGIN = 1     # tiny safety pad appended past the last detected
 ZH_BOTTOM_MARGIN = 1      # same pad appended past the last actually-rendered
                            # zh glyph row, same full-alpha-zone reasoning.
 
-# Used ONLY when ink detection fails to find any ink row, or the result is
-# rejected as implausible (see decide_band). This is the sole surviving
-# remnant of the old fixed TEXT_BOX concept -- kept exclusively as a
-# conservative fallback height, never as the default path. Value inherited
-# unchanged from the old TEXT_BOX=(0,0,82,28): it was measured to
-# comfortably contain 2 JP lines + margin (spec section 4/6), so it's a
-# reasonable "when in doubt" choice.
-FALLBACK_BAND_BOTTOM = 28
+# NOTE: there used to be a FALLBACK_BAND_BOTTOM=28 constant here, used as a
+# fixed conservative band height whenever ink detection failed. It has been
+# REMOVED (not merely unused) per user verdict on card 162 (the sole
+# fallback cell, see decide_band): a fixed 2-JP-line-tall band massively
+# over-covers a short zh caption -- card 162's "第二物语" needs 1 line but
+# got a 32-row band, leaving a visibly empty black strip below the text that
+# read as a bug, not a design. The fallback band height is now computed the
+# same way non-fallback content height is measured on the zh side: the
+# ACTUAL rendered height of the zh caption (see measure_rendered_text_bottom
+# in decide_band's fallback branch below), never a fixed number.
+#
+# ⚠ This is a DELIBERATE reduction in fallback safety margin, not a neutral
+# refactor: when ink detection fails, decide_band no longer has ANY
+# candidate for where the untracked original Japanese ink actually sits, so
+# it can no longer defend against it via a generous fixed height -- it only
+# covers what the zh caption itself needs. Original ink extending below that
+# height MAY REMAIN PARTIALLY VISIBLE (confirmed real case: card 162's own
+# subtitle "〜彼女の夏、15分の記憶〜" extends to roughly y=40, well past the
+# ~18px a single zh line now claims). This must be surfaced every time a
+# fallback occurs -- see collect_ink_fallbacks, run()'s
+# "ink_fallback_coverage_note", and the CLI output in main(). Never let this
+# happen silently.
 
 # ---------------------------------------------------------------------------
 # Band visual parameters -- see build/plot_layout_spec.md addendum for the
@@ -395,7 +409,9 @@ BandDecision = namedtuple("BandDecision", [
                           # location is unknown. See the BAND_ALPHA comment
                           # block above the constants for why this exists.
     "ink_bbox",           # (top, bottom) detected in the ORIGINAL cell, or None
-    "ink_bottom_used",    # ink-derived candidate bottom (post margin/fallback)
+    "ink_bottom_used",    # ink-derived candidate bottom (post margin), or
+                          # None on fallback -- there is no trustworthy ink
+                          # measurement to report in that case (see decide_band).
     "zh_bottom_used",     # zh-render-derived candidate bottom (post margin)
     "fallback",           # bool: did ink detection fail/get rejected?
     "fallback_reason",    # str or None
@@ -403,19 +419,39 @@ BandDecision = namedtuple("BandDecision", [
 
 
 def decide_band(cell, lines, font):
-    """Decide how tall the translucent cover band needs to be for this cell:
-    max(vertical extent of the ORIGINAL jp ink actually detected in the art,
-    vertical extent OUR OWN zh rendering actually needs). Both are measured,
-    not guessed, and the LARGER of the two is used -- using only the ink
-    height would clip a zh caption that needs more lines than the original
-    JP one did (real example: card 25, JP ink is a single line but the zh
-    title wraps to 2 lines); using only the zh height would leave original
-    JP ink exposed below a too-short band on cells where the JP caption was
-    taller than the zh one needs to be (real example: card 6, JP ink spans
-    2 lines but the zh title is a short single line).
+    """Decide how tall the translucent cover band needs to be for this cell.
 
-    content_bottom (the max() above, each side with only its 1px anti-alias
-    margin) is the region that MUST be at least soft-covered -- the visual
+    Normal path (ink detected and plausible): max(vertical extent of the
+    ORIGINAL jp ink actually detected in the art, vertical extent OUR OWN zh
+    rendering actually needs). Both are measured, not guessed, and the
+    LARGER of the two is used -- using only the ink height would clip a zh
+    caption that needs more lines than the original JP one did (real
+    example: card 25, JP ink is a single line but the zh title wraps to 2
+    lines); using only the zh height would leave original JP ink exposed
+    below a too-short band on cells where the JP caption was taller than the
+    zh one needs to be (real example: card 6, JP ink spans 2 lines but the
+    zh title is a short single line). This max()-of-two-measurements
+    behavior is UNCHANGED by the fallback path below and is pinned by
+    test_decide_band_nonfallback_unaffected_by_fallback_path in
+    tests/test_bake_plot.py.
+
+    Fallback path (ink detection failed or was rejected as implausible --
+    see ink_bbox_of_cell / INK_MAX_PLAUSIBLE_BOTTOM): there is no
+    trustworthy ink measurement to max() against at all, so content_bottom
+    is set to EXACTLY what the zh caption's own actual rendering needs
+    (its real line count x line height + margin, via
+    measure_rendered_text_bottom -- not a fixed guess). This is a
+    DELIBERATE reduction of the coverage the old fixed-height fallback
+    provided: on a cell where ink detection failed, the true location of
+    the original Japanese ink is unknown, and a band sized only to the zh
+    text may leave that original ink PARTIALLY VISIBLE below it (confirmed
+    real case: card 162, see the module-level note above
+    ink_bottom_used-adjacent code and collect_ink_fallbacks). Every
+    fallback MUST be surfaced by the caller (collect_ink_fallbacks / run() /
+    main()) precisely because of this reduced guarantee.
+
+    content_bottom (each side measured with only its 1px anti-alias margin)
+    is the region that MUST be at least soft-covered -- the visual
     bottom-edge feather (see render_band_layer) is added strictly BEYOND
     content_bottom, never carved out of it, so cosmetic softening can never
     under-cover real ink or clip real zh glyphs.
@@ -427,25 +463,33 @@ def decide_band(cell, lines, font):
     the constants block -- so real ink gets forced opaque, full stop). On
     fallback (ink location unknown) the entire content_bottom zone is
     treated as hard, since there's no envelope to trust and "unknown" must
-    default to the safe side, not the pretty side.
+    default to the safe side (fully opaque over the zh-sized zone), not the
+    pretty side -- this part is unchanged from before; only the SIZE of
+    that zone changed.
     """
     ink = ink_bbox_of_cell(cell)
     fallback = False
     reason = None
     if ink is None:
-        ink_bottom = FALLBACK_BAND_BOTTOM
         fallback = True
         reason = "no_ink_detected"
     elif ink[1] > INK_MAX_PLAUSIBLE_BOTTOM:
-        ink_bottom = FALLBACK_BAND_BOTTOM
         fallback = True
         reason = f"implausible_ink_bottom_{ink[1]}"
-    else:
-        ink_bottom = ink[1] + INK_BOTTOM_MARGIN
 
     zh_bottom = measure_rendered_text_bottom(lines, font) + ZH_BOTTOM_MARGIN
 
-    content_bottom = min(max(ink_bottom, zh_bottom), CELL_H)
+    if fallback:
+        # No trustworthy ink candidate at all -- content_bottom is exactly
+        # the zh caption's own measured need, never padded with a fixed
+        # guess. ink_bottom_used is None: there is nothing measured to
+        # report on the ink side for this cell.
+        ink_bottom = None
+        content_bottom = min(zh_bottom, CELL_H)
+    else:
+        ink_bottom = ink[1] + INK_BOTTOM_MARGIN
+        content_bottom = min(max(ink_bottom, zh_bottom), CELL_H)
+
     band_bottom = min(content_bottom + BAND_BOTTOM_FEATHER_PX, CELL_H)
 
     if fallback:
@@ -462,12 +506,46 @@ def decide_band(cell, lines, font):
 def collect_ink_fallbacks(decisions):
     """decisions: {card: BandDecision}. Returns sorted [(card, reason), ...]
     for every cell whose ink detection failed or was rejected as
-    implausible and fell back to FALLBACK_BAND_BOTTOM. MUST be called and
-    its result surfaced (report/manifest/CLI) -- never discarded -- so a
-    fallback never happens silently. A cell relying on the fallback got a
-    height nobody actually measured for it; a human needs to know which
-    cells those are."""
+    implausible and fell back to caption-only band coverage (see
+    decide_band's fallback branch). MUST be called and its result surfaced
+    (report/manifest/CLI) -- never discarded -- so a fallback never happens
+    silently. A cell relying on the fallback got a height sized only to its
+    zh caption, never actually measured against the real (unknown) ink
+    location -- a human needs to know which cells those are, and that the
+    coverage guarantee for them is weaker than normal cells (see
+    run()'s ink_fallback_coverage_note)."""
     return sorted((c, d.fallback_reason) for c, d in decisions.items() if d.fallback)
+
+
+def build_ink_fallback_coverage_note(fallbacks):
+    """fallbacks: the [(card, reason), ...] list from collect_ink_fallbacks.
+    Returns None if fallbacks is empty (nothing to warn about), otherwise a
+    human-readable string naming the SPECIFIC reduced guarantee those cards
+    now have: their band height is sized only to the zh caption's own
+    rendered height, not to a fixed conservative height, so undetected
+    original Japanese ink below that height may remain partially visible.
+
+    This is a standalone function (not inlined in run()) specifically so it
+    can be unit-tested in isolation -- see
+    tests/test_bake_plot.py::test_ink_fallback_coverage_note_* -- separate
+    from whether today's real png/plot/ data happens to contain a fallback
+    card. MUST be called and its result surfaced (report/manifest/CLI) --
+    never discarded -- this is the required warning for the coverage
+    reduction described in decide_band's fallback branch and the
+    FALLBACK_BAND_BOTTOM-removal note above it."""
+    if not fallbacks:
+        return None
+    cards = [c for c, _ in fallbacks]
+    return (
+        f"{len(fallbacks)} card(s) fell back to caption-only band coverage "
+        f"(ink location could not be measured): {cards}. For these cards "
+        "ONLY, the band height is sized to the zh caption's own rendered "
+        "height (line count x line height + margin), NOT to a fixed "
+        "conservative height -- the true extent of the original Japanese "
+        "ink is unknown, so any of that ink extending below the zh-sized "
+        "band MAY REMAIN PARTIALLY VISIBLE. Human review required for each "
+        "card listed in ink_fallback_cards."
+    )
 
 
 def _soft_alpha_at(y, content_bottom, band_bottom, alpha, top_feather, bottom_feather):
@@ -712,11 +790,18 @@ def run(write=True, with_cellzoom=None):
     fallbacks = collect_ink_fallbacks(all_decisions)
     band_bottoms = {c: d.band_bottom for c, d in all_decisions.items()}
 
+    # MUST be surfaced whenever any fallback occurred -- see
+    # build_ink_fallback_coverage_note's docstring and the
+    # FALLBACK_BAND_BOTTOM-removal note above decide_band. Never let this go
+    # silent.
+    ink_fallback_coverage_note = build_ink_fallback_coverage_note(fallbacks)
+
     report = {
         "num_cards": NUM_CARDS,
         "overflow": [{"card": c, "title_zh": t, "lines": l} for c, t, l in overflow],
         "pixel_preservation_violations": bad_cells,
         "ink_fallback_cards": [{"card": c, "reason": r} for c, r in fallbacks],
+        "ink_fallback_coverage_note": ink_fallback_coverage_note,
         "ink_detection_summary": {
             "total": NUM_CARDS,
             "detected": NUM_CARDS - len(fallbacks),
@@ -752,12 +837,14 @@ def main():
         print(f"  card {o['card']}: {o['title_zh']!r} -> {o['lines']!r}")
     s = report["ink_detection_summary"]
     print(f"ink detection: {s['detected']}/{s['total']} cells detected, "
-          f"{s['fallback']} fell back to FALLBACK_BAND_BOTTOM={FALLBACK_BAND_BOTTOM}")
+          f"{s['fallback']} fell back to caption-only band coverage")
     if report["ink_fallback_cards"]:
         print("  fallback cards (MUST be reviewed by a human -- band height "
-              "for these was never measured):")
+              "for these was never measured against real ink, only against "
+              "the zh caption's own rendered height):")
         for f in report["ink_fallback_cards"]:
             print(f"    card {f['card']}: {f['reason']}")
+        print(f"  ⚠ {report['ink_fallback_coverage_note']}")
     print(f"band_bottom range: {report['band_bottom_min']}..{report['band_bottom_max']}")
     print(f"pixel-preservation violations: {len(report['pixel_preservation_violations'])}")
     if report["pixel_preservation_violations"]:

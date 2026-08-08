@@ -457,3 +457,159 @@ uv run pytest -q                               # 871 passed（全量）
 uv run python3 tools/bake_plot.py              # 重新生成 build/plot_zh/*
                                                 # （含新增 _cellzoom.png）
 ```
+
+---
+
+## 追记（2026-08-08 第二次）：用户裁定后的收尾修正——卡 162 回退格色带瘦身
+
+**状态：DONE**（`build/plot_zh/plot_{1..4}_a.png` + `_compare.png` +
+`_cellzoom.png` + `manifest.json` 全部重新生成；`tools/bake_plot.py`、
+`tests/test_bake_plot.py` 均已改写；`uv run pytest -q` **877 passed**）。
+
+### 0. 用户裁定原文与本轮范围
+
+用户看过 v2 版实物（上一节）后明确裁定：
+
+> 「卡162 在 plot_3_a.png 中的效果我可以接受（指只渲染『第二物语』四个字，
+> 副标题就放弃了），不过此时只需一行字了，黑色背景色带 vertical 方向宽度
+> 似乎太宽（留出了第二行），修正这一点以后我觉得应该就可以满意了。」
+
+即：**接受**"副标题 `〜彼女の夏、15分の記憶〜` 不被覆盖、仍部分可见"这个
+代价（这本来就是 v2 版已明说的已知局限，见上一节第 3 节）；**要修**的只有
+"回退格色带高度不该再是固定值，该按中文实际只需的行数算"这一点。本轮只动
+`decide_band` 的 fallback 分支，非回退的 194 格正常分支不得受影响。
+
+### 1. 改法：fallback 分支从"写死高度"改成"照实测中文渲染高度走"
+
+**改之前**（v2 版 `decide_band`）：不管 ink 检测是失败（`no_ink_detected`）
+还是判定不合理（`implausible_ink_bottom_N`），一律把 `ink_bottom` 赋值成
+模块常量 `FALLBACK_BAND_BOTTOM=28`，再和 `zh_bottom`（中文实测渲染高度）
+取 `max()`——但因为 `FALLBACK_BAND_BOTTOM=28` 是按"2 行日文 + 安全边"倒推
+的固定值，几乎总是比任何 1 行中文标题的 `zh_bottom` 大，`max()` 名存实亡，
+实质上永远是这个固定 28。
+
+**改之后**：回退分支不再有任何"填充候选值"参与 `max()`——因为墨迹位置
+根本不可信/未知，没有东西可以拿来 `max()`。`content_bottom` 直接等于
+`min(zh_bottom, CELL_H)`，`zh_bottom` 是 `measure_rendered_text_bottom()`
+真实渲染中文行文字后读出的 alpha bbox（行数 × 行高 + `ZH_BOTTOM_MARGIN`
+安全边，不是公式估算）。`BandDecision.ink_bottom_used` 在回退时改为
+`None`（明确表示"这一侧没有可信测量值"，不再是一个被悄悄当真的假数字）。
+`hard_range` 仍然是整个 `(0, content_bottom)` 全部强制不透明——这条不变，
+只是这个区间本身现在更矮了。
+
+非回退分支（`else` 分支：`ink_bottom = ink[1] + INK_BOTTOM_MARGIN`；
+`content_bottom = min(max(ink_bottom, zh_bottom), CELL_H)`）**逐字节未改
+一行代码**，见下第 4 节的专门回归钉子。
+
+### 2. `FALLBACK_BAND_BOTTOM` 常量的处置：删除，不留"看起来还在用"的空壳
+
+按用户方原文硬约束（"限了什么就要说出来"+"别让常量看起来还在用、实际
+已不起作用"），`FALLBACK_BAND_BOTTOM = 28` 这一行**已从代码里整体删除**
+（不是注释掉、不是改名保留）。原定义处换成一段说明性注释，交代：
+①这个常量曾经是什么、为什么现在没有了；②新回退高度改成了什么；③这是
+一次刻意的保守性削弱而非中性重构，未检测到的日文墨迹在回退格上可能残留
+可见；④这个削弱必须被 `collect_ink_fallbacks`/`run()`/`main()` 全程播报，
+不能静默发生。所有引用点（`decide_band` 内部两处赋值、`main()` 的 CLI
+打印、`collect_ink_fallbacks` 的 docstring）同步改写，代码库里已**没有
+任何位置**再引用这个名字（仅剩的 3 处是纯注释里提及"这个常量曾经存在过"
+这一历史事实，供后来人查证，不是代码路径）。
+
+### 3. 卡 162 修正前后的色带行数对比（用户诉求的直接量化答复）
+
+| | 改前（v2 版，本节改动之前） | 改后（本次改动） |
+|---|---|---|
+| `content_bottom`（必须覆盖区） | 28 | 14 |
+| `band_bottom`（含羽化，可见色带总高） | **32**（y0–31，共 32 行） | **18**（y0–17，共 18 行） |
+| `hard_range`（强制不透明区） | (0, 28) | (0, 14) |
+| `ink_bottom_used` | 28（其实是 `FALLBACK_BAND_BOTTOM` 顶替的假值） | `None`（如实标记"未测出"） |
+
+中文标题「第二物语」只需 1 行，`measure_rendered_text_bottom` 实测其渲染
+高度为 13px（不含安全边）+ `ZH_BOTTOM_MARGIN=1` = 14，这就是新
+`content_bottom`；`band_bottom = min(14 + BAND_BOTTOM_FEATHER_PX(4), 48)
+= 18`。可见色带从 32 行砍到 18 行，砍掉的 14 行不再是"空出一大片纯黑、
+像故障"，而是——按用户已接受的代价——副标题 `〜彼女の夏、15分の記憶〜`
+的上半部分重新可见（`_cellzoom.png` 卡 162 格子肉眼可核）。
+
+副作用（全 195 格的 `band_bottom` 范围）：`manifest.json` 的
+`band_bottom_max` 从改前的 32（正是卡 162 自己顶到的，其余 194 格实测
+最大值只有 31）降到改后的 31（卡 162 不再是全场最高，退回到其余非回退
+格的正常范围内）；`band_bottom_min` 两版都是 18（非回退格里本来就有格子
+落在这个值，卡 162 现在恰好也落进这个区间，纯属巧合不是特意对齐）。
+
+### 4. 告警措辞：CLI / manifest.json / `run()` 报告三处同步
+
+**问题**：v2 版的回退播报只说"这些卡回退了、原因是什么"，没有说清楚
+"回退之后色带覆盖能力本身也变了"这件事——这次改动把回退格的覆盖收窄了，
+必须把"收窄"本身当成一条新的、独立的告警说出来，不能只延用旧播报机制
+默认盖过去。
+
+**实现**：新增 `build_ink_fallback_coverage_note(fallbacks)`（独立可测
+的纯函数，不内联在 `run()` 里，理由见其 docstring：要能脱离"今天
+`png/plot/` 恰好有卡 162 这一个回退格"这个具体前提单独测试）。没有回退
+时返回 `None`；有回退时返回一句明确点名以下三件事的英文说明：①有几张卡、
+哪几张卡回退；②这些卡的色带高度现在只按中文渲染需要的高度算，不再是
+固定保守值；③原文日文墨迹的真实范围未知，**可能在色带下方残留可见**
+（"MAY REMAIN PARTIALLY VISIBLE"）。
+
+三处落地：
+1. **CLI**（`main()`）：`fallback cards` 清单打印之后新增一行
+   `  ⚠ {report['ink_fallback_coverage_note']}`，本轮真实跑批实际输出：
+   ```
+   ink detection: 194/195 cells detected, 1 fell back to caption-only band coverage
+     fallback cards (MUST be reviewed by a human -- band height for these was never measured against real ink, only against the zh caption's own rendered height):
+       card 162: no_ink_detected
+     ⚠ 1 card(s) fell back to caption-only band coverage (ink location could not be measured): [162]. For these cards ONLY, the band height is sized to the zh caption's own rendered height (line count x line height + margin), NOT to a fixed conservative height -- the true extent of the original Japanese ink is unknown, so any of that ink extending below the zh-sized band MAY REMAIN PARTIALLY VISIBLE. Human review required for each card listed in ink_fallback_cards.
+   ```
+2. **`manifest.json`**：新增顶层字段 `ink_fallback_coverage_note`（本轮
+   真实产物里就是上面那句话，`null` 当且仅当没有任何回退）。
+3. **`run()` 的 report 字典**：同一个字段，`test_ink_fallback_coverage_note_names_the_reduced_guarantee`
+   钉住其内容必须同时出现卡号、"caption"、"visible"、"unknown" 四类关键词，
+   不能被弱化成一句不痛不痒的状态说明。
+
+### 5. 变异红绿实况（本轮新增，Edit 应用+还原，未使用任何 git 回滚命令）
+
+三组必做变异全部按「关闭闸→跑测试确认真红→Edit 精确复原→跑测试确认恢复
+绿」的流程做过：
+
+| # | 变异内容 | 改动位置 | 结果 |
+|---|---|---|---|
+| A | 回退格色带高度改回固定值（`content_bottom = min(zh_bottom, CELL_H)` → `content_bottom = min(28, CELL_H)`） | `tools/bake_plot.py::decide_band` fallback 分支 | **红**：2 条测试失败——`test_decide_band_fallback_marks_whole_zone_hard`（`assert 28 == 14`）、`test_real_card162_fallback_band_sized_to_zh_caption_not_fixed_height`（同样 `assert 28 == 14`，真实卡 162 素材端到端复现） |
+| B | 「回退格只覆盖文字高度」告警不播报（`build_ink_fallback_coverage_note` 提前 `return None`） | `tools/bake_plot.py::build_ink_fallback_coverage_note` | **红**：3 条测试同时失败——`run()` 报告层 `test_ink_fallback_coverage_note_names_the_reduced_guarantee`（`assert None is not None`）、纯函数单测 `test_build_ink_fallback_coverage_note_names_cards_and_risk`（同上）、CLI 层 `test_cli_check_mode_prints_ink_fallback_coverage_warning`（打印出的 `⚠ None`，`"PARTIALLY VISIBLE" not in out`）——三个播报出口全部各自被独立测试覆盖，不是只测了其中一处就当作全测 |
+| C | 回退逻辑波及了正常格的高度（`decide_band` 的 `if fallback / else` 分支被合并成不管三七二十一都只用 `content_bottom = min(zh_bottom, CELL_H)`，`ink_bottom` 只在非回退时才算但不再参与 `content_bottom`） | `tools/bake_plot.py::decide_band` | **红**：3 条测试同时失败——专门为本次改动新增的回归钉子 `test_decide_band_nonfallback_cells_unaffected_by_fallback_refactor`（用改动前的生产代码跑出的 13 张真实非回退卡金标准数据，`card 6 content_bottom: assert 15 == 24`）、以及连带命中两条 v2 版就有的既有测试 `test_decide_band_ink_dominates_when_zh_is_short`（`assert 14 >= 22` 失败）、`test_real_card6_ink_dominates_over_short_zh`（`assert 15 == 24` 失败）——证明"正常格必须保留墨迹主导"这条性质有双重覆盖（新钉子 + 老测试），不是只靠一条新测试孤立扛着 |
+
+三组均为**真红**、且命中断言内容与变异描述精确对应；每次确认变红后立即
+用 `Edit` 精确复原对应代码块，复原后 `tests/test_bake_plot.py -q` 与全量
+`pytest -q` 均恢复通过，全程未使用任何 `git checkout`/`stash`/`restore`
+等回滚类命令。
+
+### 6. 测试结果
+
+- `tests/test_bake_plot.py`：从上一版的 38 条增至 **44 条**（新增 6 条：
+  卡 162 端到端回归钉子 1 条、告警内容测试 2 条（`run()` 层 + 纯函数层，
+  含"没有回退时 note 必须是 None"的反向确认）、CLI 播报测试 1 条、正常格
+  不受影响的回归钉子 1 条；另外把 2 条引用了已删除常量
+  `FALLBACK_BAND_BOTTOM` 的既有测试原地改写为不依赖任何写死数字的独立
+  实测断言，未净增未净减条目）。单独跑：**44 passed**。
+- 全量套件 `uv run pytest -q`：本轮改动前 **871 passed**（任务交办时的
+  基线），改动后 **877 passed**，净增 6 条，与
+  `tests/test_bake_plot.py` 的净增条数精确对齐，无其他文件的测试受影响。
+- 无 skip、无 xfail。
+
+### 7. 产物重新生成
+
+`uv run python3 tools/bake_plot.py` 重新生成 `build/plot_zh/`：
+`plot_{1..4}_a.png`、`_compare.png`、`_cellzoom.png`（`CELLZOOM_CARDS` 表
+里卡 162 本来就排第一位，本轮沿用不必新增）、`manifest.json`。已用 Read
+工具目视核对 `_cellzoom.png`：卡 162 格子（左上角第一格）的青/粉标线明显
+比其余格子更贴近文字底部，黑色色带只压住「第二物语」一行，副标题
+`〜彼女の夏、15分の記憶〜` 的上半部分在色带下方重新透出——与用户裁定的
+预期完全吻合。
+
+### 复核用命令
+
+```bash
+uv run pytest tests/test_bake_plot.py -q      # 44 passed
+uv run pytest -q                               # 877 passed（全量）
+uv run python3 tools/bake_plot.py              # 重新生成 build/plot_zh/*
+                                                # （卡 162 在 _cellzoom.png 里排第一格）
+```

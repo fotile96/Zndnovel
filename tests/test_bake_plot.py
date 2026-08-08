@@ -19,12 +19,13 @@ from PIL import Image, ImageFont
 
 from tools.bake_plot import (
     BAND_BOTTOM_FEATHER_PX, CARDS_PER_SHEET, CELL_H, CELL_W, ELLIPSIS,
-    FALLBACK_BAND_BOTTOM, FONT_PATH, HARD_ALPHA, INK_MAX_PLAUSIBLE_BOTTOM,
-    MAX_TEXT_W, NUM_CARDS, NUM_SHEETS, PLOT_DIR, _tokenize, bake_cell,
-    bake_sheet, cell_box, cell_position, collect_ink_fallbacks,
-    collect_overflow, decide_band, find_outside_box_diffs, ink_bbox_of_cell,
-    load_titles_zh, measure_rendered_text_bottom, render_band_layer,
-    render_text_layer, run, wrap_title,
+    FONT_PATH, HARD_ALPHA, INK_MAX_PLAUSIBLE_BOTTOM, MAX_TEXT_W, NUM_CARDS,
+    NUM_SHEETS, PLOT_DIR, ZH_BOTTOM_MARGIN, _tokenize, bake_cell, bake_sheet,
+    build_ink_fallback_coverage_note, cell_box, cell_position,
+    collect_ink_fallbacks, collect_overflow, decide_band,
+    find_outside_box_diffs, ink_bbox_of_cell, load_titles_zh, main,
+    measure_rendered_text_bottom, render_band_layer, render_text_layer, run,
+    wrap_title,
 )
 
 
@@ -362,17 +363,24 @@ def test_decide_band_implausible_ink_falls_back():
 
 
 def test_decide_band_fallback_marks_whole_zone_hard():
-    """无法测出墨迹时（如全灰格子），回退高度取 FALLBACK_BAND_BOTTOM，且
-    因为不知道原文墨迹具体在哪，整个区域都必须按『必须不透明』处理——不能
-    只做局部不透明然后赌真正的墨迹恰好落在软区。"""
+    """无法测出墨迹时（如全灰格子），回退高度取『中文实际渲染需要的高度』
+    （不再是任何固定值），且因为不知道原文墨迹具体在哪，整个区域都必须按
+    『必须不透明』处理——不能只做局部不透明然后赌真正的墨迹恰好落在软区。
+    变异目标：如果回退高度被改回一个固定常量（不随中文行数变化），这条
+    测试必须变红——它用一个短标题独立算出期望值，不依赖任何写死的数字。"""
     font = _font()
     cell = Image.new("RGBA", (CELL_W, CELL_H), (128, 128, 128, 255))
     lines, _ = wrap_title("短", font)
+    expected_content_bottom = measure_rendered_text_bottom(lines, font) + ZH_BOTTOM_MARGIN
     decision = decide_band(cell, lines, font)
     assert decision.fallback is True
     assert decision.fallback_reason == "no_ink_detected"
-    assert decision.content_bottom == FALLBACK_BAND_BOTTOM
-    assert decision.hard_range == (0, FALLBACK_BAND_BOTTOM)
+    assert decision.ink_bottom_used is None
+    assert decision.content_bottom == expected_content_bottom
+    assert decision.hard_range == (0, expected_content_bottom)
+    # 具体到这个单字合成格子：中文只需 1 行，回退高度必须远小于旧的固定
+    # 28px（旧方案按『2 行 JP + 安全边』写死，不管中文实际只要 1 行）。
+    assert decision.content_bottom < 20
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +416,141 @@ def test_real_run_report_flags_card_162_as_ink_fallback():
     assert report["ink_detection_summary"] == {
         "total": 195, "detected": 194, "fallback": 1,
     }
+
+
+def test_real_card162_fallback_band_sized_to_zh_caption_not_fixed_height():
+    """用户裁定的直接回归钉子（2026-08-08）：卡 162（游戏标题 logo 格，
+    唯一的墨迹检测回退格）的中文标题『第二物语』只需 1 行，回退色带高度
+    必须按这 1 行的实际渲染高度算，不能再是旧方案『2 行 JP + 安全边』的
+    固定 28（+ 4px 羽化 = 32 行可见色带，实测像故障——y0-31 共 32 行，
+    文字下方空出一大片纯黑）。
+
+    变异目标 1（『回退格色带高度改回固定值』）：如果 decide_band 的回退
+    分支被改回写死 28，这里的 content_bottom/band_bottom 断言必须变红
+    ——期望值是独立用 measure_rendered_text_bottom 现测出来的，不依赖
+    生产代码内部同一份计算，不会跟着同一个 bug 一起偏。"""
+    font = _font()
+    titles = load_titles_zh()
+    assert titles[162] == "第二物语"
+    lines, truncated = wrap_title(titles[162], font)
+    assert not truncated and len(lines) == 1  # 确认只需一行
+
+    cell = _real_cell(162)
+    decision = decide_band(cell, lines, font)
+    assert decision.fallback is True
+    assert decision.fallback_reason == "no_ink_detected"
+
+    expected_content_bottom = measure_rendered_text_bottom(lines, font) + ZH_BOTTOM_MARGIN
+    assert decision.content_bottom == expected_content_bottom
+    assert decision.hard_range == (0, expected_content_bottom)
+    expected_band_bottom = min(expected_content_bottom + BAND_BOTTOM_FEATHER_PX, CELL_H)
+    assert decision.band_bottom == expected_band_bottom
+
+    # 用户裁定的具体诉求：改前是 32 行（0..31）的整片黑色带，明显盖过 1 行
+    # 字实际需要的高度、留出了『第二行』的空当；改后必须显著变矮。
+    assert decision.band_bottom < 20
+    assert decision.band_bottom < 32
+
+
+def test_ink_fallback_coverage_note_names_the_reduced_guarantee():
+    """变异目标（『回退格只覆盖文字高度』这条告警不播报 -> 必须真红）：
+    run() 的 report 必须包含一条非空的 ink_fallback_coverage_note，且
+    这条note必须明确点出『按文字高度覆盖、原文墨迹可能残留可见』这件
+    事——不能只是『有格子回退了』这种不痛不痒的状态说明，藏起真正的
+    风险等于恒绿。"""
+    report = run(write=False)
+    note = report["ink_fallback_coverage_note"]
+    assert note is not None
+    assert "162" in note
+    assert "caption" in note.lower()
+    assert "visible" in note.lower()
+    assert "unknown" in note.lower()
+
+
+def test_build_ink_fallback_coverage_note_absent_when_no_fallback():
+    """反向确认：note 不是恒非空的摆设——没有任何回退时必须是 None，不能
+    无论有没有回退都吐出同一句话（那样就失去了「有回退时才要警觉」的
+    信号价值）。这是对 build_ink_fallback_coverage_note 本身的单元测试，
+    不依赖 png/plot/ 今天恰好有 card 162 这一个回退格。"""
+    assert build_ink_fallback_coverage_note([]) is None
+
+
+def test_build_ink_fallback_coverage_note_names_cards_and_risk():
+    """build_ink_fallback_coverage_note 的单元测试（与 run() 的真实素材
+    解耦）：喂合成的 fallback 列表，确认卡号、以及『按文字高度覆盖、原文
+    可能残留可见』这条具体风险措辞都在返回的字符串里，不是一句『有格子
+    回退了』的空话。"""
+    note = build_ink_fallback_coverage_note([(2, "no_ink_detected"), (7, "implausible_ink_bottom_40")])
+    assert note is not None
+    assert "2" in note and "7" in note
+    assert "caption" in note.lower()
+    assert "visible" in note.lower()
+    assert "unknown" in note.lower()
+
+
+def test_cli_check_mode_prints_ink_fallback_coverage_warning(capsys):
+    """变异目标（同上，CLI 侧）：`--check` 模式下 main() 的标准输出必须
+    包含这条告警的完整措辞，不能只在 manifest.json 里写、CLI 却只打印一句
+    『N 个格子回退了』就完事——用户明确要求 CLI/manifest/report 三处都要
+    看得到。"""
+    import sys
+    argv_backup = sys.argv
+    try:
+        sys.argv = ["bake_plot.py", "--check"]
+        main()
+    finally:
+        sys.argv = argv_backup
+    out = capsys.readouterr().out
+    assert "card 162" in out
+    assert "caption-only" in out
+    assert "PARTIALLY VISIBLE" in out
+
+
+# ---------------------------------------------------------------------------
+# 4b. 回退逻辑绝不能波及正常（非回退）格子的高度计算（变异目标）
+# ---------------------------------------------------------------------------
+
+# 2026-08-08 改动前（用户裁定修正卡 162 之前）用生产代码对这些真实非回退
+# 卡片跑出的 decide_band 结果，逐字段记录为金标准。这批数字与本轮改动
+# （只动 decide_band 的 fallback 分支）无关，理应在改动后逐字节不变——
+# 如果哪个数字变了，说明修 fallback 分支时不小心波及了正常格子的公式。
+_NONFALLBACK_GOLDEN = {
+    #  card: (content_bottom, band_bottom, hard_range)
+    1:   (26, 30, (2, 24)),
+    2:   (27, 31, (2, 24)),
+    3:   (14, 18, (2, 12)),
+    6:   (24, 28, (2, 24)),
+    9:   (15, 19, (2, 12)),
+    25:  (27, 31, (2, 12)),
+    59:  (14, 18, (2, 12)),
+    60:  (14, 18, (2, 12)),
+    101: (24, 28, (2, 24)),
+    115: (14, 18, (3, 12)),
+    170: (22, 26, (2, 20)),
+    180: (26, 30, (2, 24)),
+    195: (24, 28, (3, 24)),
+}
+
+
+def test_decide_band_nonfallback_cells_unaffected_by_fallback_refactor():
+    """变异目标（『回退逻辑波及了正常格的高度』-> 必须真红）：这批卡全部
+    是非回退格（ink_bbox_of_cell 能测出墨迹），它们的 content_bottom /
+    band_bottom / hard_range 是本次改动之前用同一套生产代码跑出来的金标准
+    （见 _NONFALLBACK_GOLDEN 注释）。本次改动只重写了 decide_band 的
+    fallback 分支，非回退分支的代码字面上没有变化——但『没有变化』需要
+    被这条测试实际证明，而不是靠读代码"应该没事"。如果修 fallback 分支时
+    手滑改到了共享的 max()/content_bottom 计算，或者不小心让 fallback 的
+    判断条件覆盖到了正常格子，这里会立刻现出不匹配。"""
+    font = _font()
+    titles = load_titles_zh()
+    for card, (exp_content, exp_band, exp_hard) in _NONFALLBACK_GOLDEN.items():
+        lines, _ = wrap_title(titles[card], font)
+        cell = _real_cell(card)
+        decision = decide_band(cell, lines, font)
+        assert decision.fallback is False, f"card {card} unexpectedly fell back"
+        assert decision.content_bottom == exp_content, f"card {card} content_bottom"
+        assert decision.band_bottom == exp_band, f"card {card} band_bottom"
+        assert decision.hard_range == exp_hard, f"card {card} hard_range"
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +626,10 @@ def test_bake_cell_band_bottom_varies_with_real_content_not_fixed():
     _, short_decision = bake_cell(short_cell, short_lines, font)
     _, long_decision = bake_cell(long_cell, long_lines, font)
     assert short_decision.band_bottom < long_decision.band_bottom
-    assert short_decision.band_bottom < FALLBACK_BAND_BOTTOM
+    # 旧实现里任何非回退格都恒等于 28（旧的固定 TEXT_BOX 高度）；新实现里
+    # 短标题格子的高度必须明显小于这个数，证明它是逐格实测出来的，不是
+    # 巧合落在旧常量附近。
+    assert short_decision.band_bottom < 28
 
 
 def test_render_band_layer_hard_zone_is_fully_opaque_soft_zone_is_not():

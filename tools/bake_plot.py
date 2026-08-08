@@ -37,6 +37,11 @@ from collections import namedtuple
 from PIL import Image, ImageDraw, ImageFont
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO not in sys.path:  # allow `python3 tools/bake_plot.py` direct invocation
+    sys.path.insert(0, REPO)
+
+from tools.zh_wrap import wrap as _zh_wrap
+
 PLOT_DIR = os.path.join(REPO, "png", "plot")
 CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
 FONT_PATH = os.path.join(REPO, "third_party", "LXGWWenKai-Regular.ttf")
@@ -246,58 +251,38 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9]+|.")
 def _tokenize(text):
     """Split text into wrap atoms: runs of ASCII letters/digits stay whole
     (so a line break never lands inside a number like "10"), every other
-    character (CJK, punctuation, kana) is its own atom."""
+    character (CJK, punctuation, kana) is its own atom.
+
+    Kept for backward compatibility (still imported directly by
+    tests/test_bake_plot.py::test_tokenize_keeps_ascii_digit_runs_atomic).
+    wrap_title() itself no longer uses this -- see tools/zh_wrap.py, which
+    re-derives the same ASCII/digit-run atomicity guarantee at the
+    character-position level (_ascii_digit_hard_positions)."""
     return _TOKEN_RE.findall(text)
 
 
 def wrap_title(text, font, max_width=MAX_TEXT_W, max_lines=MAX_LINES, measurer=None):
-    """Greedy-wrap text into at most max_lines lines, each <= max_width px.
+    """Wrap text into at most max_lines lines, each <= max_width px, using
+    the shared word-boundary-aware, globally-optimal wrapper in
+    tools/zh_wrap.py (DP over penalty functions -- width imbalance, orphan
+    single-char lines, word-internal breaks, kinsoku) instead of the old
+    greedy fill-then-truncate algorithm.
 
-    Returns (lines, truncated). The first max_lines-1 lines are filled
-    normally (one line break per width overflow); the LAST line absorbs
-    everything left over. If even the last line can't fit what remains,
-    it's trimmed and an ellipsis appended, and truncated=True is returned
-    -- callers MUST surface this (see collect_overflow) rather than let it
-    pass silently.
+    Returns (lines, truncated) -- same signature/semantics as before this
+    migration (see tools/zh_wrap.py:wrap()'s docstring for the full `info`
+    dict this discards; call tools.zh_wrap.wrap() directly for that).
+    truncated=True means the retreat chain's last-resort step fired (text
+    genuinely does not fit in max_lines lines even after every other
+    concession) -- callers MUST surface this (see collect_overflow) rather
+    than let it pass silently, exactly as before.
     """
     if measurer is None:
         _probe = Image.new("RGBA", (1, 1))
         _d = ImageDraw.Draw(_probe)
         measurer = lambda s: _d.textlength(s, font=font)
 
-    atoms = _tokenize(text)
-    lines = []
-    cur = ""
-    i = 0
-    # Fill all but the last line normally.
-    while i < len(atoms) and len(lines) < max_lines - 1:
-        atom = atoms[i]
-        trial = cur + atom
-        if measurer(trial) > max_width and cur:
-            lines.append(cur)
-            cur = atom
-        else:
-            cur = trial
-        i += 1
-
-    # Last line absorbs everything remaining (cur so far + atoms[i:]).
-    remaining = atoms[i:]
-    last = cur
-    j = 0
-    while j < len(remaining):
-        atom = remaining[j]
-        trial = last + atom
-        if measurer(trial) > max_width and last:
-            break
-        last = trial
-        j += 1
-    truncated = j < len(remaining)
-    if truncated:
-        while last and measurer(last + ELLIPSIS) > max_width:
-            last = last[:-1]
-        last = (last + ELLIPSIS) if last else ELLIPSIS
-    lines.append(last)
-    return lines, truncated
+    lines, info = _zh_wrap(text, max_width, max_lines=max_lines, measurer=measurer)
+    return lines, info["truncated"]
 
 
 def collect_overflow(titles, font, max_width=MAX_TEXT_W, max_lines=MAX_LINES):
@@ -708,7 +693,15 @@ def build_compare_image(pairs):
 # is the longest 2-line JP title (worst-case coverage need), 9 is a short
 # single-line cell chosen to show how much background area a short caption
 # now gets back compared to the old fixed-28 approach.
-CELLZOOM_CARDS = [162, 6, 25, 59, 195, 101, 115, 170, 180, 9]
+#
+# 56 was prepended 2026-08-08 when wrap_title migrated to tools/zh_wrap.py's
+# word-boundary-aware DP wrapper: it's the user-reported bad case (old
+# greedy split "回荡在走廊的声" / "音" -- "声音" torn apart mid-word, with
+# an orphan trailing "音"). Kept first for visibility. See
+# build/plot_zh/_wrap_diff.md for the full before/after table across all
+# 195 titles, and build/plot_zh/_card56_before_after.png for a dedicated
+# side-by-side render of this specific card under the old vs new algorithm.
+CELLZOOM_CARDS = [56, 162, 6, 25, 59, 195, 101, 115, 170, 180, 9]
 CELLZOOM_SCALE = 6
 
 

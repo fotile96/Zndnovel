@@ -7,7 +7,7 @@ section 6). The user reviewed it, asked for a slightly bigger font, was shown
 a size-comparison sheet, and picked 10px to ship (see
 .superpowers/sdd/2026-08-07-p4-polish-pass/bake-scene-report.md for the full
 before/after writeup). This script renders BOTH versions in memory --
-old (9px, TEXT_BOX=(5,0,140,15)) on top, new (10px, TEXT_BOX=(3,0,142,15))
+old (9px, OLD_TEXT_BOX=(5,0,140,15)) on top, new (10px, NEW_TEXT_BOX=(3,0,142,15))
 below -- for a handful of representative cards, scaled up for a direct
 side-by-side look. It does NOT touch git history or any checked-in PNG: the
 "old" render is reproduced by calling the same bake_cell()/render_text_layer()
@@ -15,10 +15,14 @@ machinery with explicit old-parameter arguments, sourced from the real
 png/scene/ sheets (which are untouched, read-only originals) -- not from any
 previously-baked build/ output.
 
-The OLD_* constants below are a frozen historical snapshot (the v1 baseline
-that shipped before this decision), intentionally NOT read from
-tools.bake_scene's current module-level FONT_SIZE/TEXT_BOX (those now hold
-the v2/10px values -- see that module's docstring "v2 update" section).
+The OLD_* and NEW_* constants below are a frozen historical snapshot (the
+v1-vs-v2 comparison as it shipped), intentionally NOT read from
+tools.bake_scene's current module-level constants -- as of the v3 update,
+that module no longer has a single "current" font size at all (it moved to
+a per-cell FONT_SIZE_CASCADE, see that module's docstring). Freezing both
+sides here keeps this script meaning exactly what it always meant ("what
+did uniform 9px vs uniform 10px look like"), unaffected by any future
+change to the module's cascade.
 """
 import os, sys
 
@@ -29,22 +33,27 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tools.bake_scene import (
-    CELL_H, CELL_W, CELLZOOM_CARDS, FONT_PATH, FONT_SIZE, OUT_DIR, TEXT_BOX,
-    bake_cell, cell_box, sheet_path,
+    CELL_H, CELL_W, FONT_PATH, OUT_DIR, bake_cell, cell_box, sheet_path,
 )
 from tools.bake_plot import load_titles_zh
 
-# Frozen v1 baseline -- NOT tools.bake_scene.FONT_SIZE/TEXT_BOX (those are
-# v2/current). Deliberately hardcoded here so this script keeps working as a
-# permanent "what did the old one look like" reference even after the module
-# moves on to a v3/v4 size in the future.
+# Frozen v1/v2 baseline -- deliberately NOT read from tools.bake_scene's
+# live module constants (which moved on to a v3 per-cell FONT_SIZE_CASCADE
+# and a CELLZOOM_CARDS list re-curated for that update's adjacency review --
+# see that module's docstring). Hardcoded here so this script keeps working
+# as a permanent "what did the 9px-vs-10px decision look like" reference,
+# unaffected by any later change to the module.
 OLD_FONT_SIZE = 9
 OLD_TEXT_BOX = (5, 0, 140, 15)
+NEW_FONT_SIZE = 10
+NEW_TEXT_BOX = (3, 0, 142, 15)
 OLD_BOX_OUTLINE = (0, 255, 255, 200)   # cyan, matches _cellzoom.png's convention
 NEW_BOX_OUTLINE = (255, 0, 255, 200)   # magenta, so the two boxes are visually distinct
 
 SCALE = 6
-CARDS = CELLZOOM_CARDS  # same hand-picked set as _cellzoom.png (182/180/118/2/90 + ordinary ones)
+# Frozen v1/v2 hand-picked set (independent of tools.bake_scene.CELLZOOM_CARDS,
+# which the v3 update re-curated for a different comparison -- see above).
+CARDS = [1, 195, 182, 90, 80, 133, 114, 2, 38, 145, 118, 180]
 
 
 def build_size_ab_image(titles, old_font, new_font, cards=CARDS, scale=SCALE):
@@ -72,7 +81,7 @@ def build_size_ab_image(titles, old_font, new_font, cards=CARDS, scale=SCALE):
         sheet_num, box = cell_box(card)
         cell = get_sheet(sheet_num).crop(box)
         old_cell = bake_cell(cell, titles[card], old_font, box=OLD_TEXT_BOX)
-        new_cell = bake_cell(cell, titles[card], new_font, box=TEXT_BOX)
+        new_cell = bake_cell(cell, titles[card], new_font, box=NEW_TEXT_BOX)
 
         col = i % cols
         row = i // cols
@@ -92,15 +101,15 @@ def build_size_ab_image(titles, old_font, new_font, cards=CARDS, scale=SCALE):
         bx1 = x + OLD_TEXT_BOX[2] * scale
         d.rectangle([bx0, y2, bx1, y2 + cell_disp_h - 1], outline=OLD_BOX_OUTLINE)
 
-        nx0 = x + TEXT_BOX[0] * scale
-        nx1 = x + TEXT_BOX[2] * scale
+        nx0 = x + NEW_TEXT_BOX[0] * scale
+        nx1 = x + NEW_TEXT_BOX[2] * scale
         by2 = y2 + cell_disp_h
         d.rectangle([nx0, by2, nx1, by2 + cell_disp_h - 1], outline=NEW_BOX_OUTLINE)
 
     legend_y = rows * row_h + gap
     d.text((gap, legend_y),
-           f"cyan = old TEXT_BOX {OLD_TEXT_BOX} (9px)   "
-           f"magenta = new TEXT_BOX {TEXT_BOX} ({FONT_SIZE}px)",
+           f"cyan = old TEXT_BOX {OLD_TEXT_BOX} ({OLD_FONT_SIZE}px)   "
+           f"magenta = new TEXT_BOX {NEW_TEXT_BOX} ({NEW_FONT_SIZE}px)",
            fill=(200, 200, 200, 255))
     return canvas
 
@@ -108,7 +117,7 @@ def build_size_ab_image(titles, old_font, new_font, cards=CARDS, scale=SCALE):
 def run(write=True):
     all_titles = load_titles_zh()
     old_font = ImageFont.truetype(FONT_PATH, OLD_FONT_SIZE)
-    new_font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
+    new_font = ImageFont.truetype(FONT_PATH, NEW_FONT_SIZE)
     img = build_size_ab_image(all_titles, old_font, new_font)
     if write:
         os.makedirs(OUT_DIR, exist_ok=True)

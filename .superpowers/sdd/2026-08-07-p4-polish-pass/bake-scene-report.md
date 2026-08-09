@@ -379,3 +379,180 @@ pixel_preservation_violations = 0**——与交办前给出的估算表一致，
    连"死文件"的归档价值都没有（比如确认是转换工具的一次性副产物、可以
    安全删除），那是一个高于本任务范围的仓库清理决策，本任务不擅自删除
    只读资产。
+
+## 12. 字号第二次调档：10px（全局单一） → 11px 优先 + 逐格级联回落（v3）
+
+用户看过 10px 成品后反馈「明显比 9px 好。再渲染一版 11px 的试试？会超宽的个别
+title 可以 fallback 到 10px 版本」——即从"全局单一字号"改成**逐格独立字号级联**：
+每张卡先试 11px，放不下才为**这一张卡单独**降到 10px，同屏字号不齐这个代价用户
+已经接受。这是与第 10 节（9→10px，全局单一字号）性质不同的一次改动：那次是"整体
+换挡"，这次是"分格换挡"。
+
+### 12.1 级联阶梯的实现
+
+`FONT_SIZE_CASCADE = [11, 10, 9]`（`tools/bake_scene.py`）——**是一个列表常量，不是
+写死的两档判断**。`build_render_plan(titles, fonts_by_size, cascade=FONT_SIZE_CASCADE)`
+对每张卡按顺序尝试列表里的每个字号，命中第一个"单行不需要丢字"（`tools.zh_wrap.wrap`
+的 `truncated=False`）的字号就停下；若整份列表（包括最小档）都放不下，计入
+`hard_failures`，绝不挑一个"凑合能显示但会截断"的档位去渲染。
+
+**证明阶梯是通用的、不是只应付两档特例**：`test_build_render_plan_walks_arbitrary_length_cascade`
+用一个 4 档合成级联 `[40, 30, 20, 10]` + 一段实测只有最小档（10px）放得下的合成标题
+（13 个汉字，`display_width`/像素宽度实测：40px 下 520px、30px 下 390px、20px 下
+260px，全部远超 139px 预算；10px 下 130px，放得下），验证 `build_render_plan` 确实
+会依次穿过 40→30→20 三个更大的档、把"穿过的档"如实记进 `fallbacks[…][2]`，才落在
+10px——不是"试一次不行就退一档"的特例代码。
+
+像素保全闸（`find_outside_box_diffs`/`bake_cell`）的坐标依据仍然只是模块级
+`TEXT_BOX=(3,0,142,15)`，与本次改动**完全无关**——`TEXT_BOX` 由背景条带模板的固定
+几何决定，从未依赖字号；本轮验证了这一点在代码里确实成立（`TEXT_BOX` 这次的 diff
+是 0 行改动），也用真实 195 张卡（11px 为主、4 张 10px 混排）跑批
+`test_bake_sheet_real_data_zero_pixel_violations`，确认混合字号数据下这条闸依旧
+0 违规。
+
+### 12.2 实测回落清单（工具跑出来的，不是估算表照抄）
+
+```
+$ uv run python3 tools/bake_scene.py
+cards: 195
+font size cascade: [11, 10, 9] (default 11px)
+fallbacks (cards NOT rendered at 11px): 4
+  card 2: -> 10px (overflowed at [11]px each)
+  card 90: -> 10px (overflowed at [11]px each)
+  card 180: -> 10px (overflowed at [11]px each)
+  card 182: -> 10px (overflowed at [11]px each)
+overflow (cascade exhausted -- would need real truncation): 0
+ink outliers (real JP caption not fitting TEXT_BOX, or undetected): 0
+vertical clip risks (ink would extend outside the cell's real canvas bounds): 0
+pixel-preservation violations: 0
+```
+
+**195 条真实标题，4 条回落**（卡 2「夏の朝、高校までの通学路」中文「夏日清晨，
+通往高中的上学路」/ 卡 90「选择：烟花之下，与ユウイチ」/ 卡 180「サクラ的日记：
+7月（未写完）」/ 卡 182「サクラ的日记：9月16日（夜）」——与交办前提给出的估算表
+一致），**全部只需降一档（11→10px）就放得下，没有一条需要再降到 9px**——9px 档
+在今天的数据下从未被真正命中，但级联机制每次都会去试它，不是"反正用不到就跳过
+实现"。`hard_failures==0`：没有任何标题连最小档都放不下，零截断闸未被触发。
+
+### 12.3 回落必须可见：三处落地位置
+
+| 位置 | 呈现方式 |
+|---|---|
+| CLI（`main()`） | `fallbacks (cards NOT rendered at 11px): 4` + 逐卡一行 `card N: -> 10px (overflowed at [11]px each)` |
+| `manifest.json` | 顶层 `"fallbacks"` 数组，每条 `{card, font_size, overflowed_at, reason}`；另有 `"cell_font_sizes"`（195 卡→实际字号的完整映射，非仅回落卡）、`"font_size_cascade"`、`"font_size_default"` |
+| `run()` 返回的报告字典 | 与 `manifest.json` 结构完全一致（`test_real_run_report_is_clean` 逐字段核对内存报告与落盘 JSON 一致，不允许两者口径不同步） |
+
+`_cellzoom.png` 的每格标签也标出实际字号与 `[FALLBACK]` 标记（如
+`#2 夏の朝、高校まで @10px [FALLBACK]`），让回落在图像本身里就可辨认，不需要
+额外去查 manifest 才知道哪几格降了档。
+
+### 12.4 静默回落场景的变异实测（三组，见 12.6）
+
+变异 A（见下）直接证明：若 `build_render_plan` 把 `fallbacks` 列表悄悄清空（保留
+`plans`/`hard_failures` 不变，即"渲染结果照常，只是不上报回落"），CLI 测试、
+`manifest.json`/报告结构测试、以及两条计划层测试合计 **6 条测试同时变红**——覆盖了
+CLI、结构化落盘、内存报告三处呈现位置，不是只有一处会发现。
+
+### 12.5 11px 字形高实测与切边风险结论
+
+用户交办前提估算「11px 的最大字形高 12px，格高 15px，上下各余 1.5px」——本轮不
+采信这个估算，实测如下：
+
+`measure_vertical_extent()`（新增）把渲染画到一张远大于单格（15px 高）的留白画布上、
+用与 `bake_cell` 完全相同的居中几何（`anchor="mm"` 对齐 `TEXT_BOX` 中心）绘制，再量
+墨迹（含 1px 描边）的竖直范围，换算回格坐标系——这是必须的方法论修正：直接在真实
+`CELL_H=15` 画布上量是测不出切边的，PIL 对画布外像素只会静默丢弃，不会报错也不会
+可见裁切，所以"在真实大小画布上量出的墨迹从未越界"这件事本身不能证明"没有切边"，
+只能证明"没有观测到"。
+
+195 张真实卡按各自解析出的级联字号（11px 为主、4 张 10px）实测：
+
+- **最大墨迹高度（含 1px 黑色描边）：14px**（TEXT_BOX 15px 高的格子里），出现在
+  卡 6「想不起约定」，竖直范围 `y∈[0,14)`（即像素行 0–13，PIL bbox 右/下边界为
+  开区间）。
+- **不是对称的 1.5px/1.5px 上下留白**：这一格的实测留白是**上边距 0px、下边距 1px**
+  （墨迹贴到格子最顶行，格子最底行——第 14 行——留空）。用户交办前提的"12px 字形高、
+  上下各余 1.5px"是估算，实测的真实最紧格是不对称的、且比估算更紧（14px 非 12px，
+  含描边）。
+- **195 格全量扫描，0 格切边**（`vertical_clip_risks == []`）——貌似"贴到顶行"很
+  危险，但 0px 留白仍在 `[0, 15)` 区间内，不是负数，没有实际越界；这是本轮"11px 是否
+  会切顶切底"这一问题的最终实测结论：**不会，但最紧的一格已经没有安全边**，若未来
+  卡名译文更换成更高的字形组合（如带声调符号、生僻部首），有真实的越界风险，
+  需要重新跑这条检查（`collect_vertical_clip_risks`，非一次性验证）。
+- **回归证明检测机制本身有效**：`test_measure_vertical_extent_detects_synthetic_oversize_font`
+  用一个 60px 的超大合成字号验证 `measure_vertical_extent` 确实能测出越界（不能只靠
+  "195 张真实卡今天没测出问题"来证明这条检测有牙）。
+
+### 12.6 变异红绿实况（Edit 应用 + 手工复原，未用任何 git 回滚命令）
+
+| # | 变异内容 | 改动位置 | 结果 |
+|---|---|---|---|
+| A | 回落静默：`build_render_plan` 恒返回空 `fallbacks`（`return plans, [], hard_failures`），保留 `plans`/`hard_failures` 不变——即渲染结果不变、只是不上报回落 | `tools/bake_scene.py::build_render_plan` | **真红**：6 条测试同时失败——`test_build_render_plan_real_titles_fallback_set`、`test_build_render_plan_walks_arbitrary_length_cascade`、`test_fallbacks_disabled_would_hide_the_downgrade`、`test_real_run_report_is_clean`（`fallbacks==[]`）、`test_cli_reports_fallbacks`（CLI 输出里找不到 `card 2: -> 10px`）、`test_cellzoom_cards_include_fallback_cards_and_real_row_neighbors` |
+| B | 零截断闸失效：`run()` 遇到 `hard_failures` 时不再 `raise`，改成把这些卡也塞进 `plans`（用最小档、截断后的 `info`），静默继续跑完整个流程 | `tools/bake_scene.py::run` | **真红**：`test_run_raises_on_hard_failure_instead_of_silently_truncating` 失败（`Failed: DID NOT RAISE RuntimeError`）——这条测试专门为这个故障模式而写，精确命中 |
+| C | 像素保全闸失效：`find_outside_box_diffs` 恒 `return []` | `tools/bake_scene.py::find_outside_box_diffs` | **真红**：`test_find_outside_box_diffs_detects_change_outside_box` 失败（`assert (0, 0) in []`） |
+
+三组变异全部按「Edit 改坏代码 → 跑测试确认变红 → Edit 精确复原 → 跑测试确认变绿」
+的流程操作，全程未使用任何 `git checkout`/`stash`/`restore`。复原后
+`grep -n "MUTATION" tools/bake_scene.py` 返回空（无残留标记），
+`tests/test_bake_scene.py -q` 恢复 **35 passed**，全量 `uv run pytest -q` 恢复
+**973 passed**。
+
+未出现"绿变异"（改动后测试仍通过、需要诊断"测试无牙 vs 变异没打中"的情况）——三组
+改动全部被命中，且命中的断言内容与变异描述精确对应：变异 A 命中的 6 条测试恰好覆盖
+CLI/manifest/report 三处呈现位置（不是被无关测试连带打死）；变异 B 只命中它专门对应
+的那一条测试（其余 34 条不受影响，因为这条变异只在"级联穷尽"这个从未被真实数据触发
+的分支里生效）；变异 C 命中的测试与第 7 节（v2 阶段）报告过的同名测试同一条断言。
+
+### 12.7 测试结果
+
+- `tests/test_bake_scene.py`：从 22 条增至 **35 条**（本轮净增 13 条），新增覆盖：
+  级联阶梯本身的形状约束（1 条）、真实数据回落集合精确核对（1 条）、通用多档级联的
+  合成回归（1 条）、级联穷尽的硬失败上报（1 条）、`run()` 遇硬失败必须 raise 且不落盘
+  任何文件（1 条）、回落静默变异回归形态（1 条）、竖直切边检测（真实数据 0 风险 +
+  合成过大字号回归证明检测有牙，2 条）、合成过大字号触发 `collect_vertical_clip_risks`
+  （1 条）、CLI 回落播报（1 条）、`_cellzoom.png` 选格覆盖回落卡+真实同行邻格的回归
+  钉子（1 条）、`build_cellzoom_image` 用真实级联结果跑通（1 条）、原有
+  `collect_overflow` 相关两条测试改造为"11px 下精确匹配已知 4 条回落集合"+
+  "9px（最小档）下 0 条"（新老各 1 条，覆盖同一份代码路径的不同视角）。
+  既有的格号映射、空白尾格、墨迹检测、擦除硬覆盖/残影对照组、水平居中、像素保真闸、
+  跨格背景一致性等测试保持不动（签名随 `bake_sheet(sheet_num, titles, fonts_by_card)`
+  的参数改动同步更新调用方式，断言本身未改）。
+- 全量套件 `uv run pytest -q`：**973 passed**（本任务起始基线 960，净增 13，与
+  `tests/test_bake_scene.py` 的净增一致；未修改任何其它模块的测试）。
+- 无 skip、无 xfail。
+
+### 12.8 其它工具文件的连带修复
+
+- `tools/bake_scene_size_ab.py`（第 10 节交付的 9px/10px 对照脚本，历史成品，本轮
+  不重新生成其输出）：原来直接 `import FONT_SIZE`，该名字随 v3 改动被
+  `FONT_SIZE_CASCADE` 取代，若不修复会在下次被运行时直接 `ImportError`。修复方式是
+  把该脚本"新版"一侧也冻结成显式常量 `NEW_FONT_SIZE=10`/`NEW_TEXT_BOX=(3,0,142,15)`
+  （与其本就有的 `OLD_FONT_SIZE=9`/`OLD_TEXT_BOX` 对称），使其继续表达"9px 对 10px"
+  这个历史决策的对照，不再隐式依赖模块的"当前"字号——该脚本本来就是"历史快照"定位，
+  这次是把这个定位坐实。
+- `tools/bake_scene_size_ab2.py`（新增，见下）。
+- `CELLZOOM_CARDS` 常量本身发生了变化（从"12 张挑难"改成"4 张回落卡+其真实同行
+  邻格"，见 12.9），`tools/bake_scene_size_ab.py` 不再依赖这个共享常量（改用自己
+  冻结的 `CARDS` 列表），避免两个脚本对同一个常量有不同预期。
+
+### 12.9 `_cellzoom.png` 选格改版：回落格与真实邻格并排
+
+`CELLZOOM_CARDS` 从原来"12 张挑难的展示格"改为 `[1,2,3, 88,89,90, 178,179,180,
+181,182,183]`——即 4 张回落卡（2/90/180/182）各自在真实 3 列网格里的**同一行**
+（分别是 sheet1 row0、sheet1 row29、sheet2 row25、sheet2 row26），配 `cols=3` 的
+展示布局后，图里每一显示行都精确复现了 `png/scene/` 原图里的真实一行——不是凑出来
+的效果，是用 `cell_position()` 反查真值算出来的（`test_cellzoom_cards_include_fallback_cards_and_real_row_neighbors`
+钉住这条关系，不依赖"这次恰好选对了"）。目视 `build/scene_zh/_cellzoom.png`：
+4 组回落格与其邻格并排展示，10px 字略小于同行 11px 邻格的观感是肉眼可辨的，但
+差距不算悬殊；具体是否接受由用户裁决。
+
+### 12.10 新增产物
+
+- `build/scene_zh/scene_{1,2}_a.png` / `_compare.png` / `_cellzoom.png`（改版选格）
+  / `manifest.json`（结构化回落记录）：11px 优先级联全量重新生成，覆盖第 10/11 节
+  记录的 10px 版本。
+- `tools/bake_scene_size_ab2.py`（新增，入库）：产出 `build/scene_zh/_size_ab2.png`
+  ——上排冻结的 v2 10px 均一版、下排 v3 级联实际解析结果（11px 为主，4 张回落卡
+  标 `[FALLBACK]` 显示为 10px），复用 `CELLZOOM_CARDS`（回落卡+真实邻格）保持与
+  `_cellzoom.png` 同一组卡便于交叉核对。同样只从只读的 `png/scene/` 原图现场渲染，
+  不依赖任何 `build/` 历史产物或 git 历史。

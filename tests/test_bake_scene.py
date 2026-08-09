@@ -190,11 +190,12 @@ def test_collect_ink_outliers_flags_ink_outside_text_box():
     from tools.bake_scene import ink_bbox_of_cell as _ink
     cell = Image.new("RGBA", (CELL_W, CELL_H), (0, 0, 0, 153))
     d = ImageDraw.Draw(cell)
-    d.rectangle([0, 0, 3, 3], fill=(255, 255, 255, 255))  # x<5，越出 TEXT_BOX
+    d.rectangle([0, 0, 3, 3], fill=(255, 255, 255, 255))  # x=0，恒 < TEXT_BOX[0]
     bbox = _ink(cell)
     assert bbox is not None
     x0, y0, x1, y1 = bbox
-    assert x0 < TEXT_BOX[0]  # 确认这个合成用例真的越界
+    assert x0 < TEXT_BOX[0]  # 确认这个合成用例真的越界（不写死具体像素数，
+    # 跟随 TEXT_BOX[0] 的实际取值，边距改动不会让这条测试悄悄失效）
 
 
 # ---------------------------------------------------------------------------

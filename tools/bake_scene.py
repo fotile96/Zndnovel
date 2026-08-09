@@ -58,11 +58,37 @@ any "scene_title"-kind derivation file.
   so this box (a) never touches the decorative notches and (b) fully
   contains 195/195 real captions with zero exceptions (see
   collect_ink_outliers / the spec doc's measurement table).
-- FONT_SIZE=9: LXGWWenKai renders at exactly N px advance/char and N px
-  glyph-cell height at size N (verified directly), and the real JP captions'
-  measured per-char advance is ~9px (145px-wide cells; e.g. card180's 15-char
-  title spans exactly 135px -> 9.0px/char) -- a visual-weight match, same
-  method bake_plot used to pick its own font size.
+- FONT_SIZE=9 (original v1 baseline): LXGWWenKai renders at exactly N px
+  advance/char and N px glyph-cell height at size N (verified directly), and
+  the real JP captions' measured per-char advance is ~9px (145px-wide cells;
+  e.g. card180's 15-char title spans exactly 135px -> 9.0px/char) -- a
+  visual-weight match, same method bake_plot used to pick its own font size.
+
+## v2 update: FONT_SIZE 9->10, TEXT_BOX margin 5->3px (user-requested enlarge)
+
+After reviewing the v1 (9px) output side by side with a size comparison
+sheet, the user asked for a slightly bigger font for readability and picked
+**10px** as the size to ship. At 10px with the original 5px margin
+(TEXT_BOX width 135px), 2/195 real captions overflow (card182 needs ~138px,
+card180 needs ~136px) -- so the margin was tightened from 5px to 3px
+(TEXT_BOX width 139px) *together with* the font bump, which brings real
+overflow back to 0/195 (re-verified by collect_overflow() on every run, not
+assumed -- see .superpowers/sdd/2026-08-07-p4-polish-pass/bake-scene-report.md
+for the measured table this is based on). Font-size and margin are changed
+together; changing only one would leave 2 titles clipped.
+
+This margin change also changes the pixel-preservation gate's coverage
+rectangle (find_outside_box_diffs/bake_cell both key off TEXT_BOX): the 2px
+strip on each side (x=3-4 and x=140-141) that used to sit *outside* TEXT_BOX
+(v1: (5,0,140,15), fully protected/untouched) is now *inside* TEXT_BOX (v2:
+(3,0,142,15)) and gets unconditionally overwritten by the flat band fill.
+Per build/scene_layout_spec.md section 4, that 2px strip falls within the
+corner notch decoration's column range (x in [0,4] union [140,144]) -- so
+those two edge columns' alpha-gradient notch pixels (at the notch's active
+rows, roughly y in {1..4} union {10..13}) are now part of the redraw area
+and are no longer preservation-gate-protected. This is the one real safety-
+surface change from the margin edit; see the report for the exact measured
+delta.
 """
 import argparse, json, os, sys
 
@@ -95,9 +121,12 @@ NUM_CARDS = 195
 # Text layout -- see build/scene_layout_spec.md section 4 for the measured
 # evidence behind every value here.
 # ---------------------------------------------------------------------------
-FONT_SIZE = 9
-TEXT_BOX = (5, 0, 140, 15)   # (x0, y0, x1, y1); redraw + coverage rectangle
-MAX_TEXT_W = TEXT_BOX[2] - TEXT_BOX[0]   # 135
+# v2: 9->10px per user request (see module docstring "v2 update"); margin
+# tightened 5->3px in the same change so real-title overflow stays at 0/195
+# (verified every run by collect_overflow(), not assumed -- see report).
+FONT_SIZE = 10
+TEXT_BOX = (3, 0, 142, 15)   # (x0, y0, x1, y1); redraw + coverage rectangle
+MAX_TEXT_W = TEXT_BOX[2] - TEXT_BOX[0]   # 139
 MAX_LINES = 1                # cell height (15px) structurally forces one line
                               # -- the original never uses 2 lines for any of
                               # the 195 real captions (measured y-extent is

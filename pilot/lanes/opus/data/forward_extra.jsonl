@@ -398,8 +398,8 @@
 {"key":"snr_e1_10_s:1720","kind":"scene_title","zh":"告白","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e1_10_s:1721","kind":"scene_title","zh":"两人的身影","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e1_10_s:1722","kind":"scene_title","zh":"第几个夏天","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_e1_10_s:1723","kind":"scene_title","zh":"重逢的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_e1_10_s:1724","kind":"scene_title","zh":"然后，物语迎来了片尾","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_e1_10_s:1723","kind":"scene_title","zh":"重逢的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_e1_10_s:1724","kind":"scene_title","zh":"然后，故事迎来了片尾","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e1_10_s:1725","kind":"scene_title","zh":"中庭的男学生","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e1_10_s:1730","kind":"scene_title","zh":"章节 EX1 完成","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1880","kind":"scene_title","zh":"谁也没有来","source":"cards.zh:card=26","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -428,13 +428,13 @@
 {"key":"snr_e2_10_f:1947","kind":"scene_title","zh":"祭典","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1950","kind":"scene_title","zh":"烟花","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1953","kind":"scene_title","zh":"放学后的教室","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_e2_10_f:1956","kind":"scene_title","zh":"我们的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_e2_10_f:1956","kind":"scene_title","zh":"我们的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1959","kind":"scene_title","zh":"传话游戏","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1962","kind":"scene_title","zh":"文化祭","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1965","kind":"scene_title","zh":"章节全通","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1968","kind":"scene_title","zh":"天台","source":"cards.zh:card=85|119（同名多卡，zh 一致）","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1971","kind":"scene_title","zh":"下课","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_e2_10_f:1974","kind":"scene_title","zh":"传承下去的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_e2_10_f:1974","kind":"scene_title","zh":"传承下去的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1977","kind":"scene_title","zh":"第二物语","source":"cards.zh:card=162","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_f:1984","kind":"scene_title","zh":"章节 EX2 读完","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_e2_10_s:1038","kind":"scene_title","zh":"谁也没有来","source":"cards.zh:card=26","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -481,7 +481,7 @@
 {"key":"snr_s1_10_s:2731","kind":"scene_title","zh":"ユウイチ与快餐","source":"cards.zh:card=17","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2734","kind":"scene_title","zh":"选择：回学校","source":"cards.zh:card=18","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2747","kind":"scene_title","zh":"一如往常的生活","source":"cards.zh:card=19","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s1_10_s:2750","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s1_10_s:2750","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2754","kind":"scene_title","zh":"探索：放学后的学校","source":"cards.zh:card=20|74（同名多卡，zh 一致）","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2856","kind":"scene_title","zh":"放学后的钱仙","source":"cards.zh:card=21","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2859","kind":"scene_title","zh":"与她的相遇","source":"cards.zh:card=22","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -490,7 +490,7 @@
 {"key":"snr_s1_10_s:2868","kind":"scene_title","zh":"选择：声音的主人","source":"cards.zh:card=25","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2885","kind":"scene_title","zh":"她的名字","source":"cards.zh:card=27","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2892","kind":"scene_title","zh":"约定不守可不行","source":"cards.zh:card=28","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s1_10_s:2895","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s1_10_s:2895","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2898","kind":"scene_title","zh":"ユウイチ救下アヤノ","source":"cards.zh:card=29","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2901","kind":"scene_title","zh":"有谁在呼唤","source":"cards.zh:card=30","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s1_10_s:2904","kind":"scene_title","zh":"章节 1 完成","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -503,7 +503,7 @@
 {"key":"snr_s2_10_f:704","kind":"scene_title","zh":"日暮","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_f:711","kind":"scene_title","zh":"章节 2 读完","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2731","kind":"scene_title","zh":"又是一如往常的生活","source":"cards.zh:card=31","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s2_10_s:2734","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s2_10_s:2734","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2737","kind":"scene_title","zh":"夏天的计划","source":"cards.zh:card=32","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2740","kind":"scene_title","zh":"选择：周末的计划","source":"cards.zh:card=33","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2750","kind":"scene_title","zh":"不去","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -552,9 +552,9 @@
 {"key":"snr_s2_10_s:2967","kind":"scene_title","zh":"觉得做了也不亏","source":"cards.zh:card=54","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2970","kind":"scene_title","zh":"咒语完成","source":"cards.zh:card=55","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2990","kind":"scene_title","zh":"回荡在走廊的声音","source":"cards.zh:card=56","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s2_10_s:2993","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s2_10_s:2993","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:2996","kind":"scene_title","zh":"ユウイチ的背影","source":"cards.zh:card=57","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s2_10_s:2999","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s2_10_s:2999","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:3002","kind":"scene_title","zh":"夜晚的走廊","source":"cards.zh:card=58","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:3011","kind":"scene_title","zh":"游泳池","source":"cards.zh:card=59","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s2_10_s:3014","kind":"scene_title","zh":"天文馆","source":"cards.zh:card=60","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -586,7 +586,7 @@
 {"key":"snr_s3_10_s:2564","kind":"scene_title","zh":"选择：颇有意思的传闻","source":"cards.zh:card=66","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2583","kind":"scene_title","zh":"选择：传闻是指","source":"cards.zh:card=67","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2598","kind":"scene_title","zh":"对传闻没兴趣","source":"cards.zh:card=68","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s3_10_s:2601","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s3_10_s:2601","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2604","kind":"scene_title","zh":"闹鬼楼梯","source":"cards.zh:card=69","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2607","kind":"scene_title","zh":"选择：传闻的事……","source":"cards.zh:card=70","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2628","kind":"scene_title","zh":"随口打听","source":"cards.zh:card=71","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -607,7 +607,7 @@
 {"key":"snr_s3_10_s:2851","kind":"scene_title","zh":"前往楼梯","source":"cards.zh:card=83","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2861","kind":"scene_title","zh":"ユウイチ的手","source":"cards.zh:card=84","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2864","kind":"scene_title","zh":"天台","source":"cards.zh:card=85|119（同名多卡，zh 一致）","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s3_10_s:2867","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s3_10_s:2867","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2870","kind":"scene_title","zh":"与ユウイチ前往楼梯","source":"cards.zh:card=86","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2873","kind":"scene_title","zh":"选择：与ユウイチ……","source":"cards.zh:card=87","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s3_10_s:2886","kind":"scene_title","zh":"但总有一天会分开","source":"cards.zh:card=92","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -638,7 +638,7 @@
 {"key":"snr_s4_10_fb:1004","kind":"scene_title","zh":"前往酒吧","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:1007","kind":"scene_title","zh":"彩野同学打来的电话","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:1014","kind":"scene_title","zh":"章节 4B 读完","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s4_10_fb:959","kind":"scene_title","zh":"物语的一切","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s4_10_fb:959","kind":"scene_title","zh":"故事的一切","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:962","kind":"scene_title","zh":"日暮","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:965","kind":"scene_title","zh":"蹲下来的彩野","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:968","kind":"scene_title","zh":"选择：将彩野同学――","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -648,7 +648,7 @@
 {"key":"snr_s4_10_fb:986","kind":"scene_title","zh":"掌心相握的两人","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:989","kind":"scene_title","zh":"烟花散尽","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:992","kind":"scene_title","zh":"回家吧","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s4_10_fb:995","kind":"scene_title","zh":"她的『物语』","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s4_10_fb:995","kind":"scene_title","zh":"她的『故事』","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_fb:998","kind":"scene_title","zh":"一脸凝重","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2540","kind":"scene_title","zh":"口袋里的字条","source":"cards.zh:card=146","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2543","kind":"scene_title","zh":"选择：天台的传闻","source":"cards.zh:card=147","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -663,7 +663,7 @@
 {"key":"snr_s4_10_s:2610","kind":"scene_title","zh":"没有兴趣","source":"cards.zh:card=155","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2614","kind":"scene_title","zh":"探索：アヤノ怎么了？","source":"cards.zh:card=156","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2721","kind":"scene_title","zh":"走廊上的ユウイチ","source":"cards.zh:card=157","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s4_10_s:2724","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s4_10_s:2724","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2729","kind":"scene_title","zh":"选择：字条的内容","source":"cards.zh:card=159","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2742","kind":"scene_title","zh":"觉得真无聊","source":"cards.zh:card=160","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2746","kind":"scene_title","zh":"声响","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -672,7 +672,7 @@
 {"key":"snr_s4_10_s:2758","kind":"scene_title","zh":"翻倒的课桌","source":"cards.zh:card=163","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2766","kind":"scene_title","zh":"选择：アヤノ的课桌","source":"cards.zh:card=164","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2779","kind":"scene_title","zh":"天台的人影","source":"cards.zh:card=165","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s4_10_s:2782","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s4_10_s:2782","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2785","kind":"scene_title","zh":"查看アヤノ的课桌","source":"cards.zh:card=166","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2788","kind":"scene_title","zh":"选择：アヤノ的笔记本","source":"cards.zh:card=167","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2798","kind":"scene_title","zh":"寻找アヤノ","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -681,7 +681,7 @@
 {"key":"snr_s4_10_s:2926","kind":"scene_title","zh":"选择：将アヤノ――","source":"cards.zh:card=170","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2942","kind":"scene_title","zh":"让彩野恢复原样","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2946","kind":"scene_title","zh":"抓住手臂","source":"cards.zh:card=171","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s4_10_s:2949","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s4_10_s:2949","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2956","kind":"scene_title","zh":"アヤノ恢复意识","source":"cards.zh:card=172","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2959","kind":"scene_title","zh":"选择：放学后的学校","source":"cards.zh:card=173","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s4_10_s:2972","kind":"scene_title","zh":"章节 4：アヤノ","source":"cards.zh:card=174","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -714,12 +714,12 @@
 {"key":"snr_s5_10_s:2423","kind":"scene_title","zh":"选择：难以忍受的发作","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2432","kind":"scene_title","zh":"呼叫铃的按钮","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2437","kind":"scene_title","zh":"试着撑一下","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s5_10_s:2443","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s5_10_s:2443","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2446","kind":"scene_title","zh":"サクラ的日记：9月20日","source":"cards.zh:card=183","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2451","kind":"scene_title","zh":"サクラ的日记：9月22日","source":"cards.zh:card=184","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2453","kind":"scene_title","zh":"选择：难以忍受的发作","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2461","kind":"scene_title","zh":"放弃","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s5_10_s:2466","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s5_10_s:2466","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2469","kind":"scene_title","zh":"サクラ的日记：9月23日","source":"cards.zh:card=185","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2474","kind":"scene_title","zh":"サクラ的日记：9月29日","source":"cards.zh:card=186","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2479","kind":"scene_title","zh":"サクラ的日记：断片","source":"cards.zh:card=187","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -730,7 +730,7 @@
 {"key":"snr_s5_10_s:2514","kind":"scene_title","zh":"再等等","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2524","kind":"scene_title","zh":"サクラ的日记：2月13日","source":"cards.zh:card=190","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2530","kind":"scene_title","zh":"但是，很开心","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s5_10_s:2535","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s5_10_s:2535","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2538","kind":"scene_title","zh":"章节 5：アヤノ","source":"cards.zh:card=195","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2541","kind":"scene_title","zh":"アヤノ的回信：9月25日","source":"cards.zh:card=93","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s5_10_s:2544","kind":"scene_title","zh":"アヤノ的回信：10月30日","source":"cards.zh:card=191","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -747,15 +747,15 @@
 {"key":"snr_s6_10_s:1126","kind":"scene_title","zh":"选择：在哪里读","source":"cards.zh:card=100","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1134","kind":"scene_title","zh":"在家读","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1140","kind":"scene_title","zh":"サクラ的来信","source":"cards.zh:card=101","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s6_10_s:1143","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s6_10_s:1143","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1146","kind":"scene_title","zh":"在图书室读","source":"cards.zh:card=102","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1155","kind":"scene_title","zh":"选择：笔记本","source":"cards.zh:card=103","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1168","kind":"scene_title","zh":"已失去的梦之物语","source":"cards.zh:card=192","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s6_10_s:1171","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s6_10_s:1171","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1174","kind":"scene_title","zh":"True Color","source":"cards.zh:card=104","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1177","kind":"scene_title","zh":"选择：天台的归途","source":"cards.zh:card=108","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1185","kind":"scene_title","zh":"还在这里","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s6_10_s:1191","kind":"scene_title","zh":"Game Over","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s6_10_s:1191","kind":"scene_title","zh":"游戏结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1194","kind":"scene_title","zh":"中庭的雪","source":"cards.zh:card=110","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s6_10_s:1197","kind":"scene_title","zh":"章节 6 完成","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2099","kind":"scene_title","zh":"15分钟的记忆","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -768,9 +768,9 @@
 {"key":"snr_s7_10_f:2150","kind":"scene_title","zh":"班主任","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2160","kind":"scene_title","zh":"现实中的登场人物","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2163","kind":"scene_title","zh":"某种日记","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2173","kind":"scene_title","zh":"物语中缺失之物","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2183","kind":"scene_title","zh":"未完成的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2186","kind":"scene_title","zh":"物语的结局","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2173","kind":"scene_title","zh":"故事中缺失之物","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2183","kind":"scene_title","zh":"未完成的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2186","kind":"scene_title","zh":"故事的结局","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2189","kind":"scene_title","zh":"用来引导的咒语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2199","kind":"scene_title","zh":"信件的寄信人","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2202","kind":"scene_title","zh":"サクラ同学的暗示","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -790,10 +790,10 @@
 {"key":"snr_s7_10_f:2251","kind":"scene_title","zh":"爸爸","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2254","kind":"scene_title","zh":"那天的回忆","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2257","kind":"scene_title","zh":"压箱底的咒语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2260","kind":"scene_title","zh":"夏天的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2260","kind":"scene_title","zh":"夏天的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2263","kind":"scene_title","zh":"开始的歌谣，回家的歌谣","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2266","kind":"scene_title","zh":"图书室的光景","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2269","kind":"scene_title","zh":"混沌的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2269","kind":"scene_title","zh":"混沌的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2272","kind":"scene_title","zh":"天台上的风","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2275","kind":"scene_title","zh":"接下来发生的事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2278","kind":"scene_title","zh":"咒语的失败","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
@@ -802,23 +802,23 @@
 {"key":"snr_s7_10_f:2287","kind":"scene_title","zh":"深呼吸","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2290","kind":"scene_title","zh":"晚霞的真相","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2293","kind":"scene_title","zh":"来到这一侧","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2296","kind":"scene_title","zh":"能让物语完结的人","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2296","kind":"scene_title","zh":"能让故事完结的人","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2299","kind":"scene_title","zh":"黄昏","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2302","kind":"scene_title","zh":"Staff Roll","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s7_10_f:2305","kind":"scene_title","zh":"物语的终结","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s7_10_f:2305","kind":"scene_title","zh":"故事的终结","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s7_10_f:2312","kind":"scene_title","zh":"章节 7 完成","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:604","kind":"scene_title","zh":"晚间小酌","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:607","kind":"scene_title","zh":"天空另一头看得见的光","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:610","kind":"scene_title","zh":"彩野同学看到的光","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:613","kind":"scene_title","zh":"回家吧","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s8_10_f:616","kind":"scene_title","zh":"物语的终结","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s8_10_f:616","kind":"scene_title","zh":"故事的终结","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:619","kind":"scene_title","zh":"五年后","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:622","kind":"scene_title","zh":"身着制服的女学生","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:625","kind":"scene_title","zh":"好久不见","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:628","kind":"scene_title","zh":"下次相见之时","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:631","kind":"scene_title","zh":"再见了，ユウイチ","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:634","kind":"scene_title","zh":"开学典礼结束","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
-{"key":"snr_s8_10_f:637","kind":"scene_title","zh":"传承下去的物语","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
+{"key":"snr_s8_10_f:637","kind":"scene_title","zh":"传承下去的故事","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:640","kind":"scene_title","zh":"在章节 8 的尾声","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:643","kind":"scene_title","zh":"Staff Roll 2","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}
 {"key":"snr_s8_10_f:650","kind":"scene_title","zh":"章节 8 读完","source":"model+review:data/extra_translated.jsonl","glossary_v":14,"ts":"2026-08-08T16:43:39+00:00"}

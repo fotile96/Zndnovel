@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import warnings
 from dataclasses import dataclass
@@ -36,7 +37,12 @@ warnings.filterwarnings("ignore", message="Palette images with Transparency")
 REPO = Path(__file__).resolve().parent.parent
 SYSGIM = REPO / "png" / "sysgim"
 OUTDIR = REPO / "build" / "sysgim"
-FONT_PATH = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
+#: 字体可换。换成 Bold 字形时把 `FILL_GAIN` 一并调回 1.0——增益是为补 Regular
+#: 的细笔调而加的补偿，粗体上再叠增益只会把字腔糊死。
+#:   ZND_UI_FONT=/path/to/Bold.ttf ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_...
+FONT_PATH = Path(
+    os.environ.get("ZND_UI_FONT", REPO / "third_party" / "LXGWWenKai-Regular.ttf")
+)
 DATA = REPO / "data" / "sysgim_outline_text.jsonl"
 
 FONT_CASCADE = (17, 16, 15, 14, 13, 12)
@@ -59,7 +65,7 @@ STROKE_WIDTH = 1
 #:
 #: 增益法只抬蒙版值、不动轮廓，故笔画变实而字腔不闭。逐档对照
 #: （1.0/1.6/2.2/3.0 × 15/16/17px）取 2.2：白芯饱满且字腔仍清晰可辨。
-FILL_GAIN = 2.2
+FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 2.2))
 
 #: 文字相同、仅禁用态分布不同的几张，共用同一份译文。
 TEXT_ALIAS = {"sys_20_cb": "sys_20_c", "sys_20_cc": "sys_20_c", "sys_20_cd": "sys_20_c"}

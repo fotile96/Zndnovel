@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import warnings
 from collections import deque
@@ -38,7 +39,12 @@ warnings.filterwarnings("ignore", message="Palette images with Transparency")
 REPO = Path(__file__).resolve().parent.parent
 SYSGIM = REPO / "png" / "sysgim"
 OUTDIR = REPO / "build" / "sysgim"
-FONT_PATH = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
+#: 字体可换。换成 Bold 字形时把 `FILL_GAIN` 一并调回 1.0——增益是为补 Regular
+#: 的细笔调而加的补偿，粗体上再叠增益只会把字腔糊死。
+#:   ZND_UI_FONT=/path/to/Bold.ttf ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_...
+FONT_PATH = Path(
+    os.environ.get("ZND_UI_FONT", REPO / "third_party" / "LXGWWenKai-Regular.ttf")
+)
 DATA = REPO / "data" / "sysgim_glow_text.jsonl"
 
 FONT_CASCADE = (20, 19, 18, 17, 16, 15, 14, 13, 12, 11)
@@ -48,7 +54,7 @@ CORE_ALPHA_RATIO = 0.85
 #: 曲线量到多远。超出后 alpha 已经不足 1/255。
 MAX_DIST = 12
 #: 与描边族同因：霞鹜文楷 Regular 太细，字芯蒙版到不了饱和。
-FILL_GAIN = 2.2
+FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 2.2))
 
 #: **本工具的前提**：字浮在透明底上，擦掉即可。盒内全透明像素的占比低于此值，
 #: 说明字是压在底上的（暗面板、半透明色带…），环测量会把底色当成晕、重建出一圈

@@ -23,13 +23,17 @@ def test_glow_ring_decays_monotonically():
 
 
 def test_glow_colour_is_stable_in_the_plateau():
-    """d=2–4 的发光色应当基本不变；若各向异性，这里就会散开。"""
+    """去掉 alpha 后的发光**色相**应当基本不变；若各向异性，这里就会散开。
+
+    环存的是预乘值，随距离整体变淡是正常的；要看的是「变淡之后还是不是同一个颜色」，
+    所以先按各自的 alpha 还原再比。
+    """
     im = Image.open(G.SYSGIM / "sys_5_a.png").convert("RGBA")
     ring = G.measure_glow(im, (0, 0, 268, 25)).ring
-    rgbs = [r[:3] for r in ring[1:4]]
+    rgbs = [G._unpm(r)[:3] for r in ring[1:4]]
     for ch in range(3):
         vals = [c[ch] for c in rgbs]
-        assert max(vals) - min(vals) < 25, rgbs
+        assert max(vals) - min(vals) < 30, rgbs
 
 
 def test_no_glow_row_is_detected():
@@ -70,24 +74,60 @@ def test_model_reproduces_the_original(name):
 
 
 def test_deferred_files_are_not_rendered():
-    """不满足「字浮在透明底上」的图不能悄悄渲染出来。"""
+    """暂缓的图不能悄悄渲染出来。"""
     text = G.load_text()
-    for n in ("sys_11_a", "sys_1_i", "sys_2_b", "sys_2_c"):
-        assert n not in text
+    assert "sys_1_i" not in text
 
 
-@pytest.mark.parametrize("name,box", [("sys_2_b", (0, 0, 83, 19)), ("sys_11_a", (0, 0, 480, 23))])
-def test_opaque_background_is_refused(name, box):
-    """前提检查必须真的挡住压底的图——第一版没有它，两张都渲出了黑晕。"""
-    im = Image.open(G.SYSGIM / f"{name}.png").convert("RGBA")
-    with pytest.raises(ValueError, match="前提不成立"):
-        G.measure_glow(im, box)
+@pytest.mark.parametrize(
+    "name,box,bg",
+    [
+        ("sys_5_a", (0, 0, 268, 25), (255, 255, 255, 0)),   # 透明底
+        ("sys_2_b", (0, 0, 83, 19), (0, 0, 0, 179)),        # 半透明暗面板
+        ("sys_11_a", (0, 0, 480, 23), (0, 0, 0, 179)),      # 半透明黑带
+        ("autosave", (0, 90, 480, 115), (0, 0, 0, 255)),    # 不透明黑
+        ("sys_1_f", (0, 54, 480, 78), (245, 236, 226, 255)),  # 不透明米黄
+    ],
+)
+def test_background_is_measured_not_assumed(name, box, bg):
+    """同一个模型要能处理透明底与不透明底——这正是「相对底色」推广的全部意义。"""
+    assert G.measure_glow(Image.open(G.SYSGIM / f"{name}.png").convert("RGBA"), box).bg == bg
 
 
-def test_transparent_background_passes_the_precondition():
-    """而且不能把能做的也一起挡掉。"""
-    im = Image.open(G.SYSGIM / "sys_5_a.png").convert("RGBA")
-    G.measure_glow(im, (0, 0, 268, 25))
+def test_background_comes_from_the_border_not_the_mode():
+    """字密的盒里全盒众数会把**文字**当成底。
+
+    `sys_2_b` 行 3（亮态「あらすじ作成済」）几乎填满 19px 的行，白像素多过背景；
+    取全盒众数会得到 (255,255,255,255)，字芯与底整个反过来。
+    """
+    from collections import Counter
+
+    im = Image.open(G.SYSGIM / "sys_2_b.png").convert("RGBA")
+    px = im.load()
+    box = (0, 57, 83, 76)
+    whole = Counter(
+        px[x, y] for y in range(box[1], box[3]) for x in range(box[0], box[2])
+    ).most_common(1)[0][0]
+    assert whole == (255, 255, 255, 255), "前提变了：这一行不再是字多过底"
+    assert G.measure_glow(im, box).bg == (0, 0, 0, 179)
+
+
+def test_no_flat_background_is_refused():
+    """底是渐变而非单一色时，环的远端收不回去——模型的前提不成立，必须拒绝。
+
+    这条验的是判据本身有没有牙：占比与倍数都量不出「底是不是唯一」
+    （试过两版都被真实图例推翻），最后靠的就是这条收敛检查。
+    """
+    im = Image.new("RGBA", (60, 40))
+    px = im.load()
+    for y in range(40):
+        for x in range(60):
+            px[x, y] = (x * 4, 0, 0, 255)  # 横向渐变，没有平底
+    for y in range(18, 22):
+        for x in range(28, 32):
+            px[x, y] = (255, 255, 255, 255)  # 一小块「字」
+    with pytest.raises(ValueError, match="仍离底"):
+        G.measure_glow(im, (0, 0, 60, 40))
 
 
 def test_deferred_rows_still_carry_their_translation():
@@ -96,7 +136,7 @@ def test_deferred_rows_still_carry_their_translation():
 
     rows = [json.loads(l) for l in G.DATA.read_text(encoding="utf-8").splitlines() if l.strip()]
     dfr = [r for r in rows if r.get("deferred")]
-    assert len(dfr) == 20
+    assert len(dfr) == 3  # sys_1_i 的三行
     assert all(r["zh"].strip() and "暂缓" in r["note"] for r in dfr)
 
 

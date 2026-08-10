@@ -24,7 +24,7 @@ import json
 import os
 import sys
 import warnings
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,16 +51,28 @@ FONT_CASCADE = (20, 19, 18, 17, 16, 15, 14, 13, 12, 11)
 
 #: 字芯＝盒内 alpha 达到峰值这一比例的像素。取 0.85 是为了把抗锯齿边缘留给发光那侧。
 CORE_ALPHA_RATIO = 0.85
-#: 曲线量到多远。超出后 alpha 已经不足 1/255。
-MAX_DIST = 12
+#: 曲线量到多远。**实测各盒的收敛半径**：多数 5–11，`sys_5_i/j` 第一行到 16
+#: （那一行字大、盒又宽，远处量到的是相邻字与盒角）。取 18 留余量；取 12 时
+#: `sys_13_a` 的环在远端仍离底 14，被收敛检查挡下——那道检查是有效的。
+MAX_DIST = 18
 #: 与描边族同因：霞鹜文楷 Regular 太细，字芯蒙版到不了饱和。
 FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 2.2))
 
-#: **本工具的前提**：字浮在透明底上，擦掉即可。盒内全透明像素的占比低于此值，
-#: 说明字是压在底上的（暗面板、半透明色带…），环测量会把底色当成晕、重建出一圈
-#: 黑边——`sys_2_b/c`（暗面板）与 `sys_11_a`（半透明黑带）都栽在这里。
-#: 实测：可做的行透明占比 18–62%，压底的行是 0.0%。
-MIN_TRANSPARENT_SHARE = 0.05
+#: **底存在与否，用「环的远端收不收敛到它」来验，不用占比或倍数来猜。**
+#:
+#: 试过两版都不成立：①要求众数占比 ≥15%——`sys_5_b` 字排得密，透明底只占 10.3%，
+#: 被误判；②要求众数至少是第二名的 3 倍——`sys_5_c` 是 506 : 447，同样被误判。
+#: 占比与倍数量的都是「底有多大一片」，而这与「底是不是唯一」无关。
+#:
+#: 真正该验的是模型自身的前提：发光衰减到远处应当**回到底色**。若众数取错了，
+#: 远端环就不会收敛到它。这个判据直接测承重假设，且对字疏字密一视同仁。
+MAX_TAIL_DEV = 6
+#:
+#: 早先这里卡的是「必须是透明底」，于是 `sys_2_b/c`（暗面板）、`sys_11_a`（半透明
+#: 黑带）与整个 C 类（不透明纯色底）全被挡在外面。**实测表明那道限制是多余的**：
+#: 这些盒的底逐行取众数都只有一个取值（`(0,0,0,179)` / `(0,0,0,255)` /
+#: `(245,236,226,255)`），只要把环从「相对透明」改成「相对底色」，同一个模型就成立。
+MIN_BG_DOMINANCE = 3.0
 
 #: 判「这一行有没有发光」看的是环的**形状**，不是浓度。外发光按构造就是单调衰减；
 #: 无发光的行，d=3 往外量到的其实是**邻字的抗锯齿边**，会忽高忽低。
@@ -80,10 +92,31 @@ DEFERRED_NOTE = "见 data/sysgim_glow_text.jsonl 的 deferred 字段"
 
 @dataclass
 class Glow:
-    core_rgb: tuple[int, int, int]
-    core_alpha: int
-    #: 距离 d（1..MAX_DIST）处的 (r,g,b,a)。d=0 是字芯本身。
-    ring: list[tuple[int, int, int, int]]
+    #: 字芯的**预乘** RGBA（实测均值）
+    core: tuple[float, float, float, float]
+    #: 盒内的底色 RGBA（众数，非预乘——贴图时直接用）
+    bg: tuple[int, int, int, int]
+    #: 距离 d（1..MAX_DIST）处的**预乘** RGBA；无发光时全部等于预乘后的 bg
+    ring: list[tuple[float, float, float, float]]
+
+
+def _pm(p):
+    """预乘：(r,g,b,a) → (r·a/255, g·a/255, b·a/255, a)。
+
+    整条链（测环 / 求均值 / 渲染 / 比对）都在预乘空间里做，因为**「盖在底上」
+    这件事只有在预乘空间里才是线性的**。非预乘空间里 alpha 趋零处的 RGB 是噪声：
+    (255,0,0,1) 与 (0,0,255,1) 看上去一样却相差 255。
+    """
+    a = p[3]
+    return (p[0] * a / 255, p[1] * a / 255, p[2] * a / 255, float(a))
+
+
+def _unpm(q):
+    """预乘 → RGBA。"""
+    a = max(0.0, min(255.0, q[3]))
+    if a < 0.5:
+        return (0, 0, 0, 0)
+    return tuple(min(255, max(0, round(q[i] * 255 / a))) for i in range(3)) + (round(a),)
 
 
 def _dist_field(core: list[list[bool]], W: int, H: int) -> list[list[int]]:
@@ -110,47 +143,74 @@ def measure_glow(im: Image.Image, box) -> Glow:
     l, t, r, b = box
     W, H = r - l, b - t
     px = im.load()
-    vis = [px[x, y] for y in range(t, b) for x in range(l, r) if px[x, y][3] > 0]
-    if not vis:
-        raise ValueError(f"盒 {box} 里没有可见像素")
-    n_all = (r - l) * (b - t)
-    if (n_all - len(vis)) / n_all < MIN_TRANSPARENT_SHARE:
-        raise ValueError(
-            f"盒 {box} 的底不是透明的（全透明像素仅 {(n_all-len(vis))/n_all:.1%}）"
-            "——字压在底上，本工具的前提不成立"
-        )
-    peak = max(p[3] for p in vis)
+    n_all = W * H
+    # 底取**盒边框**的众数，不取全盒众数。
+    #
+    # 全盒众数会在字密的盒里翻车：`sys_2_b` 行 3（亮态「あらすじ作成済」）几乎填满
+    # 19px 的行，白色像素多过背景，于是底被测成 (255,255,255,255)——字芯与底整个
+    # 反了过来，那一行渲成了一大团无晕的白字。文字总有边距，边框上就是底。
+    border = (
+        [px[x, t] for x in range(l, r)]
+        + [px[x, b - 1] for x in range(l, r)]
+        + [px[l, y] for y in range(t, b)]
+        + [px[r - 1, y] for y in range(t, b)]
+    )
+    bg = Counter(border).most_common(1)[0][0]
+
+    # 「离底多远」取代「alpha 多高」作为字芯判据：底可能是不透明的，那时 alpha
+    # 恒为 255，按 alpha 判会把整盒都算成字芯。
+    #
+    # 距离在**预乘空间**里算。直接比 RGBA 会在透明底上出错：底是
+    # (255,255,255,0)，橙色发光随 alpha 衰减时 RGB 一直是橙的，于是「离白色更远」，
+    # 距离反而随 d 递增——单调性判据会因此把真发光判成无发光。预乘后
+    # alpha→0 的像素自然趋近底，单调性才成立。
+    bg_pm = _pm(bg)
+    dist = lambda p: sum(abs(_pm(p)[i] - bg_pm[i]) for i in range(4))
+    ink = [(x, y) for y in range(t, b) for x in range(l, r) if dist(px[x, y]) > 8]
+    if not ink:
+        raise ValueError(f"盒 {box} 里没有与底不同的像素")
+    peak = max(dist(px[x, y]) for x, y in ink)
     thr = peak * CORE_ALPHA_RATIO
-    core = [[px[l + x, t + y][3] >= thr for x in range(W)] for y in range(H)]
+    core = [[dist(px[l + x, t + y]) >= thr for x in range(W)] for y in range(H)]
     n_core = sum(sum(row) for row in core)
     if n_core == 0:
         raise ValueError(f"盒 {box} 量不到字芯")
 
-    core_px = [px[l + x, t + y] for y in range(H) for x in range(W) if core[y][x]]
-    core_rgb = tuple(round(sum(p[i] for p in core_px) / len(core_px)) for i in range(3))
+    core_px = [_pm(px[l + x, t + y]) for y in range(H) for x in range(W) if core[y][x]]
+    core_pm = tuple(sum(p[i] for p in core_px) / len(core_px) for i in range(4))
 
     d = _dist_field(core, W, H)
     ring = []
-    for dist in range(1, MAX_DIST + 1):
+    for k in range(1, MAX_DIST + 1):
         vals = [
-            px[l + x, t + y]
+            _pm(px[l + x, t + y])
             for y in range(H)
             for x in range(W)
-            if d[y][x] == dist and px[l + x, t + y][3] > 0
+            if d[y][x] == k
         ]
         if not vals:
-            ring.append((0, 0, 0, 0))
+            ring.append(bg_pm)
             continue
-        # 颜色按 alpha 加权：alpha 趋零处的 RGB 是噪声，不该拉平均值
-        wsum = sum(p[3] for p in vals) or 1
-        rgb = tuple(round(sum(p[i] * p[3] for p in vals) / wsum) for i in range(3))
-        a = round(sum(p[3] for p in vals) / len(vals))
-        ring.append((*rgb, a))
-    head = [r[3] for r in ring[:GLOW_PROBE_D]]
+        # **普通均值**，在预乘空间里。早先这里按「离底的距离」加权，等于把少数
+        # 亮像素放大——重建出来的晕比原图强，verify 平均偏差从 6–20 涨到 8–98。
+        # 预乘空间里合成是线性的，算术平均就是正确的估计量。
+        ring.append(tuple(sum(p[i] for p in vals) / len(vals) for i in range(4)))
+    # 有没有发光看环**离底的距离**是否单调衰减——底不透明时 alpha 恒 255，
+    # 按 alpha 判会把每一圈都看成「浓」。
+    # 远端必须收敛回底色——这是环模型的前提，也是「众数取对了没有」的验法。
+    ringdist = lambda q: sum(abs(q[i] - bg_pm[i]) for i in range(4))
+    tail = ringdist(ring[-1])
+    if tail > MAX_TAIL_DEV:
+        raise ValueError(
+            f"盒 {box} 的环在 d={MAX_DIST} 处仍离底 {tail}（容差 {MAX_TAIL_DEV}）"
+            f"——底色 {bg} 恐怕取错了，或发光半径超出了 MAX_DIST"
+        )
+
+    head = [ringdist(r) for r in ring[:GLOW_PROBE_D]]
     monotone = all(head[i] >= head[i + 1] for i in range(len(head) - 1))
     if not (monotone and head[-1] >= GLOW_TAIL_MIN_A):
-        ring = [(0, 0, 0, 0)] * MAX_DIST
-    return Glow(core_rgb, peak, ring)
+        ring = [bg_pm] * MAX_DIST
+    return Glow(core_pm, bg, ring)
 
 
 def _core_mask(text: str, size: int) -> Image.Image:
@@ -164,32 +224,28 @@ def _core_mask(text: str, size: int) -> Image.Image:
 
 
 def render_glow(text: str, size: int, g: Glow) -> Image.Image:
-    """中文字芯 + 实测发光曲线。"""
+    """中文字芯 + 实测发光曲线。返回的图**已经含底**，直接盖到盒里即可。
+
+    每个像素 = `lerp(该距离处的环色, 字芯色, 字芯蒙版)`。环色是绝对值（底已含在
+    里面），故这一式对透明底与不透明底同样成立——这正是能把两条路径合成一条的原因。
+    """
     m = _core_mask(text, size)
     W, H = m.size
     mp = m.load()
     core = [[mp[x, y] > 128 for x in range(W)] for y in range(H)]
     d = _dist_field(core, W, H)
-    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    out = Image.new("RGBA", (W, H), g.bg)
     op = out.load()
+    bg_pm = _pm(g.bg)
     for y in range(H):
         for x in range(W):
             ac = min(1.0, mp[x, y] / 255.0 * FILL_GAIN)
-            dist = d[y][x]
-            if dist == 0 or dist > MAX_DIST:
-                gr, gg, gb, ga = (0, 0, 0, 0)
-            else:
-                gr, gg, gb, ga = g.ring[dist - 1]
-            a_g = ga / 255.0
-            a = ac + a_g * (1 - ac)
-            if a <= 0:
-                continue
-            w = ac / a
-            rgb = tuple(
-                round(g.core_rgb[i] * w + (gr, gg, gb)[i] * (1 - w)) for i in range(3)
+            k = d[y][x]
+            base = g.ring[k - 1] if 1 <= k <= MAX_DIST else bg_pm
+            op[x, y] = _unpm(
+                tuple(base[i] * (1 - ac) + g.core[i] * ac for i in range(4))
             )
-            op[x, y] = (*rgb, round(a * g.core_alpha))
-    return out.crop(out.getbbox() or (0, 0, W, H))
+    return out
 
 
 def load_text() -> dict[str, list[dict]]:
@@ -205,10 +261,15 @@ def load_text() -> dict[str, list[dict]]:
     return out
 
 
-def _ink_bbox(im: Image.Image, box, thr: int):
+def _core_bbox(im: Image.Image, box, g: "Glow"):
+    """原字芯（离底最远的那部分）的墨迹盒——不含发光晕。"""
     l, t, r, b = box
     px = im.load()
-    pts = [(x, y) for y in range(t, b) for x in range(l, r) if px[x, y][3] >= thr]
+    bgpm = _pm(g.bg)
+    dist = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
+    peak = max(dist(px[x, y]) for y in range(t, b) for x in range(l, r))
+    thr = peak * CORE_ALPHA_RATIO
+    pts = [(x, y) for y in range(t, b) for x in range(l, r) if dist(px[x, y]) >= thr]
     if not pts:
         return None
     xs = [p[0] for p in pts]
@@ -221,11 +282,12 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
     out = im.copy()
     boxes = [tuple(r["box"]) for r in rows]
 
+    # 先把所有盒擦成各自的底，再把各行的块合并进去。
+    # **两步必须分开**：块自带底，若边擦边贴，后一行的擦除会抹掉前一行溢出过来的晕。
+    plans = []
     for meta, box in zip(rows, boxes):
         g = measure_glow(im, box)
-        # 目标尺寸取原字芯（不含发光晕）的墨迹盒
-        peak = g.core_alpha
-        bb = _ink_bbox(im, box, int(peak * CORE_ALPHA_RATIO))
+        bb = _core_bbox(im, box, g)
         if bb is None:
             raise ValueError(f"{name} 行{meta['row']}: 量不到原字芯墨迹")
         x0, y0, x1, y1 = bb
@@ -234,16 +296,12 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
 
         size = FONT_CASCADE[-1]
         for cand in FONT_CASCADE:
-            core = _core_mask(meta["zh"], cand)
-            cbb = core.getbbox()
-            if cbb is None:
-                continue
-            if (cbb[3] - cbb[1]) <= target_h:
+            cbb = _core_mask(meta["zh"], cand).getbbox()
+            if cbb and (cbb[3] - cbb[1]) <= target_h:
                 size = cand
                 break
         # 判「放不放得下」只看**字芯**。发光晕本来就会溢出行盒——原图也溢出，
-        # 正因如此 sys_2_b 的八行才在自动分段里粘成一段。拿含晕的整块去比，
-        # 会把每一行都判成溢出。
+        # 正因如此 sys_2_b 的八行在自动分段里才粘成一段。
         for cand in [c for c in FONT_CASCADE if c <= size]:
             cbb = _core_mask(meta["zh"], cand).getbbox()
             if cbb and (cbb[2] - cbb[0]) <= avail_w and (cbb[3] - cbb[1]) <= avail_h:
@@ -252,29 +310,36 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
                 size = cand
                 break
         else:
-            report.append(f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」字芯放不下 {avail_w}x{avail_h}")
-        glyph = render_glow(meta["zh"], size, g)
+            report.append(
+                f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」字芯放不下 {avail_w}x{avail_h}"
+            )
 
+        glyph = render_glow(meta["zh"], size, g)
         cbb = _core_mask(meta["zh"], size).getbbox()
         core_w, core_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
 
         # 原字芯在盒内的横向对齐，照搬到中文上
+        # 居中判据的容差按盒宽取。绝对 3px 在 480px 的盒上太苛刻——`sys_11_a`
+        # 原文左右边距 151 : 146，只差 5px 却被判成右对齐，中文整个被推到右边。
         lm, rm = x0 - box[0], box[2] - 1 - x1
-        if lm + 3 < rm:
+        tol = max(3, round((box[2] - box[0]) * 0.02))
+        if lm + tol < rm:
             gx = x0
-        elif rm + 3 < lm:
+        elif rm + tol < lm:
             gx = x1 + 1 - core_w
         else:
             gx = (x0 + x1) // 2 - core_w // 2
         gy = (y0 + y1) // 2 - core_h // 2
-        # glyph 里字芯的偏移——定位要对齐字芯，不是对齐含晕的整块
         halo = (glyph.width - core_w) // 2
         vhalo = (glyph.height - core_h) // 2
-        out.paste((0, 0, 0, 0), box)
-        out.alpha_composite(glyph, (gx - halo, gy - vhalo))
+        plans.append((g, glyph, gx - halo, gy - vhalo))
 
-    # 发光**本来就会**溢出行盒（原图也溢出，正因如此 sys_2_b 的八行才粘成一段），
-    # 故盒外有改动不等于出错。真正不能碰的区域写在数据的 `preserve` 里，单独硬检。
+    for (g, _, _, _), box in zip(plans, boxes):
+        out.paste(g.bg, box)
+
+    for g, glyph, ox, oy in plans:
+        _merge_farther(out, glyph, ox, oy, g.bg)
+
     spill = _outside_box_violations(im, out, boxes)
     keep = [tuple(b) for r in rows for b in r.get("preserve", [])]
     bad = 0
@@ -290,6 +355,30 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
     elif spill:
         report.append(f"spill {name}: 发光溢出行盒 {spill} 个像素（预期行为）")
     return out, bad
+
+
+def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg) -> None:
+    """把 tile 并进 dst：**离底更远者胜**。
+
+    块自带底，直接 paste 会把邻行的晕、乃至盒外本该保留的东西（`sys_11_a` 下方那
+    行英文）一起盖掉。按「离底的距离」取胜方后：块里等于底的那些像素不会覆盖任何
+    已有内容，而两行的晕重叠处取更强的一侧——与原图叠加发光的观感一致。
+    """
+    W, H = dst.size
+    tp, dp = tile.load(), dst.load()
+    bgpm = _pm(bg)
+    far = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
+    for y in range(tile.height):
+        yy = oy + y
+        if not (0 <= yy < H):
+            continue
+        for x in range(tile.width):
+            xx = ox + x
+            if not (0 <= xx < W):
+                continue
+            src = tp[x, y]
+            if far(src) > far(dp[xx, yy]):
+                dp[xx, yy] = src
 
 
 def _outside_box_violations(src: Image.Image, dst: Image.Image, boxes) -> int:
@@ -316,28 +405,27 @@ def verify_model(name: str, boxes) -> list[tuple[int, float]]:
     out = []
     for box in boxes:
         g = measure_glow(im, box)
-        if not any(a for *_, a in g.ring):
+        if all(r == _pm(g.bg) for r in g.ring):
             # 无发光行：那一圈墨迹是抗锯齿，由字芯蒙版本身复现，不走环模型。
             # 拿环模型去比会得出一个无意义的大偏差。
             out.append((-1, -1.0))
             continue
         l, t, r, b = box
         W, H = r - l, b - t
-        thr = g.core_alpha * CORE_ALPHA_RATIO
-        core = [[px[l + x, t + y][3] >= thr for x in range(W)] for y in range(H)]
+        bgpm = _pm(g.bg)
+        dist = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
+        peak = max(dist(px[l + x, t + y]) for y in range(H) for x in range(W))
+        thr = peak * CORE_ALPHA_RATIO
+        core = [[dist(px[l + x, t + y]) >= thr for x in range(W)] for y in range(H)]
         d = _dist_field(core, W, H)
         diffs = []
         for y in range(H):
             for x in range(W):
-                dist = d[y][x]
-                if dist == 0:
+                dd = d[y][x]
+                if dd == 0:
                     continue
-                got = px[l + x, t + y]
-                exp = g.ring[dist - 1] if dist <= MAX_DIST else (0, 0, 0, 0)
-                # **比预乘值**：alpha 趋零处的 RGB 是噪声，直接比会把
-                # (255,0,0,1) 与 (0,0,255,1) 算成差 255，而它们看上去一模一样。
-                pg = [got[i] * got[3] // 255 for i in range(3)] + [got[3]]
-                pe = [exp[i] * exp[3] // 255 for i in range(3)] + [exp[3]]
+                pg = _pm(px[l + x, t + y])
+                pe = g.ring[dd - 1] if dd <= MAX_DIST else bgpm
                 diffs.append(max(abs(pg[i] - pe[i]) for i in range(4)))
         out.append((max(diffs) if diffs else 0, sum(diffs) / len(diffs) if diffs else 0))
     return out
@@ -359,7 +447,7 @@ def run(write: bool = True, verify: bool = False) -> int:
                 if mx < 0:
                     print(f"  verify {name} 行{meta['row']}: 无发光行，环模型不适用")
                 else:
-                    print(f"  verify {name} 行{meta['row']}: 最大偏差 {mx:3d}  平均 {mean:.1f}")
+                    print(f"  verify {name} 行{meta['row']}: 最大偏差 {mx:5.1f}  平均 {mean:.1f}")
 
     print(f"发光字族：{len(text)} 张 / {sum(len(v) for v in text.values())} 行")
     deferred = sorted(

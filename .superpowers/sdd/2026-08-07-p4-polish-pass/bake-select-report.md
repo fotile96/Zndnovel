@@ -157,3 +157,96 @@ RuntimeError`（三处变异测试之一验证了这条闸真的有牙，见第�
 - `/Users/fotile96/Zndnovel/build/select_zh/`（渲染产物，268 张 PNG + 3 张复核图 + manifest）
 - `/Users/fotile96/Zndnovel/build/select_layout_spec.md`（上一轮版面测绘，本轮引用/复核）
 - `/Users/fotile96/Zndnovel/.superpowers/sdd/2026-08-07-p4-polish-pass/select-survey-report.md`（上一轮测绘+解析器报告）
+
+---
+
+# `sel_map_1_a.png` 补做（本轮追加，2026-08-10）
+
+> `png/select/` 面本轮最后一件：探索地图的 10 地点 × on/off 标签表
+> （240×260）。`build/select_layout_spec.md` 4.3 节把它标记为"本轮最大的一处漏项"，
+> 只做了内容读图，没做像素级网格测绘。本轮补上网格坐标、字号、色值三项并实际渲染。
+> 工具：`tools/bake_select_map.py`（新，尽量复用 `tools/bake_select.py` 的
+> box-参数化机制，未另起一套见其模块 docstring "Reuse note"）。测试：
+> `tests/test_bake_select_map.py`（新，31 条）。产物：`build/select_zh/sel_map_1_a.png`
+> + `build/select_zh/_map1_zoom.png` + `build/select_zh/map_manifest.json`。
+> 测绘全文见 `build/select_map_layout.md`。
+
+## 一、测绘结论与交办文档描述的出入
+
+交办文档给出的格局（"2 列×10 行，120×26 格，10 地点各占 on/off 两行"）**结论本轮
+像素实测成立，但描述角度有一处需要澄清**：不是"两列各自独立跑 on→off→on→off 五轮"，
+而是**同一行区间内左右两列同时呈现同一状态**（第 `row` 行区间，`row` 偶=on、奇=off，
+左右两格同时切换）——像素几何上与交办文档等价，只是本轮把"5 组地点对，每组一个
+240 宽的 on 行紧跟一个 240 宽的 off 行"这个更准确的读法记录下来。详见
+`build/select_map_layout.md` 第 0 节。
+
+**格子内容顺序与交办文档完全一致**，本轮用两种独立证据核对（不是只信一次人工读图）：
+1. 对整张图 3 倍放大直接读字（见下方渲染结果截图同款布局），左列自上而下 =
+   美術室／音楽室／保健室／職員室／中庭，右列 = 校庭／教室／屋上／廊下／図書室。
+2. `lua_scripts/snr_common.lua:2631-2640` 的 `comSelectMap` 地点表
+   `v0.art=1 … v0.library=10`，与读图顺序逐一对应；`tools/bake_select_map.py::
+   lua_order_from_source()` 每次运行都重新解析该表并与代码常量比对，不一致就拒绝
+   渲染——这是本图"格号↔地点映射"这个承重点的机械回归闸，不依赖一次性人工核对结论
+   （见下"变异"一节 M2）。
+
+一处未影响译文、值得记录的资产怪癖：第 4 组地点对（職員室/廊下）左右两格各自的
+右边框最外 1 列在这一组是透明的，其余 4 组同位置是不透明白色边框。此像素落在
+`MAP_TEXT_BOX` 之外，像素保全闸原样保留，不影响渲染，已记入 `select_map_layout.md`。
+
+## 二、字号与溢出实测
+
+`MAP_TEXT_BOX = (15, 3, 104, 23)`（格内本地坐标，可用宽度 89px），推导公式与
+`tools/bake_select.py` 的按钮 TEXT_BOX 相同（半宽=两侧到内部/图标边界距离的较小者），
+独立对这张图的实测几何重新算了一遍，不是照抄按钮的数值。
+
+字号级联 `[18, 17]`（与按钮模块相同两档，独立测过）：
+
+| 字号 | 10 候选中横向溢出 | 纵向溢出 |
+|---:|---:|---:|
+| 18px | 0 | 1（走廊，顶部越界 1px） |
+| **17px** | **0** | **0** |
+
+**回落 1/10**：「走廊」→17px（诱因是垂直方向，不是水平——与按钮模块 `s6s_110` 那批
+横向诱因的回落不同）。最长候选「教职员室」（4 字）18px 下墨迹宽度 72px，仍在 89px
+框内，不是回落诱因。回落在 CLI、`map_manifest.json`（`fallbacks` 字段）、
+`_map1_zoom.png`（原图 vs 中文版逐格对照，20 格全出）三处可见。
+
+## 三、`sel_map_0_a.png`（480×42）查明结果
+
+本轮独立重新读图核实（未直接照搬上一轮结论）：**探索地图界面的顶部横幅**
+（`comSelectMap` 的 `v5.info` 层）。含三段内容：
+- 「移動場所を選択してください。」（请选择要去的地方。）—— 粉底白字，需翻译。
+- 「○ MAP SELECT ○」—— 英文原样，可套用 CLAUDE.md 记载的"英文大词+中文小注"版式。
+- 「現在位置」标签 + 一个灰色占位框（运行时叠加当前选中地点截图，非烤字内容）。
+
+代码里无对应字面量（`comSelectMap` 只传英文内部键名 `class`/`roof`/... ），纯烤字
+资源。与 `build/select_layout_spec.md` 4.2 节记载一致。**本轮不渲染**（任务范围明确
+排除），仅完成核实。
+
+## 四、变异红绿实况（三组，均用 Edit 应用/复原，未使用任何 git 回滚命令）
+
+| # | 变异 | 操作 | 结果 |
+|---|---|---|---|
+| M1 | 像素保全闸被关闭 | `find_all_outside_box_diffs()` 硬编码返回 `[]` | **真红**：`test_find_all_outside_box_diffs_detects_change_outside_box`、`test_find_all_outside_box_diffs_disabled_would_hide_real_corruption` 失败（2 个） |
+| M2 | 格号↔地点映射错位一格 | `GRID_LOCATIONS_LEFT` 里 `art`/`music` 互换位置（模拟 20 格里错一格） | **真红**：5 个测试失败（`test_lua_order_from_source_matches_module_constant` 及全部依赖 `run()` 的测试），因为 `run()` 内置的 lua 源头交叉核验闸直接拒绝渲染——"这是本图的承重点"这句任务原话在这里被机械化成了一条会真正拦停 pipeline 的检查，不是事后补的注释 |
+| M3 | 溢出检查被绕过 | `tools/bake_select.py::_fits()`（本模块与按钮模块共用的底层函数）硬编码返回 `(True, {...})` | **真红**：两个模块合计 12 个测试失败（本模块 5 个 + 按钮模块 7 个），包括 `pixel-preservation violations` 从 0 跳到 38——与上一轮按钮模块记录的同一因果链一致：溢出检查失守会真实污染最终像素，保全闸接住次生故障 |
+
+三组变异应用后均立即用 Edit 还原，还原后单独重跑 `tests/test_bake_select_map.py` 与
+`tests/test_bake_select.py` 确认恢复全绿（31/31、59/59 联合跑）。
+
+## 五、渲染结果与测试
+
+- `build/select_zh/sel_map_1_a.png`：240×260，20 格全部替换为中文，边框/图标缺口/
+  异形透明像素逐字节保全（`pixel_preservation_violation_count=0`）。
+- `build/select_zh/_map1_zoom.png`：原图 vs 中文版，20 格全出，6 倍放大，逐格标注
+  location key/on-off/供人核对。
+- `build/select_zh/map_manifest.json`：记录网格参数、lua 交叉核验结果
+  （`lua_order_check.match=true`）、字号级联、回落列表（`corridor`→17px）、
+  溢出列表（空）、像素保全违规数（0）、实测描边/填充色。
+- `data/select_map_zh.jsonl`（新）：10 条地点译文，`staffRoom→教职员室` 标注了
+  已入线正文一致用法的证据（vms id 5456/6154/6172/6584/8622/12277）。
+
+## 六、全量测试
+
+`uv run pytest -q`：本轮新增 31 条（`tests/test_bake_select_map.py`），基线 1067 →
+**1098 passed**，无回归（数字见本报告末尾更新时的实际运行结果）。

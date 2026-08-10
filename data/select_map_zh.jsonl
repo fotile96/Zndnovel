@@ -1,0 +1,10 @@
+{"key":"art","jp":"美術室","zh":"美术室","source":"直译"}
+{"key":"music","jp":"音楽室","zh":"音乐室","source":"直译"}
+{"key":"health","jp":"保健室","zh":"保健室","source":"直译（中日同形词）"}
+{"key":"staffRoom","jp":"職員室","zh":"教职员室","source":"沿用已入线正文一致用法：vms id 5456/6154/6172/6584/8622/12277 六处均译作「教职员室」（见 pilot/lanes/opus/work/out/batch_171.draft.jsonl 等），非新造"}
+{"key":"court","jp":"中庭","zh":"中庭","source":"直译（中日同形词）"}
+{"key":"ground","jp":"校庭","zh":"操场","source":"直译，避免与「学校」重复用字"}
+{"key":"class","jp":"教室","zh":"教室","source":"直译（中日同形词）"}
+{"key":"roof","jp":"屋上","zh":"天台","source":"直译，CLAUDE.md 剧情核心一节固定译法（誰も見たことのない夕焼け＝天台相关母题）"}
+{"key":"corridor","jp":"廊下","zh":"走廊","source":"直译"}
+{"key":"library","jp":"図書室","zh":"图书室","source":"直译（中日同形词）"}

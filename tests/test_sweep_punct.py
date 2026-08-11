@@ -71,6 +71,16 @@ def test_skips_anchors_and_patched_but_reports_them(tmp_path):
     assert sk == {"anchor": [1], "patched": [2]}
 
 
+def test_include_patched_opens_patched_lines_but_never_anchors(tmp_path):
+    """用户 2026-08-12 裁定那 13 条已 patch 行可改；**锚点不是一个开关能放行的**。"""
+    root, data = _repo(tmp_path, [
+        (1, 1, "甲……。"), (2, 1, "乙……。"), (3, 1, "丙……。"),
+    ], anchors=[1], patches=[(2, "乙……。")])
+    t, sk = sweep_punct.sweep_targets(data, repo=root, include_patched=True)
+    assert [x["id"] for x in t] == [2, 3]
+    assert sk["patched"] == [] and sk["anchor"] == [1]
+
+
 def test_seg_filter_uses_batch_ranges(tmp_path):
     root, data = _repo(tmp_path, [(1, 3, "甲……。"), (2, 7, "乙……。")])
     t, _ = sweep_punct.sweep_targets(data, repo=root, seg_labels=["segA"])

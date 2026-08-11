@@ -49,11 +49,15 @@ from tools.pipelib import REPO, read_jsonl
 TAIL_RE = re.compile(r"……。(?=$|_n|_r)")
 
 
-def sweep_targets(data_dir, repo=REPO, seg_labels=None):
+def sweep_targets(data_dir, repo=REPO, seg_labels=None, include_patched=False):
     """返回 (targets, skipped)。
 
     targets: [{"id", "old", "new", "batch"}]  可机械改的行
     skipped: {"anchor": [...], "patched": [...]}  命中但按规则不动的行
+
+    `include_patched=True`：把「已有人裁/润色 patch」的行也纳入 targets（用户
+    2026-08-12 逐条看过那 13 条后裁定可改）。**锚点定译永远不纳入**——那条要走
+    新 glossary 版本 + 召回令，不是一个开关能放行的。
     """
     data_dir, repo = Path(data_dir), Path(repo)
     cur, batch = {}, {}
@@ -94,7 +98,7 @@ def sweep_targets(data_dir, repo=REPO, seg_labels=None):
                 continue
         if i in anchors:
             skipped["anchor"].append(i); continue
-        if i in patched:
+        if i in patched and not include_patched:
             skipped["patched"].append(i); continue
         targets.append({"id": i, "old": zh, "new": TAIL_RE.sub("……", zh),
                         "batch": batch.get(i)})
@@ -108,11 +112,16 @@ def main(argv=None):
                     help="只扫这些段的 label（可重复）；不给＝全库")
     ap.add_argument("--apply", action="store_true", help="真写入；缺省只报不改")
     ap.add_argument("--list-skipped", action="store_true", help="逐条列出跳过的锚点/已 patch 行")
+    ap.add_argument("--include-patched", action="store_true",
+                    help="连已有人裁/润色 patch 的行一起改（锚点仍不动）")
     ap.add_argument("--out", help="把逐条改动写成 JSONL 供人工过目")
     a = ap.parse_args(argv)
 
-    targets, skipped = sweep_targets(a.data_dir, seg_labels=a.seg)
+    targets, skipped = sweep_targets(a.data_dir, seg_labels=a.seg,
+                                     include_patched=a.include_patched)
     gv = glossary_version(REPO)
+    if a.include_patched:
+        print("ℹ --include-patched：已有 patch 的行**也会被改**（锚点仍不动）")
 
     print(f"sweep_punct: 命中可改 {len(targets)} 行；"
           f"跳过锚点定译 {len(skipped['anchor'])} 行、已有 patch {len(skipped['patched'])} 行")

@@ -72,7 +72,7 @@ def _build_mini(tmp_path):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     # opus 车道 data：同时是 (a) polish_setup.setup() 的 opus_data 来源
@@ -257,7 +257,7 @@ def test_changed_with_adjudicate_does_not_count_as_silent_override(mini):
     _write_raw(raw, [
         {"id": i, "jp_tail": GOLD_JP[i][-8:],
          "zh": (GOLD_CUR_ZH[i][:-1] + "改" if i in (1, 2, 3) else GOLD_CUR_ZH[i]),
-         "score": 90, "note": "六条细则第1条更顺口" if i in (1, 2, 3) else "",
+         "score": 90, "note": "语感细则第1条更顺口" if i in (1, 2, 3) else "",
          "adjudicate": i in (1, 2, 3)}
         for i in range(1, 11)
     ])

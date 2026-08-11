@@ -71,7 +71,7 @@ def _build_mini(tmp_path, label="segX", channel="chA"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -249,7 +249,7 @@ def _build_mini_recurrence(tmp_path, label="segR", channel="chA"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -317,7 +317,7 @@ def _build_mini_short_collision(tmp_path, label="segS", channel="chA"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -524,7 +524,7 @@ def _build_mini_soft_lock(tmp_path, label="segSoft", channel="chA"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -585,7 +585,7 @@ def test_soft_lock_changed_with_adjudicate_survives(mini_soft):
     """软锁行改动 + adjudicate=true → 正常入仓（后续由 polish_triage 强制
     摘进裁决队列，本模块只负责放行）。"""
     _write_soft_raw(mini_soft, {
-        20: {"zh": "改写后的第20句", "adjudicate": True, "note": "六条细则第5条更顺口"},
+        20: {"zh": "改写后的第20句", "adjudicate": True, "note": "语感细则第5条更顺口"},
         30: {"zh": mini_soft.opus[30]},
     })
     r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)

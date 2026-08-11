@@ -620,7 +620,7 @@ def scan_prompt(label, repo=None) -> str:
     out.append(json.dumps(active, ensure_ascii=False))
     out.append("\n### style.md（对/错标准）")
     out.append(style)
-    out.append("\n### polish.md（汉语母语感六条细则）")
+    out.append("\n### polish.md（汉语母语感细则）")
     out.append(polish_md)
     if voices:
         out.append(voices)

@@ -99,7 +99,7 @@ def _build_mini(tmp_path):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     all_ids = ids_b1 + ids_b2
@@ -334,7 +334,7 @@ def _build_mini_priority(tmp_path, label="segP"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -409,7 +409,7 @@ def _build_mini_mixed_channels(tmp_path, label="segM"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -497,7 +497,7 @@ def _build_mini_soft_lock(tmp_path, label="segSoft"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -654,7 +654,7 @@ def _build_mini_adjudicate_forced(tmp_path, label="segAdj"):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"
@@ -844,7 +844,7 @@ def _build_mini_overload(tmp_path, label, n_autoclear=50, n_real=20):
     (repo / "glossary" / "active.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text("{}", encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
     opus_data = tmp_path / "opus_data"

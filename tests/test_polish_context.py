@@ -75,7 +75,7 @@ def _build_mini_seg(tmp_path, batch_sizes, label="segX", locked_ids=(),
     (repo / "glossary" / "speakers.json").write_text('{}', encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格\n活仓库版本。", encoding="utf-8")
     (repo / "glossary" / "polish.md").write_text(
-        "# 汉语母语感六条细则\n\n1. 量词。\n2. 语序。\n", encoding="utf-8")
+        "# 汉语母语感细则\n\n1. 量词。\n2. 语序。\n", encoding="utf-8")
     (repo / "glossary" / "voices" / "naoya.md").write_text("# 直哉口调", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
 
@@ -211,12 +211,12 @@ def test_render_soft_locked_ids_appear_in_body_with_marker(mini_seg_soft_render)
 
 
 def test_render_embeds_full_glossary_set(mini_seg_render):
-    """frozen/glossary 全套须整篇嵌入：术语表、style.md、polish.md（六条细则
+    """frozen/glossary 全套须整篇嵌入：术语表、style.md、polish.md（语感细则
     全文，非摘要）、口调表、锚点渲染。"""
     p = pc.render("segX", 1, repo=mini_seg_render.root)
     assert "啊" in p  # active.json 内容
     assert "直哉口调" in p  # voices/naoya.md
-    assert "汉语母语感六条细则" in p  # polish.md 标题
+    assert "汉语母语感细则" in p  # polish.md 标题
     assert "量词" in p and "语序" in p  # polish.md 正文（非摘要，须整篇嵌入）
     assert "锚点" in p  # anchors 渲染
 
@@ -392,7 +392,7 @@ def _make_calib(m, rows):
 
 def test_render_calib_is_isomorphic_to_production_prompt(tmp_path):
     """校准批 prompt 必须与生产 prompt **同构**——同一份任务说明、术语表、
-    style.md、六条细则、口调表、锚点。
+    style.md、语感细则、口调表、锚点。
 
     此前 handoff/runbook 只说"把 `calib/<label>.batch.jsonl` 分别喂给两条
     通道（同一套派发方式）"，但生产的派发方式是"读渲染好的 `work/ctx/
@@ -410,8 +410,8 @@ def test_render_calib_is_isomorphic_to_production_prompt(tmp_path):
 
     for block in (pc.TASK_INSTRUCTIONS,
                   "### active.json（术语表）",
-                  "### style.md（对/错标准，与下方六条冲突时以此为准）",
-                  "### polish.md（汉语母语感六条细则）",
+                  "### style.md（对/错标准，与下方语感细则冲突时以此为准）",
+                  "### polish.md（汉语母语感细则）",
                   "### 锚点行",
                   "## 章节纪要（背景参考）"):
         assert block in calib_prompt, f"校准批 prompt 缺了生产 prompt 有的：{block}"

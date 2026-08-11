@@ -10,7 +10,7 @@
    逐批跑的，这里补上会话分组，减少执行模型的往返次数。
 2. `render(label, session_no)`：把一个会话组渲染成执行模型（fable/deepseek
    等）要读的完整 prompt——任务说明（润色契约）+ 锁定 id 清单 + frozen/
-   glossary 全套（术语/风格/口调/锚点/六条细则）+ 逐批正文（jp/现行 opus
+   glossary 全套（术语/风格/口调/锚点/语感细则）+ 逐批正文（jp/现行 opus
    译文对照）+ 输出契约。
 
 **只读 frozen/，绝不读仓库里的活 glossary**——`pilot/polish/<label>/frozen/`
@@ -91,7 +91,7 @@ TASK_INSTRUCTIONS = """\
 pass**——不是从头翻译。下面每一行的「opus zh」都已经是可用译文（来自本项目
 此前的翻译轨），你的工作是让它读起来更像**汉语母语者写的**，尤其是对白要像
 当代汉语口语。总纲只有一句话：**读出声，别扭就改，顺口就留着。**判断细则见
-下方整篇嵌入的 `polish.md`（汉语母语感六条细则）；它与 `style.md`（对/错、
+下方整篇嵌入的 `polish.md`（汉语母语感细则）；它与 `style.md`（对/错、
 术语、控制码、全知纪律）分工不同——**两者冲突时以 `style.md` 为准**。
 
 **强制约束（不可协商，不是风格建议）：**
@@ -132,7 +132,7 @@ opus 不变的样子），不要为了"避免出错"就机械照抄 opus 敷衍�
 
 **什么时候必须显式 `adjudicate: true`**：
 
-- 你认为某处**不该**按六条细则改，或六条细则与 `style.md`/术语表/口调表/
+- 你认为某处**不该**按语感细则改，或语感细则与 `style.md`/术语表/口调表/
   锚点对照之间有冲突；
 - 涉及片假名/汉字人名区分、可能触及"复现句族"（同一句式反复出现、疑似
   已入 anchors 但你不确定）——你判断不了到底该不该动的情形；
@@ -179,7 +179,7 @@ OUTPUT_CONTRACT_HEADER = """\
 
 def _frozen_blocks(fz: Path) -> list:
     """冻结面里"每一份 prompt 都该带的那几节"：术语表 / style.md / polish.md
-    六条细则 / 口调表 / 锚点行 / 章节纪要 / 裁决与前序纪要。
+    语感细则 / 口调表 / 锚点行 / 章节纪要 / 裁决与前序纪要。
 
     抽成共享 helper 是 `render_calib()`（最终评审 I9）的前提——校准批 prompt
     必须与生产 prompt **同构**，否则那场"准入小考"考的就不是生产行为，而它的
@@ -195,9 +195,9 @@ def _frozen_blocks(fz: Path) -> list:
     out = ["\n## 术语 / 风格 / 口调 / 锚点（frozen 冻结面，强制遵守）",
            "### active.json（术语表）",
            json.dumps(active, ensure_ascii=False),
-           "\n### style.md（对/错标准，与下方六条冲突时以此为准）",
+           "\n### style.md（对/错标准，与下方语感细则冲突时以此为准）",
            style,
-           "\n### polish.md（汉语母语感六条细则）",
+           "\n### polish.md（汉语母语感细则）",
            polish_md]
     if voices:
         out.append(voices)
@@ -216,7 +216,7 @@ def _frozen_blocks(fz: Path) -> list:
     rulings_text = rulings_path.read_text(encoding="utf-8").strip() if rulings_path.exists() else ""
     if rulings_text:
         out.append("\n## 裁决与前序纪要（rulings.md；跨会话/跨段传递的用户裁定，"
-                    "与下方六条细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
+                    "与下方语感细则/style.md 冲突时以此为准——它记录的是已经拍板的具体案例）")
         out.append(rulings_text)
     return out
 
@@ -248,7 +248,7 @@ def render_calib(label, repo=None) -> str:
     行为**，而它的产物（`channel_state.json`）直接决定该通道有没有自动清关的
     免检权。
 
-    与 `render()` 的差异只有两处，其余（任务说明、术语表、style.md、六条细则、
+    与 `render()` 的差异只有两处，其余（任务说明、术语表、style.md、语感细则、
     口调表、锚点、纪要、裁决）逐字共用 `_frozen_blocks()`：
 
     1. **正文换成 `calib/<label>.batch.jsonl` 的行**，且**不带任何锁标**——

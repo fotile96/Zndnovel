@@ -77,7 +77,7 @@ def _build_mini(tmp_path, zh_overrides=None, label="segX", channel="chA",
     (repo / "glossary" / "active.json").write_text(
         json.dumps({}, ensure_ascii=False), encoding="utf-8")
     (repo / "glossary" / "style.md").write_text("# 风格", encoding="utf-8")
-    (repo / "glossary" / "polish.md").write_text("# 六条细则", encoding="utf-8")
+    (repo / "glossary" / "polish.md").write_text("# 语感细则", encoding="utf-8")
     (repo / "glossary" / "glossary.v1.yaml").write_text("version: 1", encoding="utf-8")
     (repo / "glossary" / "speakers.json").write_text(
         json.dumps(speakers if speakers is not None else {}, ensure_ascii=False),

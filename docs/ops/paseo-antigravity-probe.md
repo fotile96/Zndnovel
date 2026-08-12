@@ -3,9 +3,10 @@
 > 用户 2026-08-12 在 paseo 里新增了 antigravity provider，要求实测「怎么发射」并评估
 > `gemini-3.5-pro` 的产出质量，供后续在开发轨正式适配。
 >
-> **结论先说：发射路径已完全摸清并记录在下；产出质量没能评估——该 provider 在本账号
-> /本地区被 Google 侧的资格校验挡死，一次也没跑起来。** 另外「`gemini-3.5-pro`」这个
-> 型号**在真实模型表里不存在**（详见 §3）。
+> **结论先说（两轮）**：发射路径已完全摸清并记录在下；**产出质量仍未评估**。
+> 第一轮（2026-08-12 上午）被 Google 侧资格校验挡死；用户解决资格后的第二轮
+> 又撞上三道各自独立的墙——模型选不了、宽松档建不出 agent、default 档下写文件
+> 静默无效。详见 §七。另外「`gemini-3.5-pro`」这个型号**在真实模型表里不存在**（§3）。
 
 ## 一、⚠ 这条链上的失败**全部返回退出码 0**
 
@@ -172,3 +173,98 @@ paseo delete <agentId>                             # 清理测试 agent（本次
 提示词存档：`<scratchpad>/gem-s1.txt`（SEG-4 session 1，334 行应出稿，
 落盘指向镜像目录）。scratchpad 会随会话销毁，正式适配时应把它固化进 `prompts/` 或
 handoff 里——本文只记形态，不记那 2933 字节的正文。
+
+---
+
+## 七、第二轮（2026-08-12 下午，用户解决账号资格之后）
+
+资格确实通了：`agy --print "回答两个字：收到"` → `收到`。**但仍然一行译文都没产出**，
+连撞三道各自独立的墙。**§四 的资格阻断已解除，以下三条取代它成为当前阻断。**
+
+### 7.1 ⚠ 模型选不了，而且**不是 paseo 的锅**
+
+用户随后在 paseo 侧手动补进了 `gemini-3.6-flash-high` 与 `gemini-3.1-pro-high`
+两个真实 id。**补了也没用**——实测请求下列三个 id，`paseo inspect` 回读的实际模型
+**全部是 `gemini-3.6-flash-high`**：
+
+| 请求 | 实际 |
+|---|---|
+| `gemini-3.1-pro-high`（真实且已补进 paseo 表） | `gemini-3.6-flash-high` |
+| `gemini-3.5-flash-high`（真实） | `gemini-3.6-flash-high` |
+| `claude-opus-4-6-thinking`（真实） | `gemini-3.6-flash-high` |
+
+**定位到 `agy` 这一层，与 paseo 无关**：直接跑 `agy --model __bogus__ …`
+**不报错**；`agy --model gemini-3.1-pro-high …` 与 `agy --model gemini-3.6-flash-high …`
+三次自报均为 `Gemini 3.6 Flash (High)`。即 **`agy` 接受 `--model` 但既不校验也不生效**。
+
+（自报模型身份本身不是强证据，但「假 id 不报错」是——它说明这个 flag 根本没被校验；
+再叠上 `paseo inspect` 的独立回读一致，结论可靠。）
+
+**后果**：`gemini-3.1-pro-high`（用户原本想测的「pro」的最近替身）**目前根本跑不到**。
+本账号在这套装置下只能跑 `gemini-3.6-flash-high` 一个模型。修法在 Antigravity/agy 侧，
+不在 paseo，也不在 provider 表。
+
+### 7.2 ⚠ `bypassPermissions` 建不出 agent
+
+```
+paseo run --provider antigravity-acp/... --mode bypassPermissions --env "PATH=$PATH" --json "说ok"
+→ {"error":{"code":"AGENT_CREATE_FAILED","message":"Failed to create agent: [object Object]"}}
+```
+
+资格、PATH 都已就绪时复测，**仍然失败**；同参数换 `--mode default` 立刻成功（`idle`）。
+所以 `AvailableModes` 里列着的 `bypassPermissions` **是列着但不能用**。
+
+⚠ 第一轮我把首次派发的 `AGENT_CREATE_FAILED` 归因给了资格/PATH——**归因错了**，
+那是本条这道独立的墙。两轮都用了 `bypassPermissions`，两轮都在同一处失败。
+
+### 7.3 ⚠ `default` 档下写文件**静默无效**
+
+用 `--mode default` 跑 SEG-4 session 1 的完整任务，实况：
+
+- 它确实在工作：把 748KB 的 prompt **分片读了 25 次以上**，`Search` 了批号，
+  在自己的 brain scratch 目录里写了个 `parse_batches.py` 并执行；
+- 然后 **回合结束**，`status: completed` / `idle`；
+- **落盘目录 0 个文件；`--filter text` 里 0 条模型文字输出；`--filter errors` 无活动；
+  `PendingPermissions` 为空；permissions 事件也没有。**
+
+`paseo send` 唤它继续，它会重新工作并出现
+`[Edit] …/raw/gemini-test/b118.out` 事件——**但那个文件始终不存在**。
+独立探针任务（「往 X 写一行 hello」）同样：`[Edit]` 有、文件没有。
+
+**即：写操作既不落地、也不报错、也不请求批准。** 在 `default` 档下这条通道
+无法交付任何产物，而且它的失败形态是本项目最警惕的那种——全链路「看起来正常」。
+
+### 7.4 唯一还没试的路：`agy` 自己的 `--dangerously-skip-permissions`
+
+paseo 侧没有可用的宽松档（7.2），只能绕开 paseo 直接调 `agy`：
+
+```bash
+agy --dangerously-skip-permissions --print "<提示词>"
+```
+
+⚠ **参数顺序要紧**：`--print` 是**带值参数**（`--prompt` 是它的别名）。写成
+`agy --print --dangerously-skip-permissions "<提示词>"` 会被解析成
+「prompt＝`--dangerously-skip-permissions`」，于是它一本正经地给你讲解那个 flag，
+而你真正的提示词被丢掉——又一个「不报错、结果全错」的形态。
+
+**这条路本次没能实测**：`--dangerously-skip-permissions` 被 Claude Code 的沙箱分类器
+拦下（这是本机 harness 的策略，不是 agy 或 paseo 的问题），需要用户自己执行。
+另需注意 `--print-timeout` 默认只有 5 分钟，334 行的任务必须显式调大。
+
+### 7.5 附带观察：它对 748KB prompt 的消化方式
+
+两个回合里它反复分片重读同一个 prompt 文件 25 次以上，并试图写脚本去解析批次，
+最终没有产出任何文字。这**不能**作为质量结论（写操作本来就是坏的），但可以作为
+一条待验的怀疑：**这条通道可能吃不下现有规模的 prompt**。
+`fable-wf` 与 `ds-flash` 在同一份 748KB prompt 上都是一次通读、直接产出 334 行。
+
+### 7.6 下一步（按代价从低到高）
+
+1. **用户本机执行**（我这边被沙箱挡住）：
+   `agy --dangerously-skip-permissions --print-timeout 60m --print "$(cat <scratchpad>/gem-s1.txt)"`
+   —— 若能落盘 334 行，质量评估立刻可做（镜像目录已搭好，见 §五）。
+2. 修 paseo 的 `bypassPermissions`（7.2）——这是让它成为**可派发生产通道**的前提，
+   直连 `agy` 只能做一次性评估，进不了现有的双通道流水线。
+3. 模型选择（7.1）要在 Antigravity/agy 侧解决，否则「选 pro」这件事无从谈起。
+
+**在 1 走通之前，产出质量仍然是未知的，不要据本文任何内容推测它好或不好。**

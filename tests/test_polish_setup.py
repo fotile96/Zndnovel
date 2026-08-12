@@ -351,3 +351,65 @@ def test_in_production_judgement(mini_repo):
     (d / "decisions.jsonl").write_text("", encoding="utf-8")
     (d / "candidates.chA.jsonl").write_text("", encoding="utf-8")
     assert ps.in_production(d) == ["candidates.chA.jsonl", "decisions.jsonl"]
+
+
+# ── 锚点孪生行（2026-08-12 补，SEG-3 实测暴露的洞）──────────────
+
+def test_anchor_twin_ids_finds_jp_identical_non_anchors():
+    """jp 与锚点字面全同、自己不是锚点的行必须被认出来。"""
+    from tools.polish_setup import _anchor_twin_ids
+
+    jp = {1: "同一句", 2: "同一句", 3: "别的句", 4: "同一句"}
+    assert _anchor_twin_ids({1}, jp) == {2, 4}
+
+
+def test_anchor_twin_ids_excludes_the_anchors_themselves():
+    from tools.polish_setup import _anchor_twin_ids
+
+    jp = {1: "甲", 2: "甲", 3: "乙"}
+    assert 1 not in _anchor_twin_ids({1}, jp)
+    assert _anchor_twin_ids({1, 2}, jp) == set()
+
+
+def test_twins_land_in_soft_not_hard():
+    """孪生行与锚点同档：可出稿，但改动须请裁、永不自动清关。"""
+    from tools.polish_setup import _locked_payload
+
+    p = _locked_payload({7, 8}, anchor_ids={7}, patched_ids=set(), twin_ids={8})
+    assert p["hard_ids"] == []
+    assert p["soft_ids"] == [7, 8]
+    assert p["why"] == {"7": "anchor", "8": "anchor_twin"}
+
+
+def test_patched_still_wins_over_twin():
+    """已被单独人裁过的 id 更不可触碰，仍归硬锁。"""
+    from tools.polish_setup import _locked_payload
+
+    p = _locked_payload({8}, anchor_ids=set(), patched_ids={8}, twin_ids={8})
+    assert p["hard_ids"] == [8] and p["soft_ids"] == []
+    assert p["why"] == {"8": "patched"}
+
+
+def test_real_corpus_has_the_twins_seg3_reported():
+    """回归：SEG-3 报的 739（与软锁锚点 13440 同文）必须在孪生集合里。
+
+    补这一档之前它形式上是可随便改的普通行——那一轮靠执行通道自觉守住，
+    是运气不是闸。
+    """
+    import json
+
+    from tools.polish_setup import _anchor_ids, _anchor_twin_ids
+
+    repo = REPO if "REPO" in globals() else __import__("pathlib").Path(".").resolve()
+    led = {
+        json.loads(l)["id"]: json.loads(l)["jp"]
+        for l in (repo / "pilot/lanes/opus/data/ledger.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if l.strip()
+    }
+    twins = _anchor_twin_ids(_anchor_ids(repo), led)
+    assert 739 in twins
+    assert led[739] == led[13440], "前提变了：739 与 13440 不再同文"
+    # 序章 ↔ s7f 的镜像重演那一族也在其中
+    assert {15798, 15804, 15818, 15820, 15822, 15823, 15827} <= twins

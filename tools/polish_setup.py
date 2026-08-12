@@ -66,7 +66,25 @@ def _anchor_ids(repo) -> set:
     return ids
 
 
-def _locked_payload(locked_ids, anchor_ids, patched_ids) -> dict:
+def _anchor_twin_ids(anchor_ids: set, jp_by_id: dict) -> set:
+    """jp **字面全同**于某条锚点、但自己不是锚点的 id。
+
+    锚点的约束是「这一句一律逐字沿用定译」，可原文在别处又出现了一次时，
+    那一处的 id 不在 `anchors.yaml` 里，于是形式上成了可随便改的普通行——
+    **改了必然打破锚点的逐字一致，而闸不会响**。
+
+    SEG-3 实测暴露了这个洞：`739`（b93）与软锁锚点 `13440` 的 jp 全同却不在
+    `soft_ids` 里。那一轮是执行通道自己按锚点维持住并登记了 note——**那是运气
+    不是闸**。全库共 11 条这样的孪生行（seg5 七条、seg7 两条、seg3/seg4 各一条）。
+
+    归入软锁而非硬锁：它们本身没有被单独人裁过，约束来自锚点这条一般性定译，
+    与锚点行本身同档——可以出稿，但改动必须带 `adjudicate=true`、永不自动清关。
+    """
+    anchor_jp = {jp_by_id[i] for i in anchor_ids if i in jp_by_id}
+    return {i for i, jp in jp_by_id.items() if jp in anchor_jp and i not in anchor_ids}
+
+
+def _locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids=frozenset()) -> dict:
     """硬锁/软锁分类（2026-08-07 用户裁定：锚点行从硬锁改软锁）。
 
     - **硬锁**（`hard_ids`）＝该 id 在冻结时点已有人裁 patch（`patched_ids`）
@@ -79,8 +97,10 @@ def _locked_payload(locked_ids, anchor_ids, patched_ids) -> dict:
       时点已经有的一条**具体、更新**的人裁决定，比 anchors.yaml 的一般性
       定译指引更"重"——一个 id 若已经被单独裁过，理应比一条通用锚点指引
       更不可触碰，取更保守（更严格）的那一档。`hard_ids`/`soft_ids` 因此
-      互斥、并集恒等于 `locked_ids`（=`anchor_ids | patched_ids`，与旧版
-      `ids` 字段定义逐位相同，向后兼容）。
+      互斥、并集恒等于 `locked_ids`（=`anchor_ids | twin_ids | patched_ids`）。
+    - **孪生行**（`twin_ids`，2026-08-12 补）＝ jp 与某条锚点字面全同、自己却
+      不是锚点的 id，与锚点同档归软锁，`why` 标 `anchor_twin`。补这一档之前，
+      这些行形式上是可随便改的普通行，改了必然打破锚点逐字一致而闸不响。
 
     `why` 字段保留（旧消费者只用它做展示标注，不做行为判断），取值与
     `hard_ids`/`soft_ids` 的分类口径同步（tie-break 从旧版的固定标 "anchor"
@@ -88,10 +108,15 @@ def _locked_payload(locked_ids, anchor_ids, patched_ids) -> dict:
     行为分叉了，`why` 的字面值必须如实反映真正生效的那一档，不能自相矛盾）。
     """
     hard_ids = set(locked_ids) & patched_ids
-    soft_ids = set(locked_ids) & anchor_ids - patched_ids
+    soft_ids = set(locked_ids) & (anchor_ids | twin_ids) - patched_ids
     why = {}
     for i in sorted(locked_ids):
-        why[str(i)] = "patched" if i in patched_ids else "anchor"
+        if i in patched_ids:
+            why[str(i)] = "patched"
+        elif i in anchor_ids:
+            why[str(i)] = "anchor"
+        else:
+            why[str(i)] = "anchor_twin"
     return {
         "ids": sorted(locked_ids),
         "why": why,
@@ -234,10 +259,12 @@ def setup(label, opus_data, repo=None, force=False) -> Path:
     write_jsonl(fz / "opus.jsonl", [{"id": i, "zh": cur[i]} for i in ids])
 
     anchor_ids = _anchor_ids(repo)
+    twin_ids = _anchor_twin_ids(anchor_ids, {i: r["jp"] for i, r in led.items()})
     patched_ids = {r["id"] for r in pat}
-    locked_ids = set(ids) & (anchor_ids | patched_ids)
+    locked_ids = set(ids) & (anchor_ids | twin_ids | patched_ids)
     (fz / "locked.json").write_text(
-        dumps(_locked_payload(locked_ids, anchor_ids, patched_ids)), encoding="utf-8")
+        dumps(_locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids)),
+        encoding="utf-8")
 
     _copy_glossary(repo, fz)
     notes_missing = _copy_notes(opus_data / "notes", fz / "notes", seg["chapters"])

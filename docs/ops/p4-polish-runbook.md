@@ -334,8 +334,16 @@ uv run python tools/polish_amplify.py --seg <label> --digest
 ```
 
 把 `decisions.jsonl` 里 `verdict ∈ {adopt, edit, keep_opus}` 的记录（`auto` 决策不计入）按
-原因码归纳成意图纪要，追加进 `frozen/rulings.md`（自动前馈进下一 SEG 的 render() 与本 SEG
+原因码归纳成意图纪要，追加进 `frozen/rulings.md`（前馈进下一 SEG 的 render() 与本 SEG
 后续渲染）。可重复调用，不受轮数闸限制。
+
+⚠ **「前馈进下一 SEG」这句话在 2026-08-12 之前是假的。** `polish_setup.setup()` 每次
+给新 SEG 写一个**空壳** `rulings.md`，从不看前段——SEG-3 那 11135 字节纪要（299 条裁决
+的意图）一个字都没到 SEG-4，是 SEG-4 的执行通道报「rulings.md 一节是空的」才暴露。
+已修（`polish_setup._seed_rulings`，按 `seg` 序数承接此前各段的纪要正文，并**剥掉
+`<!-- amplify-round:N -->` 标记**——承接的是内容不是配额，否则新段一出生就会被判定
+amplify 配额已用尽）。**seg0–seg4 的冻结面不重跑，故那五段确实没吃到前段纪要**；
+从 seg5 起生效（实测将承接约 11.8KB，来自 seg1 与 seg3——另两段没跑过 digest）。
 
 ```bash
 uv run python tools/polish_amplify.py --seg <label> --scan-prompt \

@@ -17,6 +17,7 @@ pilot/polish/），故这里另起 `_dir_for(label, repo)`，只在 repo 落空�
 到 polishlib.seg_dir() 的默认路径逻辑。
 """
 import json
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -42,6 +43,46 @@ def _seg_entry(repo, label) -> dict:
         if s["label"] == label:
             return s
     raise KeyError(f"config/segments.yaml 里没有 label={label!r} 的段")
+
+
+_ROUND_MARKER_RE = re.compile(r"^<!-- amplify-round:\d+ -->$\n?", re.MULTILINE)
+
+
+def _seed_rulings(label, repo) -> str:
+    """新 SEG 的 `frozen/rulings.md` 初值：**承接此前各段的裁决纪要**。
+
+    2026-08-12 修复。此前这里每次写一个空壳，从不看前段——而 runbook §九 明写
+    `polish_amplify --digest` 的产物「自动前馈进**下一 SEG** 的 render()」。
+    那句话一直是假的：SEG-3 的 11135 字节纪要（299 条裁决的意图）一个字都没到
+    SEG-4，是 SEG-4 的执行通道报「rulings.md 一节是空的」才暴露出来。
+
+    这正是本项目反复吃亏的那条断链的工装侧成因——CLAUDE.md 记的「A 章纪要提请、
+    B 章批次落笔」传不过去，P4 层同样传不过去。
+
+    ⚠ **必须剥掉 `<!-- amplify-round:N -->` 标记**：那是放大扫描的轮数闸计数，
+    连同纪要抄进新段会让新段一出生就被判定「本段的 amplify 配额已用掉」，
+    `polish_amplify --scan-prompt` 直接拒绝装配。承接的是**内容**，不是**配额**。
+
+    顺序按 `config/segments.yaml` 的 `seg` 序数，只取排在本段之前、且 rulings
+    确有内容（去掉标题行后非空）的段。
+    """
+    segs = yaml.safe_load((Path(repo) / "config" / "segments.yaml").read_text(encoding="utf-8"))
+    me = next((s for s in segs if s["label"] == label), None)
+    out = [f"# {label} 润色裁决与前序纪要", "（追加式）", ""]
+    if me is None:
+        return "\n".join(out[:2]) + "\n"
+    for s in sorted((x for x in segs if x["seg"] < me["seg"]), key=lambda x: x["seg"]):
+        p = _dir_for(s["label"], Path(repo)) / "frozen" / "rulings.md"
+        if not p.exists():
+            continue
+        body = _ROUND_MARKER_RE.sub("", p.read_text(encoding="utf-8"))
+        # 去掉前段自己的标题与「（追加式）」，只留正文
+        body = "\n".join(ln for ln in body.splitlines()
+                         if not ln.startswith("# ") and ln.strip() != "（追加式）").strip()
+        if not body:
+            continue
+        out += [f"## 承接自 {s['label']}（前段裁决纪要，对本段同样有效）", "", body, ""]
+    return "\n".join(out) + "\n"
 
 
 def _seg_ids(repo, lane, lo, hi):
@@ -269,8 +310,7 @@ def setup(label, opus_data, repo=None, force=False) -> Path:
     _copy_glossary(repo, fz)
     notes_missing = _copy_notes(opus_data / "notes", fz / "notes", seg["chapters"])
 
-    (fz / "rulings.md").write_text(f"# {label} 润色裁决与前序纪要\n（追加式）\n",
-                                    encoding="utf-8")
+    (fz / "rulings.md").write_text(_seed_rulings(label, repo), encoding="utf-8")
 
     files = {}
     for p in sorted(fz.rglob("*")):

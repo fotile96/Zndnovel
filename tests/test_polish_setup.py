@@ -413,3 +413,53 @@ def test_real_corpus_has_the_twins_seg3_reported():
     assert led[739] == led[13440], "前提变了：739 与 13440 不再同文"
     # 序章 ↔ s7f 的镜像重演那一族也在其中
     assert {15798, 15804, 15818, 15820, 15822, 15823, 15827} <= twins
+
+
+# --- rulings.md 跨段承接（2026-08-12 修复） -----------------------------------
+
+def _seed(tmp_path, prior):
+    """prior: {label: rulings 正文}；建一个只有 segments.yaml + 各段 frozen 的假仓。"""
+    import yaml as _y
+    root = tmp_path / "r"
+    (root / "config").mkdir(parents=True)
+    labels = list(prior) + ["segZ"]
+    (root / "config" / "segments.yaml").write_text(_y.safe_dump(
+        [{"seg": i, "label": lab, "lane": "main", "batches": [i * 10, i * 10 + 9],
+          "chapters": []} for i, lab in enumerate(labels)], allow_unicode=True),
+        encoding="utf-8")
+    for lab, body in prior.items():
+        fz = root / "pilot" / "polish" / lab / "frozen"
+        fz.mkdir(parents=True)
+        (fz / "rulings.md").write_text(body, encoding="utf-8")
+    return ps._seed_rulings("segZ", root)
+
+
+def test_rulings_are_inherited_from_earlier_segments():
+    """runbook §九 承诺 digest「自动前馈进下一 SEG」——此前是假的，SEG-3 的纪要
+    一个字都没到 SEG-4，由执行通道报「rulings.md 是空的」才暴露。"""
+    import tempfile, pathlib
+    with tempfile.TemporaryDirectory() as td:
+        out = _seed(pathlib.Path(td), {
+            "segA": "# segA 润色裁决与前序纪要\n（追加式）\n### 术语\n- id 1：作「走到一起」\n",
+            "segB": "# segB 润色裁决与前序纪要\n（追加式）\n### 语序\n- id 2：让步后置\n",
+        })
+    assert "走到一起" in out and "让步后置" in out
+    assert out.index("segA") < out.index("segB")      # 按 seg 序数
+    assert out.count("# segZ 润色裁决与前序纪要") == 1  # 前段标题不重复带进来
+
+
+def test_inheriting_rulings_never_carries_the_amplify_round_quota():
+    """⚠ 承接的是内容不是配额：前段的 `<!-- amplify-round:N -->` 若被抄进来，
+    新段一出生就会被判定 amplify 配额已用尽，--scan-prompt 直接拒绝装配。"""
+    import tempfile, pathlib
+    with tempfile.TemporaryDirectory() as td:
+        out = _seed(pathlib.Path(td), {
+            "segA": "# segA\n（追加式）\n### 术语\n- id 1：X\n<!-- amplify-round:1 -->\n"})
+    assert "X" in out and "amplify-round" not in out
+
+
+def test_empty_prior_rulings_are_skipped_not_echoed_as_blank_sections():
+    import tempfile, pathlib
+    with tempfile.TemporaryDirectory() as td:
+        out = _seed(pathlib.Path(td), {"segA": "# segA 润色裁决与前序纪要\n（追加式）\n"})
+    assert "承接自 segA" not in out

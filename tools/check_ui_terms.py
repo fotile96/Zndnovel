@@ -33,7 +33,6 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 CONFIG = REPO / "config" / "ui_terms.yaml"
 LEDGER = REPO / "pilot" / "lanes" / "opus" / "data" / "ledger.jsonl"
-FINAL = REPO / "pilot" / "lanes" / "opus" / "data" / "final.jsonl"
 CARDS_JP = REPO / "skeleton" / "cards.jp.yaml"
 CARDS_ZH = REPO / "skeleton" / "cards.zh.yaml"
 

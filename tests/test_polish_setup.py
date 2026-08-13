@@ -436,15 +436,24 @@ def _seed(tmp_path, prior):
 
 def test_rulings_are_inherited_from_earlier_segments():
     """runbook §九 承诺 digest「自动前馈进下一 SEG」——此前是假的，SEG-3 的纪要
-    一个字都没到 SEG-4，由执行通道报「rulings.md 是空的」才暴露。"""
+    一个字都没到 SEG-4，由执行通道报「rulings.md 是空的」才暴露。
+
+    2026-08-14 改：承接只取**紧邻的前一段**。更早各段的内容仍然到得了，
+    但走的是链条——紧邻前段的文件里本来就含着它们（生产里每一段都是这么
+    种出来的）。本 fixture 因此照生产的样子构造 segB：它自己带着 segA 的正文。
+    旧版 fixture 把两段写成互不相干，编码的是「遍历全部前段」那个已废的设计。
+    """
     import tempfile, pathlib
     with tempfile.TemporaryDirectory() as td:
         out = _seed(pathlib.Path(td), {
             "segA": "# segA 润色裁决与前序纪要\n（追加式）\n### 术语\n- id 1：作「走到一起」\n",
-            "segB": "# segB 润色裁决与前序纪要\n（追加式）\n### 语序\n- id 2：让步后置\n",
+            "segB": ("# segB 润色裁决与前序纪要\n（追加式）\n"
+                     "## 承接自 segA（前段裁决纪要，对本段同样有效）\n\n"
+                     "### 术语\n- id 1：作「走到一起」\n\n"
+                     "### 语序\n- id 2：让步后置\n"),
         })
     assert "走到一起" in out and "让步后置" in out
-    assert out.index("segA") < out.index("segB")      # 按 seg 序数
+    assert out.count("走到一起") == 1, "更早段的正文被计入了两次"
     assert out.count("# segZ 润色裁决与前序纪要") == 1  # 前段标题不重复带进来
 
 
@@ -463,3 +472,82 @@ def test_empty_prior_rulings_are_skipped_not_echoed_as_blank_sections():
     with tempfile.TemporaryDirectory() as td:
         out = _seed(pathlib.Path(td), {"segA": "# segA 润色裁决与前序纪要\n（追加式）\n"})
     assert "承接自 segA" not in out
+
+
+# ── 承接只取紧邻前段（2026-08-14 修）──────────────────────────
+
+def test_seed_rulings_takes_only_the_nearest_prior_segment(tmp_path):
+    """链条本来就是传递的，逐段叠加就是重复计入。
+
+    实测的增长：seg4 12K → seg5 54K → **seg6 93K**，seg1/seg3/seg4 的正文
+    在 seg6 里出现了两次。rulings.md 是嵌进生产 prompt 的，重复等于让模型
+    把同样的内容读两遍、还挤占上下文。
+    """
+    import yaml as _yaml
+
+    from tools.polish_setup import _seed_rulings
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "segments.yaml").write_text(
+        _yaml.safe_dump(
+            [
+                {"seg": 0, "label": "a", "lane": "main", "batches": [1, 1]},
+                {"seg": 1, "label": "b", "lane": "main", "batches": [2, 2]},
+                {"seg": 2, "label": "c", "lane": "main", "batches": [3, 3]},
+            ],
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    for lab, body in (("a", "AAA-独有"), ("b", "## 承接自 a\n\nAAA-独有\n\nBBB-独有")):
+        d = tmp_path / "pilot" / "polish" / lab / "frozen"
+        d.mkdir(parents=True)
+        (d / "rulings.md").write_text(f"# {lab}\n（追加式）\n\n{body}\n", encoding="utf-8")
+
+    out = _seed_rulings("c", tmp_path)
+    assert out.count("AAA-独有") == 1, "a 的正文被计入了两次"
+    assert out.count("BBB-独有") == 1
+    assert out.count("## 承接自 b") == 1
+    assert "## 承接自 a（前段" not in out, "不该直接再承接一次 a"
+
+
+def test_seed_rulings_skips_empty_prior_segments(tmp_path):
+    """seg0/seg2 没跑过 digest、rulings 是空壳；要跳过它们接上真正的链。"""
+    import yaml as _yaml
+
+    from tools.polish_setup import _seed_rulings
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "segments.yaml").write_text(
+        _yaml.safe_dump(
+            [
+                {"seg": 0, "label": "a", "lane": "main", "batches": [1, 1]},
+                {"seg": 1, "label": "empty", "lane": "main", "batches": [2, 2]},
+                {"seg": 2, "label": "c", "lane": "main", "batches": [3, 3]},
+            ],
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    for lab, body in (("a", "AAA"), ("empty", "")):
+        d = tmp_path / "pilot" / "polish" / lab / "frozen"
+        d.mkdir(parents=True)
+        (d / "rulings.md").write_text(f"# {lab}\n（追加式）\n{body}\n", encoding="utf-8")
+
+    out = _seed_rulings("c", tmp_path)
+    assert "AAA" in out and "## 承接自 a" in out
+
+
+def test_real_seg6_rulings_has_no_duplicated_prior_body():
+    """回归：真实 seg6 的承接里，seg1/seg3/seg4 的纪要标题各只应出现一次。"""
+    import pathlib
+
+    p = pathlib.Path("pilot/polish/seg6-s8-e1/frozen/rulings.md")
+    if not p.exists():
+        import pytest as _pytest
+
+        _pytest.skip("seg6 尚未冻结")
+    t = p.read_text(encoding="utf-8")
+    for seg in ("seg1-s2", "seg3-s4", "seg4-s3tail-s5", "seg5-s6-s7f"):
+        n = t.count(f"## 放大扫描意图纪要（{seg}")
+        assert n <= 1, f"{seg} 的纪要出现了 {n} 次"

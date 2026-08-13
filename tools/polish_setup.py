@@ -63,15 +63,25 @@ def _seed_rulings(label, repo) -> str:
     连同纪要抄进新段会让新段一出生就被判定「本段的 amplify 配额已用掉」，
     `polish_amplify --scan-prompt` 直接拒绝装配。承接的是**内容**，不是**配额**。
 
-    顺序按 `config/segments.yaml` 的 `seg` 序数，只取排在本段之前、且 rulings
-    确有内容（去掉标题行后非空）的段。
+    ⚠ **只承接紧邻的前一段（有内容的那一段），不是此前每一段**。
+
+    初版遍历了此前全部段，而每段的 rulings.md 里**已经含着它自己承接来的部分**
+    ——链条本来就是传递的，再逐段叠加就是重复计入。实测增长：
+    seg4 12K → seg5 54K → **seg6 93K**，seg1/seg3/seg4 的正文在 seg6 里出现了两次。
+    照此下去 seg7 会到二十万字节量级，而 rulings.md 是**嵌进生产 prompt 的**，
+    等于让模型把同样的内容读两遍、还挤占上下文。
+
+    往回找「最近一个有内容的前段」而不是「上一个序号」，是因为 seg0/seg2
+    没跑过 digest、rulings 是空壳；跳过它们才能接上真正的链。
     """
     segs = yaml.safe_load((Path(repo) / "config" / "segments.yaml").read_text(encoding="utf-8"))
     me = next((s for s in segs if s["label"] == label), None)
     out = [f"# {label} 润色裁决与前序纪要", "（追加式）", ""]
     if me is None:
         return "\n".join(out[:2]) + "\n"
-    for s in sorted((x for x in segs if x["seg"] < me["seg"]), key=lambda x: x["seg"]):
+    prior = sorted((x for x in segs if x["seg"] < me["seg"]),
+                   key=lambda x: x["seg"], reverse=True)
+    for s in prior:
         p = _dir_for(s["label"], Path(repo)) / "frozen" / "rulings.md"
         if not p.exists():
             continue
@@ -81,7 +91,12 @@ def _seed_rulings(label, repo) -> str:
                          if not ln.startswith("# ") and ln.strip() != "（追加式）").strip()
         if not body:
             continue
-        out += [f"## 承接自 {s['label']}（前段裁决纪要，对本段同样有效）", "", body, ""]
+        # 找到最近一个有内容的前段就停——它已经承接了更早的各段
+        out.append(f"## 承接自 {s['label']}（前段裁决纪要，对本段同样有效）")
+        out.append("")
+        out.append(body)
+        out.append("")
+        break
     return "\n".join(out) + "\n"
 
 

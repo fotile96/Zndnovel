@@ -14,6 +14,7 @@ import yaml
 from tools.pipelib import REPO, read_jsonl
 from tools.resolve import resolve_map
 from tools.api_client import chat
+from tools import agy_client
 
 READER_SYS = ("你在听人讲一个故事。你只知道两部分信息：①此前剧情的卡片梗概；"
               "②最新一段正文。只根据给定文本回答问题，文本里没有的就答「不知道」，"
@@ -272,7 +273,10 @@ def _cot_excerpt(text: str, limit: int = COT_EXCERPT_CHARS) -> str:
     return f"{flat[:limit]}……（共 {len(flat)} 字，已截断）"
 
 
-def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
+def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None,
+         runner=None):
+    """`runner` 是 agy 通道的离线注入点，与 `stream_transport`（HTTP 通道）平行；
+    两者各自只对自己那条通道生效，互不干扰。"""
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--segment", required=True)
@@ -287,8 +291,25 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
     ap.add_argument("--max-tokens", type=int, default=None)
     ap.add_argument("--effort", default=None,
                     choices=["none", "minimal", "low", "medium", "high", "xhigh", "max"],
-                    help="reasoning.effort，透传给 api_client（默认走其 DEFAULT_EFFORT）")
+                    help="reasoning.effort，透传给通道（默认走各通道的 DEFAULT_EFFORT）。"
+                         "⚠ agy 通道只认 low|medium|high，传其余档会被它拒掉")
+    ap.add_argument("--ledger", default=None,
+                    help="覆盖计费台账路径。默认写 data/api_ledger.jsonl（生产账本）；"
+                         "**通道评测/探针一律用本参数指向别处**，否则实验数据会混进"
+                         "生产台账，而那是个 append-only、历史行不许改的账本")
+    ap.add_argument("--judge-channel", default=None, choices=["deepseek", "agy"],
+                    help="判分通道，默认与 --channel 同。**做通道横比时应当把判分钉死"
+                         "在同一条通道上**：受试与判分同时换通道，两个变量一起动，"
+                         "分数差说不清是谁造成的（首次 agy 全跑即如此，见 "
+                         "docs/ops/agy-cli-channel.md §5 的口径说明）")
+    ap.add_argument("--channel", default="deepseek", choices=["deepseek", "agy"],
+                    help="受试通道。deepseek=HTTP/Responses；agy=本机 Antigravity CLI "
+                         "子进程。⚠ agy 不下发推理正文，故报告里「CoT 摘要」恒为「无 "
+                         "CoT」——即该通道判不了「真读出来 vs 猜」，这是通道能力差异")
     a = ap.parse_args(argv)
+    # CLI 的 --ledger 与函数入参 ledger_path 是同一个位置的两个入口：前者给人用，
+    # 后者给测试注入。两者都给时以函数入参为准（测试不该被命令行意外劫持）。
+    ledger_path = ledger_path if ledger_path is not None else a.ledger
     repo = Path(a.repo) if a.repo else REPO
     qa_path = Path(a.qa)
     if not qa_path.exists():
@@ -307,28 +328,59 @@ def main(argv=None, *, stream_transport=None, api_key=None, ledger_path=None):
     if a.dry_run:
         print(f"segment={a.segment} 上下文 {len(ctx)} 字符 缺译 {missing} 行 题数 {len(qa)}")
         return 0
-    kw = dict(stream_transport=stream_transport, api_key=api_key,
-              ledger_path=ledger_path, model=a.model, timeout=a.timeout)
-    if a.max_tokens is not None:
-        kw["max_tokens"] = a.max_tokens
-    if a.effort is not None:
-        kw["effort"] = a.effort
+    def channel_call(channel, model):
+        """→ `(chat 函数, kw)`。两条通道的入参集**不同**，故按通道分别组装而不是
+        组一份大 kw 让被调方各取所需——调用点看得见「这条通道没有这些概念」。"""
+        if channel == "agy":
+            # subprocess 通道：没有 api_key、没有 max_tokens、没有逐 chunk 静默
+            # 超时（它自己的 --print-timeout 兜底）。
+            kw = dict(ledger_path=ledger_path, model=model, runner=runner)
+        else:
+            kw = dict(stream_transport=stream_transport, api_key=api_key,
+                      ledger_path=ledger_path, model=model, timeout=a.timeout)
+            if a.max_tokens is not None:
+                kw["max_tokens"] = a.max_tokens
+        if a.effort is not None:
+            kw["effort"] = a.effort
+        return (agy_client.chat if channel == "agy" else chat), kw
+
+    judge_channel = a.judge_channel or a.channel
+    chat_fn, kw = channel_call(a.channel, a.model)
+    # 判分通道与受试通道不同时，`--model` 是给受试通道的，不能顺手套给判分通道
+    # （型号名根本不通用：deepseek-v4-flash vs gemini-3.7-flash）——让它走各自默认。
+    judge_fn, judge_kw = ((chat_fn, kw) if judge_channel == a.channel
+                          else channel_call(judge_channel, None))
     rows = []
+    used_model = a.model or "（通道默认）"
     for q in qa:
-        ans = chat([{"role": "system", "content": READER_SYS},
-                    {"role": "user", "content": f"{ctx}\n\n＝＝ 问题 ＝＝\n{q['question']}"}],
-                   purpose=f"ayano:{a.segment}:{q['id']}", **kw)
-        verdict = chat([{"role": "system", "content": JUDGE_SYS},
-                        {"role": "user", "content":
-                         f"【问题】{q['question']}\n【标准答案】{q['reference']}\n"
-                         f"【受试回答】{ans['content']}"}],
-                       purpose=f"ayano-judge:{a.segment}:{q['id']}", **kw)
+        ans = chat_fn([{"role": "system", "content": READER_SYS},
+                       {"role": "user",
+                        "content": f"{ctx}\n\n＝＝ 问题 ＝＝\n{q['question']}"}],
+                      purpose=f"ayano:{a.segment}:{q['id']}", **kw)
+        verdict = judge_fn([{"role": "system", "content": JUDGE_SYS},
+                            {"role": "user", "content":
+                             f"【问题】{q['question']}\n【标准答案】{q['reference']}\n"
+                             f"【受试回答】{ans['content']}"}],
+                           purpose=f"ayano-judge:{a.segment}:{q['id']}", **judge_kw)
+        used_model = ans.get("model") or used_model
         cot = ans.get("reasoning_text", "")
         rows.append((q, ans["content"], verdict["content"], cot,
                      cot_signals(ans["content"], cot, ctx)))
     out = Path(a.out) if a.out else repo / "work" / "out" / f"ayano-{a.segment}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    lines = [f"# 彩野测试报告 · {a.segment}（{len(rows)} 题）", ""]
+    # 通道与型号必须写进报告：同一段跑过多条通道时，一份不标通道的报告无法横比，
+    # 也说不清「这次 CoT 摘要为空」是模型没吐推理还是通道不下发（agy 属后者）。
+    # 通道与型号必须写进报告：同一段跑过多条通道时，一份不标通道的报告无法横比，
+    # 也说不清「这次 CoT 摘要为空」是模型没吐推理还是通道不下发（agy 属后者）。
+    # 型号取**返回值里的**那个（通道解析过默认值之后的实际请求值），不是命令行原样。
+    lines = [f"# 彩野测试报告 · {a.segment}（{len(rows)} 题）", "",
+             f"> 受试通道 `{a.channel}`｜模型 `{used_model}`｜判分通道 `{judge_channel}`",
+             ""]
+    if judge_channel == a.channel:
+        # 横比时这句是必读的免责：受试与判分同时换了通道，分数差有两个来源。
+        lines += ["> ⚠ 判分与受试是**同一条通道**——与别的通道横比时，分数差里"
+                  "混着「判分员也换了」这个变量。要干净的横比请用 "
+                  "`--judge-channel` 把判分钉死在同一条通道上。", ""]
     if missing:
         lines.append(f"> ⚠ 本段**缺译 {missing} 行**（段未译完，结论仅供参考）。")
         lines.append("")

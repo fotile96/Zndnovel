@@ -483,3 +483,119 @@ def test_partial_verdict_is_not_read_as_correct():
     from tools.ayano_test import parse_verdict, is_correct
     assert parse_verdict("部分对|漏了两点") == "部分对"
     assert not is_correct("部分对|漏了两点")
+
+
+# ——agy 通道接线（离线，不 spawn 真 agy）——————————————————————
+
+def _agy_lines(content):
+    from tools.agy_client import DEFAULT_MODEL
+    objs = [{"event": "init", "init": {"model": DEFAULT_MODEL}},
+            {"event": "result",
+             "result": {"conversation_id": "c", "status": "SUCCESS",
+                        "response": content,
+                        "usage": {"input_tokens": 10, "output_tokens": 5,
+                                  "thinking_tokens": 2, "cache_read_tokens": 0}}}]
+    return [json.dumps(o, ensure_ascii=False) + "\n" for o in objs]
+
+
+def test_agy_channel_end_to_end(tmp_path):
+    """`--channel agy` 走的是 agy_client，且 runner 注入点真的通到底。"""
+    lane, repo = _mk_fixture(tmp_path)
+    calls = []
+
+    def runner(argv, *, cwd, env):
+        calls.append(argv)
+        content = "游泳池的约定" if len(calls) == 1 else "对|回答与标准一致"
+        return iter(_agy_lines(content)), lambda: (0, "")
+
+    out = tmp_path / "report.md"
+    lp = tmp_path / "l.jsonl"
+    rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+               "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo),
+               "--channel", "agy"], runner=runner, ledger_path=lp)
+    assert rc == 0
+    assert len(calls) == 2                      # 一次作答 + 一次判分
+    text = out.read_text(encoding="utf-8")
+    assert "游泳池的约定" in text and "对|" in text
+    # 报告必须标出通道，否则多通道横比时分不清哪份是谁跑的
+    assert "通道 `agy`" in text
+    # agy 不下发推理正文——报告如实写「无 CoT」，不假装有
+    assert "无 CoT" in text
+    row = json.loads(lp.read_text(encoding="utf-8").splitlines()[0])
+    assert row["provider"] == "antigravity"
+
+
+def test_agy_channel_does_not_leak_http_only_flags(tmp_path):
+    """--max-tokens / --timeout 是 HTTP 通道的概念，不该被组装进 agy 调用。"""
+    lane, repo = _mk_fixture(tmp_path)
+
+    def runner(argv, *, cwd, env):
+        return iter(_agy_lines("对|x")), lambda: (0, "")
+
+    rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+               "--lane-dir", str(lane), "--out", str(tmp_path / "r.md"),
+               "--repo", str(repo), "--channel", "agy",
+               "--max-tokens", "999", "--timeout", "7"],
+              runner=runner, ledger_path=tmp_path / "l.jsonl")
+    assert rc == 0
+
+
+def test_judge_channel_can_be_pinned_to_the_other_channel(tmp_path):
+    """受试走 agy、判分走 deepseek——横比时判分员必须是同一个，否则两个变量一起动。"""
+    lane, repo = _mk_fixture(tmp_path)
+    agy_calls, ds_calls = [], []
+
+    def runner(argv, *, cwd, env):
+        agy_calls.append(argv)
+        return iter(_agy_lines("游泳池的约定")), lambda: (0, "")
+
+    def fake(url, headers, payload):
+        ds_calls.append(payload)
+        return _fake_events("对|一致", "推理")
+
+    out = tmp_path / "r.md"
+    rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+               "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo),
+               "--channel", "agy", "--judge-channel", "deepseek",
+               "--model", "gemini-3.7-flash"],
+              runner=runner, stream_transport=fake, api_key="sk-test",
+              ledger_path=tmp_path / "l.jsonl")
+    assert rc == 0
+    assert len(agy_calls) == 1 and len(ds_calls) == 1     # 作答走 agy、判分走 deepseek
+    # --model 是给受试通道的，不能顺手套给判分通道（型号名根本不通用）
+    assert ds_calls[0]["model"] == "deepseek-v4-flash"
+    text = out.read_text(encoding="utf-8")
+    assert "判分通道 `deepseek`" in text
+    # 判分独立时不该再打那句「同一条通道」的免责
+    assert "同一条通道" not in text
+
+
+def test_same_channel_judging_is_flagged_in_the_report(tmp_path):
+    """判分与受试同通道时，报告必须自带免责——否则横比会被静默读错。"""
+    lane, repo = _mk_fixture(tmp_path)
+
+    def runner(argv, *, cwd, env):
+        return iter(_agy_lines("对|x")), lambda: (0, "")
+
+    out = tmp_path / "r.md"
+    main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+          "--lane-dir", str(lane), "--out", str(out), "--repo", str(repo),
+          "--channel", "agy"], runner=runner, ledger_path=tmp_path / "l.jsonl")
+    assert "同一条通道" in out.read_text(encoding="utf-8")
+
+
+def test_default_channel_is_still_deepseek(tmp_path):
+    """不传 --channel 时行为一字不变——本次改动对既有调用方必须是透明的。"""
+    lane, repo = _mk_fixture(tmp_path)
+    calls = []
+
+    def fake(url, headers, payload):
+        calls.append(payload)
+        return _fake_events("对|x", "推理")
+
+    rc = main(["--segment", "segX", "--qa", str(repo / "config" / "qa.yaml"),
+               "--lane-dir", str(lane), "--out", str(tmp_path / "r.md"),
+               "--repo", str(repo)],
+              stream_transport=fake, api_key="sk-test",
+              ledger_path=tmp_path / "l.jsonl")
+    assert rc == 0 and len(calls) == 2

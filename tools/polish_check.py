@@ -176,6 +176,54 @@ Task 6 覆盖"搞混**——Task 5 `polish_ingest.py` 的模块 docstring 在"�
 侦测"一节点名引用了本模块的 R2b 作为下游兜底之一，两边的分工描述要对得
 上：本模块负责 R2a/R2b/R2c/W1/W2/W3，W4 由 Task 11 负责。
 
+## W4 的记号盲区与 `bare_full()`——SEG-7 冻结时发现
+
+W4 的族键是 **jp 整行字面**，含说话人前缀与外层括号。本作有一整类结构会
+因此从它眼皮底下溜过去：**同一句台词在不同章里换了记号壳**。
+
+`e2f`（雪乃弥留之际"编纂"的 if 幸福线）与 `e2s` 是重灾区——它把 `s5s`
+（サクラ日记）与 `s8f`（五年后尾声）大段重演，同时把人物匿名化：
+
+```
+16599 【千秋】「……。ひとつ、先生に聞いて欲しい事があるんです」      ← s8f，已定稿
+ 5500 【≦女子生徒≧】「……。ひとつ、先生に聞いて欲しい事があるんです」 ← e2f
+15010 【ユウイチ】「夕方になると人も多くなるし、…気になってくるから」  ← s5s
+ 4843 【≦ユウイチ≧】≪夕方になると人も多くなるし、…気になってくるから≫ ← e2f
+```
+
+**引号里的字一个不差，W4 却一声不吭**，因为整行不等。实测代价已经发生：
+SEG-4（`seg4-s3tail-s5`，通道 fable-wf）的润色 patch 改了 `15007`/`15010`，
+对侧 `4840`/`4843` 原封不动——**这是 P4 自己制造的单向劈叉，而且此后永远
+不会有闸报它**（seg7 跑 `--w4-full` 同样看不见）。第三族 `5500/16599`
+两侧都无 patch，是 P3 首译就带下来的存量。
+
+`bare_full()` 把族键放宽成"**剥掉说话人前缀 `【…】` 与最外层
+`「」`/`≪≫` 之后的正文**"，只报 W4 报不到的那一部分（原始 jp 已全同的
+族是 W4 的活，这里排除，避免两处重复告警）。
+
+### 长度门槛 `BARE_MIN_LEN = 10`——凭实测，不凭语感
+
+剥壳会把说话人合并掉，短感叹词因此会大量成族而它们的异译**本来就是正当
+的**（`大丈夫？` 的语境分治是 SEG-6 §5.2 明文动用过的 W4 例外条款、
+`直哉さん` 的「直哉哥/直哉哥哥」是 glossary v6 的具名裁定）。全库实测
+（2026-08-16，main 车道 16693 行，剥壳后同句、原始 jp 不全同、现行译文
+有分歧的族）：
+
+| 剥壳长度门槛 | 报出族数 |
+|---|---:|
+| 0 | 51 |
+| 6 | 22 |
+| 8 | 8 |
+| **10** | **3** |
+| 15 | 3 |
+
+门槛 10 报出的 3 族（`5500/16599`、`4843/15010`、`4840/15007`）**逐条
+人工核对，全部是真的**；被门槛挡掉的全部是 `はい`/`ふむ……`/`ごめんね`
+这类短应答，其异译要么已有裁定、要么本就属语境分治。10→15 之间报出条数
+不变，说明这不是一条"调到刚好没告警"的曲线，10 落在实测的平台上。
+
+**这是顾问级扫描，不阻断**——与 W4 同级同待遇：它报的是"两边该不该一起
+动"，而"该动哪一边"只有人能判。
 ## R2b 与 Task 5 错位侦测的关系
 
 `polish_ingest.ingest()` 的错位侦测只抓一种确切指纹——"`zh` 逐字等于本批
@@ -466,18 +514,127 @@ def w4_full(label, lane_dir, repo=None) -> list:
     return out
 
 
+#: `bare_full()` 的剥壳正文最短长度。低于此的族不报——剥壳把说话人合并掉之后，
+#: 短应答会大量成族而其异译本来就正当。取值依据是全库实测，见模块 docstring
+#: "W4 的记号盲区与 bare_full()" 一节的分布表：0→51 族、6→22、8→8、**10→3**、
+#: 15→3。门槛 10 报出的 3 族逐条核对全部为真，且 10→15 平台不变。
+BARE_MIN_LEN = 10
+
+_SPEAKER_RE = re.compile(r"^【[^】]*】")
+_OPEN_RE = re.compile(r"^[「≪]")
+_CLOSE_RE = re.compile(r"[」≫]$")
+
+
+def bare_text(s: str) -> str:
+    """剥掉说话人前缀 `【…】` 与最外层 `「」`/`≪≫`，返回台词正文。
+
+    只剥**最外**一层：内层的 `『…』`（本作用来标记「物語」「ドーナツの人」
+    这类被引用的名目）是正文的一部分，剥了就会把两个真正不同的句子并成一族。
+    """
+    s = _SPEAKER_RE.sub("", s or "").strip()
+    s = _OPEN_RE.sub("", s)
+    return _CLOSE_RE.sub("", s)
+
+
+def bare_full(label, lane_dir, repo=None, min_len: int = BARE_MIN_LEN) -> list:
+    """**W4 的记号盲区补扫**：剥壳后同句、原始 jp 却不全同的族里，现行译文
+    有分歧的报出来。设计与取舍见模块 docstring 专节。
+
+    与 `w4_full()` 的分工是**互斥**的：本函数只看"原始 jp 不全同"的族
+    （`len(raw_forms) >= 2`），原始 jp 已全同的那部分是 W4 的管辖面，在这里
+    显式排除，两道扫描不会对同一族各报一次。
+
+    判定面与 `w4_full()` 同规格：id 集 = `frozen/source.jsonl` 整段；
+    文本 = 车道**现行**译文（forward+patches 叠加）；索引 = **全库** main 车道。
+    索引建不起来时抛 `W4NotAvailable`——不返回空列表冒充绿。
+    """
+    d = _dir_for(label, repo)
+    lane_dir = Path(lane_dir)
+    led_p = lane_dir / "data" / "ledger.jsonl"
+    fwd_p, pat_p = (lane_dir / "data" / "forward.jsonl",
+                    lane_dir / "data" / "patches.jsonl")
+    if not led_p.exists():
+        raise W4NotAvailable(
+            f"{lane_dir}/data 下无 ledger.jsonl，剥壳族索引建不起来——本扫描"
+            "**未被执行**，这与「查过、没问题」是两回事，不予冒充绿")
+    ledger = {r["id"]: r for r in read_jsonl(led_p)}
+    cur = resolve_map(read_jsonl(fwd_p) if fwd_p.exists() else [],
+                      read_jsonl(pat_p) if pat_p.exists() else [])
+    if not cur:
+        raise W4NotAvailable(
+            f"{lane_dir}/data 下无任何译文，剥壳族索引建不起来——本扫描"
+            "**未被执行**，不予冒充绿")
+    id2label = _id_to_label_map(repo if repo is not None else REPO, lane_dir)
+
+    fam = {}
+    for i, r in ledger.items():
+        if i not in cur:
+            continue
+        fam.setdefault(bare_text(r["jp"]), []).append(i)
+
+    seg_ids = [r["id"] for r in read_jsonl(d / "frozen" / "source.jsonl")]
+    out = []
+    for i in seg_ids:
+        if i not in ledger or i not in cur:
+            continue
+        key = bare_text(ledger[i]["jp"])
+        if len(key) < min_len:
+            continue
+        members = fam.get(key, [])
+        if len({ledger[m]["jp"] for m in members}) < 2:
+            continue          # 原始 jp 全同——W4 的管辖面，这里不重复告警
+        mine = bare_text(cur[i])
+        others = [m for m in members if m != i and bare_text(cur[m]) != mine]
+        if not others:
+            continue
+        out.append({
+            "id": i, "rule": "BARE",
+            "msg": (f"剥壳同句族内不一致（记号壳不同、正文相同，W4 看不见；"
+                    f"共 {len(others)} 个其他成员）："
+                    + "；".join(f"id={m}@{id2label.get(m) or '未知段'} "
+                                f"作「{bare_text(cur[m])}」" for m in others)),
+            "bare_jp": key,
+            "siblings": [{"id": m, "jp": ledger[m]["jp"], "zh": cur[m],
+                          "seg": id2label.get(m)} for m in others],
+        })
+    (d / "bare_full.json").write_text(
+        dumps({"lane": str(lane_dir), "min_len": min_len, "findings": out}),
+        encoding="utf-8")
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="P4 保税仓机械闸：候选级复用 check_batch.check()")
     ap.add_argument("--seg", required=True, help="段表 label（如 seg1-s2）")
     ap.add_argument("--channel", help="执行通道（如 fable-wf/ds-flash）；候选级机械闸必需")
     ap.add_argument("--w4-full", action="store_true",
                      help="清关后全段 W4 复检模式（与 --channel 互斥，需要 --lane-dir）")
+    ap.add_argument("--bare-full", action="store_true",
+                     help="清关后全段**剥壳同句**复检（W4 的记号盲区补扫，"
+                          "与 --channel 互斥，需要 --lane-dir）")
+    ap.add_argument("--bare-min-len", type=int, default=BARE_MIN_LEN,
+                     help=f"配合 --bare-full：剥壳正文最短长度（默认 {BARE_MIN_LEN}）")
     ap.add_argument("--lane-dir", default=None,
                      help="配合 --w4-full：生产车道**根**目录（如 pilot/lanes/opus，"
                           "不是它下面的 data/）")
     ap.add_argument("--repo", default=None,
                      help="车道根目录（省略时用仓库根；测试用 tmp_path 传替身仓库）")
     args = ap.parse_args(argv)
+
+    if args.bare_full:
+        if not args.lane_dir:
+            ap.error("--bare-full 需要 --lane-dir（生产车道根，如 pilot/lanes/opus）")
+        try:
+            findings = bare_full(args.seg, args.lane_dir, repo=args.repo,
+                                 min_len=args.bare_min_len)
+        except W4NotAvailable as e:
+            print(f"⚠ 剥壳同句复检**未能执行**：{e}", file=sys.stderr)
+            return 2
+        for v in findings:
+            print(f"  - id {v['id']}：{v['msg']}", file=sys.stderr)
+        print(f"bare-full: {args.seg} 剥壳同句族不一致 {len(findings)} 处"
+              f"（顾问级；明细见 pilot/polish/{args.seg}/bare_full.json）")
+        return 0
 
     if args.w4_full:
         if not args.lane_dir:

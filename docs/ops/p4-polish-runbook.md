@@ -25,6 +25,7 @@
     candidates.<channel>.jsonl  每通道各自的保税仓候选——入库
     gates.<channel>.json     机械闸结果（`{checked_ids, findings}`）——入库
     w4_full.json             清关后全段 W4 复检结果（`polish_check --w4-full`）——入库
+    bare_full.json           清关后全段剥壳同句复检（`polish_check --bare-full`）——入库
     discipline.<channel>.json  通道纪律画像（锁定违规/错位命中计数，按需产生）——入库
     ingested.<channel>.json  批级入仓幂等标记——入库
     channel_state.json       准入小考结果（`{channel: {"autoclear": bool}}`）——入库
@@ -407,7 +408,10 @@ uv run python tools/polish_commit.py --seg <label> --data-dir pilot/lanes/opus/d
 # 1) 全段 W4 复检（复现句族一致性——ingest/gate 阶段刻意不跑这个）
 uv run python tools/polish_check.py --seg <label> --w4-full --lane-dir pilot/lanes/opus
 
-# 2) 题库引文同步检查（润色 patch 落库必然可能覆盖题库里逐字引用的旧译文）
+# 2) 剥壳同句复检（W4 的记号盲区补扫——同一句台词换了说话人壳，W4 不成族）
+uv run python tools/polish_check.py --seg <label> --bare-full --lane-dir pilot/lanes/opus
+
+# 3) 题库引文同步检查（润色 patch 落库必然可能覆盖题库里逐字引用的旧译文）
 uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
     --data-dir pilot/lanes/opus/data
 ```
@@ -436,7 +440,19 @@ uv run python tools/check_qa_quotes.py --qa config/ayano_qa/*.yaml \
   单轮就能看全 7894/9186/11407 这类家族，循环次数应显著下降，但"同步伙伴行"这个编辑动作
   本身仍可能让族里另一个此前未被提及的成员产生新的不一致，报全一族解决不了这一层因果，仍
   需要重跑确认收敛。
-- 第 2 步命中即说明某题库参考答案逐字引用的译文被本轮回改覆盖掉了，需人工核对是"译文改对了
+- **第 2 步是 2026-08-16（SEG-7 冻结时）补的**：W4 的族键是 jp **整行**，含说话人前缀与
+  外层 `「」`/`≪≫`。本作有一整类结构会因此溜过去——**同一句台词在不同章里换了记号壳**：
+  `e2f`（雪乃"编纂"的 if 幸福线）把 `s5s`/`s8f` 大段重演并把人物匿名化
+  （`【千秋】「…」`→`【≦女子生徒≧】「…」`、`【ユウイチ】「…」`→`【≦ユウイチ≧】≪…≫`），
+  引号里的字一个不差，W4 一声不吭。**代价已经真实发生**：SEG-4 的润色 patch 改了
+  `15007`/`15010`，对侧 `4840`/`4843` 原封不动，此后再也不会有闸报它。
+  `--bare-full` 把族键放宽成"剥掉说话人前缀与最外层引号后的正文"，并**显式排除原始 jp
+  已全同的族**（那是 W4 的管辖面，两道扫描不会对同一族各报一次）。长度门槛
+  `BARE_MIN_LEN=10` 凭全库实测定（0→51 族 / 6→22 / 8→8 / **10→3** / 15→3，10 报出的
+  三族逐条核对全为真，被挡掉的全是 `はい`/`ふむ……` 这类短应答，其异译已有裁定或本属
+  语境分治）。**顾问级，不阻断**，rc 语义与 W4 相同（`0`=跑完了、`2`=没能跑）；结果落
+  `pilot/polish/<label>/bare_full.json`。
+- 第 3 步命中即说明某题库参考答案逐字引用的译文被本轮回改覆盖掉了，需人工核对是"译文改对了
   但题库答案没跟上"（更新题库引文）还是"回改本身有问题"（回到 §八 补一条裁决）。P3 runbook
   记录过首次跑即在 7 份题库里查出 5 处真失同步——这类闸此前完全不存在，**不要跳过**。
   **2026-08-07 加的抑制清单**：`config/qa_quote_suppressions.yaml`（与题库本身分开存放，

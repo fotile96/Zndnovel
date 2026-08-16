@@ -562,3 +562,135 @@ def test_cli_w4_full_unavailable_is_rc2(mini, tmp_path, capsys):
                       "--repo", str(mini.root)])
     assert rc == 2
     assert "未能执行" in capsys.readouterr().err
+
+
+# ---- W4 的记号盲区补扫：`bare_full()`（SEG-7 冻结时立项）----
+#
+# 生产实据：`4843`【≦ユウイチ≧】≪…≫ 与 `15010`【ユウイチ】「…」引号里的字
+# 一个不差，SEG-4 的润色 patch 只改了 15010 一侧，W4 全程没响——族键是 jp
+# **整行**，记号壳一换就不成族。
+
+_SHELL_JP = "【≦彩野≧】≪うん、<前向性健忘,ぜんこうせいけんぼう>だよ≫"
+_SHELL_ZH = "【≦彩野≧】≪嗯，是<前向性健忘,顺行性遗忘>啦≫"
+
+
+def test_bare_text_strips_speaker_and_outer_quotes_only():
+    """剥壳只剥说话人前缀与**最外**一层引号；内层『…』是正文的一部分。
+
+    内层不能剥：本作用『…』标记「物語」「ドーナツの人」这类被引用的名目，
+    剥掉会把两个真正不同的句子并成一族（`14988`「ドーナツを『つくって』、
+    頭に投げて」vs `4821`「ドーナツを頭に投げて」正是这种关系）。
+    """
+    assert pcheck.bare_text("【彩野】「今日はいい天気だね」") == "今日はいい天気だね"
+    assert pcheck.bare_text("【≦彩野≧】≪今日はいい天気だね≫") == "今日はいい天気だね"
+    assert pcheck.bare_text("【千秋】「『物語』だよ」") == "『物語』だよ"
+    assert pcheck.bare_text("地の文はそのまま。") == "地の文はそのまま。"
+
+
+def test_bare_full_catches_what_w4_cannot_see(mini, tmp_path):
+    """★ 本模块存在的全部理由：记号壳不同、正文相同、译文分歧 —— W4 **不报**，
+    bare_full **报**。两条断言缺一不可：只断言"bare 报了"无法证明这不是在
+    重复 W4 已经覆盖的东西。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: _SHELL_JP},
+        current={10: DEFAULT_ZH[10], 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: _SHELL_ZH})
+
+    assert pcheck.w4_full(mini.label, lane, repo=mini.root) == []   # W4 的盲区
+
+    findings = pcheck.bare_full(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    assert findings[0]["rule"] == "BARE"
+    assert [s["id"] for s in findings[0]["siblings"]] == [900]
+    assert findings[0]["bare_jp"] == pcheck.bare_text(JP[10])
+    on_disk = json.loads((mini.d / "bare_full.json").read_text(encoding="utf-8"))
+    assert on_disk["findings"] == findings
+    assert on_disk["min_len"] == pcheck.BARE_MIN_LEN
+
+
+def test_bare_full_does_not_duplicate_w4(mini, tmp_path):
+    """原始 jp 已全同的族是 W4 的管辖面 —— bare_full 显式排除，不重复告警。
+    同一份数据下 W4 必须报，证明这不是"两边都没查"。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: DEFAULT_ZH[10], 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」"})
+    assert pcheck.bare_full(mini.label, lane, repo=mini.root) == []
+    assert [v["id"] for v in pcheck.w4_full(mini.label, lane, repo=mini.root)] == [10]
+
+
+def test_bare_full_green_when_shells_differ_but_text_agrees(mini, tmp_path):
+    """壳不同、正文相同、**译文剥壳后也相同** → 不报。
+
+    这是反向锁：判据若宽到把"壳不同"本身当问题，e2f 整章都会变红——那正是
+    伪报淹没真信号的形态。
+    """
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: _SHELL_JP},
+        current={10: DEFAULT_ZH[10], 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13],
+                 900: "【≦彩野≧】≪嗯，是<前向性健忘,顺行性遗忘>哦≫"})
+    assert pcheck.bare_full(mini.label, lane, repo=mini.root) == []
+
+
+def test_bare_full_min_len_gate_is_live(mini, tmp_path):
+    """长度门槛必须是**活的**：短句默认被挡（短应答的异译本来就正当），
+    把门槛降下来同一份数据必须报出来。
+
+    只断言"短句不报"是不够的——那与"这段代码根本没跑"无法区分。
+    """
+    short_jp, short_shell = "【彩野】「うん」", "【≦彩野≧】≪うん≫"
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: short_jp, 11: JP[11], 12: JP[12], 13: JP[13], 900: short_shell},
+        current={10: "【彩野】「嗯」", 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: "【≦彩野≧】≪对≫"})
+    assert pcheck.bare_full(mini.label, lane, repo=mini.root) == []
+    assert [v["id"] for v in
+            pcheck.bare_full(mini.label, lane, repo=mini.root, min_len=1)] == [10]
+
+
+def test_bare_full_reports_segment_label_of_siblings(mini, tmp_path):
+    """伙伴要标所属段——「这一边在已定稿段」是"改哪一边"的第一判据。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: _SHELL_JP},
+        current={10: DEFAULT_ZH[10], 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: _SHELL_ZH})
+    f = pcheck.bare_full(mini.label, lane, repo=mini.root)[0]
+    assert f["siblings"][0]["seg"] == "segX"
+    assert "900@segX" in f["msg"]
+
+
+def test_bare_full_refuses_to_fake_green_without_index(mini, tmp_path):
+    """车道 data 建不出索引 → 抛异常，绝不返回空清单冒充绿。"""
+    empty_lane = tmp_path / "empty_lane_bare"
+    (empty_lane / "data").mkdir(parents=True)
+    with pytest.raises(pcheck.W4NotAvailable):
+        pcheck.bare_full(mini.label, empty_lane, repo=mini.root)
+
+
+def test_cli_bare_full(mini, tmp_path, capsys):
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: _SHELL_JP},
+        current={10: DEFAULT_ZH[10], 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: _SHELL_ZH})
+    rc = pcheck.main(["--seg", mini.label, "--bare-full", "--lane-dir", str(lane),
+                      "--repo", str(mini.root)])
+    assert rc == 0
+    cap = capsys.readouterr()
+    assert "3 处" not in cap.out and "1 处" in cap.out
+    assert "id 10" in cap.err
+
+
+def test_cli_bare_full_unavailable_is_rc2(mini, tmp_path, capsys):
+    empty_lane = tmp_path / "empty_lane_bare_cli"
+    (empty_lane / "data").mkdir(parents=True)
+    rc = pcheck.main(["--seg", mini.label, "--bare-full", "--lane-dir",
+                      str(empty_lane), "--repo", str(mini.root)])
+    assert rc == 2
+    assert "未能执行" in capsys.readouterr().err

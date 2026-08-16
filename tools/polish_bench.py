@@ -53,7 +53,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.check_batch import MARKS, SPEAKER_RE, _max_line_width, _ruby_ok
+from tools.check_batch import MARKS, SPEAKER_RE, _max_line_width, _ruby_ok, w3_ratio
 from tools.pipelib import REPO, read_jsonl
 from tools.polishlib import jp_tail
 
@@ -77,7 +77,7 @@ def gates(jp, zh, want_tail, got_tail):
     for m in ("_n", "_r"):
         if jp.count(m) != zh.count(m):
             out.append(f"P4-CTL:{m}")
-    if _max_line_width(zh) > max(10, _max_line_width(jp) * 1.15):
+    if _max_line_width(zh) > max(10, _max_line_width(jp) * w3_ratio(jp)):
         out.append("W3")
     return out
 

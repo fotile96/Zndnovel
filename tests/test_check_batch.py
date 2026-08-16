@@ -336,12 +336,48 @@ def test_zh_ruby_does_not_false_trigger_w3():
 def test_jp_ruby_no_longer_inflates_threshold():
     """jp 侧：原文 ruby 撑大的分母曾把真超宽译文放过去，现在必须报。
 
-    jp 屏幕宽 32（含 ruby 字面则虚高到 55）；zh 宽 40：
-    真阈值 32*1.15=36.8 → 超；虚高阈值 55*1.15=63.25 → 曾被放过。
+    夹具是**对白行**，故系数取 1.25（2026-08-16 分治，见 check_batch.w3_ratio）：
+    jp 屏幕宽 32（含 ruby 字面则虚高到 55）；zh 宽 44：
+    真阈值 32*1.25=40 → 超；虚高阈值 55*1.25=68.75 → 会被放过。
+    ⚠ 本条测的是**分母不得被 ruby 撑大**，与系数取多少无关；
+    2026-08-16 把 zh 从 20 字加宽到 22 字，只是为了在新系数下仍能分辨这两种阈值。
     """
     src = [{"id": 1, "jp": "【彩野】「うん、<前向性健忘,ぜんこうせいけんぼう>だよ」"}]
-    wide = [{"id": 1, "zh": "长" * 20}]
-    assert _max_line_width(src[0]["jp"]) == 32 and _max_line_width(wide[0]["zh"]) == 40
+    wide = [{"id": 1, "zh": "长" * 22}]
+    assert _max_line_width(src[0]["jp"]) == 32 and _max_line_width(wide[0]["zh"]) == 44
     r = check(src, wide, speakers=None, glossary=None)
     assert any(v["rule"] == "W3" for v in r["warn"]), \
         "jp 侧 ruby 不得撑大分母、把真超宽译文放过去"
+
+
+# ── W3 宽度系数按行类分治（用户裁定 2026-08-16，见 check_batch.w3_ratio 的注释）──
+
+def test_w3_ratio_is_looser_for_dialogue_than_narration():
+    """对白 1.25 / 旁白 1.15——两档必须真的不同，否则这次分治等于没做。"""
+    from tools.check_batch import w3_ratio
+    assert w3_ratio("【直哉】「あ」") == 1.25
+    assert w3_ratio("放課後の教室。") == 1.15
+
+
+def test_w3_ratio_keys_on_jp_not_zh():
+    """⚠ 按 **jp** 判对白。若按 zh 判，一条丢了【】前缀的译文反而会拿到宽松阈值
+    ——那正好奖励了 R2b 违规，是自相矛盾的组合。"""
+    from tools.check_batch import w3_ratio
+    assert w3_ratio("【直哉】「あ」") == 1.25          # zh 丢没丢前缀都不影响
+    assert w3_ratio("あ") == 1.15
+
+
+def test_w3_dialogue_line_within_new_ratio_no_longer_warns():
+    """SEG-7 的 5216 是这次放宽的实例：旧系数报 W3，新系数不报。"""
+    from tools.check_batch import check
+    jp = "【直哉】「雪乃は星とか、見てた？」"
+    zh = "【直哉】「雪乃你以前，常看星星什么的吗？」"
+    r = check([{"id": 1, "jp": jp}], [{"id": 1, "zh": zh}])
+    assert not [w for w in r["warn"] if w["rule"] == "W3"]
+
+
+def test_w3_narration_line_still_uses_the_tight_ratio():
+    """旁白不放宽——这次分治只动对白那一侧。"""
+    from tools.check_batch import check
+    r = check([{"id": 1, "jp": "短い。"}], [{"id": 1, "zh": "这是一句被拉得非常非常长的旁白译文。"}])
+    assert [w for w in r["warn"] if w["rule"] == "W3"]

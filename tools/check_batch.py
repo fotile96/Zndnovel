@@ -8,6 +8,20 @@ from tools.pipelib import WORK, read_jsonl, sha256_file, display_width, dumps
 
 RUBY_RE = re.compile(r'<([^<>,]+),([^<>,]+)>')
 SPEAKER_RE = re.compile(r'^【([^】]+)】')
+
+# W3 的宽度系数。**对白行放宽到 1.25，其余维持 1.15**（用户裁定 2026-08-16）。
+#
+# 依据是连续三段的实裁：SEG-5 `15970`、SEG-6 `4065`、SEG-7 `5216` 三次撞 W3
+# 都由用户**主动放行**，且三次全在带 `【说话人】` 前缀的纯对白行上，三次的理由同构
+# ——「压回行宽就会丢掉语气、指向或体貌」（分别丢的是时间指向、邀请口吻、习惯体+同位语）。
+#
+# 成因是结构性的：**日语对白短，而汉语补主语、补语气词、把习惯体显化之后天然更长**。
+# 旁白/叙述行没有这个压力（它们本来就两边都长），所以只放宽对白这一侧，不做全局放宽。
+#
+# ⚠ 这个函数按 **jp** 判对白，不按 zh——`R2b` 已经保证两侧的 `【】` 结构必须对齐，
+# 用 jp 判可以避免「zh 丢了前缀反而拿到宽松阈值」这种自相矛盾的组合。
+def w3_ratio(jp: str) -> float:
+    return 1.25 if SPEAKER_RE.match(jp) else 1.15
 MARKS = "≪≫≦≧○■"
 BREAK_RE = re.compile(r'_n|_r')
 DECOS = (("≪", "≫"), ("≦", "≧"))
@@ -124,7 +138,7 @@ def check(source_rows, draft_rows, speakers=None, glossary=None,
                 if term in jp and tr not in zh:
                     warn.append({"id": i, "rule": "W2",
                                  "msg": f"「{term}」未按定译「{tr}」"})
-        if _max_line_width(zh) > max(10, _max_line_width(jp) * 1.15):
+        if _max_line_width(zh) > max(10, _max_line_width(jp) * w3_ratio(jp)):
             warn.append({"id": i, "rule": "W3", "msg": "显示行宽超限"})
         # W4 复现句族内逐字一致（style.md 唯一一条此前无机器兜底的硬规则）。
         # 顾问级：同一句日文在不同语境下偶有正当的不同处理，不阻断流水线。

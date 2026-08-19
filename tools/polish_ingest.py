@@ -395,8 +395,18 @@ def ingest(label, channel, batch, repo=None) -> dict:
     alt_struct_hits = 0
     alt_dropped_total = 0
     candidates = []
+    batch_notes = []
     for row in parsed:
         rid = row.get("id")
+        if rid == 0:
+            # P5 契约的「批末说明」（`{"id": 0, "note": "批末说明：…"}`）：零改动批
+            # 必须交代检视过哪些面。它不属于任何批，故不进候选面；但**必须落盘**
+            # ——它本就是写给裁决者看的，若随 `dead` 蒸发，写了等于没写（本条
+            # 2026-08-19 验证 id:0 剔除行为时发现，属自造缺口）。
+            note = row.get("note", "")
+            if isinstance(note, str) and note.strip():
+                batch_notes.append({"batch": batch, "note": note})
+            continue
         if rid not in batch_id_set:
             dead.append({"id": rid, "reason": "id 不在批内"})
             continue
@@ -550,6 +560,12 @@ def ingest(label, channel, batch, repo=None) -> dict:
         disc["soft_lock_violations"] = disc.get("soft_lock_violations", 0) + soft_violations
         disc["alt_struct_violations"] = disc.get("alt_struct_violations", 0) + alt_struct_hits
         disc_path.write_text(dumps(disc), encoding="utf-8")
+
+    if batch_notes:
+        bn_path = d / f"batch_notes.{channel}.json"
+        existing = _load_json(bn_path, {"notes": []})
+        existing["notes"] = [n for n in existing.get("notes", []) if n.get("batch") != batch] + batch_notes
+        bn_path.write_text(dumps(existing), encoding="utf-8")
 
     ingested["batches"] = sorted(set(ingested.get("batches", [])) | {batch})
     ingested_path.write_text(dumps(ingested), encoding="utf-8")

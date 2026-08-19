@@ -937,3 +937,30 @@ def test_soft_lock_alts_with_adjudicate_survives(mini_soft):
     })
     r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
     assert r["ok"] and r["added"] == 3 and r["dead"] == []
+
+
+def test_batch_note_id0_is_persisted_not_dropped(mini):
+    """P5 契约的批末说明（id:0）不进候选面，但必须落 batch_notes.<channel>.json。
+
+    2026-08-19 自查发现的缺口：id:0 被当「批外 id」判死，note 随 dead 蒸发——
+    而它本就是写给裁决者看的（零改动批交代检视过哪些面），写了等于没写。
+    """
+    def mut(rows):
+        rows.append({"id": 0, "note": "批末说明：本批零改动，检视了 §14 搭配与 §13 段级密度"})
+    _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 3
+    assert not any(d["id"] == 0 for d in r["dead"])      # 不再记为判死
+    ids = {x["id"] for x in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")}
+    assert 0 not in ids                                   # 也不进候选面
+    bn = json.loads((mini.d / f"batch_notes.{mini.channel}.json").read_text(encoding="utf-8"))
+    assert bn["notes"] == [{"batch": 1, "note": "批末说明：本批零改动，检视了 §14 搭配与 §13 段级密度"}]
+
+
+def test_batch_note_empty_is_ignored(mini):
+    def mut(rows):
+        rows.append({"id": 0, "note": "   "})
+    _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"]
+    assert not (mini.d / f"batch_notes.{mini.channel}.json").exists()

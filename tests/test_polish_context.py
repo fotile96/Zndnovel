@@ -509,3 +509,12 @@ def test_render_carries_zero_change_obligation(mini_seg_render):
     assert "不是\"不确定就别动\"的许可证" in text
     assert "整批零改动时" in text
     assert "批末说明" in text
+
+
+def test_render_marks_notes_as_historical(mini_seg_render):
+    """章节纪要必须带时效声明——手记是首译期历史记录，术语可能已被后续
+    glossary 版本推翻（p5seg1 实测：手记 13 处「天文馆」引出 7 条无谓请裁）。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    if "## 章节纪要" in text:          # 该夹具有 notes 时才断言
+        assert "历史记录，不是现行口径" in text
+        assert "不必为此请裁" in text

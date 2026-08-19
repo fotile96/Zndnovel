@@ -304,6 +304,30 @@ def ctl_violations(cid, zh, opus_zh) -> list:
     return out
 
 
+def quote_drift(cid, jp, zh, opus_zh) -> list:
+    """W5：候选的 `『』` 计数须等于 **opus**（这一轮没动它）或 **jp**（对齐原文），
+    落在两者之外即告警。
+
+    为什么不是硬闸、也不是「jp vs zh 逐字相等」：`『』` 在本作里两种来源混杂——
+    原文自带（`それは『落書き』なのだ`）与译者为标记名目而补（原文无引号）。
+    删掉译者补的是**正当修正**（p5seg0 `6268`：jp 0 对 opus 1，候选删回 0）；
+    删掉原文自带的是**保真事故**（同段 `6542`：jp 1 对 opus 1，候选删成 0，
+    批注还称「此处不是引用」——事实错误）。两者的差别只有把 jp 一起看才判得出。
+
+    冻结面本身就有 21 行 jp/zh 不等（历史既有，不在本轮职权内），所以判据锚在
+    「相对 opus 的**变化**」上，不追究存量。顾问级：确有正当删除的情形。
+    """
+    j = jp if isinstance(jp, str) else ""
+    z = zh if isinstance(zh, str) else ""
+    o = opus_zh if isinstance(opus_zh, str) else ""
+    cz, co, cj = z.count("『"), o.count("『"), j.count("『")
+    if cz == co or cz == cj:
+        return []
+    return [{"id": cid, "rule": "W5",
+             "msg": f"『』计数既不等于 opus（{co}）也不等于原文（{cj}），候选为 {cz}"
+                    "——原文自带的引号不得删除，译者补的引号可删但须删到与原文一致"}]
+
+
 def gate(label, channel, repo=None) -> dict:
     """对该 SEG/通道当前保税仓里的全部候选跑 `check_batch.check()` + P4-CTL，
     返回 `{"checked_ids": [...], "findings": {id: {"hard": [...], "warn": [...]}}}`
@@ -366,6 +390,10 @@ def gate(label, channel, repo=None) -> dict:
     for i in ids:
         for v in ctl_violations(i, last_by_id[i]["zh"], opus_zh.get(i, "")):
             findings.setdefault(i, {"hard": [], "warn": []})["hard"].append(v)
+    # W5（P5 追加）：『』既不随 opus 也不随原文——见 quote_drift 的判据说明。
+    for i in ids:
+        for v in quote_drift(i, src_jp.get(i, ""), last_by_id[i]["zh"], opus_zh.get(i, "")):
+            findings.setdefault(i, {"hard": [], "warn": []})["warn"].append(v)
 
     d.mkdir(parents=True, exist_ok=True)
     # JSON 对象键只能是字符串，id 在这里是 int——落盘前显式转 str（与

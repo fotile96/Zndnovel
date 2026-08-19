@@ -832,3 +832,43 @@ def test_cli_lane_drift(mini, tmp_path, capsys):
     out = capsys.readouterr()
     assert "冻结后车道已变 1 行" in out.out
     assert "裁决须按现行文本重判" in out.err
+
+
+# --- W5：『』保真（P5 追加） ---
+
+def test_quote_drift_unit_cases():
+    """三类：没动（绿）/ 删掉译者补的引号回到原文（绿）/ 删掉原文自带的（报）。"""
+    # 没动
+    assert pcheck.quote_drift(1, "それは『落書き』だ", "那是『涂鸦』", "那是『涂鸦』") == []
+    # 译者多补的引号被删回原文一致（p5seg0 #6268 型）——合法
+    assert pcheck.quote_drift(2, "キオクを眺める", "眺望着记忆", "眺望着『记忆』") == []
+    # 原文自带的引号被删（p5seg0 #6542 型）——报
+    v = pcheck.quote_drift(3, "それは『落書き』だ", "那是涂鸦", "那是『涂鸦』")
+    assert len(v) == 1 and v[0]["rule"] == "W5"
+    # 凭空加引号且原文没有——报
+    v2 = pcheck.quote_drift(4, "落書きだ", "那是『涂鸦』", "那是涂鸦")
+    assert len(v2) == 1
+
+
+def test_gate_reports_w5_as_warn(mini):
+    """W5 走 warn 不走 hard——正当删除存在，不阻断流水线。"""
+    append_jsonl(mini.d / "candidates.chA.jsonl", [{
+        "id": 12, "channel": "chA", "batch": 1, "prompt_hash": "h",
+        "jp_hash": "x", "opus_hash": "x",
+        "zh": "删掉了原文自带引号的候选", "score": 60, "note": "", "adjudicate": False,
+        "jp_tail": jp_tail(JP[12]), "ts": "t-w5",
+    }])
+    # 让 frozen 的 jp/opus 都含一对『』，候选不含 → W5 命中
+    fz = mini.d / "frozen"
+    src = [dict(r) for r in read_jsonl(fz / "source.jsonl")]
+    for r in src:
+        if r["id"] == 12: r["jp"] = "これは『落書き』だ"
+    write_jsonl(fz / "source.jsonl", src)
+    op = [dict(r) for r in read_jsonl(fz / "opus.jsonl")]
+    for r in op:
+        if r["id"] == 12: r["zh"] = "这是『涂鸦』"
+    write_jsonl(fz / "opus.jsonl", op)
+    g = pcheck.gate(mini.label, "chA", repo=mini.root)
+    f12 = g["findings"].get(12, {"hard": [], "warn": []})
+    assert "W5" in [w["rule"] for w in f12["warn"]]   # W3 行宽同时命中，不排斥
+    assert f12["hard"] == []

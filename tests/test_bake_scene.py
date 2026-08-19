@@ -124,13 +124,13 @@ def test_collect_overflow_matches_known_11px_overflow_set():
     """collect_overflow is a generic single-font check, unchanged in
     behaviour from before the v3 cascade. At the cascade's largest tier
     (11px) build_render_plan (section 7 below) independently finds exactly
-    4 real titles that overflow -- cross-check that same fact through
+    3 real titles that overflow (v19 罗马音化后卡 90 变窄脱离溢出集) -- cross-check that same fact through
     collect_overflow directly (not via the cascade machinery), so the two
     code paths agree from two different angles."""
     titles = _real_titles()
     font = _font(FONT_SIZE_CASCADE[0])
     overflow = collect_overflow(titles, font)
-    assert sorted(c for c, *_ in overflow) == [2, 90, 180, 182]
+    assert sorted(c for c, *_ in overflow) == [2, 180, 182]
 
 
 def test_collect_overflow_empty_at_smallest_cascade_tier():
@@ -191,7 +191,7 @@ def test_font_size_cascade_is_a_list_biggest_first():
 
 def test_build_render_plan_real_titles_fallback_set():
     """195 条真实标题跑一次完整级联：必须 0 条硬失败（未命中任何档），
-    且回落集合必须精确是卡 2/90/180/182（用户交办前提里的已知 11px 溢出
+    且回落集合必须精确是卡 2/180/182（用户交办前提里的已知 11px 溢出
     四条），全部降到 10px 就放得下——不使用 9px 档，但机制仍会尝试它。"""
     titles = _real_titles()
     fonts_by_size = load_fonts()
@@ -199,10 +199,10 @@ def test_build_render_plan_real_titles_fallback_set():
     assert hard_failures == []
     assert len(plans) == NUM_CARDS
     fb_cards = sorted(c for c, _size, _tried in fallbacks)
-    assert fb_cards == [2, 90, 180, 182]
+    assert fb_cards == [2, 180, 182]
+    expected = {2: (10, [11]), 180: (9, [11, 10]), 182: (9, [11, 10])}  # v19 实测：182 的 Sakura 拉丁串 10px 仍溢出
     for card, size, tried in fallbacks:
-        assert size == 10
-        assert tried == [11]  # only needed to step down ONE tier, not two
+        assert (size, tried) == expected[card]
     non_fallback_cards = set(plans) - set(fb_cards)
     assert {plans[c]["font_size"] for c in non_fallback_cards} == {FONT_SIZE_CASCADE[0]}
 
@@ -253,7 +253,7 @@ def test_build_render_plan_hard_failure_when_even_smallest_tier_overflows():
 
 def test_fallbacks_disabled_would_hide_the_downgrade():
     """变异回归形态：模拟"fallbacks 列表被静默清空"的坏实现，证明如果
-    真的这样改，卡 2/90/180/182 的真实回落就会从"能看到"变成"看不到"
+    真的这样改，卡 2/180/182 的真实回落就会从"能看到"变成"看不到"
     ——这正是 CLAUDE.md 点名的"静默回落是恒绿的一种"失败模式。"""
     titles = _real_titles()
     fonts_by_size = load_fonts()
@@ -265,7 +265,7 @@ def test_fallbacks_disabled_would_hide_the_downgrade():
 
     _plans2, fake_fallbacks, _hard2 = broken_build_render_plan(titles, fonts_by_size)
     assert real_fallbacks != []
-    assert sorted(c for c, _s, _t in real_fallbacks) == [2, 90, 180, 182]
+    assert sorted(c for c, _s, _t in real_fallbacks) == [2, 180, 182]
     assert fake_fallbacks == []
 
 
@@ -502,10 +502,10 @@ def test_real_run_report_is_clean(tmp_path, monkeypatch):
     # 回落必须可见地记在返回报告里——不是"195 张全渲好了"就完事
     assert report["font_size_cascade"] == FONT_SIZE_CASCADE
     assert report["font_size_default"] == FONT_SIZE_CASCADE[0]
-    assert sorted(fb["card"] for fb in report["fallbacks"]) == [2, 90, 180, 182]
+    assert sorted(fb["card"] for fb in report["fallbacks"]) == [2, 180, 182]
+    expected = {2: (10, [11]), 180: (9, [11, 10]), 182: (9, [11, 10])}  # v19 实测：182 落 9px
     for fb in report["fallbacks"]:
-        assert fb["font_size"] == 10
-        assert fb["overflowed_at"] == [11]
+        assert (fb["font_size"], fb["overflowed_at"]) == expected[fb["card"]]
         assert fb["reason"]  # 非空的人类可读理由
     assert len(report["cell_font_sizes"]) == NUM_CARDS
     assert (tmp_path / "scene_1_a.png").exists()
@@ -546,8 +546,8 @@ def test_cli_reports_fallbacks(capsys, monkeypatch):
     main()
     out = capsys.readouterr().out
     assert "fallbacks" in out
-    for card in (2, 90, 180, 182):
-        assert f"card {card}: -> 10px" in out
+    for card, px in ((2, 10), (180, 9), (182, 9)):
+        assert f"card {card}: -> {px}px" in out
 
 
 def test_cellzoom_cards_include_fallback_cards_and_real_row_neighbors():
@@ -560,7 +560,7 @@ def test_cellzoom_cards_include_fallback_cards_and_real_row_neighbors():
     plans, fallbacks, hard_failures = build_render_plan(titles, fonts_by_size)
     assert hard_failures == []
     fallback_cards = {c for c, _size, _tried in fallbacks}
-    assert fallback_cards == {2, 90, 180, 182}
+    assert fallback_cards == {2, 180, 182}
     assert fallback_cards <= set(CELLZOOM_CARDS)
     for card in fallback_cards:
         sheet, row, _col = cell_position(card)

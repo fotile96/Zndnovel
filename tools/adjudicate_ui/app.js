@@ -305,11 +305,14 @@ function bind() {
     const b = e.target.closest('button');
     if (!b) return;
     const act = b.dataset.act;
-    if (act === 'fill') fillEditor(b.dataset.text);
-    else if (act === 'adopt') decide({ verdict: 'adopt', chosen_channel: b.dataset.ch });
-    else if (act === 'adopt' && b.dataset.alt) {
-      decide({ verdict: 'adopt', chosen_channel: b.dataset.ch, chosen_alt: Number(b.dataset.alt) });
-    }
+    if (act === 'fill') { fillEditor(b.dataset.text); return; }
+    if (act !== 'adopt') return;
+    // 主候选与备选共用 verdict='adopt'（与 polish_commit 同路径），差别只在
+    // 带不带 chosen_alt。**必须写成一个分支**：拆成两条 `act === 'adopt'` 的
+    // else-if 时，第二条永远够不着，「采纳备选N」会静默记成采纳主候选。
+    const pay = { verdict: 'adopt', chosen_channel: b.dataset.ch };
+    if (b.dataset.alt) pay.chosen_alt = Number(b.dataset.alt);
+    decide(pay);
   });
 
   $('#btn-keep').addEventListener('click', () => decide({ verdict: 'keep_opus' }));

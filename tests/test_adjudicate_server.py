@@ -328,6 +328,122 @@ def test_http_offqueue_flow(server, model):
     assert [it["id"] for it in q["items"]] == [30, 10, 20, 5, 40]
 
 
+# ------------------------------------------------- 敲定文本（右栏显示裁决后的样子）
+def test_settled_text_by_verdict(model):
+    """四种 verdict 的敲定文本解析。"""
+    lane30 = LANE[30]
+    assert model.settled_for(30, model.decisions()) is None, "没裁过就没有敲定文本"
+
+    model.record({"id": 30, "verdict": "adopt", "chosen_channel": "chA"})
+    st = model.settled_for(30, model.decisions())
+    assert st["zh"] == "她一直望着窗外。" and st["verdict"] == "adopt" and st["problem"] is None
+
+    model.record({"id": 5, "verdict": "adopt", "chosen_channel": "chA", "chosen_alt": 1})
+    assert model.settled_for(5, model.decisions())["zh"] == "闻到了夏天的气味。", "备选按 1-based 取"
+
+    weird = "  这条再行讨论_n（给主控：与 5 的锚点句互文）  "
+    model.record({"id": 20, "verdict": "edit", "edited_zh": weird})
+    assert model.settled_for(20, model.decisions())["zh"] == weird, "edit 原样，不 trim 不清洗"
+
+    model.record({"id": 40, "verdict": "keep_opus", "reason_code": "其他"})
+    st = model.settled_for(40, model.decisions())
+    assert st["zh"] == LANE[40] and st["verdict"] == "keep_opus", "keep_opus 文本＝车道最新"
+    assert st["reason_code"] == "其他"
+    assert model.lane_zh(30) == lane30, "车道文本本身不被顶掉"
+
+
+def test_settled_takes_last_record(model):
+    """改判：同 id 取最后一条（append-only），右栏跟着变。"""
+    model.record({"id": 30, "verdict": "edit", "edited_zh": "手写第一版"})
+    assert model.item_payload(30)["zh_display"] == "手写第一版"
+    model.record({"id": 30, "verdict": "adopt", "chosen_channel": "chA"})
+    it = model.item_payload(30)
+    assert it["zh_display"] == "她一直望着窗外。" and it["settled"]["verdict"] == "adopt"
+    assert it["settled"]["problem"] is None
+    model.record({"id": 30, "verdict": "keep_opus"})
+    assert model.item_payload(30)["zh_display"] == LANE[30], "改回保留就应回到车道文本"
+
+
+def test_settled_applies_to_context_rows(model):
+    """本需求的价值所在：上下文里那几行也要显示裁决后的样子。"""
+    model.record({"id": 30, "verdict": "adopt", "chosen_channel": "chA"})
+    model.record({"id": 10, "verdict": "edit", "edited_zh": "教室里静得出奇。"})
+    rows = {r["id"]: r for r in model.item_payload(20)["context"]}
+    assert rows[30]["zh"] == "她一直望着窗外。" and rows[30]["zh_lane"] == LANE[30]
+    assert rows[30]["settled"]["verdict"] == "adopt" and rows[30]["settled"]["channel"] == "chA"
+    assert rows[10]["zh"] == "教室里静得出奇。" and rows[10]["settled"]["verdict"] == "edit"
+    # 没裁过的行回落车道文本，且 settled 为 None（前端据此不打标记）
+    assert rows[5]["zh"] == LANE[5] and rows[5]["settled"] is None
+    assert rows[7]["zh"] == LANE[7], "段外的上下文行同样回落车道文本"
+
+
+def test_settled_zh_current_preserved(model):
+    """`zh_current`（车道最新）不能被敲定文本顶掉——漂移面板还要用它。"""
+    model.record({"id": 20, "verdict": "edit", "edited_zh": "钟停了。"})
+    it = model.item_payload(20)
+    assert it["zh_current"] == "时钟还停在那里。", "车道最新原值"
+    assert it["zh_display"] == "钟停了。"
+    assert it["drift"]["current"] == "时钟还停在那里。" and it["zh_frozen"] == FROZEN[20]
+
+
+def test_settled_problem_falls_back_to_lane(model):
+    """草稿可手工编辑、候选文件也会变——解析不出来就回落车道文本 + 显式播报。"""
+    A.append_draft(model.draft_path, {"id": 30, "verdict": "adopt", "chosen_channel": "没有这个通道"})
+    st = model.settled_for(30, model.decisions())
+    assert st["zh"] == LANE[30] and "找不到" in st["problem"]
+
+    A.append_draft(model.draft_path, {"id": 5, "verdict": "adopt", "chosen_channel": "chA",
+                                      "chosen_alt": 9})
+    st = model.settled_for(5, model.decisions())
+    assert st["zh"] == LANE[5] and "越界" in st["problem"]
+
+    A.append_draft(model.draft_path, {"id": 40, "verdict": "edit", "edited_zh": None})
+    assert model.settled_for(40, model.decisions())["problem"]
+
+    A.append_draft(model.draft_path, {"id": 20, "verdict": "从别处手抄来的怪值"})
+    assert "未知 verdict" in model.settled_for(20, model.decisions())["problem"]
+    # 四条坏记录都没有让页面崩：item_payload 照常出
+    assert model.item_payload(30)["zh_display"] == LANE[30]
+
+
+def test_settled_diff_baseline_follows_display(model):
+    """提案的 same_as_current 跟着右栏显示的文字走——人看到什么就跟什么比。"""
+    p0 = {x["channel"]: x for x in model.item_payload(30)["proposals"]}["chA"]
+    assert p0["same_as_current"] is False
+    model.record({"id": 30, "verdict": "adopt", "chosen_channel": "chA"})
+    p1 = {x["channel"]: x for x in model.item_payload(30)["proposals"]}["chA"]
+    assert p1["same_as_current"] is True, "已采纳之后，该通道的提案就等于右栏显示的文字了"
+
+
+def test_http_settled_payload(server, model):
+    _post(server + "/api/decide", {"id": 30, "verdict": "adopt", "chosen_channel": "chA",
+                                   "reason_code": "语序", "note": "与 20 的时态呼应"})
+    it = json.loads(_get(server + "/api/item?id=20")[1])
+    row30 = {r["id"]: r for r in it["context"]}[30]
+    assert row30["zh"] == "她一直望着窗外。" and row30["zh_lane"] == LANE[30]
+    assert row30["settled"]["reason_code"] == "语序" and row30["settled"]["note"] == "与 20 的时态呼应"
+    # 改判后立刻反映在别的条目的上下文视图里（服务端每次现算，无缓存）
+    _post(server + "/api/decide", {"id": 30, "verdict": "edit", "edited_zh": "她望向窗外。"})
+    it2 = json.loads(_get(server + "/api/item?id=20")[1])
+    assert {r["id"]: r for r in it2["context"]}[30]["zh"] == "她望向窗外。"
+
+
+def test_http_decision_carries_edit_for_prefill(server, model):
+    """前端"第二次编辑同一行时回填上次内容"所依赖的字段：decision 必须带回
+    最后一条记录的 edited_zh / note / reason_code（原样）。"""
+    weird = "  上一版_n（先这样，回头再议）  "
+    _post(server + "/api/decide", {"id": 30, "verdict": "edit", "edited_zh": weird,
+                                   "note": "备注甲", "reason_code": "其他"})
+    d = json.loads(_get(server + "/api/item?id=30")[1])["decision"]
+    assert d["verdict"] == "edit" and d["edited_zh"] == weird
+    assert d["note"] == "备注甲" and d["reason_code"] == "其他"
+    # 改判成 adopt 之后：edited_zh 不再回来（该记录本就没有），note 仍在
+    _post(server + "/api/decide", {"id": 30, "verdict": "adopt", "chosen_channel": "chA",
+                                   "note": "备注乙"})
+    d2 = json.loads(_get(server + "/api/item?id=30")[1])["decision"]
+    assert d2["verdict"] == "adopt" and d2["edited_zh"] is None and d2["note"] == "备注乙"
+
+
 # ---------------------------------------------------------------- ⑤HTTP 端点
 @pytest.fixture
 def server(model):

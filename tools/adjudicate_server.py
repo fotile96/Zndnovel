@@ -39,6 +39,28 @@
 - 裁完一条自选行，`next_undecided()` **回到队列**里、按阅读顺序在它后面的
   第一条未处理项（不是沿着 4282 行往下走）——自选行是插曲，主线仍是队列。
 
+## 敲定文本：右栏显示的是"裁决之后这一行会变成什么"（2026-08-19 用户追加需求）
+
+右栏原本一律显示车道最新译文（`resolve_map`）。但人一旦裁过某一行，那一行
+**将要落盘的文字**就已经变了；再往下读时上下文里还显示旧文本，等于对着自己
+已经推翻的版本在读——连续裁相邻行、判段级衔接（密度/前后呼应）时会直接误导。
+
+故右栏每一行的显示文本改为 `settled(id)`：草稿里有该 id 的裁决就用敲定文本，
+没有就回落车道最新。解析规则（`resolve_settled()`）：
+`adopt` 无 `chosen_alt` → 该通道候选的 `zh`；带 `chosen_alt=N` → `alts[N-1].zh`
+（1-based，与 queue.md 的「备选N」和 polish_commit 同一口径）；`edit` →
+`edited_zh` **原样**（可能压根不是译文，见拍板第 4 条）；`keep_opus` → 车道最新
+（文本不变，但仍标记为"已裁·保留"，让人知道这行看过了）。同 id 取最后一条。
+
+三条不变量：
+1. **`zh_current`（车道最新）永不被顶掉**——漂移警告和"原文/现译对照"还要用它；
+   敲定文本是**另加**一层（`zh_display` / 行内 `zh` 显示的是它，`zh_lane` 留着）。
+2. **不缓存**。敲定文本每次请求现算（`decisions()` 本来就是现读文件），否则改判
+   后别的条目的上下文视图会留着旧值——那正是本需求要消灭的东西。
+3. **解析不出来时回落车道文本并显式播报 `problem`**，绝不静默：草稿是可手工
+   编辑的、候选文件也可能在两次启动之间变过，一条 `adopt` 完全可能指向一个
+   已经不存在的通道/越界的备选号。悄悄显示成别的文本比报错危险得多。
+
 ## 队列直读 candidates.*.jsonl 自算（拍板第 3 条）
 
 不读 `triage.json` / `queue.md`：那两者要先跑 triage，且桶 2 受 K 配额截断，
@@ -376,6 +398,50 @@ class Adjudication:
             append_draft(self.draft_path, rec)    # 写前过一道文件名断言
         return rec
 
+    # ---------- 敲定文本 ----------
+    def lane_zh(self, cid) -> str:
+        """车道最新译文（resolve 结果），段内缺失时回落冻结面。右栏的"未裁"基线。"""
+        return self.current.get(cid, self.frozen_opus.get(cid, ""))
+
+    def resolve_settled(self, cid, d: dict) -> dict:
+        """一条草稿记录 → 这一行"裁决之后会变成什么"。见模块 docstring「敲定文本」。
+
+        任何解析不出来的情况都**回落车道文本 + 写 problem**，不抛异常：这个函数
+        跑在每一次上下文渲染上（一屏 30+ 行），一条手工写坏的草稿行不该让整页打不开。
+        """
+        v = d.get("verdict")
+        out = {"zh": self.lane_zh(cid), "verdict": v,
+               "channel": d.get("chosen_channel"), "alt": d.get("chosen_alt"),
+               "reason_code": d.get("reason_code") or "", "note": d.get("note") or "",
+               "ts": d.get("ts"), "problem": None}
+        if v == "edit":
+            zh = d.get("edited_zh")
+            if isinstance(zh, str):
+                out["zh"] = zh          # 原样：不 trim、不清洗、不截断（拍板第 4 条）
+            else:
+                out["problem"] = "edit 记录里没有 edited_zh 字符串"
+        elif v == "adopt":
+            ch = d.get("chosen_channel")
+            cand = self.channels.get(ch, {}).get(cid)
+            if cand is None:
+                out["problem"] = f"通道 {ch!r} 里找不到 id {cid} 的候选（通道改名或候选文件变过？）"
+            elif d.get("chosen_alt") is None:
+                out["zh"] = cand.get("zh", "")
+            else:
+                alts, n = cand.get("alts") or [], d.get("chosen_alt")
+                if isinstance(n, int) and 1 <= n <= len(alts):
+                    out["zh"] = alts[n - 1].get("zh", "")
+                else:
+                    out["problem"] = f"chosen_alt={n!r} 越界：{ch} 对该 id 只有 {len(alts)} 条备选"
+        elif v != "keep_opus":
+            out["problem"] = f"未知 verdict：{v!r}"
+        return out
+
+    def settled_for(self, cid, dec: dict):
+        """`{id: 敲定信息}` 里的一条；该 id 没裁过则 None。"""
+        d = dec.get(cid)
+        return self.resolve_settled(cid, d) if d else None
+
     # ---------- 视图 ----------
     def _list_row(self, cid, dec: dict, it=None) -> dict:
         """左栏一行。`it` 是队列项（自选行传 None，现造一个空壳）。"""
@@ -445,8 +511,13 @@ class Adjudication:
                 return it["id"]
         return None
 
-    def context_rows(self, cid) -> list:
-        """当前行 + 前后文，按阅读顺序。左右两栏共用这一份行表以保证逐行对齐。"""
+    def context_rows(self, cid, dec: dict = None) -> list:
+        """当前行 + 前后文，按阅读顺序。左右两栏共用这一份行表以保证逐行对齐。
+
+        `zh` 是**敲定文本**（裁过就是裁后的、没裁就是车道最新），`zh_lane` 保留
+        车道最新原值。上下文行同样适用——这正是本需求的价值所在：连续裁相邻行时，
+        前几行显示的必须是刚刚敲定的样子，而不是被自己推翻掉的旧译文。
+        """
         pos = self.order_pos.get(cid)
         if pos is None:                      # 不在阅读顺序表里：至少把自己显示出来
             window = [cid]
@@ -454,15 +525,20 @@ class Adjudication:
             lo = max(0, pos - self.context_before)
             hi = min(len(self.order), pos + self.context_after + 1)
             window = self.order[lo:hi]
-        dec, rows = self.decisions(), []
+        dec = self.decisions() if dec is None else dec
+        rows = []
         for i in window:
+            lane = self.lane_zh(i)
+            st = self.settled_for(i, dec)
             rows.append({
                 "id": i,
                 "jp": self.jp.get(i, ""),
-                "zh": self.current.get(i, self.frozen_opus.get(i, "")),
+                "zh": st["zh"] if st else lane,     # 显示用：敲定文本优先
+                "zh_lane": lane,                    # 车道最新，永不被顶掉
                 "current": i == cid,
                 "in_queue": i in self.queue_pos,
-                "verdict": dec.get(i, {}).get("verdict"),
+                "verdict": st["verdict"] if st else None,
+                "settled": st,                      # 未裁为 None；含 channel/alt/reason/note/problem
             })
         return rows
 
@@ -472,8 +548,13 @@ class Adjudication:
         开一个空白页让人对着改。"""
         if cid not in self.batch_of:
             raise KeyError(cid)
+        dec = self.decisions()          # 本次请求只读一次草稿，下面各处共用（且必然是最新的）
         frozen_zh = self.frozen_opus.get(cid, "")
-        cur = self.current.get(cid, frozen_zh)
+        cur = self.lane_zh(cid)
+        settled = self.settled_for(cid, dec)
+        # 提案 diff 的基线取**右栏实际显示的那段文字**：人看到什么就跟什么比。
+        # 未裁时它等于车道最新（与本功能之前的行为逐字一致）。
+        display = settled["zh"] if settled else cur
         proposals = []
         for ch in sorted(self.channels):
             cand = self.channels[ch].get(cid)
@@ -481,7 +562,7 @@ class Adjudication:
                 continue
             zh = cand.get("zh", "")
             reasons = candidate_reasons(cand, frozen_zh)
-            same_cur = _ws_equal(zh, cur)
+            same_cur = _ws_equal(zh, display)
             note = cand.get("note") or ""
             alts = [{"zh": a.get("zh", ""), "note": a.get("note", "")}
                     for a in (cand.get("alts") or [])]
@@ -500,20 +581,22 @@ class Adjudication:
                 # 契约鼓励的行为，藏它等于惩罚老实通道（P4 D3 缺陷同一形态）。
                 "collapsible": same_cur and not cand.get("adjudicate") and not note and not alts,
             })
-        d = self.decisions().get(cid)
+        d = dec.get(cid)
         in_queue = cid in self.queue_pos
         return {
             "id": cid,
             "in_queue": in_queue,
             "batch": self.batch_of.get(cid),
             "jp": self.jp.get(cid, ""),
-            "zh_current": cur,
+            "zh_current": cur,          # 车道最新（漂移面板与"原文/现译对照"用，别删）
+            "zh_display": display,      # 右栏实际显示的文字＝敲定文本 ?? 车道最新
+            "settled": settled,         # 未裁为 None
             "zh_frozen": frozen_zh,
             "drift": self.drift.get(cid),
             "soft": cid in self.soft_ids,
             "hard": cid in self.hard_ids,
             "lock_why": self.lock_why.get(cid, ""),
-            "context": self.context_rows(cid),
+            "context": self.context_rows(cid, dec),
             "proposals": proposals,
             "decision": d,
             "queue_index": self.queue_pos[cid] if in_queue else None,

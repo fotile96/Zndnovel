@@ -143,7 +143,18 @@ body {
 .tag { border-radius: 3px; padding: 0 5px; font-size: 11px; border: 1px solid var(--line); }
 .tag.req { background: #fdf0d6; border-color: #dcb56a; color: #8a5c10; }
 .tag.same { background: #f0efeb; }
-.prop-zh { margin: 4px 0 5px; }
+/* 差分行 / 成品行：标签在文字左侧（不用 ::before——Firefox 会把伪元素内容
+   一起复制走，成品行必须能干干净净地拖选复制）。 */
+.prop-zh { margin: 4px 0 2px; }
+.prop-plain {
+  margin: 0 0 5px; padding: 2px 0 2px 0;
+  border-top: 1px dashed #e6e4dd;
+}
+.vlbl {
+  display: inline-block; width: 30px; margin-right: 6px;
+  color: var(--dim); font-size: 11px; vertical-align: 1px; user-select: none;
+}
+.prop-plain .ptext { color: var(--ink); }
 .prop-note { color: #6a675e; font-size: 12.5px; border-left: 2px solid var(--line); padding-left: 7px; }
 .alt { margin: 5px 0 0 14px; padding-left: 8px; border-left: 2px dashed #cfcdc5; }
 .alt-lbl { font-size: 12px; color: var(--dim); }
@@ -159,6 +170,40 @@ button.primary:hover { filter: brightness(1.1); }
 button:disabled { opacity: .45; cursor: not-allowed; }
 .collapsed { color: var(--dim); font-size: 12.5px; margin-bottom: 7px; }
 .collapsed button { font-size: 12px; }
+
+/* ---------- 敲定文本（右栏显示的是"裁决之后这一行会变成什么"） ----------
+   三种来源三种颜色，edit 最重：那一格里可能压根不是译文，而是人自己写的批注，
+   必须一眼看出"这是我写的东西"而不是"这是译文"。 */
+.stag {
+  display: inline-block; min-width: 15px; text-align: center; margin-right: 5px;
+  border-radius: 3px; font-size: 11px; line-height: 15px; padding: 0 3px;
+  color: #fff; vertical-align: 1px;
+}
+.cell.zh.s-adopt { border-left: 3px solid var(--accent); background: #f2f8f4; }
+.cell.zh.s-edit  { border-left: 3px solid var(--edit); background: #eaf1fa; font-weight: 500; }
+.cell.zh.s-keep  { border-left: 3px solid #a8a69e; background: #f7f7f5; }
+.cell.zh.s-bad   { border-left: 3px solid var(--warn); background: #fdf3e7; }
+.stag.s-adopt { background: var(--accent); }
+.stag.s-edit  { background: var(--edit); }
+.stag.s-keep  { background: #8a8880; }
+.stag.s-bad   { background: var(--warn); }
+
+.settledbar {
+  border: 1px solid var(--line); border-left-width: 4px;
+  border-radius: 5px; padding: 6px 9px; margin-bottom: 8px; font-size: 12.5px;
+  background: var(--panel);
+}
+.settledbar.s-adopt { border-left-color: var(--accent); background: #f4faf6; }
+.settledbar.s-edit  { border-left-color: var(--edit); background: #eff5fc; }
+.settledbar.s-keep  { border-left-color: #a8a69e; }
+.settledbar.s-bad   { border-left-color: var(--warn); background: #fdf3e7; }
+.settledbar .ts { color: var(--dim); font-size: 11px; margin-left: 8px; }
+.settledbar .ann { margin-top: 3px; }
+.settledbar .lbl { color: var(--dim); font-size: 11px; margin-right: 5px; }
+.settledbar .tip { color: var(--dim); font-size: 11px; }
+.settledbar .problem { color: var(--warn); font-weight: 600; }
+.editwarn { color: var(--edit); font-size: 12px; }
+.decision-state .back { color: var(--edit); }
 
 /* 差分：提案相对"现行译文"的增删，只做视觉提示，不参与任何判定 */
 .d-ins { background: #d9f0dd; border-radius: 2px; }

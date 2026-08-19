@@ -7,6 +7,11 @@
  *    （规格 §1.4：里面可能是给主控会话的批注而不是译文）。
  * 3. 左右两栏用同一份 `context` 行表渲染进同一个 CSS grid，逐行对齐靠 grid 行高，
  *    不要改成两个独立滚动区——那样同一 id 在左右就不再等高了。
+ * 4. 右栏显示的是**敲定文本**（`row.zh` 已由服务端算好：裁过就是裁后的样子）。
+ *    三种来源必须视觉可分，其中"手工编辑"要最醒目——那一格里可能压根不是译文，
+ *    而是人自己写给主控会话的批注，读的人必须一眼知道它不是译文。
+ * 5. 打开一个上次被人工编辑过的行时把上次内容回填进编辑框（`S.draftCache` 里
+ *    有未保存内容时以未保存的为准）——同 §1「不冲掉写了一半的东西」的另一面。
  */
 'use strict';
 
@@ -17,7 +22,8 @@ const S = {
   filter: 'all',
   selected: null,
   item: null,
-  editorCache: new Map(),   // id -> 编辑框草稿（切换条目不丢，防止手写内容被清掉）
+  prefilled: false,
+  draftCache: new Map(),    // id -> {zh, note} 未保存的输入（切换条目不丢）
 };
 
 const $ = (s) => document.querySelector(s);
@@ -150,7 +156,53 @@ function markSelected() {
   if (n) { n.classList.add('sel'); n.scrollIntoView({ block: 'nearest' }); }
 }
 
+/* ---------------- 敲定文本的呈现 ---------------- */
+/* 三种来源三种颜色；edit 最重（它可能不是译文而是批注）。key 与后端 verdict 同名。 */
+const SETTLED = {
+  adopt: ['s-adopt', '采', '采纳'],
+  edit: ['s-edit', '编', '手工编辑'],
+  keep_opus: ['s-keep', '留', '保留现译'],
+};
+
+/* 配色取自 verdict，**但解析失败时一律走 s-bad**：那种情况下右栏显示的其实是
+ * 车道原文，若还打成绿色的"采"，人会以为自己采纳的文本已经在那儿了。 */
+function settledCls(st) {
+  return st.problem ? 's-bad' : (SETTLED[st.verdict] || ['s-bad'])[0];
+}
+
+function settledWho(st) {
+  if (!st) return '';
+  if (st.verdict === 'adopt') return (st.channel || '?') + (st.alt ? ' 备选' + st.alt : '');
+  return (SETTLED[st.verdict] || [, , st.verdict])[2];
+}
+
+function settledAnn(st) {
+  return [st.reason_code, st.note].filter(Boolean).join('　·　');
+}
+
+/* 上下文行用的小角标：一个字 + 悬浮提示（附注在提示里，不挤占正文可读性）。 */
+function settledTag(st) {
+  if (!st) return '';
+  const ch = st.problem ? '⚠' : (SETTLED[st.verdict] || [, '?'])[1];
+  const cls = settledCls(st);
+  const ann = settledAnn(st);
+  const tip = '已裁·' + settledWho(st) + (ann ? '　' + ann : '') + (st.problem ? '　⚠ ' + st.problem : '');
+  return '<span class="stag ' + cls + '" title="' + esc(tip) + '">' + ch + '</span>';
+}
+
 /* ---------------- 对读区（右主体） ---------------- */
+/* 每条候选都出**两行**：差分行看"改了哪儿"，成品行看"改完读起来顺不顺"。
+ * 两个动作不同，缺一不可——「读出声顺不顺」是本项目判语感的根本判据
+ * （glossary/polish.md 总纲），而 diff 的颜色块会打断阅读节奏。
+ * 成品行里只有 `fmt()` 产生的 ctl/ruby 上色 span，其内文字与候选逐字相同，
+ * 拖选复制出来就是干净原文（差分行的删除段带删除线文字，不能拿来复制）。
+ * 与现行译文逐字相同时照样出两行——"看起来没变"也可能只是控制码挪了位。 */
+function twoViews(cur, zh) {
+  return '<div class="prop-zh"><span class="vlbl">差分</span>' + renderDiff(cur, zh) + '</div>'
+    + '<div class="prop-plain"><span class="vlbl">成品</span>'
+    + '<span class="ptext">' + fmt(zh) + '</span></div>';
+}
+
 function propHtml(p, cur, idx, allowAdopt) {
   const tags = [];
   if (p.adjudicate) tags.push('<span class="tag req">请裁</span>');
@@ -162,13 +214,13 @@ function propHtml(p, cur, idx, allowAdopt) {
   let h = '<div class="prop' + (p.adjudicate ? ' adj' : '') + '" data-i="' + idx + '">'
     + '<div class="prop-head"><span class="ch">' + esc(p.channel) + '</span>'
     + '<span>score ' + (p.score == null ? '-' : p.score) + '</span>' + tags.join(' ') + '</div>'
-    + '<div class="prop-zh">' + renderDiff(cur, p.zh) + '</div>'
+    + twoViews(cur, p.zh)
     + (p.note ? '<div class="prop-note">' + fmt(p.note) + '</div>' : '')
     + '<div class="btns">' + (allowAdopt ? btn('采纳', 'adopt', '', p.zh) : '')
     + btn('填入编辑框', 'fill', ' class="btn-fill"', p.zh) + '</div>';
   (p.alts || []).forEach((a, k) => {
     h += '<div class="alt"><div class="alt-lbl">备选' + (k + 1) + '</div>'
-      + '<div class="prop-zh">' + renderDiff(cur, a.zh) + '</div>'
+      + twoViews(cur, a.zh)
       + (a.note ? '<div class="prop-note">' + fmt(a.note) + '</div>' : '')
       + '<div class="btns">'
       + (allowAdopt ? btn('采纳备选' + (k + 1), 'adopt', ' data-alt="' + (k + 1) + '"', a.zh) : '')
@@ -192,10 +244,28 @@ function renderItem(it) {
   for (const r of it.context) {
     if (r.current) {
       const warn = it.drift ? ' <span class="badge b-drift" title="冻结后车道已更新">⚠</span>' : '';
+      const scls = r.settled ? ' ' + settledCls(r.settled) : '';
       parts.push('<div class="cell jp cur"><span class="rowid">' + r.id + '</span>' + fmt(r.jp) + '</div>');
-      parts.push('<div class="cell zh cur">' + fmt(r.zh) + warn + '</div>');
+      parts.push('<div class="cell zh cur' + scls + '">' + settledTag(r.settled) + fmt(r.zh) + warn + '</div>');
       // 提案块 = grid 第 2 列的一个独立行 → 正好落在右栏当前行的正下方
       const props = [];
+      if (r.settled) {
+        const st = r.settled;
+        const ann = settledAnn(st);
+        const laneDiff = st.zh !== r.zh_lane;
+        props.push('<div class="settledbar ' + settledCls(st) + '">'
+          + '<b>本行已裁：' + esc(settledWho(st)) + '</b>'
+          + (st.verdict === 'edit'
+            ? '　<span class="editwarn">右栏那段是你自己写的文字，未必是译文（原样保存，未做任何校验）</span>' : '')
+          + '<span class="ts">' + esc(st.ts || '') + '</span>'
+          + (ann ? '<div class="ann"><span class="lbl">附注</span>' + fmt(ann) + '</div>' : '')
+          + (st.problem ? '<div class="ann problem">⚠ 敲定文本解析失败，右栏暂用车道原文：'
+            + esc(st.problem) + '</div>' : '')
+          // 敲定文本顶掉了车道原文时，把被顶掉的那句留一行——否则"我改之前是什么样"
+          // 在界面上彻底消失，没法回头核对。
+          + (laneDiff ? '<div class="ann"><span class="lbl">车道原文</span>' + fmt(r.zh_lane) + '</div>' : '')
+          + '<div class="ann tip">下方按钮可直接改判，改判追加新行、不改写旧行。</div></div>');
+      }
       if (it.drift) {
         props.push('<div class="drift"><b>⚠ 冻结后车道已更新</b>'
           + '（判据：' + esc(it.drift.source) + '）——下面各通道的候选是对着<b>冻结面</b>产出的，'
@@ -214,7 +284,7 @@ function renderItem(it) {
       }
       const shown = it.proposals.filter((p) => !p.collapsible);
       const hidden = it.proposals.filter((p) => p.collapsible);
-      shown.forEach((p, i) => props.push(propHtml(p, it.zh_current, i, it.in_queue)));
+      shown.forEach((p, i) => props.push(propHtml(p, it.zh_display, i, it.in_queue)));
       if (hidden.length) {
         props.push('<div class="collapsed">另有 ' + hidden.length + ' 个通道与现行译文逐字相同且无批注（'
           + esc(hidden.map((p) => p.channel).join('、')) + '）</div>');
@@ -222,10 +292,12 @@ function renderItem(it) {
       parts.push('<div class="props">' + props.join('') + '</div>');
     } else {
       const cls = r.verdict ? ' done' : (r.in_queue ? ' inq' : '');
+      const scls = r.settled ? ' ' + settledCls(r.settled) : '';
       const d = ' data-id="' + r.id + '" title="点这一行：把它变成当前处理项">';
       parts.push('<div class="cell jp ctxdim clickable' + cls + '"' + d
         + '<span class="rowid">' + r.id + '</span>' + fmt(r.jp) + '</div>');
-      parts.push('<div class="cell zh ctxdim clickable' + cls + '"' + d + fmt(r.zh) + '</div>');
+      parts.push('<div class="cell zh ctxdim clickable' + cls + scls + '"' + d
+        + settledTag(r.settled) + fmt(r.zh) + '</div>');
     }
   }
   parts.push('</div>');
@@ -239,14 +311,17 @@ function renderItem(it) {
     ? '当前草稿：<span class="now">' + esc(d.verdict)
     + (d.chosen_channel ? '（' + esc(d.chosen_channel)
       + (d.chosen_alt ? ' 备选' + d.chosen_alt : '') + '）' : '')
-    + '</span>　' + esc(d.ts) + '　——可直接改判（追加新行）'
+    + '</span>　' + esc(d.ts)
+    + (S.prefilled ? '　<b class="back">已把上次的手工编辑回填进编辑框</b>' : '　——可直接改判（追加新行）')
     : '未处理';
 }
 
 /* ---------------- 选择与动作 ---------------- */
 async function selectItem(id) {
   if (id == null) { toast('没有下一条了'); return; }
-  if (S.selected != null) S.editorCache.set(S.selected, el.editor.value);
+  if (S.selected != null) {
+    S.draftCache.set(S.selected, { zh: el.editor.value, note: el.note.value });
+  }
   let data;
   try {
     data = await api('/api/item?id=' + id);
@@ -260,9 +335,32 @@ async function selectItem(id) {
   S.selected = id;
   S.item = data;
   markSelected();
-  el.editor.value = S.editorCache.get(id) || '';
+  fillInputsFor(data);
   renderItem(data);
   syncFillButtons();
+}
+
+/* 打开一条时输入区填什么。优先级：
+ * ① 内存里**尚未保存**的输入（敲了一半切走的）——`has()` 判在，空串也算数：
+ *    人主动清空过就该是空的，不能被草稿再灌回去；
+ * ② 草稿里最后一条记录：`edited_zh` 只在它确实是 `edit` 时回填（adopt/keep 的
+ *    记录本来就没有），`note` 一律回填，`reason_code` 非空才回填（空的话保留
+ *    输入框里那个跨条目沿用的值）。
+ * 目的：第二次编辑同一行时能在上一版基础上接着改，而不是从空白重写。 */
+function fillInputsFor(it) {
+  const cached = S.draftCache.get(it.id);
+  if (cached) {
+    el.editor.value = cached.zh;
+    el.note.value = cached.note;
+    S.prefilled = false;
+    return;
+  }
+  const d = it.decision;
+  const back = !!(d && d.verdict === 'edit' && typeof d.edited_zh === 'string');
+  el.editor.value = back ? d.edited_zh : '';     // 原样回填：空格/_n/ruby/夹带批注都不动
+  el.note.value = (d && d.note) || '';
+  if (d && d.reason_code) el.reason.value = d.reason_code;
+  S.prefilled = back;
 }
 
 async function refreshQueue() {
@@ -300,7 +398,7 @@ async function decide(payload) {
   } catch (e) { toast('写草稿失败：' + e.message); return; }
   const known = S.byId.get(S.selected);
   if (known) { known.verdict = res.record.verdict; known.chosen_channel = res.record.chosen_channel; }
-  S.editorCache.delete(S.selected);
+  S.draftCache.delete(S.selected);
   el.editor.value = '';
   el.note.value = '';
   if (!known) {
@@ -318,7 +416,7 @@ async function decide(payload) {
 function fillEditor(text) {
   // 规格 §4.3：仅当编辑框为空时生效。这里用 `!== ''` 而不是 trim——用户可能
   // 故意只敲了空白/换行占位，那也算"写了一半"，不该被覆盖。
-  if (el.editor.value !== '') { toast('编辑框非空，未填入（先清空再点）'); return; }
+  if (el.editor.value !== '') { toast('编辑框非空（可能是上次的编辑内容），未填入——清空后再点'); return; }
   el.editor.value = text;
   syncFillButtons();
   el.editor.focus();
@@ -328,7 +426,8 @@ function syncFillButtons() {
   const dis = el.editor.value !== '';
   el.pane.querySelectorAll('.btn-fill').forEach((b) => {
     b.disabled = dis;
-    b.title = dis ? '编辑框非空时不填入（防误触覆盖）' : '把这条文本填进编辑框';
+    b.title = dis ? '编辑框非空时不填入（防误触覆盖上次回填/写了一半的内容）——清空编辑框后即可填入'
+      : '把这条文本填进编辑框';
   });
 }
 

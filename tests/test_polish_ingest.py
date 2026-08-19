@@ -559,9 +559,12 @@ def _write_soft_raw(m, rows_by_id):
     lines = []
     for i in ids:
         spec = rows_by_id.get(i, {"zh": m.opus[i], "adjudicate": False})
-        lines.append(dumps({"id": i, "jp_tail": jp_tail(m.jp[i]), "zh": spec["zh"],
-                             "score": 90, "note": spec.get("note", ""),
-                             "adjudicate": spec.get("adjudicate", False)}))
+        row = {"id": i, "jp_tail": jp_tail(m.jp[i]), "zh": spec["zh"],
+               "score": 90, "note": spec.get("note", ""),
+               "adjudicate": spec.get("adjudicate", False)}
+        if "alts" in spec:
+            row["alts"] = spec["alts"]
+        lines.append(dumps(row))
     (raw_dir / "b1.out").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -819,3 +822,118 @@ def test_find_prompt_hash_prefers_channel_tagged_record(mini):
     assert pi._find_prompt_hash(plan_path, 1, channel="amplify") == "hash-amplify-specific"
     assert pi._find_prompt_hash(plan_path, 1, channel="chA") == "hash-session-1"
     assert pi._find_prompt_hash(plan_path, 1) == "hash-session-1"
+
+
+# --- P5 契约 v2：alts（备选候选）与 noop 标记 ---
+
+def _edit_raw(mini, batch, mutate):
+    """通用 raw 编辑器：读该批 raw 行 → mutate(rows) 就地改 → 回写。"""
+    p = mini.raw_dir / f"b{batch}.out"
+    rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    mutate(rows)
+    p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+                 encoding="utf-8")
+    return rows
+
+def test_alt_struct_bad_unit():
+    """轻量结构闸的单元行为：【】对齐两方向 + MARKS 丢失。"""
+    assert pi._alt_struct_bad("【彩野】「うん」", "「嗯」") == "【】说话人结构不对齐"
+    assert pi._alt_struct_bad("うん", "【彩野】「嗯」") == "【】说话人结构不对齐"
+    assert pi._alt_struct_bad("○夕方の教室。", "夕方教室。") == "丢失符号 ○"
+    assert pi._alt_struct_bad("【彩野】「うん」", "【彩野】「嗯」") is None
+
+
+def test_alts_accepted_and_stored(mini):
+    def mut(rows):
+        rows[0]["zh"] = "改后的主候选"
+        rows[0]["alts"] = [{"zh": "备选甲", "note": "更口语"}, {"zh": "备选乙"}]
+    rows = _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 3
+    row = next(x for x in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")
+               if x["id"] == rows[0]["id"])
+    assert row["alts"] == [{"zh": "备选甲", "note": "更口语"}, {"zh": "备选乙", "note": ""}]
+    assert row["noop"] is False
+
+
+def test_alts_too_many_kills_line(mini):
+    def mut(rows):
+        rows[0]["alts"] = [{"zh": f"备{k}"} for k in range(3)]
+    _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any("alts 字段非法" in d["reason"] for d in r["dead"])
+
+
+def test_alts_bad_item_kills_line(mini):
+    def mut(rows):
+        rows[0]["alts"] = [{"zh": 123}]
+    _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 2
+    assert any("alts 第 1 条非法" in d["reason"] for d in r["dead"])
+
+
+def test_alt_duplicate_of_main_dropped_line_survives(mini):
+    def mut(rows):
+        rows[0]["alts"] = [{"zh": rows[0]["zh"]}]  # 与主候选逐字相同
+    rows = _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 3
+    row = next(x for x in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")
+               if x["id"] == rows[0]["id"])
+    assert row["alts"] == []
+
+
+def test_alt_struct_violation_dropped_and_disciplined(mini):
+    """jp 无【】而备选擅自加【】→ 该备选丢弃并计 discipline，主候选存活。"""
+    def mut(rows):
+        rows[0]["zh"] = "改后的主候选"
+        rows[0]["alts"] = [{"zh": "【彩野】「擅自加了前缀」"}]
+    rows = _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"] and r["added"] == 3
+    row = next(x for x in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")
+               if x["id"] == rows[0]["id"])
+    assert row["alts"] == []
+    disc = json.loads((mini.d / f"discipline.{mini.channel}.json").read_text(encoding="utf-8"))
+    assert disc["alt_struct_violations"] == 1
+
+
+def test_noop_flag_set_on_unchanged_row(mini):
+    """照抄且无备选 → noop=True；照抄但带备选 → noop=False（有提案）。"""
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"]
+    rows = read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")
+    assert all(x["noop"] is True for x in rows)  # mini 的 raw 全是照抄
+
+
+def test_noop_false_when_alts_present(mini):
+    def mut(rows):
+        rows[0]["alts"] = [{"zh": "备选改法", "note": "n"}]
+    rows = _edit_raw(mini, 1, mut)
+    r = pi.ingest(mini.label, mini.channel, 1, repo=mini.root)
+    assert r["ok"]
+    row = next(x for x in read_jsonl(mini.d / f"candidates.{mini.channel}.jsonl")
+               if x["id"] == rows[0]["id"])
+    assert row["noop"] is False and row["alts"]
+
+
+def test_soft_lock_alts_without_adjudicate_killed(mini_soft):
+    """软锁行主候选照抄、备选里藏改法、未请裁 → 判死（堵契约 v2 新开的口）。"""
+    _write_soft_raw(mini_soft, {
+        20: {"zh": mini_soft.opus[20], "alts": [{"zh": "藏在备选里的改法"}]},
+        30: {"zh": mini_soft.opus[30]},
+    })
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 2
+    assert any("备选候选（alts）视同改动" in d["reason"] for d in r["dead"])
+
+
+def test_soft_lock_alts_with_adjudicate_survives(mini_soft):
+    _write_soft_raw(mini_soft, {
+        20: {"zh": mini_soft.opus[20], "alts": [{"zh": "备选改法"}], "adjudicate": True},
+        30: {"zh": mini_soft.opus[30]},
+    })
+    r = pi.ingest(mini_soft.label, mini_soft.channel, 1, repo=mini_soft.root)
+    assert r["ok"] and r["added"] == 3 and r["dead"] == []

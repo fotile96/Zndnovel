@@ -174,9 +174,30 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tools.check_batch import MARKS, SPEAKER_RE
 from tools.pipelib import REPO, append_jsonl, dumps, read_jsonl
 from tools.polish_amplify import mark_round_if_complete
 from tools.polishlib import jp_tail as _jp_tail
+
+#: 每行最多备选候选数（P5 输出契约 v2：主候选 zh + 至多 2 条 alts）。
+#: 取值依据 docs/ops/p5-polish-design.md §三——「1–3 个候选」＝主候选 1 + 备选 ≤2。
+MAX_ALTS = 2
+
+
+def _alt_struct_bad(jp: str, zh: str):
+    """备选候选的轻量结构闸：【】说话人结构对齐 + MARKS 符号不丢。
+
+    返回违规描述（str）或 None。只做结构层——名字映射、W 系语义闸不在入仓时
+    对备选跑（备选只有在被采纳时才落库，全套语义闸由 polish_commit 采纳路径
+    把关）；但结构层必须在入仓就挡：一条丢了【】前缀的备选进了裁决队列，
+    渲染出来就是给裁决者看的坏样本，等它被采纳时才发现就晚了。
+    """
+    if bool(SPEAKER_RE.match(jp)) != bool(SPEAKER_RE.match(zh)):
+        return "【】说话人结构不对齐"
+    for ch in MARKS:
+        if ch in jp and ch not in zh:
+            return f"丢失符号 {ch}"
+    return None
 
 
 def _dir_for(label, repo) -> Path:
@@ -371,6 +392,8 @@ def ingest(label, channel, batch, repo=None) -> dict:
     locked_hits = 0
     misaligned_hits = 0
     soft_violations = 0
+    alt_struct_hits = 0
+    alt_dropped_total = 0
     candidates = []
     for row in parsed:
         rid = row.get("id")
@@ -405,6 +428,45 @@ def ingest(label, channel, batch, repo=None) -> dict:
             dead.append({"id": rid, "reason": "zh 为空串或缺失"})
             continue
 
+        # P5 契约 v2：备选候选（alts）解析与轻量闸。非法形态判死整行
+        # （契约违规与 zh 类型非法同级）；单条备选与主候选/彼此重复、或
+        # 结构违规——只丢弃该备选并计数，不连坐主候选（备选是附加提案，
+        # 它坏了不该拖死一条合法的主候选）。
+        alts_raw = row.get("alts")
+        alts = []
+        alt_drop = 0
+        if alts_raw is not None:
+            if not isinstance(alts_raw, list) or len(alts_raw) > MAX_ALTS:
+                dead.append({"id": rid,
+                             "reason": f"alts 字段非法：须为 ≤{MAX_ALTS} 条的列表，"
+                                       f"实收 {type(alts_raw).__name__}"
+                                       + (f" 长度 {len(alts_raw)}" if isinstance(alts_raw, list) else "")})
+                continue
+            bad_alt = None
+            seen_forms = {zh_norm}
+            for k, a in enumerate(alts_raw, start=1):
+                if not isinstance(a, dict) or not isinstance(a.get("zh"), str) \
+                        or not _norm(a.get("zh", "")):
+                    bad_alt = f"alts 第 {k} 条非法：须为 {{zh, note?}} 对象且 zh 非空"
+                    break
+                a_norm = _norm(a["zh"])
+                if a_norm in seen_forms:
+                    alt_drop += 1
+                    continue
+                why = _alt_struct_bad(id2jp.get(rid, ""), a["zh"])
+                if why is not None:
+                    alt_drop += 1
+                    alt_struct_hits += 1
+                    continue
+                seen_forms.add(a_norm)
+                alts.append({"zh": a["zh"], "note": a.get("note", "")})
+            if bad_alt is not None:
+                dead.append({"id": rid, "reason": bad_alt})
+                continue
+        if alt_drop:
+            alt_dropped_total += alt_drop
+        row["_alts"] = alts
+
         # 软锁（锚点行）改动必须显式 adjudicate=true，否则判死——见模块
         # docstring"硬锁/软锁"专节。判据同 `polish_triage._ws_equal`：只做
         # 空白归一（`_norm` 即 `.strip()`），不剥控制码/ruby——一次纯控制码
@@ -413,6 +475,14 @@ def ingest(label, channel, batch, repo=None) -> dict:
                 and not row.get("adjudicate", False):
             dead.append({"id": rid,
                          "reason": "软锁 id（锚点行）有改动但未显式 adjudicate=true，判死"})
+            soft_violations += 1
+            continue
+        # 软锁行的备选候选视同改动：主候选照抄但 alts 里提了改法、又不请裁，
+        # 等于把锚点改动藏进备选绕过请裁义务——同判死（堵 P5 契约 v2 新开的口）。
+        if rid in soft_ids and alts and not row.get("adjudicate", False):
+            dead.append({"id": rid,
+                         "reason": "软锁 id（锚点行）的备选候选（alts）视同改动，"
+                                   "未显式 adjudicate=true，判死"})
             soft_violations += 1
             continue
 
@@ -460,18 +530,25 @@ def ingest(label, channel, batch, repo=None) -> dict:
         "note": row.get("note", ""),
         "adjudicate": row.get("adjudicate", False),
         "jp_tail": row.get("jp_tail"),
+        "alts": row.get("_alts", []),
+        # noop：主候选与现行文本逐字相同且无备选——「确认不动」行。裁决与
+        # 评估侧对 noop 行的 score 不入任何采纳权重（kimi「同文高分」教训的
+        # 机制化，docs/ops/p5-polish-design.md §四通道纪律 2）。
+        "noop": (_norm(row.get("zh", "")) == batch_opus_norm.get(row["id"], ""))
+                and not row.get("_alts"),
         "ts": ts,
     } for row in candidates]
 
     append_jsonl(d / f"candidates.{channel}.jsonl", out_rows)
 
-    if locked_hits or misaligned_hits or soft_violations:
+    if locked_hits or misaligned_hits or soft_violations or alt_struct_hits:
         disc_path = d / f"discipline.{channel}.json"
         disc = _load_json(disc_path, {"locked_hits": 0, "misaligned_hits": 0,
                                        "soft_lock_violations": 0})
         disc["locked_hits"] = disc.get("locked_hits", 0) + locked_hits
         disc["misaligned_hits"] = disc.get("misaligned_hits", 0) + misaligned_hits
         disc["soft_lock_violations"] = disc.get("soft_lock_violations", 0) + soft_violations
+        disc["alt_struct_violations"] = disc.get("alt_struct_violations", 0) + alt_struct_hits
         disc_path.write_text(dumps(disc), encoding="utf-8")
 
     ingested["batches"] = sorted(set(ingested.get("batches", [])) | {batch})
@@ -484,6 +561,8 @@ def ingest(label, channel, batch, repo=None) -> dict:
         extra_bits.append(f"软锁未请裁 {soft_violations} 次")
     if misaligned_hits:
         extra_bits.append(f"疑似错位 {misaligned_hits} 次")
+    if alt_dropped_total:
+        extra_bits.append(f"备选丢弃 {alt_dropped_total} 条（结构违规 {alt_struct_hits}）")
     extra = f"，含{'、'.join(extra_bits)}" if extra_bits else ""
     print(f"ingest: {label}/{channel} 批 {batch} 入仓 {len(out_rows)} 行，"
           f"判死 {len(dead)} 行{extra}")

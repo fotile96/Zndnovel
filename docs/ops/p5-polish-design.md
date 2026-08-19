@@ -46,6 +46,23 @@ polish_triage/polish_commit），改动最小化：
 
 ## 四、通道矩阵
 
+> **2026-08-19 定案（用户拍板）**：影子批评估后，测试通道全部转正，P5 正式矩阵为**五条**：
+> `fable-wf`（Workflow, fable-5 high）、`ds-flash`（paseo deepseek-v4-flash）、
+> `opus46-wf`（Workflow, claude-opus-4-6[1m], effort=max——codename 定此，与 fable-wf 同构）、
+> `glm-5.2`（paseo z.ai, glm-5.2[1m]）、`glm-5.3`（paseo z.ai, glm-5.3[1m]）。
+> **opus 4.6 走 Workflow 不走 paseo**——影子实测同模型 paseo 形态 0 改动（形式完美实质为空），
+> Workflow 形态 30 改动，见 `p5-channel-shadow-eval.md` §二。
+> **Workflow 的 `model` 参数可直接钉完整模型 ID**（如 `claude-opus-4-6[1m]`），不限于别名；
+> 早前「别名 opus 解析为 opus-5」的记录只说明别名的指向，不是能力上限。
+>
+> **队列规模实测（p5seg0 会话 1，569 行，四通道）**：各通道改动 14–30，**并集 67（11.8%）**——
+> 重合极低、互补性强。全段外推 ≈504（四通道）+100~150（ds-flash）≈ **600–650 待裁 id**，
+> K=700 够用但接近满载（86–93%）；若后续段并集升高需上调，否则队列会被静默截断成抽样（T1 教训）。
+>
+> 下面小节是评估前的原始设计，保留作历史。
+
+### 原始设计（2026-08-19 影子批之前）
+
 ### 正式通道（P4 验证，直接进 P5）
 
 | 通道 | 形态 | 沿用参数 |

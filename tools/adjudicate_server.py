@@ -13,11 +13,12 @@
 直接抛异常。这道断言看着多余，但它是"绝不写生产文件"这条约束在代码里唯一
 的物理保证，改动本文件时不要把它优化掉、也不要绕过它另开写口。
 
-**草稿 verdict 取值与生产 `decisions.jsonl` 不完全一致**（规格 §5 明写，本
-实现照办，此处记下差异供落盘时映射）：本文件写 `adopt_alt`（采纳备选）与
-`keep`（保留现译）；而 `tools/polish_commit.py` 认的是 `adopt` + `chosen_alt=N`
-和 `keep_opus`。落盘时需要主控会话做一次机械映射：
-`adopt_alt → adopt`（`chosen_alt` 原样带上）、`keep → keep_opus`。
+**草稿 verdict 与生产 `decisions.jsonl` 同词汇**：`adopt`（采纳某通道；采纳它
+的第 N 条备选时同为 `adopt`，另带 `chosen_alt=N`）、`keep_opus`（保留现译）、
+`edit`（人工改写）。规格初稿曾另立 `adopt_alt`/`keep` 两个值，是写规格时的疏忽
+——`polish_commit` 的采纳路径本就用 `adopt` + `chosen_alt` 表达备选，而"保留现译"
+在既有 8 段台账里一律记 `keep_opus`。**源头对齐、不留映射层**：映射层意味着草稿
+与落盘之间有一道人肉翻译，正是本项目反复吃亏的形态。
 
 ## 队列直读 candidates.*.jsonl 自算（拍板第 3 条）
 
@@ -73,7 +74,12 @@ from tools.resolve import resolve_map
 
 UI_DIR = Path(__file__).resolve().parent / "adjudicate_ui"
 DRAFT_NAME = "decisions.draft.jsonl"
-VERDICTS = ("adopt", "adopt_alt", "keep", "edit")
+#: 与生产 `decisions.jsonl` **完全同词汇**（2026-08-19 主控会话对齐）。
+#: 规格初稿曾另立 `adopt_alt`/`keep` 两个值，是写规格时的疏忽——`polish_commit`
+#: 认的是 `adopt` + `chosen_alt=N`（备选走 adopt 的同一条路径），保留现译在
+#: 全部 8 段既有台账里一律记 `keep_opus`。词汇不一致会逼出一道事后映射，
+#: 而映射层正是本项目反复吃亏的地方，故在源头对齐、不留映射。
+VERDICTS = ("adopt", "keep_opus", "edit")
 CAND_RE = re.compile(r"^candidates\.(.+)\.jsonl$")
 DEFAULT_LANE = "pilot/lanes/opus"
 DEFAULT_CONTEXT_BEFORE = 30
@@ -309,19 +315,19 @@ class Adjudication:
         cid = payload.get("id")
         if not isinstance(cid, int):
             raise ValueError(f"id 必须是整数：{cid!r}")
-        if verdict in ("adopt", "adopt_alt") and not payload.get("chosen_channel"):
+        if verdict == "adopt" and not payload.get("chosen_channel"):
             raise ValueError(f"{verdict} 必须带 chosen_channel")
         chosen_alt = payload.get("chosen_alt")
-        if verdict == "adopt_alt" and not isinstance(chosen_alt, int):
-            raise ValueError("adopt_alt 必须带 chosen_alt（1-based 序号）")
+        if chosen_alt is not None and not isinstance(chosen_alt, int):
+            raise ValueError(f"chosen_alt 必须是整数（1-based 序号）：{chosen_alt!r}")
         edited = payload.get("edited_zh")
         if verdict == "edit" and not isinstance(edited, str):
             raise ValueError("edit 必须带 edited_zh 字符串")
         rec = {
             "id": cid,
             "verdict": verdict,
-            "chosen_channel": payload.get("chosen_channel") if verdict in ("adopt", "adopt_alt") else None,
-            "chosen_alt": chosen_alt if verdict == "adopt_alt" else None,
+            "chosen_channel": payload.get("chosen_channel") if verdict == "adopt" else None,
+            "chosen_alt": chosen_alt if verdict == "adopt" else None,
             "edited_zh": edited if verdict == "edit" else None,
             "reason_code": payload.get("reason_code") or "",
             "note": payload.get("note") or "",

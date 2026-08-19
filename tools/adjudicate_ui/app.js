@@ -103,8 +103,8 @@ async function api(path, opts) {
 
 /* ---------------- 队列（左栏） ---------------- */
 const VERDICT_BADGE = {
-  adopt: ['b-adopt', '采'], adopt_alt: ['b-alt', '备'],
-  edit: ['b-edit', '编'], keep: ['b-keep', '留'],
+  adopt: ['b-adopt', '采'],
+  edit: ['b-edit', '编'], keep_opus: ['b-keep', '留'],
 };
 
 function isWarn(it) { return it.drift || it.soft || it.hard; }
@@ -165,7 +165,7 @@ function propHtml(p, cur, idx) {
       + '<div class="prop-zh">' + renderDiff(cur, a.zh) + '</div>'
       + (a.note ? '<div class="prop-note">' + fmt(a.note) + '</div>' : '')
       + '<div class="btns">'
-      + btn('采纳备选' + (k + 1), 'adopt_alt', ' data-alt="' + (k + 1) + '"', a.zh)
+      + btn('采纳备选' + (k + 1), 'adopt', ' data-alt="' + (k + 1) + '"', a.zh)
       + btn('填入编辑框', 'fill', ' class="btn-fill"', a.zh) + '</div></div>';
   });
   return h + '</div>';
@@ -307,12 +307,12 @@ function bind() {
     const act = b.dataset.act;
     if (act === 'fill') fillEditor(b.dataset.text);
     else if (act === 'adopt') decide({ verdict: 'adopt', chosen_channel: b.dataset.ch });
-    else if (act === 'adopt_alt') {
-      decide({ verdict: 'adopt_alt', chosen_channel: b.dataset.ch, chosen_alt: Number(b.dataset.alt) });
+    else if (act === 'adopt' && b.dataset.alt) {
+      decide({ verdict: 'adopt', chosen_channel: b.dataset.ch, chosen_alt: Number(b.dataset.alt) });
     }
   });
 
-  $('#btn-keep').addEventListener('click', () => decide({ verdict: 'keep' }));
+  $('#btn-keep').addEventListener('click', () => decide({ verdict: 'keep_opus' }));
   $('#btn-edit').addEventListener('click', () => {
     if (el.editor.value === '') { toast('编辑框是空的'); return; }
     decide({ verdict: 'edit', edited_zh: el.editor.value });   // 原样，不 trim

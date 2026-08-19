@@ -167,23 +167,23 @@ def test_draft_write_read_and_rejudge(model):
 
 
 def test_only_draft_file_is_written(model):
-    model.record({"id": 30, "verdict": "keep"})
+    model.record({"id": 30, "verdict": "keep_opus"})
     names = {p.name for p in model.seg_dir.iterdir() if p.is_file()}
     assert "decisions.draft.jsonl" in names
     assert not (names & {"decisions.jsonl", "patches.jsonl", "triage.json", "queue.md"}), \
         "本服务只准写草稿文件"
     # 唯一写口 append_draft() 拒绝任何别的文件名（且不留下文件）
     with pytest.raises(AssertionError):
-        A.append_draft(model.seg_dir / "decisions.jsonl", {"id": 30, "verdict": "keep"})
+        A.append_draft(model.seg_dir / "decisions.jsonl", {"id": 30, "verdict": "keep_opus"})
     assert not (model.seg_dir / "decisions.jsonl").exists()
 
 
 def test_record_validation(model):
-    for bad in ({"id": 30, "verdict": "keep_opus"},          # 生产用的取值，草稿面不认
+    for bad in ({"id": 30, "verdict": "keep"},               # 已废弃的旧取值（现为 keep_opus）
                 {"id": 30, "verdict": "adopt"},               # 缺 chosen_channel
-                {"id": 30, "verdict": "adopt_alt", "chosen_channel": "chA"},   # 缺 chosen_alt
+                {"id": 30, "verdict": "adopt", "chosen_channel": "chA", "chosen_alt": "x"},  # chosen_alt 非整数
                 {"id": 30, "verdict": "edit"},                # 缺 edited_zh
-                {"id": "30", "verdict": "keep"}):             # id 不是整数
+                {"id": "30", "verdict": "keep_opus"}):             # id 不是整数
         with pytest.raises(ValueError):
             model.record(bad)
     assert not model.draft_path.exists()
@@ -193,10 +193,10 @@ def test_record_validation(model):
 
 def test_next_undecided_walks_queue(model):
     assert model.next_undecided() == 30
-    model.record({"id": 30, "verdict": "keep"})
+    model.record({"id": 30, "verdict": "keep_opus"})
     assert model.next_undecided(30) == 20
     for i in (20, 5, 40):
-        model.record({"id": i, "verdict": "keep"})
+        model.record({"id": i, "verdict": "keep_opus"})
     assert model.next_undecided(40) is None
 
 
@@ -302,7 +302,7 @@ def test_http_decide_appends_and_advances(server, model):
     assert res["next_undecided"] == 20, "裁完自动指向队列中下一条未处理项"
 
     code, res = _post(server + "/api/decide",
-                      {"id": 5, "verdict": "adopt_alt", "chosen_channel": "chA", "chosen_alt": 1})
+                      {"id": 5, "verdict": "adopt", "chosen_channel": "chA", "chosen_alt": 1})
     assert res["record"]["chosen_alt"] == 1 and res["record"]["edited_zh"] is None
 
     rows = [json.loads(l) for l in model.draft_path.read_text(encoding="utf-8").splitlines()]
@@ -313,8 +313,8 @@ def test_http_decide_appends_and_advances(server, model):
 
 def test_state_restores_from_draft_after_restart(repo, model):
     """关服务重启：已处理状态必须从草稿文件恢复（规格 §7.3）。"""
-    model.record({"id": 20, "verdict": "keep"})
+    model.record({"id": 20, "verdict": "keep_opus"})
     fresh = A.Adjudication(SEG, repo=repo)            # 全新实例＝重启后的服务
-    assert {it["id"]: it["verdict"] for it in fresh.queue_payload()["items"]}[20] == "keep"
+    assert {it["id"]: it["verdict"] for it in fresh.queue_payload()["items"]}[20] == "keep_opus"
     assert fresh.queue_payload()["done"] == 1
     assert fresh.next_undecided() == 30

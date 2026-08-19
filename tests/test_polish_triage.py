@@ -1039,3 +1039,41 @@ def test_other_warns_do_not_block_autoclear(mini, rule):
     mini.enable_autoclear("chA")
     mini.make_gate_warn(14, rule)
     assert by_id(pt.triage(LABEL, repo=mini.root), 14)["autoclear"]
+
+
+# --- P5 契约 v2：alts 渲染与 noop 透传 ---
+
+def test_queue_md_renders_alts(mini):
+    """带 alts 的候选进队列时，queue.md 在主候选下缩进列出编号备选
+    （编号即 polish_commit 采纳动作 adopt_alt:N 的 N）。"""
+    append_jsonl(mini.d / "candidates.chA.jsonl", [{
+        "id": 12, "channel": "chA", "batch": 1, "prompt_hash": "hash-1",
+        "jp_hash": "x", "opus_hash": "x", "zh": "改后的主候选",
+        "score": 55, "note": "两可", "adjudicate": True,
+        "jp_tail": jp_tail(JP[12]), "ts": "t2",
+        "alts": [{"zh": "备选甲", "note": "更口语"}, {"zh": "备选乙", "note": ""}],
+    }])
+    pt.triage(LABEL, repo=mini.root)
+    q = (mini.d / "queue.md").read_text(encoding="utf-8")
+    assert "备选1：备选甲（批注：更口语）" in q
+    assert "备选2：备选乙" in q
+
+
+def test_triage_rows_carry_noop(mini):
+    """candidates 的 noop 标记透传进 triage 返回行（评估侧消费）；
+    旧候选无该键时默认 False。"""
+    append_jsonl(mini.d / "candidates.chA.jsonl", [{
+        "id": 14, "channel": "chA", "batch": 1, "prompt_hash": "hash-1",
+        "jp_hash": "x", "opus_hash": "x", "zh": OPUS[14],
+        "score": 95, "note": "", "adjudicate": False,
+        "jp_tail": jp_tail(JP[14]), "ts": "t2", "noop": True,
+    }])
+    r = pt.triage(LABEL, repo=mini.root)
+    row14 = next(x for x in r["rows"] if x["id"] == 14 and x["channel"] == "chA")
+    assert row14["noop"] is True
+    # id 11 是真实改动行（大改），ingest 判 noop=False；id 10 照抄行由
+    # ingest 判 noop=True（T46 行为，顺带在此回归覆盖）。
+    row11 = next(x for x in r["rows"] if x["id"] == 11 and x["channel"] == "chA")
+    assert row11["noop"] is False
+    row10 = next(x for x in r["rows"] if x["id"] == 10 and x["channel"] == "chA")
+    assert row10["noop"] is True

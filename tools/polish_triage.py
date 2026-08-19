@@ -580,6 +580,11 @@ def triage(label, repo=None) -> dict:
                 "autoclear": False, "sampled": False,
                 "_zh": zh, "_note": c.get("note", ""),
                 "_score": c.get("score"), "_adjudicate": bool(c.get("adjudicate", False)),
+                # P5 契约 v2：备选候选随行透传（渲染与裁决用）；noop 由
+                # polish_ingest 判定（照抄且无备选），旧 candidates 无此键时
+                # 默认 False——宁可让裁决者多看一行，不静默吞掉。
+                "_alts": c.get("alts", []) or [],
+                "noop": bool(c.get("noop", False)),
             }
 
             if cid in hard_ids:
@@ -745,7 +750,10 @@ def triage(label, repo=None) -> dict:
     queue_ids = sorted({r["id"] for r in rows if r["bucket"] == 2})
 
     out_rows = [{"id": r["id"], "channel": r["channel"], "bucket": r["bucket"],
-                 "edit": r["edit"], "autoclear": r["autoclear"], "sampled": r["sampled"]}
+                 "edit": r["edit"], "autoclear": r["autoclear"], "sampled": r["sampled"],
+                 # P5 契约 v2：noop（照抄且无备选）透传给评估侧——noop 行的
+                 # score 不入任何采纳权重（design §四通道纪律 2）。
+                 "noop": r.get("noop", False)}
                 for r in rows]
     meta = {
         "K": K,
@@ -815,6 +823,11 @@ def _write_queue_md(d: Path, queue_ids, rows, id2jp, id2opus, forced_soft_ids=fr
             note = f"（批注：{r['_note']}）" if r["_note"] else ""
             lines.append(f"- **{r['channel']}**（score={r['_score']}）："
                           f"{r['_zh']}{note}{unchanged_tag}")
+            # P5 契约 v2：备选候选缩进列在主候选之下，编号从 1 起——
+            # 裁决动作 adopt_alt:N 的 N 即此编号（polish_commit 同一口径）。
+            for k, a in enumerate(r.get("_alts", []) or [], start=1):
+                a_note = f"（批注：{a.get('note', '')}）" if a.get("note") else ""
+                lines.append(f"  - 备选{k}：{a['zh']}{a_note}")
         lines.append("")
     (d / "queue.md").write_text("\n".join(lines), encoding="utf-8")
 

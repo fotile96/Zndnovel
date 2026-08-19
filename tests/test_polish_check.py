@@ -694,3 +694,103 @@ def test_cli_bare_full_unavailable_is_rc2(mini, tmp_path, capsys):
                       str(empty_lane), "--repo", str(mini.root)])
     assert rc == 2
     assert "未能执行" in capsys.readouterr().err
+
+
+# --- P5 工装：人改孪生传播扫描（human_twin_scan） ---
+
+def _write_decisions(mini, rows):
+    write_jsonl(mini.d / "decisions.jsonl", rows)
+
+
+def test_human_twin_scan_reports_unsynced_jp_twin(mini, tmp_path):
+    """人工 edit 过的行，jp 全等孪生停在旧形 → 报出（方向：孪生未同步）。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「人裁后的新译文」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    _write_decisions(mini, [
+        {"id": 10, "verdict": "edit", "chosen_channel": "chA",
+         "edited_zh": "【彩野】「人裁后的新译文」", "reason_code": "口调", "ts": "t1"},
+    ])
+    findings = pcheck.human_twin_scan(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    assert findings[0]["rule"] == "HT"
+    assert [t["id"] for t in findings[0]["twins"]] == [900]
+    assert findings[0]["twins"][0]["face"] == "jp"
+    on_disk = json.loads((mini.d / "human_twins.json").read_text(encoding="utf-8"))
+    assert on_disk["findings"] == findings
+    assert on_disk["human_ids"] == [10]
+
+
+def test_human_twin_scan_green_when_twin_synced(mini, tmp_path):
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「人裁后的新译文」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13],
+                 900: "【彩野】「人裁后的新译文」"})
+    _write_decisions(mini, [
+        {"id": 10, "verdict": "edit", "chosen_channel": "chA",
+         "edited_zh": "【彩野】「人裁后的新译文」", "reason_code": "口调", "ts": "t1"},
+    ])
+    assert pcheck.human_twin_scan(mini.label, lane, repo=mini.root) == []
+
+
+def test_human_twin_scan_bare_face_and_review_round(mini, tmp_path):
+    """复核轮（同 id 二次裁决）也算人工面；剥壳孪生（换壳同句）同样在扫描面
+    ——15758/15832 型分叉再加 e2f 换壳，两个盲区一次覆盖。"""
+    shell_jp = "【≦彩野≧】≪うん、<前向性健忘,ぜんこうせいけんぼう>だよ≫"
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: shell_jp},
+        current={10: "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13],
+                 900: "【≦彩野≧】≪嗯，是<前向性健忘,顺行性遗忘>哦≫"})
+    _write_decisions(mini, [
+        {"id": 10, "verdict": "adopt", "chosen_channel": "chA",
+         "edited_zh": None, "reason_code": "其他", "ts": "t1"},
+        {"id": 10, "verdict": "edit", "chosen_channel": "chA",
+         "edited_zh": "【彩野】「嗯，是<前向性健忘,顺行性遗忘>啦」",
+         "reason_code": "口调", "ts": "t2"},
+    ])
+    findings = pcheck.human_twin_scan(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    assert [(t["id"], t["face"]) for t in findings[0]["twins"]] == [(900, "bare")]
+
+
+def test_human_twin_scan_ignores_machine_only_rows(mini, tmp_path):
+    """只有单条机裁 adopt（无 edit、无复核轮）的行不属于人工面——不扫。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「机裁采纳的译文」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    _write_decisions(mini, [
+        {"id": 10, "verdict": "adopt", "chosen_channel": "chA",
+         "edited_zh": None, "reason_code": "其他", "ts": "t1"},
+    ])
+    assert pcheck.human_twin_scan(mini.label, lane, repo=mini.root) == []
+
+
+def test_human_twin_scan_unavailable_without_decisions(mini, tmp_path):
+    lane = _build_lane(tmp_path, ledger={10: JP[10]}, current={10: DEFAULT_ZH[10]})
+    with pytest.raises(pcheck.W4NotAvailable):
+        pcheck.human_twin_scan(mini.label, lane, repo=mini.root)
+
+
+def test_cli_human_twins(mini, tmp_path, capsys):
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "【彩野】「人裁后的新译文」", 11: DEFAULT_ZH[11],
+                 12: DEFAULT_ZH[12], 13: DEFAULT_ZH[13], 900: DEFAULT_ZH[10]})
+    _write_decisions(mini, [
+        {"id": 10, "verdict": "edit", "chosen_channel": "chA",
+         "edited_zh": "【彩野】「人裁后的新译文」", "reason_code": "口调", "ts": "t1"},
+    ])
+    rc = pcheck.main(["--seg", mini.label, "--human-twins",
+                       "--lane-dir", str(lane), "--repo", str(mini.root)])
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "孪生未同步 1 处" in out.out

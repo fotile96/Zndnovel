@@ -603,6 +603,85 @@ def bare_full(label, lane_dir, repo=None, min_len: int = BARE_MIN_LEN) -> list:
     return out
 
 
+def human_twin_scan(label, lane_dir, repo=None) -> list:
+    """**人改孪生传播扫描**：本段人工亲手动过的行（verdict=edit、edited_zh
+    非空、或同 id 复核轮二次裁决），其改动是否传播到了全库孪生。
+
+    背景（P4 实证漏洞，docs/ops/p5-polish-pattern-report.md §六工装缺口 1）：
+    人工复核的改动不会自动出现在不在裁决队列里的孪生行上——`15758`（人裁
+    「鸣蝉…闹起了脾气」）与近孪生 `15832` 曾就此分叉，直到修订窗口才补上。
+    W4/bare 的全段复检按「族内是否一致」报警，但**不知道哪一侧是对的**；
+    本扫描以人工改动行为基准侧，报出「孪生还停在旧形」的方向性结论。
+
+    孪生两个面：jp 全等（W4 面）与剥壳全等（bare 面，len≥BARE_MIN_LEN 且
+    排除 jp 已全等者——两面不重复报）。数据不可用时 raise `W4NotAvailable`。
+    顾问级：报出的行仍须人判（同 jp 不同语境的正当分治按台账豁免）。
+    """
+    d = _dir_for(label, repo)
+    dec_p = d / "decisions.jsonl"
+    if not dec_p.exists():
+        raise W4NotAvailable(
+            f"{dec_p} 不存在——本段尚无任何裁决，谈不上「人工改动的传播」")
+    decs = read_jsonl(dec_p)
+    id_counts = {}
+    for r in decs:
+        id_counts[r["id"]] = id_counts.get(r["id"], 0) + 1
+    human_ids = ({r["id"] for r in decs
+                  if r.get("verdict") == "edit" or r.get("edited_zh")}
+                 | {i for i, c in id_counts.items() if c >= 2})
+    lane_dir = Path(lane_dir)
+    led_p = lane_dir / "data" / "ledger.jsonl"
+    if not led_p.exists():
+        raise W4NotAvailable(f"{led_p} 不存在，孪生索引建不出来")
+    ledger = {r["id"]: r for r in read_jsonl(led_p)}
+    fwd_p, pat_p = (lane_dir / "data" / "forward.jsonl",
+                    lane_dir / "data" / "patches.jsonl")
+    cur = resolve_map(read_jsonl(fwd_p) if fwd_p.exists() else [],
+                      read_jsonl(pat_p) if pat_p.exists() else [])
+    if not cur:
+        raise W4NotAvailable(f"{lane_dir}/data 下无任何译文，无从核对现行文本")
+    id2label = _id_to_label_map(repo if repo is not None else REPO, lane_dir)
+
+    by_jp, by_bare = {}, {}
+    for i in ledger:
+        if i not in cur:
+            continue
+        by_jp.setdefault(ledger[i]["jp"], []).append(i)
+        by_bare.setdefault(bare_text(ledger[i]["jp"]), []).append(i)
+
+    out = []
+    for i in sorted(human_ids):
+        if i not in ledger or i not in cur:
+            continue
+        jp, zh = ledger[i]["jp"], cur[i]
+        twins = []
+        for m in by_jp.get(jp, []):
+            if m != i and cur.get(m) != zh:
+                twins.append({"id": m, "face": "jp", "jp": ledger[m]["jp"],
+                              "zh": cur.get(m), "seg": id2label.get(m)})
+        bkey = bare_text(jp)
+        if len(bkey) >= BARE_MIN_LEN:
+            mine_bare = bare_text(zh)
+            for m in by_bare.get(bkey, []):
+                if m == i or ledger[m]["jp"] == jp:
+                    continue          # jp 全等面已报过，不重复
+                if bare_text(cur.get(m, "")) != mine_bare:
+                    twins.append({"id": m, "face": "bare", "jp": ledger[m]["jp"],
+                                  "zh": cur.get(m), "seg": id2label.get(m)})
+        if twins:
+            out.append({
+                "id": i, "rule": "HT", "zh": zh,
+                "msg": (f"人工改动行的孪生未同步（{len(twins)} 处）："
+                        + "；".join(f"id={t['id']}[{t['face']}]@{t['seg'] or '未知段'}"
+                                    f" 作「{t['zh']}」" for t in twins)),
+                "twins": twins,
+            })
+    (d / "human_twins.json").write_text(
+        dumps({"lane": str(lane_dir), "human_ids": sorted(human_ids),
+               "findings": out}), encoding="utf-8")
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="P4 保税仓机械闸：候选级复用 check_batch.check()")
     ap.add_argument("--seg", required=True, help="段表 label（如 seg1-s2）")
@@ -612,6 +691,9 @@ def main(argv=None):
     ap.add_argument("--bare-full", action="store_true",
                      help="清关后全段**剥壳同句**复检（W4 的记号盲区补扫，"
                           "与 --channel 互斥，需要 --lane-dir）")
+    ap.add_argument("--human-twins", action="store_true",
+                     help="人改孪生传播扫描（人工改动行的孪生是否同步，"
+                          "与 --channel 互斥，需要 --lane-dir）")
     ap.add_argument("--bare-min-len", type=int, default=BARE_MIN_LEN,
                      help=f"配合 --bare-full：剥壳正文最短长度（默认 {BARE_MIN_LEN}）")
     ap.add_argument("--lane-dir", default=None,
@@ -620,6 +702,20 @@ def main(argv=None):
     ap.add_argument("--repo", default=None,
                      help="车道根目录（省略时用仓库根；测试用 tmp_path 传替身仓库）")
     args = ap.parse_args(argv)
+
+    if args.human_twins:
+        if not args.lane_dir:
+            ap.error("--human-twins 需要 --lane-dir（生产车道根，如 pilot/lanes/opus）")
+        try:
+            findings = human_twin_scan(args.seg, args.lane_dir, repo=args.repo)
+        except W4NotAvailable as e:
+            print(f"⚠ 人改孪生扫描**未能执行**：{e}", file=sys.stderr)
+            return 2
+        for v in findings:
+            print(f"  - id {v['id']}：{v['msg']}", file=sys.stderr)
+        print(f"human-twins: {args.seg} 人工改动行孪生未同步 {len(findings)} 处"
+              f"（顾问级；明细见 pilot/polish/{args.seg}/human_twins.json）")
+        return 0
 
     if args.bare_full:
         if not args.lane_dir:

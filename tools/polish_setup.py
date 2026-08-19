@@ -162,7 +162,8 @@ def _anchor_twin_ids(anchor_ids: set, jp_by_id: dict) -> set:
     return {i for i, jp in jp_by_id.items() if jp in anchor_jp and i not in anchor_ids}
 
 
-def _locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids=frozenset()) -> dict:
+def _locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids=frozenset(),
+                    soft_extra=frozenset()) -> dict:
     """硬锁/软锁分类（2026-08-07 用户裁定：锚点行从硬锁改软锁）。
 
     - **硬锁**（`hard_ids`）＝该 id 在冻结时点已有人裁 patch（`patched_ids`）
@@ -186,15 +187,19 @@ def _locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids=frozenset()) -
     行为分叉了，`why` 的字面值必须如实反映真正生效的那一档，不能自相矛盾）。
     """
     hard_ids = set(locked_ids) & patched_ids
-    soft_ids = set(locked_ids) & (anchor_ids | twin_ids) - patched_ids
+    soft_ids = set(locked_ids) & (anchor_ids | twin_ids | soft_extra) - patched_ids
     why = {}
     for i in sorted(locked_ids):
         if i in patched_ids:
             why[str(i)] = "patched"
         elif i in anchor_ids:
             why[str(i)] = "anchor"
-        else:
+        elif i in twin_ids:
             why[str(i)] = "anchor_twin"
+        else:
+            # P5 终稿轮专用档（见 setup() 的 P5 锁口径分支）：P4 人裁 patch 行
+            # 降为软锁——改动须 adjudicate 请裁，不再整行禁止出稿。
+            why[str(i)] = "p4_human"
     return {
         "ids": sorted(locked_ids),
         "why": why,
@@ -338,10 +343,24 @@ def setup(label, opus_data, repo=None, force=False) -> Path:
 
     anchor_ids = _anchor_ids(repo)
     twin_ids = _anchor_twin_ids(anchor_ids, {i: r["jp"] for i, r in led.items()})
-    patched_ids = {r["id"] for r in pat}
-    locked_ids = set(ids) & (anchor_ids | twin_ids | patched_ids)
+    if base_label(label) is not None:
+        # P5 终稿轮的锁口径（docs/ops/p5-polish-design.md §二 + 2026-08-19
+        # 首次冻结实测修正：按 P4 口径 4282 行里会有 1486 行硬锁——P4/v19 的
+        # patch 行全被锁死，恰恰是最该被终稿轮检视的活跃行）：
+        # **硬锁=∅**——最后一轮全文 pass，一切行皆可提案；
+        # **人裁 patch 行（reason∈{polish,review}）降软锁**——改动须
+        # adjudicate 请裁，不得静默推翻既有裁定，但不再禁止出稿；
+        # **机械召回（reason=recall，v19 罗马音化/词族扫改等）不锁**——
+        # 机械变换不是人裁，其一致性由 W2/残留扫描把守。
+        human_patched = {r["id"] for r in pat if r.get("reason") in ("polish", "review")}
+        patched_ids = set()
+        soft_extra = human_patched
+    else:
+        patched_ids = {r["id"] for r in pat}
+        soft_extra = set()
+    locked_ids = set(ids) & (anchor_ids | twin_ids | patched_ids | soft_extra)
     (fz / "locked.json").write_text(
-        dumps(_locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids)),
+        dumps(_locked_payload(locked_ids, anchor_ids, patched_ids, twin_ids, soft_extra)),
         encoding="utf-8")
 
     _copy_glossary(repo, fz)

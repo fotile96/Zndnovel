@@ -10,7 +10,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import polish_setup as ps
-from tools.pipelib import read_jsonl, write_jsonl, dumps
+from tools.pipelib import append_jsonl, dumps, read_jsonl, write_jsonl
 
 
 def _mini_repo(tmp_path):
@@ -577,3 +577,26 @@ def test_p5_alias_rulings_inherit_p4_chain(tmp_path):
     txt = (d5 / "frozen" / "rulings.md").read_text(encoding="utf-8")
     assert "## 承接自 segX" in txt
     assert "正文内容乙" in txt
+
+
+def test_p5_lock_policy_no_hard_and_human_patches_soft(tmp_path):
+    """P5 段锁口径：硬锁空；polish/review patch 行降软锁（why=p4_human，锚点行
+    仍标 anchor）；recall（机械召回）patch 行不锁。"""
+    m = _mini_repo(tmp_path)
+    # 追加 patch：id 10 polish（P4 人裁）、id 12 recall（机械召回）
+    append_jsonl(m.opus_data / "patches.jsonl", [
+        {"id": 10, "zh": "P4 润色稿", "reason": "polish", "glossary_v": 9, "ts": "t9"},
+        {"id": 12, "zh": "机械召回稿", "reason": "recall", "glossary_v": 19, "ts": "t19"},
+    ])
+    d = ps.setup("p5segX", m.opus_data, repo=m.root)
+    lk = json.loads((d / "frozen" / "locked.json").read_text(encoding="utf-8"))
+    assert lk["hard_ids"] == []
+    assert 10 in lk["soft_ids"] and lk["why"]["10"] == "p4_human"
+    assert 12 not in lk["ids"]              # recall 不锁
+    assert 11 in lk["soft_ids"] and lk["why"]["11"] == "anchor"  # 锚点行仍软锁
+
+    # 对照：同数据 P4 口径的段照旧把 patch 行归硬锁（回归护栏）
+    d4 = ps.setup("segX", m.opus_data, repo=m.root, force=True) \
+        if (m.root / "pilot" / "polish" / "segX").exists() else ps.setup("segX", m.opus_data, repo=m.root)
+    lk4 = json.loads((d4 / "frozen" / "locked.json").read_text(encoding="utf-8"))
+    assert 10 in lk4["hard_ids"] and 12 in lk4["hard_ids"]

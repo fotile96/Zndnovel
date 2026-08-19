@@ -176,7 +176,7 @@ def test_real_titles_two_line_count_matches_spec():
         assert not truncated
         if len(lines) == 2:
             two_line += 1
-    assert two_line == 70
+    assert two_line == 65  # v19 罗马音化：5 张含名卡标题变窄降为单行（原 70）
 
 
 # ---------------------------------------------------------------------------
@@ -539,8 +539,8 @@ _NONFALLBACK_GOLDEN = {
     59:  (14, 18, (2, 12)),
     60:  (14, 18, (2, 12)),
     101: (24, 28, (2, 24)),
-    115: (14, 18, (3, 12)),
-    170: (26, 30, (2, 20)),
+    115: (15, 19, (3, 12)),  # v19：『Ayano』拉丁 descender 使 content/band 各 +1
+    170: (27, 31, (2, 20)),  # v19：含 Ayano，descender +1
     180: (26, 30, (2, 24)),
     195: (24, 28, (3, 24)),
 }

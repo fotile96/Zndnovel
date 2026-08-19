@@ -39,4 +39,4 @@
 
 - e2s 假名链 5738（五十音名册）等保留假名行与罗马音名同屏共存——预期内，登记备查。
 - 题库头注中的历史叙述（如出题时点的引文）已随机械替换同步；出题方法论描述未动。
-- `data/extra_translated.jsonl`/`data/ledger_extra.jsonl`（衍生文本 829 行）未在本窗口范围——含名与「天文馆」出现情况待 P5 前顺手扫一遍。
+- `data/extra_translated.jsonl` zh/note 侧已同步罗马音化（15 行，`d33a103`）；`ledger_extra.jsonl` 为 jp 侧不涉。

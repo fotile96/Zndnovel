@@ -83,6 +83,22 @@ CFG = _load_cfg()
 def seg_dir(label) -> Path:
     return REPO / "pilot" / "polish" / label
 
+P5_PREFIX = "p5"
+
+
+def base_label(label: str):
+    """P5 段别名 → P3/P4 段表 label（`p5segN-…` → `segN-…`），非别名返回 None。
+
+    P5 二轮润色与 P4 同区间复用 `config/segments.yaml`，但段表的分区完备闸
+    （`test_segments_partition_b1_to_339`）与序数连续闸不允许同区间重复入表——
+    P5 段因此**不入段表**，靠本函数把别名解析回段表行；`pilot/polish/<label>/`
+    目录、tag、题库等产物面用全名（p5segN-…），与 P4 目录天然不冲突。
+    """
+    if label.startswith(P5_PREFIX + "seg"):
+        return label[len(P5_PREFIX):]
+    return None
+
+
 def strip_ctl(s: str) -> str:
     return CTL_RE.sub("", RUBY_RE.sub(lambda m: m.group(1), s or ""))
 

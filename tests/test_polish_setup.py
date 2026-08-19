@@ -551,3 +551,29 @@ def test_real_seg6_rulings_has_no_duplicated_prior_body():
     for seg in ("seg1-s2", "seg3-s4", "seg4-s3tail-s5", "seg5-s6-s7f"):
         n = t.count(f"## 放大扫描意图纪要（{seg}")
         assert n <= 1, f"{seg} 的纪要出现了 {n} 次"
+
+
+# --- P5 段别名（p5segN-…）：剥前缀复用 P4 段表行 ---
+
+def test_p5_alias_setup_freezes_with_p4_ranges(tmp_path):
+    """label=p5segX 冻结成功：目录用全名、区间/内容取自剥前缀后的段表行。"""
+    m = _mini_repo(tmp_path)
+    repo, opus_data = m.root, m.opus_data
+    d = ps.setup("p5segX", opus_data, repo=repo)
+    assert d.name == "p5segX"
+    src = read_jsonl(d / "frozen" / "source.jsonl")
+    src_p4 = read_jsonl(ps.setup("segX", opus_data, repo=repo) / "frozen" / "source.jsonl")
+    assert [r["id"] for r in src] == [r["id"] for r in src_p4]
+
+
+def test_p5_alias_rulings_inherit_p4_chain(tmp_path):
+    """p5seg 的 rulings 承接链穿透到 P4：P4 段有内容时被承接进 P5 首段。"""
+    m = _mini_repo(tmp_path)
+    repo, opus_data = m.root, m.opus_data
+    d4 = ps.setup("segX", opus_data, repo=repo)
+    (d4 / "frozen" / "rulings.md").write_text(
+        "# 旧段\n（追加式）\n\n## 具名裁定甲\n\n正文内容乙\n", encoding="utf-8")
+    d5 = ps.setup("p5segX", opus_data, repo=repo)
+    txt = (d5 / "frozen" / "rulings.md").read_text(encoding="utf-8")
+    assert "## 承接自 segX" in txt
+    assert "正文内容乙" in txt

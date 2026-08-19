@@ -69,6 +69,13 @@ def assemble_context(label: str, lane_dir: Path, repo: Path = REPO):
     segs = yaml.safe_load((repo / "config" / "segments.yaml").read_text(encoding="utf-8"))
     hit = next((s for s in segs if s["label"] == label), None)
     if hit is None:
+        # P5 段别名（p5segN-…）：剥前缀回查 P4 段表行——区间与反剧透序数
+        # 完全复用（见 polishlib.base_label）。
+        from tools.polishlib import base_label
+        base = base_label(label)
+        if base is not None:
+            hit = next((s for s in segs if s["label"] == base), None)
+    if hit is None:
         raise SystemExit(f"未知段 label：{label}")
     lo, hi = hit["batches"]
     cur_seg = hit["seg"]

@@ -28,7 +28,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.build_context import glossary_version
 from tools.pipelib import REPO, dumps, read_jsonl, sha256_file, write_jsonl
-from tools.polishlib import is_ignored_extra
+from tools.polishlib import base_label, is_ignored_extra
 from tools.resolve import resolve_map
 
 
@@ -42,6 +42,13 @@ def _seg_entry(repo, label) -> dict:
     for s in segs:
         if s["label"] == label:
             return s
+    # P5 段别名：p5segN-… 剥前缀映射回 P4 段表行（区间/章节/lane 完全复用），
+    # 见 polishlib.base_label 的说明——P5 段不入段表是分区完备闸的要求。
+    base = base_label(label)
+    if base is not None:
+        for s in segs:
+            if s["label"] == base:
+                return s
     raise KeyError(f"config/segments.yaml 里没有 label={label!r} 的段")
 
 
@@ -77,11 +84,26 @@ def _seed_rulings(label, repo) -> str:
     segs = yaml.safe_load((Path(repo) / "config" / "segments.yaml").read_text(encoding="utf-8"))
     me = next((s for s in segs if s["label"] == label), None)
     out = [f"# {label} 润色裁决与前序纪要", "（追加式）", ""]
-    if me is None:
-        return "\n".join(out[:2]) + "\n"
-    prior = sorted((x for x in segs if x["seg"] < me["seg"]),
-                   key=lambda x: x["seg"], reverse=True)
-    for s in prior:
+    if me is not None:
+        prior_labels = [x["label"] for x in
+                        sorted((x for x in segs if x["seg"] < me["seg"]),
+                               key=lambda x: x["seg"], reverse=True)]
+    else:
+        # P5 段别名：前段链 = 更早的 P5 段（倒序）→ 整条 P4 链（倒序）。
+        # p5seg0 的「最近有内容前段」即 P4 链尾（seg7-e2 的 frozen/rulings.md
+        # 是全链最新累计版，含 SEG-7 段末追加的收口裁定）；p5segN 则先接
+        # p5seg(N-1)。链条传递性同 P4：找到第一个有内容者即停。
+        base = base_label(label)
+        base_me = next((s for s in segs if s["label"] == base), None) if base else None
+        if base_me is None:
+            return "\n".join(out[:2]) + "\n"
+        from tools.polishlib import P5_PREFIX
+        p5_prior = [P5_PREFIX + x["label"] for x in
+                    sorted((x for x in segs if x["seg"] < base_me["seg"]),
+                           key=lambda x: x["seg"], reverse=True)]
+        p4_all = [x["label"] for x in sorted(segs, key=lambda x: x["seg"], reverse=True)]
+        prior_labels = p5_prior + p4_all
+    for s in [{"label": pl} for pl in prior_labels]:
         p = _dir_for(s["label"], Path(repo)) / "frozen" / "rulings.md"
         if not p.exists():
             continue

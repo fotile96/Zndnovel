@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P5 逐条裁决</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header id="top">
+  <span id="seg" class="seg">载入中…</span>
+  <span id="progress" class="progress"></span>
+  <nav id="filters">
+    <button class="filter on" data-filter="all">全部</button>
+    <button class="filter" data-filter="todo">未处理</button>
+    <button class="filter" data-filter="done">已处理</button>
+    <button class="filter" data-filter="warn">有警告</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="hint">↑/↓ 切换条目　Ctrl+Enter 保存手工编辑　草稿：<code id="draft-path"></code></span>
+</header>
+
+<div id="layout">
+  <aside id="sidebar"><div id="qlist" class="qlist"></div></aside>
+  <main id="main"><div id="pane" class="pane">选一条开始。</div></main>
+</div>
+
+<footer id="actionbar">
+  <div class="ab-left">
+    <textarea id="editor" placeholder="手工编辑框：原样保存，不做任何校验——可以写译文，也可以写给主控会话的批注或指示。"></textarea>
+  </div>
+  <div class="ab-right">
+    <div id="decision-state" class="decision-state"></div>
+    <div class="ab-fields">
+      <label>reason<input id="reason" list="reasons" placeholder="语序/术语/…"></label>
+      <label>备注<input id="note" placeholder="可空"></label>
+    </div>
+    <div class="ab-buttons">
+      <button id="btn-edit" class="primary">保存手工编辑</button>
+      <button id="btn-keep">保留现译</button>
+      <button id="btn-skip">跳过</button>
+    </div>
+  </div>
+</footer>
+
+<datalist id="reasons">
+  <option value="语序"><option value="其他"><option value="补主语"><option value="口调">
+  <option value="漂移"><option value="过度归化"><option value="术语"><option value="量词">
+</datalist>
+
+<script src="/app.js"></script>
+</body>
+</html>

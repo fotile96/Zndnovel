@@ -1,0 +1,170 @@
+/* P5 逐条裁决 UI 样式。纯本地、无 CDN、无框架（规格 §6：离线环境要能用）。
+   配色只有三档语义：绿=采纳类、蓝=手工编辑、灰=保留/未处理，橙=警告。
+   长列表要能"扫"，所以左栏一行只放最少的信息：id / 批号 / 提案数 / 状态色块。 */
+
+:root {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --line: #e2e0da;
+  --ink: #23241f;
+  --dim: #7b7a72;
+  --accent: #2f6f4f;      /* 采纳 */
+  --edit: #2a5d9f;        /* 手工编辑 */
+  --warn: #b8641a;        /* 漂移/锁 */
+  --cur: #fff5cf;         /* 当前行高亮 */
+  --sel: #e8eef6;         /* 左栏选中 */
+  --jp-font: "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+  --zh-font: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  font: 14px/1.6 var(--zh-font);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* ---------- 顶栏 ---------- */
+#top {
+  display: flex; align-items: center; gap: 14px;
+  padding: 7px 12px; background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.seg { font-weight: 700; }
+.progress { color: var(--dim); font-variant-numeric: tabular-nums; }
+.spacer { flex: 1; }
+.hint { color: var(--dim); font-size: 12px; }
+.hint code { font-size: 11px; }
+#filters { display: flex; gap: 4px; }
+.filter {
+  border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+  border-radius: 4px; padding: 2px 9px; cursor: pointer; font-size: 13px;
+}
+.filter.on { background: var(--sel); color: var(--ink); border-color: #b9c6d8; font-weight: 600; }
+
+/* ---------- 左右骨架 ---------- */
+#layout { display: grid; grid-template-columns: 268px minmax(0, 1fr); min-height: 0; }
+#sidebar { overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); }
+#main { overflow-y: auto; padding: 14px 16px 24px; }
+
+/* ---------- 队列 ---------- */
+.qlist { display: flex; flex-direction: column; }
+.qrow {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-bottom: 1px solid #f0efeb;
+  cursor: pointer; font-size: 13px; white-space: nowrap;
+}
+.qrow:hover { background: #f4f2ec; }
+.qrow.sel { background: var(--sel); box-shadow: inset 3px 0 0 #3c6ea5; }
+.qrow .qid { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 44px; }
+.qrow .qb, .qrow .qn { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.qrow .qgrow { flex: 1; }
+.badge {
+  display: inline-block; min-width: 17px; text-align: center;
+  border-radius: 3px; padding: 0 4px; font-size: 11px; line-height: 16px; color: #fff;
+}
+.b-todo   { background: #cfcdc5; color: #55534c; }
+.b-adopt  { background: var(--accent); }
+.b-alt    { background: #4f8f6c; }
+.b-edit   { background: var(--edit); }
+.b-keep   { background: #8a8880; }
+.b-drift  { background: var(--warn); }
+.b-lock   { background: #6d5aa8; }
+
+/* ---------- 对读区 ---------- */
+.pane { max-width: 1500px; }
+.itemhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.itemhead h2 { font-size: 15px; margin: 0; }
+.itemhead .meta { color: var(--dim); font-size: 12px; }
+.colhead {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px;
+  font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line);
+  padding-bottom: 3px; margin-bottom: 6px;
+}
+/* 逐行对齐：一行 = 两个 grid item（左 jp / 右 zh），行高由较高的一侧撑开，
+   同一 id 在左右必然同高度。提案块作为单独的 grid item 占第 2 列，
+   于是它正好落在"右栏当前行的正下方"，且不打乱后续行的左右对齐。 */
+.lines { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; align-items: start; }
+.cell { padding: 2px 7px; border-radius: 4px; }
+.cell.jp { font-family: var(--jp-font); }
+.cell.ctxdim { color: #8b8a82; }
+.cell.cur { background: var(--cur); box-shadow: 0 0 0 1px #e3cf85; font-size: 15px; color: var(--ink); }
+.cell.inq { border-left: 2px solid #d9d6cc; }
+.cell.done { border-left: 2px solid var(--accent); }
+.rowid { color: #b0aea6; font-size: 11px; margin-right: 5px; font-variant-numeric: tabular-nums; }
+.ctl { color: #c08a2e; }
+.ruby { color: #3b7d8c; }
+
+/* ---------- 提案块（右栏当前行正下方） ---------- */
+.props { grid-column: 2; margin: 6px 0 10px; }
+.drift {
+  border: 1px solid #e0b483; background: #fdf3e7;
+  border-radius: 5px; padding: 7px 9px; margin-bottom: 8px; font-size: 13px;
+}
+.drift b { color: var(--warn); }
+.drift .t { display: block; margin-top: 3px; }
+.drift .lbl { color: var(--dim); font-size: 12px; margin-right: 4px; }
+.lockbar {
+  border: 1px solid #c6bce0; background: #f4f1fb;
+  border-radius: 5px; padding: 6px 9px; margin-bottom: 8px; font-size: 12.5px;
+}
+.prop {
+  border: 1px solid var(--line); background: var(--panel);
+  border-radius: 5px; padding: 7px 9px; margin-bottom: 7px;
+}
+.prop.adj { border-color: #d8a44f; background: #fffdf6; }
+.prop-head { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dim); }
+.prop-head .ch { font-weight: 700; color: var(--ink); font-size: 13px; }
+.tag { border-radius: 3px; padding: 0 5px; font-size: 11px; border: 1px solid var(--line); }
+.tag.req { background: #fdf0d6; border-color: #dcb56a; color: #8a5c10; }
+.tag.same { background: #f0efeb; }
+.prop-zh { margin: 4px 0 5px; }
+.prop-note { color: #6a675e; font-size: 12.5px; border-left: 2px solid var(--line); padding-left: 7px; }
+.alt { margin: 5px 0 0 14px; padding-left: 8px; border-left: 2px dashed #cfcdc5; }
+.alt-lbl { font-size: 12px; color: var(--dim); }
+.btns { display: flex; gap: 6px; margin-top: 5px; }
+button {
+  border: 1px solid var(--line); background: #fbfbf9; color: var(--ink);
+  border-radius: 4px; padding: 2px 9px; cursor: pointer; font-size: 12.5px;
+  font-family: inherit;
+}
+button:hover { background: #f0eee8; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { filter: brightness(1.1); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.collapsed { color: var(--dim); font-size: 12.5px; margin-bottom: 7px; }
+.collapsed button { font-size: 12px; }
+
+/* 差分：提案相对"现行译文"的增删，只做视觉提示，不参与任何判定 */
+.d-ins { background: #d9f0dd; border-radius: 2px; }
+.d-del { background: #f6dcdc; text-decoration: line-through; color: #8a5555; }
+
+/* ---------- 底部动作条 ---------- */
+#actionbar {
+  display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 12px;
+  padding: 8px 12px; background: var(--panel); border-top: 1px solid var(--line);
+}
+#editor {
+  width: 100%; height: 78px; resize: vertical;
+  font: 14px/1.6 var(--zh-font); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px;
+}
+#editor:focus { outline: 2px solid #9fb9d8; }
+.ab-right { display: flex; flex-direction: column; gap: 5px; justify-content: space-between; }
+.decision-state { font-size: 12px; color: var(--dim); min-height: 17px; }
+.decision-state .now { color: var(--accent); font-weight: 600; }
+.ab-fields { display: flex; gap: 8px; }
+.ab-fields label { flex: 1; font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 4px; }
+.ab-fields input {
+  flex: 1; min-width: 0; font: 13px var(--zh-font); padding: 2px 5px;
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.ab-buttons { display: flex; gap: 6px; }
+.ab-buttons button { padding: 4px 10px; font-size: 13px; }
+.toast {
+  position: fixed; right: 14px; bottom: 120px; z-index: 9;
+  background: #23241f; color: #fff; border-radius: 5px; padding: 6px 11px; font-size: 13px;
+}

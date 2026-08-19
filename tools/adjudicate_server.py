@@ -1,0 +1,572 @@
+"""P5 逐条裁决 Web UI 的本地服务端——人工裁决阶段的"对读台"。
+
+规格见 `docs/ops/p5-adjudicate-ui-spec.md`（唯一需求源）。一句话：左边栏是
+待裁队列，右主体等分两栏对照**日文原文**与**最新落盘译文**（各带前文上下
+文、逐行对齐），各通道提案摆在右栏当前行正下方，人做出选择后自动跳下一条。
+
+## 只写一处：`decisions.draft.jsonl`（拍板第 1 条）
+
+本服务对仓库**只读**，唯一的写口是 `pilot/polish/<seg>/decisions.draft.jsonl`。
+`decisions.jsonl` / `patches.jsonl` / `candidates.*.jsonl` / `frozen/` 一律
+不碰——草稿由主控会话事后检查再落盘。全模块只有 `append_draft()` 一个函数
+会 open 写模式，它进门先硬校验文件名就是 `decisions.draft.jsonl`，别的路径
+直接抛异常。这道断言看着多余，但它是"绝不写生产文件"这条约束在代码里唯一
+的物理保证，改动本文件时不要把它优化掉、也不要绕过它另开写口。
+
+**草稿 verdict 取值与生产 `decisions.jsonl` 不完全一致**（规格 §5 明写，本
+实现照办，此处记下差异供落盘时映射）：本文件写 `adopt_alt`（采纳备选）与
+`keep`（保留现译）；而 `tools/polish_commit.py` 认的是 `adopt` + `chosen_alt=N`
+和 `keep_opus`。落盘时需要主控会话做一次机械映射：
+`adopt_alt → adopt`（`chosen_alt` 原样带上）、`keep → keep_opus`。
+
+## 队列直读 candidates.*.jsonl 自算（拍板第 3 条）
+
+不读 `triage.json` / `queue.md`：那两者要先跑 triage，且桶 2 受 K 配额截断，
+"没进 K 名额"的提案会看不见——而人工对读阶段要的是**全部有话要说的行**。
+故本服务直接扫 `candidates.*.jsonl`，通道名从文件名解出，新通道补齐候选后
+重启服务即自动纳入，不需要改代码。同 id 取**最后一条**（候选文件 append-only）。
+
+进队判据（满足任一）：
+1. `zh.strip() != frozen_opus[id].strip()`——提了改动；
+2. `adjudicate == true`——显式请裁，哪怕逐字没改（这类行的价值全在 note 里，
+   被"零改动"判据吞掉正是 P4 D3 缺陷的形态，见 polish_triage 模块 docstring）；
+3. `alts` 非空——给了备选，即便主候选没改也要让人看见备选。
+
+排序按**阅读顺序**（`data/batches.jsonl` 中 `lane=="main"` 的批按 batch 升序、
+批内按 ids 原序），不是 id 数值序——id 是脚本内的登记序号，跳着走，按它排
+会让上下文对读完全失效。
+
+## 右栏显示的是车道最新，不是冻结面
+
+候选是对着 `frozen/opus.jsonl` 产出的，但从冻结到现在车道可能又改过
+（`patches.jsonl` 新补丁）。右栏必须显示 `tools.resolve.resolve_map()` 的结果
+（= 玩家真正会看到的现行译文），否则会出现"采纳一条候选 = 悄悄回退掉冻结后
+的修正"。两者不一致的行打**漂移**标记并同时显示两份文本，让人自己判。
+
+漂移判据用「现算比对」而非只读 `lane_drift.json`：右栏本来就同时持有冻结面
+与车道最新两张表，现算永不过期；`lane_drift.json` 的结论仍然**并入**（取并集）
+——那份文件是段末体检的正式结论，宁可多显示一条已经消失的旧警告（届时两份
+文本会显示成一样，人一眼看得出），也不能漏掉一条。
+
+## 手工编辑框原样保存（拍板第 4 条）
+
+编辑框内容**可能不是纯译文**：用户可能写得松散、附批注给主控会话、或写
+"这条再行讨论"。故服务端对 `edited_zh` 不做任何 strip / 控制码校验 / 长度
+检查——原样进 JSON。唯一的结构性要求是"它得是个字符串"，那不是内容校验。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import socketserver
+import sys
+import threading
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tools.pipelib import REPO, dumps, read_jsonl
+from tools.resolve import resolve_map
+
+UI_DIR = Path(__file__).resolve().parent / "adjudicate_ui"
+DRAFT_NAME = "decisions.draft.jsonl"
+VERDICTS = ("adopt", "adopt_alt", "keep", "edit")
+CAND_RE = re.compile(r"^candidates\.(.+)\.jsonl$")
+DEFAULT_LANE = "pilot/lanes/opus"
+DEFAULT_CONTEXT_BEFORE = 30
+DEFAULT_CONTEXT_AFTER = 3
+# 静态资源白名单：手写死这三项，不做任何路径拼接——本服务 listen 0.0.0.0，
+# 一个「按 URL 拼文件名」的静态目录就是一条现成的目录穿越口子。
+STATIC = {"/": "index.html", "/index.html": "index.html",
+          "/app.css": "app.css", "/app.js": "app.js"}
+
+
+def _ws_equal(a: str, b: str) -> bool:
+    """零改动判据：只掐首尾空白，`_n`/`_r`/ruby 全部原样参与比较。
+
+    与 `tools/polish_triage._ws_equal` 同一口径（那边的 docstring 有完整理由）：
+    控制码是内容的一部分，一次纯 `_n` 位置调整**是**真实改动，不能因为剥掉
+    控制码后长得一样就判成零改动、从队列里静默消失。
+    """
+    return (a or "").strip() == (b or "").strip()
+
+
+def _draft_path(seg_dir: Path) -> Path:
+    return Path(seg_dir) / DRAFT_NAME
+
+
+def append_draft(path, rec: dict) -> None:
+    """**本模块唯一的写盘函数**。文件名不是 `decisions.draft.jsonl` 就拒写。
+
+    断言放在"真正 open 的那一层"而不是"算路径的那一层"：算路径的函数只要
+    还拼着 DRAFT_NAME，校验它自己的产物永远为真（一句恒真的断言比没有断言
+    更糟——它看着像有保护）。写在这里，任何以后新增的调用点、任何把路径参数
+    化的改动，都必须过这一关。见模块 docstring「只写一处」。
+    """
+    p = Path(path)
+    if p.name != DRAFT_NAME:
+        raise AssertionError(f"拒绝写非草稿文件：{p}（本服务只准写 {DRAFT_NAME}）")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(dumps(rec) + "\n")
+
+
+def load_channels(seg_dir: Path) -> dict:
+    """扫 `candidates.<channel>.jsonl` → `{channel: {id: 最后一条候选行}}`。
+
+    通道名从文件名解出（拍板第 3 条：新通道不改代码，重启即纳入）。同 id 取
+    最后一条是候选文件的 append-only 语义，与 polish_triage/polish_commit 一致。
+    """
+    out = {}
+    for p in sorted(Path(seg_dir).glob("candidates.*.jsonl")):
+        m = CAND_RE.match(p.name)
+        if not m:
+            continue
+        last = {}
+        for r in read_jsonl(p):
+            last[r["id"]] = r
+        out[m.group(1)] = last
+    return out
+
+
+def reading_order(batch_rows) -> list:
+    """`data/batches.jsonl` → 玩家阅读顺序的 id 列表。
+
+    只取 `lane == "main"`：extra（图片烤字等）与 ambient 不是正文阅读流，混进
+    来会把前文上下文搅乱。批按 batch 升序、批内按 ids 原序——这两条就是段表
+    生成时定下的顺序，不要再排序 ids（那会把同批内的脚本顺序打乱）。
+    """
+    ids = []
+    for r in sorted([r for r in batch_rows if r.get("lane") == "main"],
+                    key=lambda r: r["batch"]):
+        ids.extend(r["ids"])
+    return ids
+
+
+def candidate_reasons(cand: dict, frozen_zh: str) -> list:
+    """一条候选的进队理由（可能多条），空列表＝这条候选没话要说。"""
+    reasons = []
+    if not _ws_equal(cand.get("zh", ""), frozen_zh):
+        reasons.append("changed")
+    if cand.get("adjudicate"):
+        reasons.append("adjudicate")
+    if cand.get("alts"):
+        reasons.append("alts")
+    return reasons
+
+
+def build_queue(source_rows, frozen_opus: dict, channels: dict, order_pos: dict) -> list:
+    """算出待裁队列（阅读顺序），每项带上"哪些通道有话说/为什么进来"。
+
+    `order_pos` 是 `{id: 阅读序号}`；不在阅读顺序表里的 id（理论上不该有）排到
+    最后并按 id 升序兜底，而不是被丢掉——静默丢条目是本项目反复吃亏的形态。
+    """
+    batch_of = {r["id"]: r.get("batch") for r in source_rows}
+    seg_ids = [r["id"] for r in source_rows]
+    items = []
+    for cid in seg_ids:
+        frozen_zh = frozen_opus.get(cid, "")
+        proposals, covered, reasons = [], 0, set()
+        for ch in sorted(channels):
+            cand = channels[ch].get(cid)
+            if cand is None:
+                continue
+            covered += 1
+            rs = candidate_reasons(cand, frozen_zh)
+            if rs:
+                proposals.append(ch)
+                reasons.update(rs)
+        if not proposals:
+            continue
+        items.append({
+            "id": cid,
+            "batch": batch_of.get(cid),
+            "channels": proposals,          # 有话要说的通道
+            "n_proposals": len(proposals),
+            "n_covered": covered,           # 对该 id 出过候选的通道数（分母）
+            "reasons": sorted(reasons),
+        })
+    n = len(order_pos)
+    items.sort(key=lambda it: (order_pos.get(it["id"], n + it["id"]), it["id"]))
+    return items
+
+
+def read_draft(path) -> dict:
+    """草稿 → `{id: 最后一条裁决}`。append-only，改判＝追加新行，读时后行覆盖前行。
+
+    文件不存在＝还没裁过任何一条，返回空表（不是错误）。
+    """
+    p = Path(path)
+    if not p.exists():
+        return {}
+    last = {}
+    for r in read_jsonl(p):
+        if isinstance(r, dict) and "id" in r:
+            last[r["id"]] = r
+    return last
+
+
+class Adjudication:
+    """一个 SEG 的全部只读数据 + 草稿读写。HTTP 层只是它的一层薄壳，便于单测。"""
+
+    def __init__(self, seg, repo=None, lane=DEFAULT_LANE,
+                 context_before=DEFAULT_CONTEXT_BEFORE,
+                 context_after=DEFAULT_CONTEXT_AFTER):
+        self.seg = seg
+        self.repo = Path(repo) if repo is not None else REPO
+        self.seg_dir = self.repo / "pilot" / "polish" / seg
+        self.lane_dir = self.repo / lane
+        self.context_before = int(context_before)
+        self.context_after = int(context_after)
+        self._lock = threading.Lock()
+        self._load()
+
+    # ---------- 装载 ----------
+    def _load(self):
+        d = self.seg_dir
+        if not d.exists():
+            raise SystemExit(f"段目录不存在：{d}")
+        self.source = read_jsonl(d / "frozen" / "source.jsonl")
+        self.frozen_opus = {r["id"]: r["zh"] for r in read_jsonl(d / "frozen" / "opus.jsonl")}
+        locked_p = d / "frozen" / "locked.json"
+        locked = json.loads(locked_p.read_text(encoding="utf-8")) if locked_p.exists() else {}
+        self.hard_ids = set(locked.get("hard_ids") or [])
+        self.soft_ids = set(locked.get("soft_ids") or [])
+        self.lock_why = {int(k): v for k, v in (locked.get("why") or {}).items()
+                         if str(k).lstrip("-").isdigit()}
+        self.channels = load_channels(d)
+
+        batches_p = self.repo / "data" / "batches.jsonl"
+        order = reading_order(read_jsonl(batches_p)) if batches_p.exists() else []
+        self.order = order
+        self.order_pos = {cid: i for i, cid in enumerate(order)}
+
+        # jp 全局表：段外的前文上下文（跨段边界那几行）要靠 ledger 才拿得到；
+        # 段内以 frozen/source.jsonl 为准（那是本段冻结时点的权威原文）。
+        ledger_p = self.repo / "data" / "ledger.jsonl"
+        self.jp = {r["id"]: r.get("jp", "") for r in read_jsonl(ledger_p)} if ledger_p.exists() else {}
+        for r in self.source:
+            self.jp[r["id"]] = r.get("jp", "")
+
+        # 右栏 = 车道最新落盘译文（resolve = 补丁 ∥ 正向线），不是冻结面。
+        fwd_p, pat_p = self.lane_dir / "data" / "forward.jsonl", self.lane_dir / "data" / "patches.jsonl"
+        fwd = read_jsonl(fwd_p) if fwd_p.exists() else []
+        pat = read_jsonl(pat_p) if pat_p.exists() else []
+        self.current = resolve_map(fwd, pat)
+
+        self.queue = build_queue(self.source, self.frozen_opus, self.channels, self.order_pos)
+        self.queue_pos = {it["id"]: i for i, it in enumerate(self.queue)}
+        self.drift = self._compute_drift()
+
+    def _compute_drift(self) -> dict:
+        """`{id: {"frozen": .., "current": .., "source": ..}}`——现算比对 ∪ lane_drift.json。
+
+        见模块 docstring「右栏显示的是车道最新」：现算永不过期，正式体检结论
+        并入以防漏报；`source` 字段如实记录这条警告的来路，方便人判断可信度。
+        """
+        found = {}
+        for cid, frozen_zh in self.frozen_opus.items():
+            cur = self.current.get(cid)
+            if cur is not None and not _ws_equal(frozen_zh, cur):
+                found[cid] = {"frozen": frozen_zh, "current": cur, "source": "compare"}
+        p = self.seg_dir / "lane_drift.json"
+        if p.exists():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+            for f in data.get("findings") or []:
+                cid = f.get("id")
+                if cid in found:
+                    found[cid]["source"] = "both"
+                else:
+                    found[cid] = {"frozen": f.get("frozen_zh", self.frozen_opus.get(cid, "")),
+                                  "current": f.get("current_zh", self.current.get(cid, "")),
+                                  "source": "lane_drift.json"}
+        return found
+
+    # ---------- 草稿 ----------
+    @property
+    def draft_path(self) -> Path:
+        return _draft_path(self.seg_dir)
+
+    def decisions(self) -> dict:
+        """每次现读文件：草稿只有几百行，读盘代价可忽略；换来的是主控会话在
+        服务运行期间手工改过草稿也能被看见，不会拿着一份过期的内存副本工作。"""
+        return read_draft(self.draft_path)
+
+    def record(self, payload: dict) -> dict:
+        """把一条裁决追加进草稿。返回落盘后的完整记录。
+
+        `edited_zh` 原样进 JSON——不 strip、不校验控制码（拍板第 4 条）。
+        """
+        verdict = payload.get("verdict")
+        if verdict not in VERDICTS:
+            raise ValueError(f"verdict 取值非法：{verdict!r}（应为 {VERDICTS} 之一）")
+        cid = payload.get("id")
+        if not isinstance(cid, int):
+            raise ValueError(f"id 必须是整数：{cid!r}")
+        if verdict in ("adopt", "adopt_alt") and not payload.get("chosen_channel"):
+            raise ValueError(f"{verdict} 必须带 chosen_channel")
+        chosen_alt = payload.get("chosen_alt")
+        if verdict == "adopt_alt" and not isinstance(chosen_alt, int):
+            raise ValueError("adopt_alt 必须带 chosen_alt（1-based 序号）")
+        edited = payload.get("edited_zh")
+        if verdict == "edit" and not isinstance(edited, str):
+            raise ValueError("edit 必须带 edited_zh 字符串")
+        rec = {
+            "id": cid,
+            "verdict": verdict,
+            "chosen_channel": payload.get("chosen_channel") if verdict in ("adopt", "adopt_alt") else None,
+            "chosen_alt": chosen_alt if verdict == "adopt_alt" else None,
+            "edited_zh": edited if verdict == "edit" else None,
+            "reason_code": payload.get("reason_code") or "",
+            "note": payload.get("note") or "",
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        with self._lock:                          # 多标签页/多请求并发追加时不交错
+            append_draft(self.draft_path, rec)    # 写前过一道文件名断言
+        return rec
+
+    # ---------- 视图 ----------
+    def queue_payload(self) -> dict:
+        dec = self.decisions()
+        items = []
+        for it in self.queue:
+            cid = it["id"]
+            d = dec.get(cid)
+            items.append({**it,
+                          "drift": cid in self.drift,
+                          "soft": cid in self.soft_ids,
+                          "hard": cid in self.hard_ids,
+                          "verdict": d.get("verdict") if d else None,
+                          "chosen_channel": d.get("chosen_channel") if d else None})
+        return {
+            "seg": self.seg,
+            "channels": sorted(self.channels),
+            "total": len(items),
+            "done": sum(1 for it in items if it["verdict"]),
+            "drifted": sum(1 for it in items if it["drift"]),
+            "context_before": self.context_before,
+            "context_after": self.context_after,
+            "draft_path": str(self.draft_path),
+            "items": items,
+        }
+
+    def next_undecided(self, cid=None) -> int | None:
+        """当前条之后的第一条未裁项（到底则从头绕一圈），全裁完返回 None。"""
+        dec = self.decisions()
+        n = len(self.queue)
+        if n == 0:
+            return None
+        start = self.queue_pos.get(cid, -1) + 1 if cid is not None else 0
+        for k in range(n):
+            it = self.queue[(start + k) % n]
+            if it["id"] not in dec:
+                return it["id"]
+        return None
+
+    def context_rows(self, cid) -> list:
+        """当前行 + 前后文，按阅读顺序。左右两栏共用这一份行表以保证逐行对齐。"""
+        pos = self.order_pos.get(cid)
+        if pos is None:                      # 不在阅读顺序表里：至少把自己显示出来
+            window = [cid]
+        else:
+            lo = max(0, pos - self.context_before)
+            hi = min(len(self.order), pos + self.context_after + 1)
+            window = self.order[lo:hi]
+        dec, rows = self.decisions(), []
+        for i in window:
+            rows.append({
+                "id": i,
+                "jp": self.jp.get(i, ""),
+                "zh": self.current.get(i, self.frozen_opus.get(i, "")),
+                "current": i == cid,
+                "in_queue": i in self.queue_pos,
+                "verdict": dec.get(i, {}).get("verdict"),
+            })
+        return rows
+
+    def item_payload(self, cid) -> dict:
+        if cid not in self.queue_pos:
+            raise KeyError(cid)
+        frozen_zh = self.frozen_opus.get(cid, "")
+        cur = self.current.get(cid, frozen_zh)
+        proposals = []
+        for ch in sorted(self.channels):
+            cand = self.channels[ch].get(cid)
+            if cand is None:
+                continue
+            zh = cand.get("zh", "")
+            reasons = candidate_reasons(cand, frozen_zh)
+            same_cur = _ws_equal(zh, cur)
+            note = cand.get("note") or ""
+            alts = [{"zh": a.get("zh", ""), "note": a.get("note", "")}
+                    for a in (cand.get("alts") or [])]
+            proposals.append({
+                "channel": ch,
+                "score": cand.get("score"),
+                "adjudicate": bool(cand.get("adjudicate")),
+                "note": note,
+                "zh": zh,
+                "alts": alts,
+                "reasons": reasons,
+                "same_as_frozen": _ws_equal(zh, frozen_zh),
+                "same_as_current": same_cur,
+                # 折叠判据：与现行译文逐字相同**且**没有任何要说的话才折叠。
+                # 只按 noop 折叠会把"照抄 + 请裁"这类行的批注一起藏掉——那正是
+                # 契约鼓励的行为，藏它等于惩罚老实通道（P4 D3 缺陷同一形态）。
+                "collapsible": same_cur and not cand.get("adjudicate") and not note and not alts,
+            })
+        d = self.decisions().get(cid)
+        it = self.queue[self.queue_pos[cid]]
+        return {
+            "id": cid,
+            "batch": it["batch"],
+            "jp": self.jp.get(cid, ""),
+            "zh_current": cur,
+            "zh_frozen": frozen_zh,
+            "drift": self.drift.get(cid),
+            "soft": cid in self.soft_ids,
+            "hard": cid in self.hard_ids,
+            "lock_why": self.lock_why.get(cid, ""),
+            "context": self.context_rows(cid),
+            "proposals": proposals,
+            "decision": d,
+            "queue_index": self.queue_pos[cid],
+            "queue_total": len(self.queue),
+            "next_undecided": self.next_undecided(cid),
+        }
+
+
+# ---------------------------------------------------------------- HTTP 层
+class Server(ThreadingHTTPServer):
+    """`ThreadingHTTPServer` + 跳过 `socket.getfqdn()` 的 bind。
+
+    实测（macOS）：`HTTPServer.server_bind()` 里那句 `socket.getfqdn()` 会去做
+    反向 DNS，本机环境下**卡 35 秒**才返回——服务启动和单测都被它拖死。
+    `server_name` 只用于 CGI 场景的环境变量，本服务根本不用，直接填监听地址。
+    """
+    daemon_threads = True
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[0], self.server_address[1]
+
+
+def make_handler(model: Adjudication):
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "ZndAdjudicate/1.0"
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt, *args):    # 静音访问日志：逐条裁决会刷屏
+            pass
+
+        # -- 小工具 --
+        def _send(self, code, body: bytes, ctype: str):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+
+        def _json(self, obj, code=200):
+            self._send(code, json.dumps(obj, ensure_ascii=False).encode("utf-8"),
+                       "application/json; charset=utf-8")
+
+        def _err(self, code, msg):
+            self._json({"error": msg}, code)
+
+        # -- 路由 --
+        def do_GET(self):
+            u = urlparse(self.path)
+            path, q = u.path, parse_qs(u.query)
+            if path in STATIC:
+                f = UI_DIR / STATIC[path]
+                if not f.exists():
+                    return self._err(500, f"缺静态文件：{f}")
+                ctype = ("text/html; charset=utf-8" if f.suffix == ".html" else
+                         "text/css; charset=utf-8" if f.suffix == ".css" else
+                         "application/javascript; charset=utf-8")
+                return self._send(200, f.read_bytes(), ctype)
+            if path == "/api/queue":
+                return self._json(model.queue_payload())
+            if path == "/api/item":
+                raw = (q.get("id") or [""])[0]
+                try:
+                    cid = int(raw)
+                except ValueError:
+                    return self._err(400, f"id 不是整数：{raw!r}")
+                try:
+                    return self._json(model.item_payload(cid))
+                except KeyError:
+                    return self._err(404, f"id {cid} 不在队列里")
+            return self._err(404, f"没有这个端点：{path}")
+
+        def do_HEAD(self):
+            self.do_GET()
+
+        def do_POST(self):
+            if urlparse(self.path).path != "/api/decide":
+                return self._err(404, f"没有这个端点：{self.path}")
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            except Exception as e:
+                return self._err(400, f"请求体不是合法 JSON：{e}")
+            try:
+                rec = model.record(payload)
+            except ValueError as e:
+                return self._err(400, str(e))
+            return self._json({"ok": True, "record": rec,
+                               "next_undecided": model.next_undecided(rec["id"]),
+                               "done": len(model.decisions())})
+
+    return Handler
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="P5 逐条裁决 Web UI（本地服务，只写 decisions.draft.jsonl）")
+    ap.add_argument("--seg", required=True, help="段目录名（如 p5seg0-s0-s1）")
+    ap.add_argument("--repo", default=None, help="仓库根（省略用本仓库；测试传 tmp_path）")
+    ap.add_argument("--lane", default=DEFAULT_LANE, help="车道目录（相对仓库根），默认 pilot/lanes/opus")
+    ap.add_argument("--host", default="0.0.0.0", help="监听地址，默认 0.0.0.0")
+    ap.add_argument("--port", type=int, default=8788, help="端口，默认 8788")
+    ap.add_argument("--context", type=int, default=DEFAULT_CONTEXT_BEFORE, help="前文行数，默认 30")
+    ap.add_argument("--after", type=int, default=DEFAULT_CONTEXT_AFTER, help="后文行数，默认 3")
+    args = ap.parse_args(argv)
+
+    model = Adjudication(args.seg, repo=args.repo, lane=args.lane,
+                         context_before=args.context, context_after=args.after)
+    dec = model.decisions()
+    # flush=True：stdout 被重定向到文件/管道时是块缓冲的，不 flush 就看不到
+    # 访问 URL——而"启动后把 URL 打到 stdout"正是拍板第 2 条要的东西。
+    print(f"段 {args.seg}：队列 {len(model.queue)} 条"
+          f"（通道 {', '.join(sorted(model.channels)) or '无'}；漂移 "
+          f"{sum(1 for it in model.queue if it['id'] in model.drift)} 条；"
+          f"草稿已裁 {sum(1 for it in model.queue if it['id'] in dec)} 条）", flush=True)
+    print(f"草稿文件（唯一写口）：{model.draft_path}", flush=True)
+    try:
+        httpd = Server((args.host, args.port), make_handler(model))
+    except OSError as e:
+        print(f"!! 起不来：{e}——端口 {args.port} 多半被占，用 --port 换一个", file=sys.stderr)
+        return 1
+    # 不自动开浏览器（拍板第 2 条）：把 URL 打出来由人自己点。
+    print(f"服务已启动：http://127.0.0.1:{args.port}/   （监听 {args.host}:{args.port}，Ctrl-C 停）",
+          flush=True)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n已停止。")
+    finally:
+        httpd.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

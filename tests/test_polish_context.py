@@ -488,3 +488,16 @@ def test_cli_calib_writes_file_and_prints_hash(tmp_path, capsys):
     # 刻意不写 plan.json：那份记录是给 polish_ingest 反查生产批 prompt_hash
     # 用的，而校准批的输出绝不入仓。
     assert not (m.seg_dir / "plan.json").exists()
+
+
+# --- P5 契约 v2：prompt 新元素 ---
+
+def test_render_carries_p5_additions(mini_seg_render):
+    """P5 二轮补充（三问/两遍读/豁免提醒）与 alts 契约必须出现在生产 prompt 里。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "P5 二轮补充" in text
+    assert "每行三问" in text
+    assert "每批两遍读" in text
+    assert "可选字段 `alts`" in text
+    assert "至多 **2 条**备选候选" in text
+    assert "v19 修订豁免清单不得回改" in text

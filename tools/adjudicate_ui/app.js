@@ -21,7 +21,7 @@ const S = {
 };
 
 const $ = (s) => document.querySelector(s);
-const el = { qlist: null, pane: null, editor: null, reason: null, note: null };
+const el = { qlist: null, pane: null, editor: null, reason: null, note: null, goto: null };
 
 /* ---------------- 基础工具 ---------------- */
 function esc(s) {
@@ -112,7 +112,7 @@ function isWarn(it) { return it.drift || it.soft || it.hard; }
 function viewItems() {
   return S.items.filter((it) =>
     S.filter === 'all' ? true
-      : S.filter === 'todo' ? !it.verdict
+      : S.filter === 'todo' ? (it.in_queue && !it.verdict)
         : S.filter === 'done' ? !!it.verdict
           : isWarn(it));
 }
@@ -123,19 +123,25 @@ function rowHtml(it) {
   if (it.drift) b += ' <span class="badge b-drift" title="冻结后车道已更新">⚠</span>';
   if (it.hard) b += ' <span class="badge b-lock" title="硬锁">硬</span>';
   else if (it.soft) b += ' <span class="badge b-lock" title="软锁（锚点行）">锁</span>';
-  return '<div class="qrow' + (it.id === S.selected ? ' sel' : '') + '" data-id="' + it.id + '">'
+  // 自选行不是通道提案来的，是人自己从上下文里捞的——列表里必须一眼分得开，
+  // 否则"队列还剩多少"会被自己捞的行搅乱。
+  const n = it.in_queue
+    ? '<span class="qn" title="有提案的通道数 / 出过候选的通道数">'
+      + it.n_proposals + '/' + it.n_covered + '</span>'
+    : '<span class="qn qpick" title="非队列行：无通道提案，由你自己捞出来处理">自选</span>';
+  return '<div class="qrow' + (it.in_queue ? '' : ' picked')
+    + (it.id === S.selected ? ' sel' : '') + '" data-id="' + it.id + '">'
     + '<span class="qid">' + it.id + '</span>'
-    + '<span class="qb">b' + it.batch + '</span>'
-    + '<span class="qn" title="有提案的通道数 / 出过候选的通道数">'
-    + it.n_proposals + '/' + it.n_covered + '</span>'
+    + '<span class="qb">b' + it.batch + '</span>' + n
     + '<span class="qgrow"></span>' + b + '</div>';
 }
 
 function renderQueue() {
   el.qlist.innerHTML = viewItems().map(rowHtml).join('');
-  const done = S.items.filter((it) => it.verdict).length;
-  $('#progress').textContent = '已处理 ' + done + ' / ' + S.items.length
-    + '（本视图 ' + viewItems().length + '）';
+  // 队列进度与自选行**分开报**：混成一个分母会让"队列还剩多少"失真（需求 6）。
+  const done = S.items.filter((it) => it.in_queue && it.verdict).length;
+  $('#progress').innerHTML = '队列 <b>' + done + ' / ' + S.meta.total + '</b>'
+    + '　自选行 ' + S.meta.picked + '　（本视图 ' + viewItems().length + ' 行）';
 }
 
 function markSelected() {
@@ -145,7 +151,7 @@ function markSelected() {
 }
 
 /* ---------------- 对读区（右主体） ---------------- */
-function propHtml(p, cur, idx) {
+function propHtml(p, cur, idx, allowAdopt) {
   const tags = [];
   if (p.adjudicate) tags.push('<span class="tag req">请裁</span>');
   if (p.same_as_current) tags.push('<span class="tag same">与现行译文逐字相同</span>');
@@ -158,14 +164,14 @@ function propHtml(p, cur, idx) {
     + '<span>score ' + (p.score == null ? '-' : p.score) + '</span>' + tags.join(' ') + '</div>'
     + '<div class="prop-zh">' + renderDiff(cur, p.zh) + '</div>'
     + (p.note ? '<div class="prop-note">' + fmt(p.note) + '</div>' : '')
-    + '<div class="btns">' + btn('采纳', 'adopt', '', p.zh)
+    + '<div class="btns">' + (allowAdopt ? btn('采纳', 'adopt', '', p.zh) : '')
     + btn('填入编辑框', 'fill', ' class="btn-fill"', p.zh) + '</div>';
   (p.alts || []).forEach((a, k) => {
     h += '<div class="alt"><div class="alt-lbl">备选' + (k + 1) + '</div>'
       + '<div class="prop-zh">' + renderDiff(cur, a.zh) + '</div>'
       + (a.note ? '<div class="prop-note">' + fmt(a.note) + '</div>' : '')
       + '<div class="btns">'
-      + btn('采纳备选' + (k + 1), 'adopt', ' data-alt="' + (k + 1) + '"', a.zh)
+      + (allowAdopt ? btn('采纳备选' + (k + 1), 'adopt', ' data-alt="' + (k + 1) + '"', a.zh) : '')
       + btn('填入编辑框', 'fill', ' class="btn-fill"', a.zh) + '</div></div>';
   });
   return h + '</div>';
@@ -173,9 +179,11 @@ function propHtml(p, cur, idx) {
 
 function renderItem(it) {
   const parts = [];
+  const where = it.in_queue
+    ? '队列第 ' + (it.queue_index + 1) + ' / ' + it.queue_total
+    : '<b class="pickmark">自选行</b>（不在队列里）';
   parts.push('<div class="itemhead"><h2>id ' + it.id + '</h2>'
-    + '<span class="meta">批 ' + it.batch + '　队列第 ' + (it.queue_index + 1)
-    + ' / ' + it.queue_total + '　提案通道：'
+    + '<span class="meta">批 ' + it.batch + '　' + where + '　提案通道：'
     + esc(it.proposals.map((p) => p.channel).join('、') || '无') + '</span></div>');
   parts.push('<div class="colhead"><div>日文原文（frozen/source）</div>'
     + '<div>最新落盘译文（车道 resolve：patches ∥ forward）</div></div>');
@@ -199,9 +207,14 @@ function renderItem(it) {
         props.push('<div class="lockbar"><b>' + (it.hard ? '硬锁' : '软锁（锚点行）') + '</b>'
           + (it.lock_why ? '：' + fmt(it.lock_why) : '') + '</div>');
       }
+      if (!it.in_queue) {
+        props.push('<div class="pickbar"><b>自选行</b>——没有任何通道对这一行提出改动，'
+          + '是你自己从上下文里捞出来的。可做<b>手工编辑</b>，或按<b>保留现译</b>标记「看过不改」；'
+          + '没有提案可采纳，故不显示采纳按钮。裁完会跳回队列的下一条未处理项。</div>');
+      }
       const shown = it.proposals.filter((p) => !p.collapsible);
       const hidden = it.proposals.filter((p) => p.collapsible);
-      shown.forEach((p, i) => props.push(propHtml(p, it.zh_current, i)));
+      shown.forEach((p, i) => props.push(propHtml(p, it.zh_current, i, it.in_queue)));
       if (hidden.length) {
         props.push('<div class="collapsed">另有 ' + hidden.length + ' 个通道与现行译文逐字相同且无批注（'
           + esc(hidden.map((p) => p.channel).join('、')) + '）</div>');
@@ -209,8 +222,10 @@ function renderItem(it) {
       parts.push('<div class="props">' + props.join('') + '</div>');
     } else {
       const cls = r.verdict ? ' done' : (r.in_queue ? ' inq' : '');
-      parts.push('<div class="cell jp ctxdim' + cls + '"><span class="rowid">' + r.id + '</span>' + fmt(r.jp) + '</div>');
-      parts.push('<div class="cell zh ctxdim' + cls + '">' + fmt(r.zh) + '</div>');
+      const d = ' data-id="' + r.id + '" title="点这一行：把它变成当前处理项">';
+      parts.push('<div class="cell jp ctxdim clickable' + cls + '"' + d
+        + '<span class="rowid">' + r.id + '</span>' + fmt(r.jp) + '</div>');
+      parts.push('<div class="cell zh ctxdim clickable' + cls + '"' + d + fmt(r.zh) + '</div>');
     }
   }
   parts.push('</div>');
@@ -232,15 +247,31 @@ function renderItem(it) {
 async function selectItem(id) {
   if (id == null) { toast('没有下一条了'); return; }
   if (S.selected != null) S.editorCache.set(S.selected, el.editor.value);
+  let data;
+  try {
+    data = await api('/api/item?id=' + id);
+  } catch (e) {
+    // 打不开就**原地不动**（按 id 跳转输错时最常见）：把当前条目连同编辑框里
+    // 写了一半的内容一起冲掉，比报个错糟糕得多。
+    toast('打不开 id ' + id + '：' + e.message);
+    if (!S.item) el.pane.textContent = '载入失败：' + e.message;
+    return;
+  }
   S.selected = id;
+  S.item = data;
   markSelected();
   el.editor.value = S.editorCache.get(id) || '';
+  renderItem(data);
   syncFillButtons();
-  try {
-    S.item = await api('/api/item?id=' + id);
-  } catch (e) { el.pane.textContent = '载入失败：' + e.message; return; }
-  renderItem(S.item);
-  syncFillButtons();
+}
+
+async function refreshQueue() {
+  const q = await api('/api/queue');
+  S.meta = q;
+  S.items = q.items;
+  S.byId = new Map(q.items.map((it) => [it.id, it]));
+  renderQueue();
+  markSelected();
 }
 
 function nextTarget(fromId, onlyUndecided) {
@@ -267,11 +298,18 @@ async function decide(payload) {
       body: JSON.stringify(payload),
     });
   } catch (e) { toast('写草稿失败：' + e.message); return; }
-  const it = S.byId.get(S.selected);
-  if (it) { it.verdict = res.record.verdict; it.chosen_channel = res.record.chosen_channel; }
+  const known = S.byId.get(S.selected);
+  if (known) { known.verdict = res.record.verdict; known.chosen_channel = res.record.chosen_channel; }
   S.editorCache.delete(S.selected);
   el.editor.value = '';
   el.note.value = '';
+  if (!known) {
+    // 刚裁的是一条还没进过左栏的自选行：整表重取，让它按阅读顺序插到邻居中间、
+    // 计数同步刷新。重算一遍排序位置的逻辑不在前端复制一份——服务端已经有了。
+    await refreshQueue();
+    await selectItem(res.next_undecided);
+    return;
+  }
   const nxt = nextTarget(S.selected, true);
   renderQueue();
   await selectItem(nxt != null ? nxt : res.next_undecided);
@@ -303,7 +341,13 @@ function bind() {
 
   el.pane.addEventListener('click', (e) => {
     const b = e.target.closest('button');
-    if (!b) return;
+    if (!b) {
+      // 上下文行可点选（需求 1）：点哪一行，哪一行就成为当前处理项——哪怕它
+      // 不在队列里。当前行自己不带 data-id，点它是无操作。
+      const cell = e.target.closest('.cell[data-id]');
+      if (cell) selectItem(Number(cell.dataset.id));
+      return;
+    }
     const act = b.dataset.act;
     if (act === 'fill') { fillEditor(b.dataset.text); return; }
     if (act !== 'adopt') return;
@@ -323,6 +367,15 @@ function bind() {
   $('#btn-skip').addEventListener('click', () => {
     const nxt = nextTarget(S.selected, false);
     if (nxt != null) selectItem(nxt); else toast('没有下一条了');
+  });
+
+  el.goto.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const v = Number(el.goto.value.trim());
+    if (!Number.isInteger(v) || v <= 0) { toast('请输入一个 id 数字'); return; }
+    el.goto.value = '';
+    el.goto.blur();
+    selectItem(v);      // 段外 id 由服务端 404，selectItem 里 toast 提示且不动当前条
   });
 
   el.editor.addEventListener('input', syncFillButtons);
@@ -352,17 +405,13 @@ function bind() {
 
 async function boot() {
   el.qlist = $('#qlist'); el.pane = $('#pane'); el.editor = $('#editor');
-  el.reason = $('#reason'); el.note = $('#note');
+  el.reason = $('#reason'); el.note = $('#note'); el.goto = $('#goto');
   bind();
-  let q;
-  try { q = await api('/api/queue'); } catch (e) { el.pane.textContent = '载入队列失败：' + e.message; return; }
-  S.meta = q;
-  S.items = q.items;
-  S.byId = new Map(q.items.map((it) => [it.id, it]));
-  $('#seg').textContent = q.seg + '　通道 ' + q.channels.join('、');
+  try { await refreshQueue(); } catch (e) { el.pane.textContent = '载入队列失败：' + e.message; return; }
+  const q = S.meta;
+  $('#seg').textContent = q.seg + '　全段 ' + q.seg_rows + ' 行　通道 ' + q.channels.join('、');
   $('#draft-path').textContent = q.draft_path;
-  renderQueue();
-  const first = S.items.find((it) => !it.verdict) || S.items[0];
+  const first = S.items.find((it) => it.in_queue && !it.verdict) || S.items[0];
   if (first) selectItem(first.id);
 }
 

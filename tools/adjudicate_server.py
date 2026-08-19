@@ -20,6 +20,25 @@
 在既有 8 段台账里一律记 `keep_opus`。**源头对齐、不留映射层**：映射层意味着草稿
 与落盘之间有一道人肉翻译，正是本项目反复吃亏的形态。
 
+## 自选行：队列之外的行也能改（2026-08-19 用户追加需求）
+
+队列只收「有通道提案的行」（本段 4282 行里的 381 行）。但人在读上下文时经常
+会看见**一条谁都没提案、自己却想改**的行——P4 全程反复发生。故本服务把
+"可处理的 id" 放宽到**整个段**（`frozen/source.jsonl` 的全部 id），队列只是
+其中"机器认为需要人看"的子集：
+
+- `item_payload()` 接受段内任意 id；不在队列里的记 `in_queue=false`。
+- 这类行**没有提案可采纳**，动作集只有 `edit` / `keep_opus`；`record()` 会
+  直接拒掉对非队列行的 `adopt`（服务端硬拒，不只靠前端不画按钮——草稿是要
+  落进生产 patch 的，一条指向不存在提案的 adopt 记录会在 polish_commit 那边
+  变成一句"找不到候选，跳过"的静默丢失）。
+- 左栏只列**已经裁决过的**自选行（草稿里有记录才出现）。不这么收窄的话，
+  4282 行会把 381 条队列彻底淹掉——队列的价值就在于它是个短名单。
+- 计数分开报：`total`/`done` 永远只算队列，自选行单独计 `picked`。把两者
+  混进一个分母会让"队列还剩多少"这个唯一有意义的进度失真。
+- 裁完一条自选行，`next_undecided()` **回到队列**里、按阅读顺序在它后面的
+  第一条未处理项（不是沿着 4282 行往下走）——自选行是插曲，主线仍是队列。
+
 ## 队列直读 candidates.*.jsonl 自算（拍板第 3 条）
 
 不读 `triage.json` / `queue.md`：那两者要先跑 triage，且桶 2 受 K 配额截断，
@@ -58,6 +77,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import re
 import socketserver
@@ -164,11 +184,17 @@ def candidate_reasons(cand: dict, frozen_zh: str) -> list:
     return reasons
 
 
+def order_key(cid, order_pos: dict, n: int):
+    """阅读顺序排序键。不在阅读顺序表里的 id（理论上不该有）排到全表之后并按 id
+    兜底升序，而不是被丢掉——静默丢条目是本项目反复吃亏的形态。队列排序与
+    "下一条未处理项"必须用同一个键，否则两者会在这类边角 id 上错位。"""
+    return order_pos.get(cid, n + (cid if isinstance(cid, int) else 0))
+
+
 def build_queue(source_rows, frozen_opus: dict, channels: dict, order_pos: dict) -> list:
     """算出待裁队列（阅读顺序），每项带上"哪些通道有话说/为什么进来"。
 
-    `order_pos` 是 `{id: 阅读序号}`；不在阅读顺序表里的 id（理论上不该有）排到
-    最后并按 id 升序兜底，而不是被丢掉——静默丢条目是本项目反复吃亏的形态。
+    `order_pos` 是 `{id: 阅读序号}`，排序键见 `order_key()`。
     """
     batch_of = {r["id"]: r.get("batch") for r in source_rows}
     seg_ids = [r["id"] for r in source_rows]
@@ -196,7 +222,7 @@ def build_queue(source_rows, frozen_opus: dict, channels: dict, order_pos: dict)
             "reasons": sorted(reasons),
         })
     n = len(order_pos)
-    items.sort(key=lambda it: (order_pos.get(it["id"], n + it["id"]), it["id"]))
+    items.sort(key=lambda it: (order_key(it["id"], order_pos, n), it["id"]))
     return items
 
 
@@ -236,6 +262,10 @@ class Adjudication:
         if not d.exists():
             raise SystemExit(f"段目录不存在：{d}")
         self.source = read_jsonl(d / "frozen" / "source.jsonl")
+        # 段内全部 id → 批号。这张表定义了"本工具可以处理哪些行"：队列只是它的
+        # 子集，自选行（用户从上下文里捞出来的）也必须落在这张表里——段外的 id
+        # 就算写进草稿也无处可落（不属于本段的冻结面），故一律拒收。
+        self.batch_of = {r["id"]: r.get("batch") for r in self.source}
         self.frozen_opus = {r["id"]: r["zh"] for r in read_jsonl(d / "frozen" / "opus.jsonl")}
         locked_p = d / "frozen" / "locked.json"
         locked = json.loads(locked_p.read_text(encoding="utf-8")) if locked_p.exists() else {}
@@ -265,6 +295,7 @@ class Adjudication:
 
         self.queue = build_queue(self.source, self.frozen_opus, self.channels, self.order_pos)
         self.queue_pos = {it["id"]: i for i, it in enumerate(self.queue)}
+        self._queue_keys = [order_key(it["id"], self.order_pos, len(order)) for it in self.queue]
         self.drift = self._compute_drift()
 
     def _compute_drift(self) -> dict:
@@ -315,6 +346,14 @@ class Adjudication:
         cid = payload.get("id")
         if not isinstance(cid, int):
             raise ValueError(f"id 必须是整数：{cid!r}")
+        if cid not in self.batch_of:
+            raise ValueError(f"id {cid} 不在本段 frozen/source.jsonl 里，无处可落")
+        if verdict == "adopt" and cid not in self.queue_pos:
+            # 服务端硬拒，不只靠前端不画按钮：一条指向"不存在的提案"的 adopt 记录
+            # 到了 polish_commit 那边只会变成一句"找不到候选，跳过"的静默丢失，
+            # 而人这边以为自己已经裁过了——正是本项目最怕的失败形态。
+            raise ValueError(f"id {cid} 不在队列里（没有任何通道提案），"
+                             f"只能 edit / keep_opus")
         if verdict == "adopt" and not payload.get("chosen_channel"):
             raise ValueError(f"{verdict} 必须带 chosen_channel")
         chosen_alt = payload.get("chosen_alt")
@@ -338,24 +377,45 @@ class Adjudication:
         return rec
 
     # ---------- 视图 ----------
+    def _list_row(self, cid, dec: dict, it=None) -> dict:
+        """左栏一行。`it` 是队列项（自选行传 None，现造一个空壳）。"""
+        d = dec.get(cid)
+        base = it if it is not None else {
+            "id": cid, "batch": self.batch_of.get(cid), "channels": [], "n_proposals": 0,
+            "n_covered": sum(1 for ch in self.channels if cid in self.channels[ch]),
+            "reasons": [],
+        }
+        return {**base,
+                "in_queue": cid in self.queue_pos,
+                "drift": cid in self.drift,
+                "soft": cid in self.soft_ids,
+                "hard": cid in self.hard_ids,
+                "verdict": d.get("verdict") if d else None,
+                "chosen_channel": d.get("chosen_channel") if d else None}
+
     def queue_payload(self) -> dict:
+        """左栏列表 = 队列全体 + **已裁决过的**自选行，按阅读顺序混排。
+
+        自选行混进同一条阅读顺序线（而不是另起一栏）是有意的：它本来就是从
+        上下文里捞出来的，摆在它的邻居中间才对得上人当时在读的位置。只有
+        `in_queue` 标记区分二者，计数则严格分开（见模块 docstring「自选行」）。
+        """
         dec = self.decisions()
-        items = []
-        for it in self.queue:
-            cid = it["id"]
-            d = dec.get(cid)
-            items.append({**it,
-                          "drift": cid in self.drift,
-                          "soft": cid in self.soft_ids,
-                          "hard": cid in self.hard_ids,
-                          "verdict": d.get("verdict") if d else None,
-                          "chosen_channel": d.get("chosen_channel") if d else None})
+        items = [self._list_row(it["id"], dec, it) for it in self.queue]
+        picked = [cid for cid in dec if cid not in self.queue_pos and cid in self.batch_of]
+        items += [self._list_row(cid, dec) for cid in picked]
+        n = len(self.order)
+        items.sort(key=lambda r: (order_key(r["id"], self.order_pos, n), r["id"]))
         return {
             "seg": self.seg,
             "channels": sorted(self.channels),
-            "total": len(items),
-            "done": sum(1 for it in items if it["verdict"]),
-            "drifted": sum(1 for it in items if it["drift"]),
+            # total/done 只算队列：自选行是人自己捞的，混进同一个分母会让
+            # "队列还剩多少"这个唯一有意义的进度失真。
+            "total": len(self.queue),
+            "done": sum(1 for r in items if r["in_queue"] and r["verdict"]),
+            "picked": len(picked),
+            "seg_rows": len(self.batch_of),
+            "drifted": sum(1 for r in items if r["in_queue"] and r["drift"]),
             "context_before": self.context_before,
             "context_after": self.context_after,
             "draft_path": str(self.draft_path),
@@ -363,12 +423,22 @@ class Adjudication:
         }
 
     def next_undecided(self, cid=None) -> int | None:
-        """当前条之后的第一条未裁项（到底则从头绕一圈），全裁完返回 None。"""
+        """**队列里**当前位置之后的第一条未裁项（到底则从头绕一圈），全裁完返回 None。
+
+        起点用「阅读顺序位置」而不是「队列下标」找，这样**自选行也能算**：一条
+        不在队列里的行裁完后，落点是队列中按阅读顺序排在它后面的那一条，人是
+        继续往前读，而不是被甩回队首（也不会沿着段内 4282 行往下走）。
+        对队列内的 id，这个算法与"下标 +1"逐字等价。
+        """
         dec = self.decisions()
         n = len(self.queue)
         if n == 0:
             return None
-        start = self.queue_pos.get(cid, -1) + 1 if cid is not None else 0
+        if cid is None:
+            start = 0
+        else:
+            key = order_key(cid, self.order_pos, len(self.order))
+            start = bisect.bisect_right(self._queue_keys, key)
         for k in range(n):
             it = self.queue[(start + k) % n]
             if it["id"] not in dec:
@@ -397,7 +467,10 @@ class Adjudication:
         return rows
 
     def item_payload(self, cid) -> dict:
-        if cid not in self.queue_pos:
+        """段内任意 id 都能开（不只是队列里的 381 条）——自选行走的就是这条路。
+        段外 id 抛 KeyError（HTTP 层转 404）：那是"输错了 id"，必须报错而不是
+        开一个空白页让人对着改。"""
+        if cid not in self.batch_of:
             raise KeyError(cid)
         frozen_zh = self.frozen_opus.get(cid, "")
         cur = self.current.get(cid, frozen_zh)
@@ -428,10 +501,11 @@ class Adjudication:
                 "collapsible": same_cur and not cand.get("adjudicate") and not note and not alts,
             })
         d = self.decisions().get(cid)
-        it = self.queue[self.queue_pos[cid]]
+        in_queue = cid in self.queue_pos
         return {
             "id": cid,
-            "batch": it["batch"],
+            "in_queue": in_queue,
+            "batch": self.batch_of.get(cid),
             "jp": self.jp.get(cid, ""),
             "zh_current": cur,
             "zh_frozen": frozen_zh,
@@ -442,7 +516,7 @@ class Adjudication:
             "context": self.context_rows(cid),
             "proposals": proposals,
             "decision": d,
-            "queue_index": self.queue_pos[cid],
+            "queue_index": self.queue_pos[cid] if in_queue else None,
             "queue_total": len(self.queue),
             "next_undecided": self.next_undecided(cid),
         }
@@ -511,7 +585,7 @@ def make_handler(model: Adjudication):
                 try:
                     return self._json(model.item_payload(cid))
                 except KeyError:
-                    return self._err(404, f"id {cid} 不在队列里")
+                    return self._err(404, f"id {cid} 不在本段（frozen/source.jsonl）里")
             return self._err(404, f"没有这个端点：{path}")
 
         def do_HEAD(self):
@@ -552,10 +626,12 @@ def main(argv=None):
     dec = model.decisions()
     # flush=True：stdout 被重定向到文件/管道时是块缓冲的，不 flush 就看不到
     # 访问 URL——而"启动后把 URL 打到 stdout"正是拍板第 2 条要的东西。
-    print(f"段 {args.seg}：队列 {len(model.queue)} 条"
+    picked = [i for i in dec if i not in model.queue_pos and i in model.batch_of]
+    print(f"段 {args.seg}：全段 {len(model.batch_of)} 行，队列 {len(model.queue)} 条"
           f"（通道 {', '.join(sorted(model.channels)) or '无'}；漂移 "
           f"{sum(1 for it in model.queue if it['id'] in model.drift)} 条；"
-          f"草稿已裁 {sum(1 for it in model.queue if it['id'] in dec)} 条）", flush=True)
+          f"草稿已裁 {sum(1 for it in model.queue if it['id'] in dec)} 条"
+          f"，另有自选行 {len(picked)} 条）", flush=True)
     print(f"草稿文件（唯一写口）：{model.draft_path}", flush=True)
     try:
         httpd = Server((args.host, args.port), make_handler(model))

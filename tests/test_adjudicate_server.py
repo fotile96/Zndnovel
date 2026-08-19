@@ -9,6 +9,9 @@
 额外塞了一条 `lane="extra"` 的批：它不属于正文阅读流，混进来会污染前文上下文，
 所以必须被 `reading_order()` 滤掉。
 
+"自选行"（非队列行）的测试全部拿 id 10 做：它在段内、两个通道都零改动无话可说，
+所以不进队列——正是用户"读上下文时看到、自己想改"的那类行。
+
 id 7 **不在段内**（只在 data/ledger.jsonl 与车道 forward.jsonl 里），专门验证
 "跨段边界的前文上下文"这条路径：jp 走全局 ledger、zh 走车道 resolve，缺一就
 会在段首几行显示空白。
@@ -234,6 +237,97 @@ def test_soft_lock_surfaces(model):
     assert model.item_payload(5)["lock_why"] == "锚点行"
 
 
+# ------------------------------------------------- 自选行（队列之外的行也能改）
+def test_offqueue_item_opens(model):
+    """段内非队列 id 能开：这是"读上下文时看到一条想改的行"的入口。"""
+    assert 10 not in model.queue_pos
+    it = model.item_payload(10)
+    assert it["in_queue"] is False and it["queue_index"] is None
+    assert it["jp"] == JP[10] and it["zh_current"] == LANE[10] and it["batch"] == 1
+    assert all(p["collapsible"] for p in it["proposals"]), \
+        "非队列行按定义就是各通道都零改动无话可说，提案全该是可折叠的"
+    assert any(r["current"] for r in it["context"])
+
+
+def test_offqueue_id_outside_seg_rejected(model):
+    """段外 id 一律拒：999 在 batches/ledger 里但不在本段 frozen/source.jsonl 里。"""
+    for bad in (999, 12345):
+        with pytest.raises(KeyError):
+            model.item_payload(bad)
+        with pytest.raises(ValueError):
+            model.record({"id": bad, "verdict": "keep_opus"})
+    assert not model.draft_path.exists()
+
+
+def test_offqueue_only_edit_or_keep(model):
+    """非队列行没有提案可采纳 → 服务端硬拒 adopt（不只靠前端不画按钮）。"""
+    with pytest.raises(ValueError, match="不在队列里"):
+        model.record({"id": 10, "verdict": "adopt", "chosen_channel": "chA"})
+    assert not model.draft_path.exists()
+    assert model.record({"id": 10, "verdict": "edit", "edited_zh": " 教室里静悄悄的。 "})["id"] == 10
+    assert model.record({"id": 10, "verdict": "keep_opus"})["verdict"] == "keep_opus"
+    assert model.decisions()[10]["verdict"] == "keep_opus", "改判同样取最后一条"
+
+
+def test_offqueue_appears_in_sidebar_only_after_decision(model):
+    before = model.queue_payload()
+    assert [it["id"] for it in before["items"]] == [30, 20, 5, 40]
+    assert before["picked"] == 0 and all(it["in_queue"] for it in before["items"])
+
+    model.record({"id": 10, "verdict": "edit", "edited_zh": "教室里静悄悄的。"})
+    after = model.queue_payload()
+    # 按阅读顺序插进邻居中间（10 在 30 与 20 之间），不是追加在末尾
+    assert [it["id"] for it in after["items"]] == [30, 10, 20, 5, 40]
+    row = {it["id"]: it for it in after["items"]}[10]
+    assert row["in_queue"] is False and row["verdict"] == "edit"
+    assert row["batch"] == 1 and row["n_proposals"] == 0 and row["n_covered"] == 2
+    # 计数分开：队列分母不变，自选行单独计
+    assert after["total"] == 4 and after["done"] == 0 and after["picked"] == 1
+    assert after["seg_rows"] == 5
+
+
+def test_offqueue_next_undecided_returns_to_queue(model):
+    """裁完自选行跳回**队列**里、按阅读顺序排在它后面的第一条未处理项。"""
+    assert model.next_undecided(10) == 20, "10 的下一条队列项是 20，不是队首 30"
+    model.record({"id": 30, "verdict": "keep_opus"})
+    assert model.next_undecided(10) == 20
+    model.record({"id": 20, "verdict": "keep_opus"})
+    assert model.next_undecided(10) == 5, "20 裁过了就往后顺延，仍在队列内"
+    for i in (5, 40):
+        model.record({"id": i, "verdict": "keep_opus"})
+    assert model.next_undecided(10) is None
+    # 自选行自己被裁决过，也不会把自己变成"下一条"
+    model.record({"id": 10, "verdict": "keep_opus"})
+    assert model.next_undecided(10) is None
+
+
+def test_next_undecided_unchanged_for_queue_items(model):
+    """新的"按阅读顺序找起点"算法，对队列内 id 必须与旧的"下标+1"逐字等价。"""
+    for cur, nxt in ((30, 20), (20, 5), (5, 40)):
+        assert model.next_undecided(cur) == nxt
+    assert model.next_undecided(40) == 30, "队尾绕回队首"
+
+
+def test_http_offqueue_flow(server, model):
+    code, body = _get(server + "/api/item?id=10")
+    it = json.loads(body)
+    assert code == 200 and it["in_queue"] is False
+
+    with pytest.raises(urllib.error.HTTPError) as e:
+        _post(server + "/api/decide", {"id": 10, "verdict": "adopt", "chosen_channel": "chA"})
+    assert e.value.code == 400
+    with pytest.raises(urllib.error.HTTPError) as e:
+        _get(server + "/api/item?id=999")          # 段外 id → 404（按 id 跳转输错时的提示）
+    assert e.value.code == 404
+
+    code, res = _post(server + "/api/decide",
+                      {"id": 10, "verdict": "edit", "edited_zh": "教室里静悄悄的。"})
+    assert code == 200 and res["next_undecided"] == 20
+    q = json.loads(_get(server + "/api/queue")[1])
+    assert q["picked"] == 1 and q["done"] == 0 and q["total"] == 4
+    assert [it["id"] for it in q["items"]] == [30, 10, 20, 5, 40]
+
+
 # ---------------------------------------------------------------- ⑤HTTP 端点
 @pytest.fixture
 def server(model):
@@ -281,7 +375,7 @@ def test_http_queue_and_item(server):
 
 
 def test_http_errors(server):
-    for path, code in (("/api/item?id=10", 404),     # 不在队列里
+    for path, code in (("/api/item?id=999", 404),    # 段外 id（10 这类段内非队列行现在是 200）
                        ("/api/item?id=zzz", 400),
                        ("/nope", 404)):
         with pytest.raises(urllib.error.HTTPError) as e:

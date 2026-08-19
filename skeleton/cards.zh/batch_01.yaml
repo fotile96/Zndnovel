@@ -7,11 +7,12 @@
 #   - 卡 61 原卡（完結）独行且非整数缩进，中文重排后统一按贴行末处理。
 #   - 卡 40/70 标题依 plotTitle 不带句尾句号（卡面多句号差异见 jp 侧 note）。
 #   - 卡 74 右栏第二标签为「探索」（zh 侧无 section_label 字段，记于 tr_note）。
+# v19 修订（2026-08-19）：故事层人名罗马音化（Ayano/Yuichi/Yukari/Sakura…）+ 天文馆→天象馆已落于 title_zh/body_zh；tr_note 保持历史原文。涉名流式 body 经 tools/zh_wrap（jieba）重排（宽 12 全角），结构卡逐行替换保结构。
 
 - card: 40
   variant: "a"
-  title_zh: "对ユウイチ嘛……"
-  body_zh: "アヤノ回答サクラ说，对ユ\nウイチ谈不上喜欢，也谈不\n上讨厌。"
+  title_zh: "对Yuichi嘛……"
+  body_zh: "Ayano回答Sakura\n说，对Yuichi谈不上\n喜欢，也谈不上讨厌。"
   tr_note: "标题依 plotTitle 无句尾句号（卡面实为「……。」，差异记于 jp 侧 note）；「ユウイチのことは……」以「嘛……」再现支吾拖音，与卡 38「含糊其辞」选项的结果卡定位相合。"
 - card: 41
   variant: "a"
@@ -26,27 +27,27 @@
 - card: 43
   variant: "a"
   title_zh: "出去玩的地方"
-  body_zh: "ユウイチ问アヤノ：周末要\n去哪里玩，决定好了吗？加\n上咒语的事，アヤノ不由得\n有点在意起ユウイチ来。"
+  body_zh: "Yuichi问Ayano：周末要去\n哪里玩，决定好了吗？加上\n咒语的事，Ayano不由得\n有点在意起Yuichi来。"
   tr_note: "原卡第 2 行「？」后即断行系日文版式，中文重排不沿用。"
 - card: 44
   variant: "a"
   title_zh: "选择：出去玩的地方"
-  body_zh: "「游泳池」\n「天文馆」\n有以上分支展开。"
+  body_zh: "「游泳池」\n「天象馆」\n有以上分支展开。"
   tr_note: "プラネタリウム→天文馆（取口语常用名；如终裁改「天象馆」需连动卡 46/60）。"
 - card: 45
   variant: "a"
   title_zh: "游泳池的约定"
-  body_zh: "アヤノ约好和ユウイチ一起\n去游泳池玩。"
+  body_zh: "Ayano约好和Yuichi\n一起去游泳池玩。"
   tr_note: ""
 - card: 46
   variant: "a"
-  title_zh: "天文馆的约定"
-  body_zh: "アヤノ约好和ユウイチ一起\n去天文馆玩。有一点怀念的\n感觉。"
+  title_zh: "天象馆的约定"
+  body_zh: "Ayano约好和Yuichi\n一起去天象馆玩。\n有一点怀念的感觉。"
   tr_note: ""
 - card: 47
   variant: "a"
   title_zh: "图书室"
-  body_zh: "放学后。アヤノ去图书室，\n从サクラ那里学到了咒语。"
+  body_zh: "放学后。Ayano去图书室，\n从Sakura那里学到了咒语。"
   tr_note: ""
 - card: 48
   variant: "a"
@@ -61,7 +62,7 @@
 - card: 50
   variant: "a"
   title_zh: "橡皮上写名字"
-  body_zh: "为了实现愿望，アヤノ做了\n「把橡皮从套子里取出、写\n上心上人的名字再装回去」\n的咒语。"
+  body_zh: "为了实现愿望，Ayano\n做了「把橡皮从套子\n里取出、写上心上人的\n名字再装回去」的咒语。"
   tr_note: ""
 - card: 51
   variant: "a"
@@ -71,17 +72,17 @@
 - card: 52
   variant: "a"
   title_zh: "觉得绝对灵验"
-  body_zh: "アヤノ觉得咒语「绝对灵\n验」。"
+  body_zh: "Ayano觉得咒语\n「绝对灵验」。"
   tr_note: ""
 - card: 53
   variant: "a"
   title_zh: "觉得多半灵验"
-  body_zh: "アヤノ觉得咒语「多半灵\n验」。"
+  body_zh: "Ayano觉得咒语\n「多半灵验」。"
   tr_note: "「たぶん」统一作「多半」（标题/引语与卡 51 第 2 项同词）。"
 - card: 54
   variant: "a"
   title_zh: "觉得做了也不亏"
-  body_zh: "アヤノ觉得咒语「做了也不\n亏」。"
+  body_zh: "Ayano觉得咒语\n「做了也不亏」。"
   tr_note: ""
 - card: 55
   variant: "a"
@@ -95,28 +96,28 @@
   tr_note: "「嫌な予感」→「不好的预感」与卡 23「不好的结果」用字一致；（おわり）→（完）贴行末，前导空格按中文行宽重算。"
 - card: 57
   variant: "a"
-  title_zh: "ユウイチ的背影"
-  body_zh: "做完咒语来到走廊，看到ユ\nウイチ正走在走廊上。跟在\nユウイチ身后，来到天台。\nユウイチ张开双臂，从天台\n向下……　　　　　（完）"
+  title_zh: "Yuichi的背影"
+  body_zh: "做完咒语来到走廊，看到\nYuichi正走在走廊上。跟\n在Yuichi身后，来到天台。\nYuichi张开双臂，从天台\n向下……　　　　　（完）"
   tr_note: "前半与卡 58 逐字共句；原卡（おわり）独行右对齐，中文重排后按贴行末规则处理。"
 - card: 58
   variant: "a"
   title_zh: "夜晚的走廊"
-  body_zh: "做完咒语来到走廊，看到ユ\nウイチ正走在走廊上。跟在\nユウイチ身后，来到天台。\nアヤノ敲了下他的头，ユウ\nイチ便恢复了意识。"
+  body_zh: "做完咒语来到走廊，看到\nYuichi正走在走廊上。\n跟在Yuichi身后，来到\n天台。Ayano敲了下他的\n头，Yuichi便恢复了意识。"
   tr_note: "前半与卡 57 逐字共句。"
 - card: 59
   variant: "a"
   title_zh: "游泳池"
-  body_zh: "周末，アヤノ和ユウイチ去\n游泳池玩了。途中ユウイチ\n看到一家店，却不自然地避\n开了。"
+  body_zh: "周末，Ayano和Yuichi\n去游泳池玩了。途中\nYuichi看到一家店，\n却不自然地避开了。"
   tr_note: ""
 - card: 60
   variant: "a"
-  title_zh: "天文馆"
-  body_zh: "周末，アヤノ和ユウイチ去\n天文馆玩了。放映结束时，\nアヤノ却不知为何流着眼\n泪。"
+  title_zh: "天象馆"
+  body_zh: "周末，Ayano和Yuichi\n去天象馆玩了。放映\n结束时，Ayano却\n不知为何流着眼泪。"
   tr_note: ""
 - card: 61
   variant: "a"
   title_zh: "咒语的效果"
-  body_zh: "后来，ユウイチ对アヤノ说\n起自己做过的「不可思议的\n梦」。天台上，家家开始亮\n起灯火。　　　　（完结）"
+  body_zh: "后来，Yuichi对Ayano说起\n自己做过的「不可思议的\n梦」。天台上，家家开始亮\n起灯火。　　　　（完结）"
   tr_note: "（完結）→（完结）；原卡该标记独行且非整数缩进（jp note），中文重排后统一按贴行末处理。"
 - card: 62
   variant: "a"
@@ -125,13 +126,13 @@
   tr_note: "「オマジナイ」引号依原卡保留；「……ばいいんだけど」→「……就好了」与卡 42 成对。"
 - card: 63
   variant: "a"
-  title_zh: "サクラ的叹息"
-  body_zh: "听了アヤノ的回答，サクラ\n叹了口气。"
+  title_zh: "Sakura的叹息"
+  body_zh: "听了Ayano的回答，\nSakura叹了口气。"
   tr_note: ""
 - card: 64
   variant: "a"
   title_zh: "午休的走廊"
-  body_zh: "アヤノ和サクラ在走廊说\n话。サクラ问アヤノ知不知\n道「楼梯的传闻」。"
+  body_zh: "Ayano和Sakura在走廊\n说话。Sakura问Ayano\n知不知道「楼梯的传闻」。"
   tr_note: "原卡「ウワサ」」后省「を」（jp note），中文语序天然不显此缺格。"
 - card: 65
   variant: "a"
@@ -151,12 +152,12 @@
 - card: 68
   variant: "a"
   title_zh: "对传闻没兴趣"
-  body_zh: "アヤノ回答说对传闻没兴\n趣，サクラ轻轻叹了口气。\n随后，又迎来平静无事的日\n常。　　　　　　　（完）"
+  body_zh: "Ayano回答说对传闻没\n兴趣，Sakura轻轻叹\n了口气。随后，又迎来\n平静无事的日常。　\n　　　　　　（完）"
   tr_note: "标题「ない」/正文「無い」写法之别中文不再现；「何事もない日常」→「平静无事的日常」与卡 19/31 呼应；（おわり）→（完）贴行末。"
 - card: 69
   variant: "a"
   title_zh: "闹鬼楼梯"
-  body_zh: "是闹鬼楼梯的事？这么一\n问，サクラ点了点头，向ア\nヤノ说明了楼梯的传闻。"
+  body_zh: "是闹鬼楼梯的事？这么一\n问，Sakura点了点头，向\nAyano说明了楼梯的传闻。"
   tr_note: "标题「お化け」/正文「おばけ」写法之别不再现；原卡全角「？」后的半角空档系日文版式，中文不保留。"
 - card: 70
   variant: "a"
@@ -166,7 +167,7 @@
 - card: 71
   variant: "a"
   title_zh: "随口打听"
-  body_zh: "向同学打听楼梯的传闻。随\n口一问，アヤノ反被数落了\n一顿。"
+  body_zh: "向同学打听楼梯的\n传闻。随口一问，\nAyano反被数落了一顿。"
   tr_note: ""
 - card: 72
   variant: "a"
@@ -185,13 +186,13 @@
   tr_note: "右栏第二标签为「探索」（本批唯一非「あらすじ/選択肢」者）；「放課後のウワサについて」按时间状语理解（放学后就传闻探索学校，与标题及 s3 流程相符）；保健の先生→保健老师。"
 - card: 75
   variant: "a"
-  title_zh: "选择：ユウイチ的身影"
+  title_zh: "选择：Yuichi的身影"
   body_zh: "「跟上去」\n「不管他」……\n有以上分支展开。"
   tr_note: "第 2 行「」后紧接「……」依原卡版式（中间无空格）；两项与卡 79/76 标题同词。"
 - card: 76
   variant: "a"
   title_zh: "不管他"
-  body_zh: "决定先不管ユウイチ，去小\n菊那里。"
+  body_zh: "决定先不管Yuichi，\n去小菊那里。"
   tr_note: "标题假名「ほうって」/正文汉字「放って」之别不再现，中文同用「不管」；きくちゃん→小菊（glossary v2 暂定）。"
 - card: 77
   variant: "a"
@@ -206,5 +207,5 @@
 - card: 79
   variant: "a"
   title_zh: "跟上去"
-  body_zh: "アヤノ跟在ユウイチ身后。\nユウイチ好像进了图书室。"
+  body_zh: "Ayano跟在Yuichi身后。\nYuichi好像进了图书室。"
   tr_note: ""

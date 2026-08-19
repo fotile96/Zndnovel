@@ -11,6 +11,7 @@
 #   - 人名分层依用户裁决：故事层片假名原样（アヤノ/サクラ/ユカリ），ユウイチ 两层同名、依 v2 保留片假名；
 #     现实层汉字（彩野）。未点名者保持未点名（あの子→那孩子、彼女→她、女子生徒→女学生）。
 #   - 卡 0 为无字模板（jp 侧 variant "d" 记录行），无译文条目，本批自卡 1 起。
+# v19 修订（2026-08-19）：故事层人名罗马音化（Ayano/Yuichi/Yukari/Sakura…）+ 天文馆→天象馆已落于 title_zh/body_zh；tr_note 保持历史原文。涉名流式 body 经 tools/zh_wrap（jieba）重排（宽 12 全角），结构卡逐行替换保结构。
 
 - card: 1
   variant: "a"
@@ -20,7 +21,7 @@
 - card: 2
   variant: "a"
   title_zh: "夏日清晨，通往高中的上学路"
-  body_zh: "早晨，男学生(ユウイチ)和\n女学生(アヤノ)并肩走在上\n学的路上。一如往常的光\n景，一如往常的日常。女学\n生忘了考试的事，慌忙赶往\n教室。"
+  body_zh: "早晨，男学生(Yuichi\n)和女学生(Ayano)并肩\n走在上学的路上。一如\n往常的光景，一如往常\n的日常。女学生忘了考试\n的事，慌忙赶往教室。"
   tr_note: "(ユウイチ)(アヤノ) 的半角圆括号依原卡保留；ユウイチ 依 glossary v2 裁决保留片假名（两层同名）。"
 - card: 3
   variant: "a"
@@ -35,57 +36,57 @@
 - card: 5
   variant: "a"
   title_zh: "约好了"
-  body_zh: "看到橡皮，アヤノ想起自己\n约好放学后和那孩子见面。"
+  body_zh: "看到橡皮，Ayano想起自己\n约好放学后和那孩子见面。"
   tr_note: "「あの子」未点名，统一译「那孩子」。"
 - card: 6
   variant: "a"
   title_zh: "想不起约定"
-  body_zh: "アヤノ总觉得，自己放学后\n好像约了谁见面。"
+  body_zh: "Ayano总觉得，自己放学\n后好像约了谁见面。"
   tr_note: ""
 - card: 7
   variant: "a"
   title_zh: "没有约"
-  body_zh: "アヤノ放学后并没有约任何\n人见面。"
+  body_zh: "Ayano放学后并没有\n约任何人见面。"
   tr_note: ""
 - card: 8
   variant: "a"
   title_zh: "想起约定"
-  body_zh: "聊起传闻，アヤノ想起自己\n约好放学后要和「那孩子」\n见面。"
+  body_zh: "聊起传闻，Ayano想起\n自己约好放学后要\n和「那孩子」见面。"
   tr_note: ""
 - card: 9
   variant: "a"
   title_zh: "早晨的教室"
-  body_zh: "早晨的教室，一如往常的光\n景。ユウイチ跑来捣乱，ア\nヤノ没能如愿预习。"
+  body_zh: "早晨的教室，一如往常的\n光景。Yuichi跑来捣乱，\nAyano没能如愿预习。"
   tr_note: ""
 - card: 10
   variant: "a"
-  title_zh: "章节 1：アヤノ"
-  body_zh: "章节 1 的主人公是\n「アヤノ」"
+  title_zh: "章节 1：Ayano"
+  body_zh: "章节 1 的主人公是\n「Ayano」"
   tr_note: "「セクション１：アヤノ」→「章节 1：アヤノ」依 glossary v2 行文示例（「章节」＋半角数字＋全角冒号）；正文依原卡「アヤノ」后不加句号。"
 - card: 11
   variant: "a"
   title_zh: "午休的教室"
-  body_zh: "アヤノ邀ユウイチ一起请钱\n仙，ユウイチ拒绝。ユウイ\nチ还向アヤノ炫耀了考试的\n高分。"
+  body_zh: "Ayano邀Yuichi一起请\n钱仙，Yuichi拒绝。\nYuichi还向Ayano\n炫耀了考试的高分。"
   tr_note: ""
 - card: 12
   variant: "a"
-  title_zh: "选择：ユウイチ的答卷"
+  title_zh: "选择：Yuichi的答卷"
   body_zh: "「表示羡慕」\n「岔开话题」\n有以上分支展开。"
   tr_note: "「答案」→「答卷」（避开中文「答案」的歧义）；选项与卡 13/14 标题呼应。"
 - card: 13
   variant: "a"
   title_zh: "对答卷表示羡慕"
-  body_zh: "ユウイチ说自己赢了赌约，\n要アヤノ请吃快餐。アヤノ\n不情不愿地点头。"
+  body_zh: "Yuichi说自己赢了赌\n约，要Ayano请吃快餐。\nAyano不情不愿地点头。"
   tr_note: ""
 - card: 14
   variant: "a"
   title_zh: "岔开答卷的话题"
-  body_zh: "打赌输给ユウイチ的アヤ\nノ，随口应付过得意洋洋的\n他，逃了出去。"
+  body_zh: "打赌输给Yuichi的Ayano，\n随口应付过得意洋洋\n的他，逃了出去。"
   tr_note: ""
 - card: 15
   variant: "a"
   title_zh: "开始上课"
-  body_zh: "ユカリ老师的课。老师似乎\n也相当适应教师这一行了。"
+  body_zh: "Yukari老师的课。老师似乎\n也相当适应教师这一行了。"
   tr_note: ""
 - card: 16
   variant: "a"
@@ -94,8 +95,8 @@
   tr_note: ""
 - card: 17
   variant: "a"
-  title_zh: "ユウイチ与快餐"
-  body_zh: "输掉了和ユウイチ的赌约，\n不情不愿地去了快餐店。ユ\nウイチ对钱仙坚决反对。"
+  title_zh: "Yuichi与快餐"
+  body_zh: "输掉了和Yuichi的赌约，\n不情不愿地去了快餐店。\nYuichi对钱仙坚决反对。"
   tr_note: ""
 - card: 18
   variant: "a"
@@ -105,17 +106,17 @@
 - card: 19
   variant: "a"
   title_zh: "一如往常的生活"
-  body_zh: "结果アヤノ还是回了家。平\n静无事的日常、一如往常的\n生活又回来了　　　（完）"
+  body_zh: "结果Ayano还是回了\n家。平静无事的日常、\n一如往常的生活又\n回来了　　　（完）"
   tr_note: "（おわり）→（完）；依原卡「回来了」后不加句号，末行垫全角空格使标记贴行末（12 字宽）。"
 - card: 20
   variant: "a"
   title_zh: "探索：放学后的学校"
-  body_zh: "放学后，アヤノ在学校里转\n了一圈。天台和通往天台的\n楼梯，让她有点在意。"
+  body_zh: "放学后，Ayano在学校里转\n了一圈。天台和通往天台\n的楼梯，让她有点在意。"
   tr_note: ""
 - card: 21
   variant: "a"
   title_zh: "放学后的钱仙"
-  body_zh: "放学后，アヤノ决定和那孩\n子一起请钱仙。那孩子的准\n备十分周到。"
+  body_zh: "放学后，Ayano决定和\n那孩子一起请钱仙。那\n孩子的准备十分周到。"
   tr_note: ""
 - card: 22
   variant: "a"
@@ -125,17 +126,17 @@
 - card: 23
   variant: "a"
   title_zh: "不好的结果"
-  body_zh: "アヤノ向钱仙提问，结果\n却……不怎么好。之后发生\n了不可思议的事情，アヤノ\n的视野渐渐模糊。"
+  body_zh: "Ayano向钱仙提问，结果\n却……不怎么好。之后\n发生了不可思议的事情，\nAyano的视野渐渐模糊。"
   tr_note: "原卡「……」跨行拆分为日文版式，中文重排后不再拆分。"
 - card: 24
   variant: "a"
   title_zh: "回过神来的地方"
-  body_zh: "回过神来，アヤノ已经身在\n天台。自己为何会在天台，\n原因并不清楚。"
+  body_zh: "回过神来，Ayano已经身\n在天台。自己为何会在\n天台，原因并不清楚。"
   tr_note: ""
 - card: 25
   variant: "a"
   title_zh: "选择：声音的主人"
-  body_zh: "「……」\n「サクラ同学」\n有以上分支展开。"
+  body_zh: "「……」\n「Sakura同学」\n有以上分支展开。"
   tr_note: "「サクラさん」依称呼表译「サクラ同学」。"
 - card: 26
   variant: "a"
@@ -145,32 +146,32 @@
 - card: 27
   variant: "a"
   title_zh: "她的名字"
-  body_zh: "天台。「那孩子」说，自己\n等アヤノ来到这里，已经等\n了５年。"
+  body_zh: "天台。「那孩子」\n说，自己等Ayano来到\n这里，已经等了５年。"
   tr_note: "「５年」的「５」依原卡保留全角。"
 - card: 28
   variant: "a"
   title_zh: "约定不守可不行"
-  body_zh: "说着「约定不守可不行」，\nサクラ步步进逼，把アヤノ\n从天台上推了下去。（完）"
+  body_zh: "说着「约定不守可不行」，\nSakura步步进逼，把Ayano\n从天台上推了下去。（完）"
   tr_note: "标题与正文引语统一作「约定不守可不行」；（おわり）→（完），末行恰排满 12 字宽、无垫空格。"
 - card: 29
   variant: "a"
-  title_zh: "ユウイチ救下アヤノ"
-  body_zh: "回过神来，アヤノ已经快要\n从天台上坠落。ユウイチ将\nアヤノ拉了上来。"
+  title_zh: "Yuichi救下Ayano"
+  body_zh: "回过神来，Ayano已经\n快要从天台上坠落。\nYuichi将Ayano拉了上来。"
   tr_note: ""
 - card: 30
   variant: "a"
   title_zh: "有谁在呼唤"
-  body_zh: "サクラ消失了。其存在暧昧\n不明。被ユカリ老师训了一\n顿，两人回了家。（完结）"
+  body_zh: "Sakura消失了。其存在\n暧昧不明。被Yukari\n老师训了一顿，两\n人回了家。（完结）"
   tr_note: "（完結）→（完结），与（おわり）→（完）两制区分保留；前导全角空格按中文 12 字行宽重算（本卡末行恰排满，无垫空格）。"
 - card: 31
   variant: "a"
   title_zh: "又是一如往常的生活"
-  body_zh: "アヤノ回了家。平静无事的\n日常、一如往常的生活又回\n来了。　　　　　　（完）"
+  body_zh: "Ayano回了家。平静无\n事的日常、一如往常\n的生活又回来了。\n　　　　　　（完）"
   tr_note: "与卡 19 同句呼应；原卡此处「戻ってきた。」带句号而卡 19 无，差异照搬；（おわり）→（完）贴行末。"
 - card: 32
   variant: "a"
   title_zh: "夏天的计划"
-  body_zh: "ユウイチ说自己拿到了零花\n钱，邀アヤノ找个地方一起\n出去玩。"
+  body_zh: "Yuichi说自己拿到了\n零花钱，邀Ayano找\n个地方一起出去玩。"
   tr_note: ""
 - card: 33
   variant: "a"
@@ -180,7 +181,7 @@
 - card: 34
   variant: "a"
   title_zh: "课间休息"
-  body_zh: "和ユウイチ去哪里玩好，想\n来想去……结果还是定不下\n来。遇见サクラ，同去图书\n室。她似乎对咒语颇有研\n究。"
+  body_zh: "和Yuichi去哪里玩\n好，想来想去……结果\n还是定不下来。遇见\nSakura，同去图书室。\n她似乎对咒语颇有研究。"
   tr_note: ""
 - card: 35
   variant: "a"
@@ -189,21 +190,21 @@
   tr_note: "第 4 项原卡折两行（次行全角缩进）系日文版式，中文一行排得下故不折行；「１００」依原卡保留全角。"
 - card: 36
   variant: "a"
-  title_zh: "章节 2：アヤノ"
-  body_zh: "章节 2 的主人公是\n「アヤノ」"
+  title_zh: "章节 2：Ayano"
+  body_zh: "章节 2 的主人公是\n「Ayano」"
   tr_note: "同卡 10：セクション→章节（glossary v2）。"
 - card: 37
   variant: "a"
-  title_zh: "与ユウイチ的关系"
+  title_zh: "与Yuichi的关系"
   body_zh: "回答两情相悦的咒语后，サ\nクラ对两人关系尚无进展一\n事感到惊讶。"
   tr_note: "「两情相悦的咒语」与卡 35 第 4 选项字面一致。"
 - card: 38
   variant: "a"
-  title_zh: "选择：对ユウイチ的心意"
+  title_zh: "选择：对Yuichi的心意"
   body_zh: "「直说喜欢」\n「含糊其辞」\n有以上分支展开。"
   tr_note: "「含糊其辞」与卡 33 第 3 项同译。"
 - card: 39
   variant: "a"
-  title_zh: "喜欢ユウイチ"
-  body_zh: "アヤノ回答サクラ说，自己\n喜欢ユウイチ。サクラ报以\n仿佛放下心来的笑容。"
+  title_zh: "喜欢Yuichi"
+  body_zh: "Ayano回答Sakura说，自己\n喜欢Yuichi。Sakura报以\n仿佛放下心来的笑容。"
   tr_note: ""

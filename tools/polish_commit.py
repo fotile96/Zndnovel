@@ -173,6 +173,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import add_patch
 from tools.build_context import glossary_version
+from tools.check_batch import _ruby_ok
 from tools.pipelib import REPO, append_jsonl, read_jsonl
 
 
@@ -329,7 +330,24 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
                   f"（verdict={verdict}，ts={decision_ts}），跳过", file=sys.stderr)
             continue
         if verdict == "adopt":
-            zh = cand.get("zh")
+            # P5 契约 v2：chosen_alt=N（1-based，queue.md 的「备选N」编号）时
+            # 采纳该备选而非主候选。备选在入仓时只过了轻量结构闸（【】对齐
+            # +MARKS），ruby 良构在此补查——采纳落库是备选文本首次成为现行
+            # 文本的时刻，闸必须在这之前。
+            alt_n = dec.get("chosen_alt")
+            if alt_n:
+                alts = cand.get("alts") or []
+                if not isinstance(alt_n, int) or not (1 <= alt_n <= len(alts)):
+                    print(f"!! polish_commit: id={cid} chosen_alt={alt_n!r} 越界"
+                          f"（该候选只有 {len(alts)} 条备选），跳过", file=sys.stderr)
+                    continue
+                zh = alts[alt_n - 1].get("zh")
+                if not _ruby_ok(zh):
+                    print(f"!! polish_commit: id={cid} 备选 {alt_n} ruby 不良构，跳过",
+                          file=sys.stderr)
+                    continue
+            else:
+                zh = cand.get("zh")
         else:
             zh = dec.get("edited_zh")
             if zh is None:
@@ -340,6 +358,7 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
             "id": cid, "verdict": verdict, "decision_ts": decision_ts,
             "channel": channel, "candidate_ts": cand.get("ts"),
             "prompt_hash": cand.get("prompt_hash"), "zh": zh,
+            "chosen_alt": dec.get("chosen_alt") if verdict == "adopt" else None,
             "needs_new_decision_row": False, "decision_row": None,
         })
 
@@ -426,6 +445,8 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
                   f"{tag}   ——放行（人裁路径有人在看），但请确认你知道自己在覆盖什么。",
                   file=sys.stderr)
         prov = {"channel": item["channel"], "candidate_ts": item["candidate_ts"], "seg": label}
+        if item.get("chosen_alt"):
+            prov["chosen_alt"] = item["chosen_alt"]  # 采纳的是第 N 条备选（P5 契约 v2）
         patch_row = {"id": cid, "zh": item["zh"], "reason": "polish",
                      "glossary_v": gv, "ts": item["decision_ts"], "prov": prov}
 

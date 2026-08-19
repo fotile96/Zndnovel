@@ -545,3 +545,58 @@ def test_adopt_changed_candidate_does_not_print_noop_note(mini, capsys):
     pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
     err = capsys.readouterr().err
     assert "空 diff" not in err
+
+
+# --- P5 契约 v2：chosen_alt 采纳路径 ---
+
+def _with_alt_candidate(tmp_path, chosen_alt, alt_zh="备选二号文本"):
+    m = _build_mini(tmp_path, decisions=[
+        {"id": 12, "verdict": "adopt", "chosen_channel": "chA",
+         "chosen_alt": chosen_alt, "edited_zh": None,
+         "reason_code": "queue_review", "ts": ADOPT_TS_11},
+    ])
+    append_jsonl(m.d / "candidates.chA.jsonl", [{
+        "id": 12, "channel": "chA", "batch": 1, "prompt_hash": "hash-1",
+        "jp_hash": "x", "opus_hash": "x", "zh": "主候选文本",
+        "score": 60, "note": "两可", "adjudicate": True,
+        "jp_tail": jp_tail(JP[12]), "ts": "t-alt",
+        "alts": [{"zh": "备选一号文本", "note": ""},
+                 {"zh": alt_zh, "note": "更贴"}],
+    }])
+    return m
+
+
+def test_adopt_chosen_alt_writes_alt_text_and_prov(tmp_path):
+    m = _with_alt_candidate(tmp_path, chosen_alt=2)
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    patches = read_jsonl(m.data_dir / "patches.jsonl")
+    p12 = by_id(patches, 12)
+    assert p12["zh"] == "备选二号文本"
+    assert p12["prov"]["chosen_alt"] == 2
+    assert p12["prov"]["channel"] == "chA"
+
+
+def test_adopt_chosen_alt_out_of_range_skipped(tmp_path, capsys):
+    m = _with_alt_candidate(tmp_path, chosen_alt=5)
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    patches = read_jsonl(m.data_dir / "patches.jsonl")
+    assert not [r for r in patches if r["id"] == 12]
+    assert "chosen_alt=5 越界" in capsys.readouterr().err
+
+
+def test_adopt_chosen_alt_bad_ruby_skipped(tmp_path, capsys):
+    m = _with_alt_candidate(tmp_path, chosen_alt=2, alt_zh="坏注音<汉字,>文本")
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    patches = read_jsonl(m.data_dir / "patches.jsonl")
+    assert not [r for r in patches if r["id"] == 12]
+    assert "ruby 不良构" in capsys.readouterr().err
+
+
+def test_adopt_without_chosen_alt_unchanged_behavior(tmp_path):
+    """无 chosen_alt 的 adopt 走主候选——回归护栏。"""
+    m = _with_alt_candidate(tmp_path, chosen_alt=None)
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    patches = read_jsonl(m.data_dir / "patches.jsonl")
+    p12 = by_id(patches, 12)
+    assert p12["zh"] == "主候选文本"
+    assert "chosen_alt" not in p12["prov"]

@@ -603,6 +603,56 @@ def bare_full(label, lane_dir, repo=None, min_len: int = BARE_MIN_LEN) -> list:
     return out
 
 
+def lane_drift(label, lane_dir, repo=None) -> list:
+    """**冻结面漂移体检**：冻结之后车道现行文本又变过的行。
+
+    背景：SEG 冻结后车道并不冻——phase 内的 glossary 迭代（recall 召回、
+    孪生修复、术语回改）会继续改现行文本。此时该 SEG 的候选是**对着旧基线**
+    产出的，若裁决直接采纳，就会把冻结后的新修正**静默回退**掉，而既有闸
+    一个都不会响（jp_tail 只核原文、gates 只看候选自身、triage 拿冻结面当
+    唯一基准）。
+
+    2026-08-19 首次实证：p5seg0 冻结后 `6118` 由孪生修复改过（v19 劈叉的
+    修正），而四条通道都对这一行提了改动提案——采纳任一条都会退回旧形。
+
+    返回 `[{id, frozen_zh, current_zh, proposals: [{channel, zh}...]}, ...]`，
+    并落盘 `lane_drift.json`。**顾问级**：漂移本身不是错，它只要求裁决者
+    按**现行文本**重判这些行，而不是按冻结面。
+    """
+    d = _dir_for(label, repo)
+    fz = d / "frozen" / "opus.jsonl"
+    if not fz.exists():
+        raise W4NotAvailable(f"{fz} 不存在——该 SEG 尚未冻结")
+    frozen = {r["id"]: r["zh"] for r in read_jsonl(fz)}
+    lane_dir = Path(lane_dir)
+    fwd_p, pat_p = (lane_dir / "data" / "forward.jsonl",
+                    lane_dir / "data" / "patches.jsonl")
+    if not fwd_p.exists():
+        raise W4NotAvailable(f"{fwd_p} 不存在，读不到车道现行文本")
+    cur = resolve_map(read_jsonl(fwd_p),
+                      read_jsonl(pat_p) if pat_p.exists() else [])
+    # 候选面：该 id 上各通道提了什么（有提案的漂移行才是真风险）
+    props = {}
+    for cp in sorted(d.glob("candidates.*.jsonl")):
+        ch = cp.name[len("candidates."):-len(".jsonl")]
+        last = {}
+        for r in read_jsonl(cp):
+            last[r["id"]] = r
+        for i, r in last.items():
+            if r.get("zh") is not None:
+                props.setdefault(i, []).append({"channel": ch, "zh": r["zh"]})
+
+    out = []
+    for i, fz_zh in sorted(frozen.items()):
+        if i in cur and cur[i] != fz_zh:
+            out.append({"id": i, "frozen_zh": fz_zh, "current_zh": cur[i],
+                        "proposals": props.get(i, [])})
+    (d / "lane_drift.json").write_text(
+        dumps({"lane": str(lane_dir), "drifted": len(out), "findings": out}),
+        encoding="utf-8")
+    return out
+
+
 def human_twin_scan(label, lane_dir, repo=None) -> list:
     """**人改孪生传播扫描**：本段人工亲手动过的行（verdict=edit、edited_zh
     非空、或同 id 复核轮二次裁决），其改动是否传播到了全库孪生。
@@ -691,6 +741,8 @@ def main(argv=None):
     ap.add_argument("--bare-full", action="store_true",
                      help="清关后全段**剥壳同句**复检（W4 的记号盲区补扫，"
                           "与 --channel 互斥，需要 --lane-dir）")
+    ap.add_argument("--lane-drift", action="store_true",
+                     help="冻结面漂移体检（冻结后车道又变过的行；与 --channel 互斥，需要 --lane-dir）")
     ap.add_argument("--human-twins", action="store_true",
                      help="人改孪生传播扫描（人工改动行的孪生是否同步，"
                           "与 --channel 互斥，需要 --lane-dir）")
@@ -702,6 +754,25 @@ def main(argv=None):
     ap.add_argument("--repo", default=None,
                      help="车道根目录（省略时用仓库根；测试用 tmp_path 传替身仓库）")
     args = ap.parse_args(argv)
+
+    if args.lane_drift:
+        if not args.lane_dir:
+            ap.error("--lane-drift 需要 --lane-dir（生产车道根，如 pilot/lanes/opus）")
+        try:
+            findings = lane_drift(args.seg, args.lane_dir, repo=args.repo)
+        except W4NotAvailable as e:
+            print(f"⚠ 冻结面漂移体检**未能执行**：{e}", file=sys.stderr)
+            return 2
+        risky = [v for v in findings if v["proposals"]]
+        for v in findings:
+            tag = f"，且有 {len(v['proposals'])} 条候选提案——裁决须按现行文本重判" if v["proposals"] else ""
+            print(f"  - id {v['id']}：冻结后车道已更新{tag}\n"
+                  f"      冻结|{v['frozen_zh'][:48]}\n      现行|{v['current_zh'][:48]}",
+                  file=sys.stderr)
+        print(f"lane-drift: {args.seg} 冻结后车道已变 {len(findings)} 行"
+              f"（其中 {len(risky)} 行有候选提案；顾问级，明细见 "
+              f"pilot/polish/{args.seg}/lane_drift.json）")
+        return 0
 
     if args.human_twins:
         if not args.lane_dir:

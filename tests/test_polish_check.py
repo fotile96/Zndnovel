@@ -794,3 +794,41 @@ def test_cli_human_twins(mini, tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr()
     assert "孪生未同步 1 处" in out.out
+
+
+# --- P5 工装：冻结面漂移体检（lane_drift） ---
+
+def test_lane_drift_reports_post_freeze_changes(mini, tmp_path):
+    """冻结后车道又改过的行报出，并带上该 id 的候选提案（真风险面）。"""
+    lane = _build_lane(tmp_path, ledger={i: JP[i] for i in JP},
+                        current={**DEFAULT_ZH, 10: "冻结之后被改成的新译文"})
+    findings = pcheck.lane_drift(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10]
+    assert findings[0]["current_zh"] == "冻结之后被改成的新译文"
+    assert findings[0]["frozen_zh"] == DEFAULT_ZH[10]
+    # 该 id 上确有候选（mini 夹具已入仓 chA 候选）→ proposals 非空
+    assert [p["channel"] for p in findings[0]["proposals"]] == ["chA"]
+    on_disk = json.loads((mini.d / "lane_drift.json").read_text(encoding="utf-8"))
+    assert on_disk["drifted"] == 1
+
+
+def test_lane_drift_green_when_lane_matches_freeze(mini, tmp_path):
+    lane = _build_lane(tmp_path, ledger={i: JP[i] for i in JP}, current=dict(DEFAULT_ZH))
+    assert pcheck.lane_drift(mini.label, lane, repo=mini.root) == []
+
+
+def test_lane_drift_unavailable_without_freeze(tmp_path):
+    lane = _build_lane(tmp_path, ledger={10: JP[10]}, current={10: DEFAULT_ZH[10]})
+    with pytest.raises(pcheck.W4NotAvailable):
+        pcheck.lane_drift("no-such-seg", lane, repo=tmp_path / "repo")
+
+
+def test_cli_lane_drift(mini, tmp_path, capsys):
+    lane = _build_lane(tmp_path, ledger={i: JP[i] for i in JP},
+                        current={**DEFAULT_ZH, 10: "冻结之后被改成的新译文"})
+    rc = pcheck.main(["--seg", mini.label, "--lane-drift",
+                       "--lane-dir", str(lane), "--repo", str(mini.root)])
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "冻结后车道已变 1 行" in out.out
+    assert "裁决须按现行文本重判" in out.err

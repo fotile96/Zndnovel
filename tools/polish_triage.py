@@ -777,6 +777,23 @@ def triage(label, repo=None) -> dict:
     return result
 
 
+def _load_lane_drift(d: Path) -> dict:
+    """`lane_drift.json`（polish_check --lane-drift 的产物）→ `{id: current_zh}`。
+
+    文件不存在＝没跑过体检，返回空字典（不阻断；queue.md 少一层警示而已）。
+    跑过且为空＝确实没漂移。两者在 queue.md 上的呈现相同，这是可接受的——
+    真正要防的是「漂移了却没人知道」，而那由段末必跑清单保证。
+    """
+    p = d / "lane_drift.json"
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {v["id"]: v.get("current_zh", "") for v in data.get("findings", [])}
+
+
 def _write_queue_md(d: Path, queue_ids, rows, id2jp, id2opus, forced_soft_ids=frozenset(),
                      forced_adjudicate_ids=frozenset()) -> None:
     """人读的裁决队列。同 id 的多通道候选并排列出；"为什么进队列"分四档：
@@ -793,14 +810,24 @@ def _write_queue_md(d: Path, queue_ids, rows, id2jp, id2opus, forced_soft_ids=fr
         if r["bucket"] == 2:
             by_id_rows.setdefault(r["id"], []).append(r)
 
+    drift = _load_lane_drift(d)
     lines = ["# 裁决队列\n", f"共 {len(queue_ids)} 个待裁 id（K 配额内，"
              "软锁/显式请裁强制进队列的 id 不计入 K 但同样列在下面）。\n"]
+    drifted_in_queue = [i for i in queue_ids if i in drift]
+    if drifted_in_queue:
+        lines.append(f"> ⚠ 本队列有 **{len(drifted_in_queue)}** 个 id 在冻结之后车道又更新过"
+                     f"（{drifted_in_queue}）——这些行的候选是**对着旧基线**产出的，"
+                     "裁决须按下方「现行译文（车道最新）」判，采纳候选前确认不会退回旧形。\n")
     for cid in queue_ids:
         group = sorted(by_id_rows.get(cid, []), key=lambda r: r["channel"])
         lines.append(f"## id {cid}\n")
         lines.append(f"- 日文原文：{id2jp.get(cid, '')}")
         opus_zh = id2opus.get(cid, "")
         lines.append(f"- 现行译文（opus）：{opus_zh}")
+        if cid in drift:
+            lines.append(f"- ⚠ **冻结后车道已更新**——现行译文（车道最新）：{drift[cid]}")
+            lines.append("  （下面各通道候选是对着上一行「冻结面」产出的，"
+                          "按车道最新文本重判；采纳前确认不是回退）")
         if cid in forced_soft_ids:
             reason = "软锁改动（锚点行，强制进入队列，不受 K 名额影响）"
         elif cid in forced_adjudicate_ids:

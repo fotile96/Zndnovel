@@ -1077,3 +1077,23 @@ def test_triage_rows_carry_noop(mini):
     assert row11["noop"] is False
     row10 = next(x for x in r["rows"] if x["id"] == 10 and x["channel"] == "chA")
     assert row10["noop"] is True
+
+
+def test_queue_md_warns_on_lane_drift(mini):
+    """queue.md 必须在做决定的地方警示漂移行，并给出车道最新文本。"""
+    (mini.d / "lane_drift.json").write_text(dumps({
+        "lane": "x", "drifted": 1,
+        "findings": [{"id": 11, "frozen_zh": OPUS[11],
+                      "current_zh": "冻结之后车道改成的新译文", "proposals": []}],
+    }), encoding="utf-8")
+    pt.triage(LABEL, repo=mini.root)
+    q = (mini.d / "queue.md").read_text(encoding="utf-8")
+    assert "冻结后车道已更新" in q
+    assert "冻结之后车道改成的新译文" in q
+    assert "个 id 在冻结之后车道又更新过" in q
+
+
+def test_queue_md_no_drift_section_when_file_absent(mini):
+    pt.triage(LABEL, repo=mini.root)
+    q = (mini.d / "queue.md").read_text(encoding="utf-8")
+    assert "冻结后车道已更新" not in q

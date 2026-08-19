@@ -320,15 +320,25 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
         if (cid, decision_ts) in committed:
             continue
         channel = dec.get("chosen_channel")
+        # `edit` 允许没有 chosen_channel（2026-08-20 修）：P4 时期的人工编辑总是
+        # "先挑一条通道候选再改"，于是这里把 chosen_channel 当必填；但 P5 的裁决
+        # UI 支持**纯人工编辑**——人读了原文自己写一版，不以任何通道候选为底本，
+        # 这类决定天然没有通道可指。旧逻辑会把它们**静默跳过**（p5seg0 实测 35 条
+        # 人工编辑里 32 条被这样丢掉，而 dry-run 只在 stderr 刷一行"跳过"，
+        # 总数对不上才发现）。`adopt` 仍必须带 chosen_channel——它的语义就是
+        # "采纳某通道的那一版"，没有通道就无从谈起。
         if not channel:
-            print(f"!! polish_commit: id={cid} verdict={verdict}（ts={decision_ts}）缺 "
-                  "chosen_channel，无法回指候选来源，跳过", file=sys.stderr)
-            continue
-        cand = last_candidate(channel, cid)
-        if cand is None:
-            print(f"!! polish_commit: id={cid} 在 candidates.{channel}.jsonl 里找不到候选"
-                  f"（verdict={verdict}，ts={decision_ts}），跳过", file=sys.stderr)
-            continue
+            if verdict != "edit":
+                print(f"!! polish_commit: id={cid} verdict={verdict}（ts={decision_ts}）缺 "
+                      "chosen_channel，无法回指候选来源，跳过", file=sys.stderr)
+                continue
+            cand = None
+        else:
+            cand = last_candidate(channel, cid)
+            if cand is None:
+                print(f"!! polish_commit: id={cid} 在 candidates.{channel}.jsonl 里找不到候选"
+                      f"（verdict={verdict}，ts={decision_ts}），跳过", file=sys.stderr)
+                continue
         if verdict == "adopt":
             # P5 契约 v2：chosen_alt=N（1-based，queue.md 的「备选N」编号）时
             # 采纳该备选而非主候选。备选在入仓时只过了轻量结构闸（【】对齐
@@ -356,8 +366,8 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
                 continue
         plan.append({
             "id": cid, "verdict": verdict, "decision_ts": decision_ts,
-            "channel": channel, "candidate_ts": cand.get("ts"),
-            "prompt_hash": cand.get("prompt_hash"), "zh": zh,
+            "channel": channel, "candidate_ts": cand.get("ts") if cand else None,
+            "prompt_hash": cand.get("prompt_hash") if cand else None, "zh": zh,
             "chosen_alt": dec.get("chosen_alt") if verdict == "adopt" else None,
             "needs_new_decision_row": False, "decision_row": None,
         })

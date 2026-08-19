@@ -600,3 +600,32 @@ def test_adopt_without_chosen_alt_unchanged_behavior(tmp_path):
     p12 = by_id(patches, 12)
     assert p12["zh"] == "主候选文本"
     assert "chosen_alt" not in p12["prov"]
+
+
+def test_edit_without_chosen_channel_is_committed(tmp_path):
+    """纯人工编辑（不以任何通道候选为底本）没有 chosen_channel，必须照常清关。
+
+    2026-08-20 修复的真缺陷：旧逻辑把 chosen_channel 当 adopt/edit 共同必填，
+    于是 P5 裁决 UI 产出的纯人工编辑被**静默跳过**——p5seg0 实测 35 条编辑里
+    32 条这样丢掉，dry-run 只在 stderr 刷一行「跳过」，是总数对不上才发现的。
+    """
+    m = _build_mini(tmp_path, decisions=[
+        {"id": 12, "verdict": "edit", "chosen_channel": None, "edited_zh": "人手写的一版",
+         "reason_code": "其他", "ts": ADOPT_TS_11},
+    ])
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    p12 = by_id(read_jsonl(m.data_dir / "patches.jsonl"), 12)
+    assert p12["zh"] == "人手写的一版"
+    assert p12["prov"]["channel"] is None       # 无通道来源，如实记录
+    assert p12["prov"]["candidate_ts"] is None
+
+
+def test_adopt_without_chosen_channel_still_skipped(tmp_path, capsys):
+    """adopt 缺 chosen_channel 仍必须跳过——它的语义就是「采纳某通道的那一版」。"""
+    m = _build_mini(tmp_path, decisions=[
+        {"id": 12, "verdict": "adopt", "chosen_channel": None, "edited_zh": None,
+         "reason_code": "", "ts": ADOPT_TS_11},
+    ])
+    pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
+    assert not [r for r in read_jsonl(m.data_dir / "patches.jsonl") if r["id"] == 12]
+    assert "缺 chosen_channel" in capsys.readouterr().err

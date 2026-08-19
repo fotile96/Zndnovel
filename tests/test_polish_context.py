@@ -501,3 +501,11 @@ def test_render_carries_p5_additions(mini_seg_render):
     assert "可选字段 `alts`" in text
     assert "至多 **2 条**备选候选" in text
     assert "v19 修订豁免清单不得回改" in text
+
+
+def test_render_carries_zero_change_obligation(mini_seg_render):
+    """守门条款的配平：零改动批须附批末说明（影子实测 0 改动事故的对策）。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "不是\"不确定就别动\"的许可证" in text
+    assert "整批零改动时" in text
+    assert "批末说明" in text

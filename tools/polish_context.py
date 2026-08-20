@@ -455,7 +455,13 @@ def render(label, session_no, repo=None) -> str:
     for b in batches:
         out.append(f"- `raw/<channel>/b{b}.out`")
 
-    return "\n".join(out)
+    # ⚠ 结尾必须留换行（2026-08-21 修）：prompt 的最后一行正是输出契约里
+    # **最后一个批**的文件名。没有末尾换行时，按行消费这个文件的读法会把它
+    # 整行丢掉——p5seg2 会话 4 实测：glm-5.3 的执行体读完后认定清单只有
+    # b88.out/b89.out（真实清单是 b88/b89/b90），于是漏产 b90.out，而且它
+    # 还专门为「正文有 b90、清单没有 b90」纠结了一长段。通道没有做错，
+    # 是这个文件少了一个字节。
+    return "\n".join(out) + "\n"
 
 
 def main(argv=None):

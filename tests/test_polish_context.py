@@ -534,3 +534,12 @@ def test_render_jp_tail_counts_closing_quote(mini_seg_render):
     各栽 29/18 行，错法全是把 `」` 略过不计。"""
     text = pc.render("segX", 1, repo=mini_seg_render.root)
     assert "闭合引号" in text and "同样算一个字符" in text
+
+
+def test_prompt_ends_with_newline(mini_seg_render):
+    """prompt 末尾必须有换行——最后一行正是输出契约里**最后一个批**的文件名，
+    少了换行会被按行消费的读法整行丢掉。p5seg2 会话 4 实测：清单是
+    b88/b89/b90，glm-5.3 的执行体读完认定只有 b88/b89，于是漏产 b90.out。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert text.endswith("\n"), "prompt 结尾缺换行"
+    assert text.rstrip("\n").splitlines()[-1] == "- `raw/<channel>/b2.out`"

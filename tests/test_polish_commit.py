@@ -629,3 +629,79 @@ def test_adopt_without_chosen_channel_still_skipped(tmp_path, capsys):
     pc.commit(LABEL, m.data_dir, dry_run=False, repo=m.root)
     assert not [r for r in read_jsonl(m.data_dir / "patches.jsonl") if r["id"] == 12]
     assert "缺 chosen_channel" in capsys.readouterr().err
+
+
+# ---- 改判与撤回：同 id 取最后一条，keep 能撤掉已经落地的 patch ----
+# 2026-08-20 从 p5seg0-s0-s1 真实数据里发现：7 个 id 被人从 adopt 改判成
+# keep_opus，但 keep 不产生 patch，撤不掉前面那条已经落地的——6 条车道文本
+# 一直停在被撤回的那一版上，全程零告警。下面四条测试钉住修好后的语义。
+
+KEEP_TS = "2026-08-02T00:00:00+00:00"
+
+
+def _keep_row(cid, ts=KEEP_TS):
+    return {"id": cid, "verdict": "keep_opus", "chosen_channel": None,
+            "edited_zh": None, "reason_code": "", "ts": ts}
+
+
+def test_superseded_adopt_never_lands(tmp_path):
+    """adopt 后改判 keep，且 adopt 从没落过地——一条 patch 都不该写。"""
+    mini = _build_mini(tmp_path, decisions=[
+        {"id": 11, "verdict": "adopt", "chosen_channel": "chA",
+         "edited_zh": None, "reason_code": "queue_review", "ts": ADOPT_TS_11},
+        _keep_row(11),
+    ])
+    result = pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    assert 11 not in [r["id"] for r in result]
+    patches = read_jsonl(mini.data_dir / "patches.jsonl")
+    assert [p for p in patches if p["id"] == 11] == []
+
+
+def test_keep_after_landed_adopt_retracts(mini):
+    """adopt 已经落地之后才改判 keep——必须补一条回退到冻结面的 patch。"""
+    pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    landed = [p for p in read_jsonl(mini.data_dir / "patches.jsonl") if p["id"] == 11]
+    assert len(landed) == 1 and landed[0]["zh"] == CAND_CHA[11]
+
+    append_jsonl(mini.d / "decisions.jsonl", [_keep_row(11, ts="2099-01-01T00:00:00+00:00")])
+    result2 = pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    assert [r["id"] for r in result2] == [11]
+
+    patches = read_jsonl(mini.data_dir / "patches.jsonl")
+    id11 = [p for p in patches if p["id"] == 11]
+    assert len(id11) == 2
+    assert id11[-1]["zh"] == OPUS[11]
+    assert id11[-1]["prov"]["retract"] is True
+    # resolve 的"后写者胜"：最终生效译文回到冻结面 opus 原文
+    assert resolve_map([], patches)[11] == OPUS[11]
+
+    # 幂等：再跑一次不再追加
+    assert pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root) == []
+
+
+def test_retract_refuses_when_line_drifted(mini, capsys):
+    """撤回只管本 SEG 自己落的那条；这一行在润色期间被别的会话改过就拒绝。"""
+    pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    (mini.d / "lane_drift.json").write_text(dumps(
+        {"lane": "x", "drifted": 1,
+         "findings": [{"id": 11, "frozen_zh": OPUS[11], "current_zh": "别的会话改的"}]}),
+        encoding="utf-8")
+    append_jsonl(mini.d / "decisions.jsonl", [_keep_row(11, ts="2099-01-01T00:00:00+00:00")])
+
+    result2 = pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    assert 11 not in [r["id"] for r in result2]
+    assert "lane_drift.json" in capsys.readouterr().err
+
+
+def test_repeated_adopt_only_last_lands(tmp_path):
+    """同 id 连着两条 adopt（改判改回来）：只落最后一条，不留中间态。"""
+    mini = _build_mini(tmp_path, decisions=[
+        {"id": 11, "verdict": "adopt", "chosen_channel": "chA",
+         "edited_zh": None, "reason_code": "", "ts": ADOPT_TS_11},
+        {"id": 11, "verdict": "edit", "chosen_channel": None,
+         "edited_zh": "人工最终版。", "reason_code": "", "ts": KEEP_TS},
+    ])
+    pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    id11 = [p for p in read_jsonl(mini.data_dir / "patches.jsonl") if p["id"] == 11]
+    assert len(id11) == 1
+    assert id11[0]["zh"] == "人工最终版。"

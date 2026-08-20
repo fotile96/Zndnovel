@@ -113,6 +113,37 @@ channel_state 有更新），如果每次都对同一个 autoclear 候选铸造�
 针对这个 id 重新提交过候选），则视为一个新的自动清关事实，铸造新决策——
 这与"同一 id 先 auto 后人工改判都要能落地"是同一套原则的自然延伸。
 
+## 改判与撤回：同 id 取最后一条，keep 能撤掉已经落地的 patch
+
+`decisions.jsonl` 是 append-only 的，改判＝追加一行、读时同 id 取最后一条
+（裁决 UI 的草稿也是这个语义）。本模块最初**逐行**处理每条 adopt/edit，
+靠 `patches.jsonl` 的"后写者胜"让最后一条自然生效——adopt→adopt、
+adopt→edit 都对，唯独**撤回**（adopt→keep_opus）不对：`keep` 不产生任何
+patch，于是撤不掉前面那条已经落地的，而且全程零告警。
+
+2026-08-20 实测 `p5seg0-s0-s1`：492 行决策里 20 个 id 被改判过，其中 7 个
+的最后一条是 `keep_opus`；这 7 条里 6 条的车道文本一直停在**被人撤回的
+那一版**上（第 7 条 7137 恰好前后等价）。这正是「恒绿的安全闸」那类病的
+变体——不是闸报错了，是根本没有闸。
+
+现在两步处理：
+
+1. **同 id 只认最后一条裁决**（`last_ruling_idx`）。顺带消掉 adopt→adopt
+   这种改判在 `patches.jsonl` 里留下的冗余中间态。
+2. **撤回路径**（`verdict="retract"`）：最后一条是 `keep_opus`/`keep`，而
+   `committed.json` 里存在该 id 一条更早的 adopt/edit/auto——说明本 SEG
+   确实为它落过 patch——就追加一条内容为**冻结面 opus 原文**的 patch 把它
+   撤回，`prov.retract=True` 标明这不是一次采纳。幂等键用那条 keep 决策的
+   `ts`。
+
+撤回的射程严格限制在"本 SEG 自己落的 patch"上：
+- 判据是 `committed.json` 有记录，不是"车道文本和冻结面不一样"；
+- 命中 `lane_drift.json`（润色期间别的会话改过这一行）一律**拒绝**并告警
+  ——撤回冻结面会把别人的改动一起抹掉，那是越权；
+- 车道现值已经等于冻结面就静默跳过（没有东西要撤）；
+- 冻结后的人裁 patch 冲突闸里，`retract` 与 `auto` 同级——一律拒写。撤回
+  是机械回退，不具备"有人正看着这一行"的资格。
+
 ## 多通道同一 id 都自动清关时，选哪个通道的译文
 
 `triage()` 的"id 级 all-or-nothing"规则允许同一 id 下**多个**通道的候选
@@ -224,6 +255,29 @@ def _announce_prior(cid, data_dir, *, tag) -> list:
     return prior
 
 
+def _drifted_ids(d: Path) -> set:
+    """本 SEG 冻结之后被别的会话改过的 id（`polish_check --lane-drift` 的产物）。
+    读不到就返回空集——撤回路径会因此少一层保护，但读不到文件本身不该阻断
+    清关；真正的兜底是撤回只对 `committed.json` 里有记录的 id 生效。"""
+    p = d / "lane_drift.json"
+    if not p.exists():
+        return set()
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return set()
+    return {f.get("id") for f in data.get("findings", [])}
+
+
+def _lane_map(data_dir: Path) -> dict:
+    """车道现行译文表（forward + patches 解析后）。撤回前用它判断"还有没有
+    东西要撤"——车道现值已经等于冻结面就什么都不做，避免写空 diff patch。"""
+    from tools.resolve import resolve_map
+    fw = read_jsonl(Path(data_dir) / "forward.jsonl")
+    pt = read_jsonl(Path(data_dir) / "patches.jsonl")
+    return resolve_map(fw, pt)
+
+
 HUMAN_REASONS = ("review", "recall")
 
 
@@ -306,12 +360,29 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
 
     plan = []  # 统一计划项，见模块 docstring；处理前按 decision_ts 排序
 
+    # ---- 同 id 多条裁决：只有最后一条算数（append-only 改判语义）----
+    # `decisions.jsonl` 和裁决 UI 的草稿一样是 append-only——人改判就追加一行，
+    # 读的时候同 id 取最后一条。本模块此前**逐行**处理，靠 patches.jsonl 的
+    # "后写者胜"让最后一条自然生效。那对 adopt→adopt / adopt→edit 是成立的，
+    # 但对**撤回**（adopt→keep_opus）根本不成立：keep 不产生 patch，撤不掉
+    # 前面那条已经落地的。2026-08-20 实测 p5seg0-s0-s1 有 7 个 id 是这种改判，
+    # 其中 6 条的车道文本一直停在被人撤回的那一版上，且全程零告警。
+    # 修法两步：这里先只认最后一条（顺带消掉 adopt→adopt 的冗余 patch），
+    # 下面再补一条"撤回"路径去追回已经落地的那些。
+    RULING_VERDICTS = ("adopt", "edit", "keep_opus", "keep")
+    last_ruling_idx = {}
+    for i, dec in enumerate(decisions):
+        if dec.get("verdict") in RULING_VERDICTS:
+            last_ruling_idx[dec.get("id")] = i
+
     # ---- 来源①：decisions.jsonl 里 verdict in {adopt, edit} 的既有人工裁决 ----
-    for dec in decisions:
+    for i, dec in enumerate(decisions):
         verdict = dec.get("verdict")
         if verdict not in ("adopt", "edit"):
             continue
         cid = dec.get("id")
+        if last_ruling_idx.get(cid) != i:
+            continue  # 被同 id 的后续裁决取代，不再落地
         decision_ts = dec.get("ts")
         if decision_ts is None:
             print(f"!! polish_commit: id={cid} verdict={verdict} 的 decision 缺 ts，跳过",
@@ -369,6 +440,50 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
             "channel": channel, "candidate_ts": cand.get("ts") if cand else None,
             "prompt_hash": cand.get("prompt_hash") if cand else None, "zh": zh,
             "chosen_alt": dec.get("chosen_alt") if verdict == "adopt" else None,
+            "needs_new_decision_row": False, "decision_row": None,
+        })
+
+    # ---- 撤回：最后一条是 keep，但本 SEG 早先已经为这个 id 落过 patch ----
+    # 只在"本 SEG 自己落的 patch"上生效：判据是 `committed.json` 里存在该 id
+    # 的一条早于这次 keep 的决策。别的会话在润色期间对同一行做的正当改动
+    # （lane_drift 记录的那些）不在撤回射程内——那不是本 SEG 的作为，撤它
+    # 就成了越权覆盖，故命中漂移一律拒绝并告警，交给人处理。
+    drift_ids = _drifted_ids(d)
+    lane_now = _lane_map(data_dir)
+    for cid, i in sorted(last_ruling_idx.items(),
+                         key=lambda kv: (kv[1], kv[0] if isinstance(kv[0], int) else 0)):
+        dec = decisions[i]
+        if dec.get("verdict") not in ("keep_opus", "keep"):
+            continue
+        keep_ts = dec.get("ts")
+        if keep_ts is None:
+            print(f"!! polish_commit: id={cid} verdict={dec.get('verdict')} 缺 ts，"
+                  "无法判定撤回，跳过", file=sys.stderr)
+            continue
+        landed = [x for x in decisions[:i]
+                  if x.get("id") == cid
+                  and x.get("verdict") in ("adopt", "edit", "auto")
+                  and (cid, x.get("ts")) in committed]
+        if not landed:
+            continue  # 前面那些裁决从没落过地，keep 本来就是"什么都不做"
+        if (cid, keep_ts) in committed:
+            continue  # 这次撤回已经执行过
+        target = id2opus.get(cid)
+        if target is None:
+            print(f"!! polish_commit: id={cid} 需要撤回，但冻结面 opus.jsonl 里没有"
+                  "这个 id，无法确定要回退到什么文本，跳过", file=sys.stderr)
+            continue
+        if cid in drift_ids:
+            print(f"!! polish_commit: id={cid} 需要撤回，但它在 lane_drift.json 里"
+                  "——冻结之后有别的会话改过这一行，回退冻结面会把那次改动一起"
+                  "抹掉。跳过，请人工确认要回到哪一版。", file=sys.stderr)
+            continue
+        if _ws_equal(lane_now.get(cid), target):
+            continue  # 车道现值已经等于冻结面，没有要撤的东西
+        plan.append({
+            "id": cid, "verdict": "retract", "decision_ts": keep_ts,
+            "channel": None, "candidate_ts": None, "prompt_hash": None,
+            "zh": target, "chosen_alt": None,
             "needs_new_decision_row": False, "decision_row": None,
         })
 
@@ -444,8 +559,8 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
                       f"（最近一条 reason={last.get('reason')} ts={last.get('ts')}）\n"
                       f"{tag}   人裁现行译文：{str(last.get('zh', ''))[:60]}\n"
                       f"{tag}   本次拟写入：{str(item['zh'])[:60]}")
-            if item["verdict"] == "auto":
-                print(f"{tag} ✗ 拒绝写入（自动清关不得覆盖冻结后的人工裁决）：{detail}\n"
+            if item["verdict"] in ("auto", "retract"):
+                print(f"{tag} ✗ 拒绝写入（自动清关/撤回不得覆盖冻结后的人工裁决）：{detail}\n"
                       f"{tag}   ——这条候选是基于冻结时点的旧 opus 产出的，人裁已经在它"
                       "之后改过这一行。要落它必须走人工裁决（在 decisions.jsonl 里显式"
                       f"给一条 adopt/edit），由人确认是否真的要覆盖 id {cid} 的裁定稿。",
@@ -457,14 +572,22 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
         prov = {"channel": item["channel"], "candidate_ts": item["candidate_ts"], "seg": label}
         if item.get("chosen_alt"):
             prov["chosen_alt"] = item["chosen_alt"]  # 采纳的是第 N 条备选（P5 契约 v2）
+        if item["verdict"] == "retract":
+            # 这条 patch 不是"采纳了谁"，而是"把本 SEG 早先落的那条撤回"——
+            # 内容是冻结面 opus 原文。标出来，免得下游把它当成一次正常采纳。
+            prov["retract"] = True
         patch_row = {"id": cid, "zh": item["zh"], "reason": "polish",
                      "glossary_v": gv, "ts": item["decision_ts"], "prov": prov}
 
         print(f"{tag} id={cid} verdict={item['verdict']} 渠道={item['channel']} "
               f"glossary_v={gv} ts={item['decision_ts']}", file=sys.stderr)
-        print(f"{tag}   倒查链：id {cid} → 候选({item['channel']}, "
-              f"ts={item['candidate_ts']}) → prompt_hash={item['prompt_hash']}",
-              file=sys.stderr)
+        if item["verdict"] == "retract":
+            print(f"{tag}   撤回：本 SEG 早先为这个 id 落过 patch，但最后一条裁决是 "
+                  "keep——回退到冻结面 opus 原文。", file=sys.stderr)
+        else:
+            print(f"{tag}   倒查链：id {cid} → 候选({item['channel']}, "
+                  f"ts={item['candidate_ts']}) → prompt_hash={item['prompt_hash']}",
+                  file=sys.stderr)
         print(f"{tag}   zh：{item['zh']}", file=sys.stderr)
         # D3 信息级提示（不阻断）：人工裁决（adopt/edit）落地的文本若与冻结
         # 时点 opus 逐字相同，这是一条"空 diff"patch——常见于零改动+请裁

@@ -527,3 +527,10 @@ def test_render_alts_has_concrete_triggers(mini_seg_render):
     assert "你已经想到了两种都站得住" in text
     assert "同一处病灶有两种修法" in text
     assert "不是给备选的理由" in text          # 反面也要写明
+
+
+def test_render_jp_tail_counts_closing_quote(mini_seg_render):
+    """jp_tail 的边界规则必须点明行尾闭合引号算字符——p5seg1 b56 上两条通道
+    各栽 29/18 行，错法全是把 `」` 略过不计。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "闭合引号" in text and "同样算一个字符" in text

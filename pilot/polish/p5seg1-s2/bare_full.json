@@ -1,1 +1,1 @@
-{"lane":"pilot/lanes/opus","min_len":10,"findings":[{"id":3091,"rule":"BARE","msg":"剥壳同句族内不一致（记号壳不同、正文相同，W4 看不见；共 1 个其他成员）：id=3340@seg2-s3 作「嗯。什么样的卡片？」","bare_jp":"うん。どんなカード？","siblings":[{"id":3340,"jp":"【直哉】「うん。どんなカード？」","zh":"【直哉】「嗯。什么样的卡片？」","seg":"seg2-s3"}]}]}
+{"lane":"pilot/lanes/opus","min_len":10,"findings":[]}

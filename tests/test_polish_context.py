@@ -518,3 +518,12 @@ def test_render_marks_notes_as_historical(mini_seg_render):
     if "## 章节纪要" in text:          # 该夹具有 notes 时才断言
         assert "历史记录，不是现行口径" in text
         assert "不必为此请裁" in text
+
+
+def test_render_alts_has_concrete_triggers(mini_seg_render):
+    """alts 的触发条件必须是可对号入座的实例，不是抽象名目——SEG-1 四通道
+    零触发，说明「两可取义/语气档位」这类措辞没给出可判断的形态。"""
+    text = pc.render("segX", 1, repo=mini_seg_render.root)
+    assert "你已经想到了两种都站得住" in text
+    assert "同一处病灶有两种修法" in text
+    assert "不是给备选的理由" in text          # 反面也要写明

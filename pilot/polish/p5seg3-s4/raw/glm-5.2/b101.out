@@ -1,0 +1,33 @@
+{"id": 13627, "jp_tail": "その時だった。", "zh": "就在那时。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13628, "jp_tail": "チ】「……ん？」", "zh": "【Yuichi】「……嗯？」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13629, "jp_tail": "ような気がした。", "zh": "一瞬间，总觉得窗外有什么东西动了一下。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13630, "jp_tail": "……外？", "zh": "……外面？", "score": 95, "note": "", "adjudicate": false}
+{"id": 13631, "jp_tail": "度目をこらした。", "zh": "我走近窗户，又一次凝神细看。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13632, "jp_tail": "そこの場所は――", "zh": "我记得，是右斜上方――那个地方是――", "score": 88, "note": "", "adjudicate": false}
+{"id": 13633, "jp_tail": "屋上？", "zh": "天台？", "score": 95, "note": "", "adjudicate": false}
+{"id": 13634, "jp_tail": "目を凝らすと――", "zh": "的确，凝神细看之下――", "score": 95, "note": "软锁：逐字照抄opus。", "adjudicate": false}
+{"id": 13635, "jp_tail": "人影が見える。", "zh": "能看见人影。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13636, "jp_tail": "あの背格好は――", "zh": "从这里看不清脸。可是，那个身形――", "score": 88, "note": "", "adjudicate": false}
+{"id": 13637, "jp_tail": "チ】「アヤノ？」", "zh": "【Yuichi】「Ayano？」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13638, "jp_tail": "だとしたらなぜ。", "zh": "不会吧。可是，如果是那样，为什么。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13639, "jp_tail": "ようにも見える。", "zh": "看上去也像是垂着头，蹲坐在那里。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13640, "jp_tail": "は立ち上がった。", "zh": "正想再好好确认一次的时候，那个人突然站了起来。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13641, "jp_tail": "】「あれは――」", "zh": "【Yuichi】「那是――」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13642, "jp_tail": "アヤノ……！", "zh": "Ayano……！", "score": 88, "note": "", "adjudicate": false}
+{"id": 13643, "jp_tail": "スを乗り越えて。", "zh": "Ayano就在天台的边缘。_n而且，还翻过了围栏。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13644, "jp_tail": "前に進めば……！", "zh": "也就是说，只要，再，往前迈几步……！", "score": 88, "note": "", "adjudicate": false}
+{"id": 13645, "jp_tail": "下を走り出した。", "zh": "视线仍朝着天台，我在走廊上跑了起来。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13646, "jp_tail": "】「アヤノ……」", "zh": "【Yuichi】「Ayano……」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13647, "jp_tail": "ノが屋上にいる？", "zh": "为什么，Ayano会在天台上？", "score": 88, "note": "", "adjudicate": false}
+{"id": 13648, "jp_tail": "乗り越えている？", "zh": "为什么，翻过了围栏？", "score": 88, "note": "", "adjudicate": false}
+{"id": 13649, "jp_tail": "なぜ――", "zh": "为什么――", "score": 95, "note": "", "adjudicate": false}
+{"id": 13650, "jp_tail": "――わからない。", "zh": "――不明白。", "score": 88, "note": "『为什么在天台』是想不通位（v17 默认读『不明白』），与 13652『不知道』分治。", "adjudicate": false}
+{"id": 13651, "jp_tail": "ツを止めないと！", "zh": "――虽然不明白，可现在总之得阻止那家伙才行！", "score": 88, "note": "アイツ→那家伙：惊恐中的去人称化；『不明白』随 13650 同组。", "adjudicate": false}
+{"id": 13652, "jp_tail": "くかわからない。", "zh": "声音从这里能不能传到，不知道。", "score": 60, "note": "§0 取义请裁：声音能否传到是『无从获知』的信息缺口（隔着校舍、听不见），按 glossary v17 第三读取『不知道』；opus『不明白』偏『想不通』方向。zh 放建议稿。", "adjudicate": true}
+{"id": 13653, "jp_tail": "。何かしないと。", "zh": "虽然不知道，但总之。得做点什么才行。", "score": 55, "note": "§0 取义请裁：此处的わからない紧承上一行（声音能否传到），随 13652 同取『不知道』；13650/13651（她为何在天台＝想不通）维持『不明白』——两组疑问按 v17 判据分治。若裁此行属『为什么』一族，则单独回改本行即可。", "adjudicate": true}
+{"id": 13654, "jp_tail": "伝えないと。", "zh": "得传达过去才行。", "score": 55, "note": "『传达到』缺方向补语悬空，改『传达过去』，保住与上行『得做点什么才行』的『得…才行』节奏。", "adjudicate": false}
+{"id": 13655, "jp_tail": "は力一杯叫んだ。", "zh": "我用尽全力喊了出来。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13656, "jp_tail": "チ】「アヤ――」", "zh": "【Yuichi】「Aya――」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13657, "jp_tail": "その時だった。", "zh": "就在那时。", "score": 88, "note": "", "adjudicate": false}
+{"id": 13658, "jp_tail": "ゆらりと動き――", "zh": "Ayano的身体晃悠悠地动了一下――", "score": 88, "note": "", "adjudicate": false}
+{"id": 13827, "jp_tail": "アヤノ……。", "zh": "Ayano……", "score": 95, "note": "软锁：逐字照抄opus。", "adjudicate": false}

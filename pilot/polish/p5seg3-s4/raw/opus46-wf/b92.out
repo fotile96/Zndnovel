@@ -1,0 +1,13 @@
+{"id": 13454, "jp_tail": "…わかんないよ」", "zh": "【Ayano】「不，就算你问我这个……我也不知道啦」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13455, "jp_tail": "じゃないんだな」", "zh": "【Yuichi】「真的不是Ayano你干的啊」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13456, "jp_tail": " 私じゃないよ」", "zh": "【Ayano】「真是的！ 你烦不烦啊！ 不是我啦」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13457, "jp_tail": "ってみようかな」", "zh": "【Yuichi】「唔——。嘛，反正好像挺有意思的，我就上去瞧一眼吧」", "score": 85, "note": "§14 「上去瞧一眼」比「上去看看」更贴 ちょっくら 的随意口吻，但 opus 的「上去瞧一眼」已到位，维持。", "adjudicate": false}
+{"id": 13458, "jp_tail": "って、屋上に？」", "zh": "【Ayano】「你说去，是去天台？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13459, "jp_tail": "ウイチは頷いた。", "zh": "Yuichi点了点头。", "score": 95, "note": "", "adjudicate": false}
+{"id": 13460, "jp_tail": "と思うけど……」", "zh": "【Ayano】「嘛，既然Yuichi你说想去，那去就是了……」", "score": 92, "note": "软锁。style.md §4 P5 补提及此行（#13460）为と思う 外显思维动词被语气词消化的实例。opus 已实现，维持。", "adjudicate": false}
+{"id": 13461, "jp_tail": "いうちに帰れよ」", "zh": "【Yuichi】「那，我走了，Ayano。趁天还没黑早点回去啊」", "score": 85, "note": "§9(a) 语序微调：原文先道别再叮嘱，opus 译「那，我走了，Ayano」把道别前置，顺口，维持。", "adjudicate": false}
+{"id": 13462, "jp_tail": "ユウイチもね！」", "zh": "【Ayano】「好啦好啦，Yuichi你也是！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13463, "jp_tail": "のぼっていった。", "zh": "Yuichi留下这句话，便顺着楼梯上去了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 13464, "jp_tail": "ろそろ夕暮れだ。", "zh": "Ayano望向窗外。差不多快到傍晚了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 13465, "jp_tail": "おけばいいや）」", "zh": "【Ayano】「（嘛……那家伙的事，就先别管他了吧）」", "score": 90, "note": "あいつ→那家伙。ayano_story 口调表确认 あいつ 在アヤノ口中是亲昵调侃。", "adjudicate": false}
+{"id": 13466, "jp_tail": "てみようかな）」", "zh": "【Ayano】「（差不多，该去「小菊」那边看看了吧）」", "score": 90, "note": "きくちゃん→小菊，active.json 未收但全线已定，沿用。", "adjudicate": false}

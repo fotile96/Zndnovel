@@ -508,6 +508,32 @@ def main(argv=None):
             sess = next(s for s in plan(args.seg, repo=args.repo) if s["session"] == args.session)
             plan_path = _dir_for(args.seg, args.repo) / "plan.json"
             records = json.loads(plan_path.read_text(encoding="utf-8")) if plan_path.exists() else []
+
+            # ⚠ 已点火 SEG 的 prompt_hash 不得被静默改写（2026-08-23 加闸）。
+            # plan.json 是**溯源台账**：candidates 行里的 prompt_hash 是 ingest
+            # 当时从这里查出来的，指向执行通道真正读过的那一版 prompt。
+            # 重跑一次 `--session N --out …`（哪怕 --out 指向别的路径）就会把这一
+            # 条覆盖成"现在这一刻渲染出来的"哈希——而 render 的产物会随 glossary、
+            # polish.md、rulings、乃至工具自身的排版修复而变。p5seg2 实测：
+            # 会话 1 的 hash 被改写成 40ab2e7c→cac0ec06，而 raw 里那批候选记的
+            # 仍是 40ab2e7c，溯源链当场对不上（本次已 git checkout 恢复）。
+            prior = next((r for r in records if r.get("session") == args.session), None)
+            if prior and prior.get("prompt_hash") != digest:
+                d = _dir_for(args.seg, args.repo)
+                fired = sorted(d.glob("candidates.*.jsonl"))
+                if fired:
+                    print(
+                        f"!! polish_context: 拒绝改写 plan.json——{args.seg} 会话 "
+                        f"{args.session} 已记录 prompt_hash={prior['prompt_hash'][:16]}…，"
+                        f"本次渲染得到 {digest[:16]}…，而本段已有候选入仓"
+                        f"（{', '.join(p.name for p in fired)}）。\n"
+                        "   那些候选行里的 prompt_hash 指的是通道真正读过的那一版，"
+                        "覆盖 plan.json 会让溯源链对不上且**没有任何报错**。\n"
+                        "   prompt 文件已按 --out 写出，plan.json 保持不变；确需重建"
+                        "溯源基准请先作废该段候选。", file=sys.stderr)
+                    print(digest)
+                    return 2
+
             records = [r for r in records if r.get("session") != args.session]
             records.append({"session": args.session, "batches": sess["batches"], "prompt_hash": digest})
             records.sort(key=lambda r: r["session"])

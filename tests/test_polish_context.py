@@ -543,3 +543,43 @@ def test_prompt_ends_with_newline(mini_seg_render):
     text = pc.render("segX", 1, repo=mini_seg_render.root)
     assert text.endswith("\n"), "prompt 结尾缺换行"
     assert text.rstrip("\n").splitlines()[-1] == "- `raw/<channel>/b2.out`"
+
+
+def test_plan_hash_not_silently_rewritten_after_ignition(mini_seg_render, tmp_path, capsys):
+    """已点火 SEG（目录里已有 candidates.*.jsonl）不得静默改写 plan.json 的
+    prompt_hash——candidates 行里的 hash 指向通道真正读过的那一版 prompt，
+    覆盖它会让溯源链对不上且没有任何报错（p5seg2 会话 1 实测）。"""
+    repo = mini_seg_render.root
+    d = repo / "pilot" / "polish" / "segX"
+    out = tmp_path / "p.md"
+    # 首次渲染：正常写入 plan.json
+    assert pc.main(["--seg", "segX", "--session", "1", "--out", str(out),
+                    "--repo", str(repo)]) in (0, None)
+    plan_path = d / "plan.json"
+    before = plan_path.read_text(encoding="utf-8")
+    assert '"prompt_hash"' in before
+
+    # 模拟：本段已点火（有候选入仓），且 prompt 内容变了（rulings 追加一句）
+    (d / "candidates.chZ.jsonl").write_text("", encoding="utf-8")
+    fz = d / "frozen" / "rulings.md"
+    fz.write_text(fz.read_text(encoding="utf-8") + "\n新增一条裁决纪要。\n", encoding="utf-8")
+
+    rc = pc.main(["--seg", "segX", "--session", "1", "--out", str(out), "--repo", str(repo)])
+    assert rc == 2, "已点火且哈希变化时必须拒绝并给非零退出码"
+    assert plan_path.read_text(encoding="utf-8") == before, "plan.json 被改写了"
+    assert "拒绝改写 plan.json" in capsys.readouterr().err
+
+
+def test_plan_hash_rewrite_allowed_before_ignition(mini_seg_render, tmp_path):
+    """没有候选入仓（还没点火）时，重渲染照常更新 plan.json——那是正常的
+    渲染迭代，闸不该拦。"""
+    repo = mini_seg_render.root
+    d = repo / "pilot" / "polish" / "segX"
+    out = tmp_path / "p.md"
+    pc.main(["--seg", "segX", "--session", "1", "--out", str(out), "--repo", str(repo)])
+    fz = d / "frozen" / "rulings.md"
+    fz.write_text(fz.read_text(encoding="utf-8") + "\n改一句。\n", encoding="utf-8")
+    before = (d / "plan.json").read_text(encoding="utf-8")
+    rc = pc.main(["--seg", "segX", "--session", "1", "--out", str(out), "--repo", str(repo)])
+    assert rc in (0, None)
+    assert (d / "plan.json").read_text(encoding="utf-8") != before

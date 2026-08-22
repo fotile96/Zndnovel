@@ -705,3 +705,17 @@ def test_repeated_adopt_only_last_lands(tmp_path):
     id11 = [p for p in read_jsonl(mini.data_dir / "patches.jsonl") if p["id"] == 11]
     assert len(id11) == 1
     assert id11[0]["zh"] == "人工最终版。"
+
+
+def test_retract_noop_is_silent_even_when_id_listed_in_drift(mini, capsys):
+    """车道现值已等于冻结面时，撤回是 no-op——即使该 id 在 lane_drift.json 里
+    也不该报警。`--lane-drift` 若在清关之后重跑，本段自己落的 patch 会全部被
+    记成「漂移」，两条检查的顺序反了就会让每条 no-op 撤回都假警一次。"""
+    (mini.d / "lane_drift.json").write_text(dumps(
+        {"lane": "x", "drifted": 1, "findings": [{"id": 11, "frozen_zh": OPUS[11]}]}),
+        encoding="utf-8")
+    # 11 从没落过 patch，车道现值＝冻结面；追加一条 keep 不该产生任何输出
+    append_jsonl(mini.d / "decisions.jsonl", [_keep_row(11, ts="2099-01-01T00:00:00+00:00")])
+    result = pc.commit(LABEL, mini.data_dir, dry_run=False, repo=mini.root)
+    assert 11 not in [r["id"] for r in result]
+    assert "lane_drift.json" not in capsys.readouterr().err

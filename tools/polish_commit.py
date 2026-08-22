@@ -473,13 +473,18 @@ def commit(label, data_dir, dry_run=True, repo=None, ts=None) -> list:
             print(f"!! polish_commit: id={cid} 需要撤回，但冻结面 opus.jsonl 里没有"
                   "这个 id，无法确定要回退到什么文本，跳过", file=sys.stderr)
             continue
+        # 顺序要紧：先看「还有没有东西要撤」，再看漂移。车道现值已经等于冻结面
+        # 时本来就是 no-op，不该因为 lane_drift.json 里有这个 id 就打一条吓人的
+        # 告警——而 `polish_check --lane-drift` 若在本段清关**之后**重跑过，
+        # 本段自己落的那批 patch 会全部被记成「漂移」，两条检查倒过来就会让
+        # 每一条 no-op 撤回都报一次假警（2026-08-23 实测 9050/9051 即如此）。
+        if _ws_equal(lane_now.get(cid), target):
+            continue  # 车道现值已经等于冻结面，没有要撤的东西
         if cid in drift_ids:
             print(f"!! polish_commit: id={cid} 需要撤回，但它在 lane_drift.json 里"
                   "——冻结之后有别的会话改过这一行，回退冻结面会把那次改动一起"
                   "抹掉。跳过，请人工确认要回到哪一版。", file=sys.stderr)
             continue
-        if _ws_equal(lane_now.get(cid), target):
-            continue  # 车道现值已经等于冻结面，没有要撤的东西
         plan.append({
             "id": cid, "verdict": "retract", "decision_ts": keep_ts,
             "channel": None, "candidate_ts": None, "prompt_hash": None,

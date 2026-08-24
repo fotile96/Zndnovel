@@ -872,3 +872,73 @@ def test_gate_reports_w5_as_warn(mini):
     f12 = g["findings"].get(12, {"hard": [], "warn": []})
     assert "W5" in [w["rule"] for w in f12["warn"]]   # W3 行宽同时命中，不排斥
     assert f12["hard"] == []
+
+
+# ---- W4 复现句族豁免清单（2026-08-25）----
+# 与 config/qa_quote_suppressions.yaml 同一套纪律：清单与数据分开、reason 必填、
+# 被豁免的命中照样打印和计数。额外一条：豁免必须连**豁免当时并存的全部译法**
+# 一起登记，出现清单外的新形要照常报——否则这道闸会在最该响的时候不响。
+
+def _w4_exempt_file(tmp_path, entries):
+    import yaml
+    p = tmp_path / "w4_exemptions.yaml"
+    p.write_text(yaml.safe_dump(entries, allow_unicode=True), encoding="utf-8")
+    return p
+
+
+def test_w4_exemption_marks_family_exempt(mini, tmp_path):
+    """登记过的族（现有译法是登记集合的子集）→ 命中仍然产出，但标 exempt。"""
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13], 900: JP[10]},
+        current={10: "甲译", 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: "乙译"})
+    (mini.root / "config").mkdir(exist_ok=True)
+    (mini.root / "config" / "w4_exemptions.yaml").write_text(
+        __import__("yaml").safe_dump(
+            [{"jp": JP[10], "forms": ["甲译", "乙译"], "reason": "高频短语句，测试用"}],
+            allow_unicode=True), encoding="utf-8")
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    assert [v["id"] for v in findings] == [10], "豁免不得让命中消失"
+    assert findings[0]["exempt"] is True
+
+
+def test_w4_exemption_does_not_hide_a_new_form(mini, tmp_path):
+    """族里冒出**清单外的第三种**译法 → 照常报，且消息里点明新形。
+
+    这是本机制最该守住的一条：只按 jp 豁免整个族，会在这里静默放过。
+    """
+    lane = _build_lane(
+        tmp_path,
+        ledger={10: JP[10], 11: JP[11], 12: JP[12], 13: JP[13],
+                900: JP[10], 901: JP[10]},
+        current={10: "甲译", 11: DEFAULT_ZH[11], 12: DEFAULT_ZH[12],
+                 13: DEFAULT_ZH[13], 900: "乙译", 901: "丙译（清单外）"})
+    (mini.root / "config").mkdir(exist_ok=True)
+    (mini.root / "config" / "w4_exemptions.yaml").write_text(
+        __import__("yaml").safe_dump(
+            [{"jp": JP[10], "forms": ["甲译", "乙译"], "reason": "高频短语句，测试用"}],
+            allow_unicode=True), encoding="utf-8")
+    findings = pcheck.w4_full(mini.label, lane, repo=mini.root)
+    assert findings[0]["exempt"] is False
+    assert "清单外的新译法" in findings[0]["msg"]
+    assert "丙译（清单外）" in findings[0]["msg"]
+
+
+def test_w4_exemption_requires_reason(tmp_path):
+    """缺 reason → 拒绝加载**整份**清单，不是跳过那一条静默继续。"""
+    p = _w4_exempt_file(tmp_path, [{"jp": "あ。", "forms": ["啊。"]}])
+    with pytest.raises(ValueError, match="reason"):
+        pcheck.load_w4_exemptions(p)
+
+
+def test_w4_exemption_requires_forms(tmp_path):
+    """缺 forms → 同样拒绝加载：没有 forms 的豁免会在族里出现新形时静默放过。"""
+    p = _w4_exempt_file(tmp_path, [{"jp": "あ。", "reason": "理由在此"}])
+    with pytest.raises(ValueError, match="forms"):
+        pcheck.load_w4_exemptions(p)
+
+
+def test_w4_exemption_missing_file_is_empty(tmp_path):
+    """清单文件不存在 → 空豁免，不是错误。"""
+    assert pcheck.load_w4_exemptions(tmp_path / "nope.yaml") == {}

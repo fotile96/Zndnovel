@@ -468,6 +468,50 @@ def _id_to_label_map(repo, lane_dir) -> dict:
     return out
 
 
+W4_EXEMPTIONS = "config/w4_exemptions.yaml"
+
+
+def load_w4_exemptions(path=None, repo=None) -> dict:
+    """读复现句族豁免清单 → `{jp: {"forms": set(...), "reason": str}}`。
+
+    与 `check_qa_quotes` 的抑制清单同一套纪律：**清单与数据分开存放**（放
+    `config/`，评审要能一眼看全"我们一共豁免了什么"）、**`reason` 必填**
+    （缺一条就拒绝加载整份清单，不静默跳过——没有理由的豁免等于把闸悄悄
+    关掉一块）、**被豁免的命中照样打印和计数**，只是不计入"需要处理"那一栏。
+
+    ## 为什么按 (jp, forms) 两项匹配，而不是只按 jp
+
+    只按 jp 豁免整个句族，会在"这个族日后冒出**清单外的第三种**译法"时静默
+    放过——那正好是这道闸最该响的时候。所以豁免记录必须连**豁免当时该族并存
+    的全部译法**一起登记；判定时要求该族的现有译法集合是登记集合的**子集**，
+    出现新形就照常报出来，并在消息里点明"该族已豁免、但出现了清单外的新译法"。
+
+    2026-08-25 首次落地：用户逐族过完 SEG-0~3 累积的 21 个复现句族后裁定
+    "只统一两族，其余全部豁免"，理由是"这些基本都是很常用的短语句子，没有能
+    叫作语境分治的理由"。此前这些族在每一段都要重复报一次、重复占裁决注意力。
+    """
+    import yaml
+    p = Path(path) if path is not None else (
+        Path(repo) if repo is not None else REPO) / W4_EXEMPTIONS
+    if not p.exists():
+        return {}
+    items = yaml.safe_load(p.read_text(encoding="utf-8")) or []
+    out = {}
+    for it in items:
+        if not (it.get("reason") or "").strip():
+            raise ValueError(
+                f"{p} 有一条豁免记录缺 reason（jp={it.get('jp')!r}）"
+                "——理由必填，拒绝加载整份豁免清单")
+        forms = it.get("forms")
+        if not forms:
+            raise ValueError(
+                f"{p} 的豁免记录 jp={it.get('jp')!r} 没有登记 forms"
+                "——必须连豁免当时并存的全部译法一起登记，否则该族日后出现"
+                "清单外的新译法时会被静默放过")
+        out[it["jp"]] = {"forms": set(forms), "reason": it["reason"]}
+    return out
+
+
 def _w4_full_msg(others, id2label=None) -> str:
     """全段 W4 复检专用的人读消息——**报出全部成员，不按 zh 文本去重、不
     截断**（D4 修复，见模块 docstring 专节）。与 P3 钉死面
@@ -523,6 +567,8 @@ def w4_full(label, lane_dir, repo=None) -> list:
                       read_jsonl(pat_p) if pat_p.exists() else [])
     id2label = _id_to_label_map(repo if repo is not None else REPO, lane_dir)
 
+    exempt = load_w4_exemptions(repo=repo)
+
     out = []
     for i in seg_ids:
         if i not in ledger or i not in cur:
@@ -531,12 +577,24 @@ def w4_full(label, lane_dir, repo=None) -> list:
         others = [(sid, szh) for sid, szh in siblings.get(jp, [])
                   if sid != i and szh != zh]
         if others:
-            out.append({
+            rec = exempt.get(jp)
+            # 该族现有的全部译法（含本行）——豁免要求它是登记集合的子集，
+            # 冒出清单外的新形就照常报，见 load_w4_exemptions 的 docstring。
+            fam_forms = {zh} | {szh for _, szh in siblings.get(jp, [])}
+            novel = sorted(fam_forms - rec["forms"]) if rec else []
+            item = {
                 "id": i, "rule": "W4",
                 "msg": _w4_full_msg(others, id2label),
                 "siblings": [{"id": sid, "zh": szh, "seg": id2label.get(sid)}
                              for sid, szh in others],
-            })
+            }
+            if rec and not novel:
+                item["exempt"] = True
+            elif rec and novel:
+                item["exempt"] = False
+                item["msg"] += ("；⚠ 该族已在 config/w4_exemptions.yaml 豁免，"
+                                f"但出现了清单外的新译法：{novel}")
+            out.append(item)
     (d / "w4_full.json").write_text(dumps({"lane": str(lane_dir), "findings": out}),
                                      encoding="utf-8")
     return out
@@ -839,12 +897,21 @@ def main(argv=None):
         except W4NotAvailable as e:
             print(f"⚠ W4 全段复检**未能执行**：{e}", file=sys.stderr)
             return 2
-        if findings:
-            print(f"!! W4 全段复检：{args.seg} 有 {len(findings)} 处复现句族不一致"
+        kept = [v for v in findings if not v.get("exempt")]
+        skipped = [v for v in findings if v.get("exempt")]
+        if kept:
+            print(f"!! W4 全段复检：{args.seg} 有 {len(kept)} 处复现句族不一致"
                   "（顾问级，不自动阻断——逐条人工核对该改哪一边）", file=sys.stderr)
-            for v in findings:
+            for v in kept:
                 print(f"  - id {v['id']}：{v['msg']}", file=sys.stderr)
-        print(f"w4-full: {args.seg} 复现句族不一致 {len(findings)} 处"
+        # 被豁免的命中**照样打印**（藏起来等于恒绿，本项目不允许恒绿闸），
+        # 只是不计入"需要处理"那一栏。
+        for v in skipped:
+            print(f"  ○ [豁免] id {v['id']}：{v['msg']}", file=sys.stderr)
+        tail = (f"，其中 {len(skipped)} 处按豁免清单"
+                f"（{W4_EXEMPTIONS}）豁免，{len(kept)} 处需要处理"
+                if skipped else "")
+        print(f"w4-full: {args.seg} 复现句族不一致 {len(findings)} 处{tail}"
               f"（明细见 pilot/polish/{args.seg}/w4_full.json）")
         return 0
 

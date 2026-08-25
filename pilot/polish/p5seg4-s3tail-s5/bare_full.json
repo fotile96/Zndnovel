@@ -1,1 +1,1 @@
-{"lane":"pilot/lanes/opus","min_len":10,"findings":[{"id":15005,"rule":"BARE","msg":"剥壳同句族内不一致（记号壳不同、正文相同，W4 看不见；共 1 个其他成员）：id=4838@seg7-e2 作「啊，那个。嗯嘛，算是吧」","bare_jp":"あ、えっと。うんまあ、一応ね","siblings":[{"id":4838,"jp":"【≦ユウイチ≧】≪あ、えっと。うんまあ、一応ね≫","zh":"【≦Yuichi≧】≪啊，那个。嗯嘛，算是吧≫","seg":"seg7-e2"}]}]}
+{"lane":"pilot/lanes/opus","min_len":10,"findings":[]}

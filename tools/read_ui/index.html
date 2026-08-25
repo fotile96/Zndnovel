@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>通读 · 原文与现行译文</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<aside id="side">
+  <div class="side-head">
+    <div class="brand">通读 <span id="lane" class="lane"></span></div>
+    <div id="stat" class="stat">载入中…</div>
+    <input id="find" class="find" placeholder="搜原文／译文，或输 id 跳转" autocomplete="off">
+    <div id="findinfo" class="findinfo"></div>
+  </div>
+  <div id="outline" class="outline" tabindex="0"></div>
+</aside>
+
+<main id="main">
+  <div id="stream" class="stream"></div>
+  <div id="more" class="more"></div>
+</main>
+
+<div id="hint" class="hint">
+  <kbd>j</kbd>/<kbd>k</kbd> 上下单元 · <kbd>/</kbd> 搜索 · <kbd>n</kbd> 只看改过的行
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

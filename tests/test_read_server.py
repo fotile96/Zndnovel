@@ -236,3 +236,59 @@ def test_static_files_exist():
     ui = Path(__file__).resolve().parent.parent / "tools" / "read_ui"
     for name in ("index.html", "app.css", "app.js"):
         assert (ui / name).exists(), f"缺 {name}"
+
+
+# ---- 7. v19 C1 片假名→罗马音的机械改名：默认折叠，但不得静默丢弃 ----
+# 全库 8737 步修订里有 4825 步（55%）只干了这一件事。通读时它们会把真正值得看的
+# 改动淹掉，所以前端默认折叠——但**必须仍然计数、仍然可展开**，藏起来不算数就
+# 成了假的修订史。判据刻意保守：一步里只要有一处变化不能由改名表解释，整步照常显示。
+
+from tools.read_server import is_c1_rename  # noqa: E402
+
+
+@pytest.mark.parametrize("prev,zh", [
+    ("【ユウイチ】「来来来」", "【Yuichi】「来来来」"),
+    ("我轻轻地抓住了ユウイチ的胸口。", "我轻轻地抓住了Yuichi的胸口。"),
+    ("アヤノ和サクラ两个人。", "Ayano和Sakura两个人。"),
+    ("【アヤ……ノ】", "【Aya……no】"),                     # 断名：音节切分也要认得出
+    ("彩野さんはユカリ先生に", "彩野さんはYukari先生に"),
+])
+def test_pure_rename_is_detected(prev, zh):
+    assert is_c1_rename(prev, zh) is True
+
+
+@pytest.mark.parametrize("prev,zh", [
+    # 改名之外还动了别的——全库实测的真实案例，一步都不许藏
+    ("那个アヤノ啊", "那个彩野啊"),                          # 故事层滑到现实层
+    ("ユウイチ一如往常地上学", "他平时上下学那条"),          # 改成代词 + 改写
+    ("我是片假名拼出的", "我用的是另一种写法"),              # 元话语位改写
+    ("小千秋说的话", "千秋说的话"),                          # C2，不是 C1
+    ("只凭现在的情报", "只凭现在的信息"),                    # 术语，不是 C1
+    ("【ユウイチ】「来来来」", "【Yuichi】「来来来吧」"),     # 改名 + 加字
+])
+def test_mixed_change_is_never_hidden(prev, zh):
+    assert is_c1_rename(prev, zh) is False
+
+
+def test_no_change_is_not_a_rename():
+    assert is_c1_rename("一样的", "一样的") is False
+    assert is_c1_rename("", "Yuichi") is False
+
+
+def test_history_marks_and_counts_c1_steps(tmp_path):
+    """`c1_rename` 逐步打标、`c1_hidden` 给出总数——前端据此折叠而不是丢弃。"""
+    repo = _mini(tmp_path)
+    lane = repo / "pilot" / "lanes" / "opus" / "data"
+    write_jsonl(lane / "forward.jsonl", [
+        {"id": i, "zh": ("【ユウイチ】「唔」" if i == 10 else f"首译{i}"), "batch": 1,
+         "backend": "cc", "model": "m", "ctx": "x", "glossary_v": 1, "ts": "t0"}
+        for i in (10, 11, 20, 21, 99)
+    ])
+    write_jsonl(lane / "patches.jsonl", [
+        {"id": 10, "zh": "【Yuichi】「唔」", "reason": "recall", "glossary_v": 19, "ts": "t1"},
+        {"id": 10, "zh": "【Yuichi】「唔——」", "reason": "polish", "glossary_v": 19, "ts": "t2"},
+    ])
+    ln = Reader(repo=repo)._line_payload(10)
+    assert [h["c1_rename"] for h in ln["history"]] == [True, False]
+    assert ln["c1_hidden"] == 1
+    assert len(ln["history"]) == 2, "折叠的那一步仍要留在 history 里，只是打了标"

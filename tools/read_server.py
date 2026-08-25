@@ -35,6 +35,7 @@ id 序（1..17220）是脚本里的登记序，与玩家看到的顺序毫无关
 **只读**：本模块不写仓库任何文件。没有 POST 端点。
 """
 import argparse
+import difflib
 import json
 import re
 import socket
@@ -54,6 +55,49 @@ STATIC = {"/": "index.html", "/app.css": "app.css", "/app.js": "app.js"}
 DEFAULT_LANE = "pilot/lanes/opus"
 #: 附录单元的 seq——排在全部路线单元之后，容纳 timeline 未覆盖的 ambient 行。
 APPENDIX_SEQ = 10 ** 6
+
+
+#: v19 修订一（C1）的片假名→罗马音改名表，长者优先。后半段那些残片
+#: （ユウイ／イチ／ノ／チ…）来自断名、拖长音、结巴行——`アヤ……ノ`→`Aya……no`
+#: 这类，diff 会把名字切成两段，只有连音节一起收进来才认得出。
+C1_NAMES = [
+    ("ユウイチ", "Yuichi"), ("サクラコ", "Sakurako"), ("アヤノ", "Ayano"),
+    ("サクラ", "Sakura"), ("ユカリ", "Yukari"), ("ユキノ", "Yukino"),
+    ("ナオヤ", "Naoya"), ("チアキ", "Chiaki"), ("さくら", "sakura"),
+    ("ユウイ", "Yui"), ("ヤノ", "yano"), ("キノ", "kino"), ("アヤ", "Aya"),
+    ("ユウ", "Yu"), ("イチ", "ichi"), ("ノ", "no"), ("チ", "chi"),
+    ("ヤ", "ya"), ("ユ", "Yu"), ("ア", "A"),
+]
+
+
+def _c1_sub(s: str) -> str:
+    for k, v in C1_NAMES:
+        s = s.replace(k, v)
+    return s
+
+
+def is_c1_rename(prev: str, zh: str) -> bool:
+    """这一步修订**是否只是**把故事层片假名人名换成了罗马音（v19 C1）。
+
+    为什么要它：C1 是一次机械的全库改名，`patches.jsonl` 里 8737 步修订中有
+    **4825 步（55%）**只干了这一件事。通读时逐行摊开修订史，这些步会把真正
+    值得看的改动（取义、搭配、口径）淹掉。
+
+    判据刻意**保守**——按 diff 的每一段变化逐段核：某一步里只要有**一处**变化
+    不能由改名表解释，整步就照常显示。误判方向因此只会是"多显示一步机械改名"
+    （无害），不会是"藏起一处真改动"（那才是这道判断唯一会造成的伤害）。
+
+    实测这条方向是对的：全库有 6 步「片假名消失了、但不止改名」——如
+    `1430` 的 `アヤノ→彩野`（故事层滑到现实层）、`7865` 的 `ユウイチ→他`
+    （改成代词）、`715` 的 `是片假名→写法跟我不一样`（元话语位改写）——
+    这 6 步全部**未**被判为纯改名，照常显示。
+    """
+    if prev == zh or not prev or not zh:
+        return False
+    ops = [o for o in difflib.SequenceMatcher(None, prev, zh).get_opcodes()
+           if o[0] != "equal"]
+    return bool(ops) and all(_c1_sub(prev[i1:i2]) == zh[j1:j2]
+                             for _, i1, i2, j1, j2 in ops)
 
 
 def _lane_dir(repo: Path, lane: str) -> Path:
@@ -193,12 +237,16 @@ class Reader:
         history = []
         prev = first
         for p in pats:
+            cur_zh = p.get("zh", "")
             history.append({
-                "zh": p.get("zh", ""), "prev": prev, "reason": p.get("reason"),
+                "zh": cur_zh, "prev": prev, "reason": p.get("reason"),
                 "glossary_v": p.get("glossary_v"), "ts": p.get("ts"),
                 "prov": p.get("prov") or None,
+                # 前端默认折叠这一步（v19 C1 机械改名），但**仍然计数**——
+                # 藏起来不算数就成了假的修订史
+                "c1_rename": is_c1_rename(prev, cur_zh),
             })
-            prev = p.get("zh", "")
+            prev = cur_zh
         return {
             "id": cid, "jp": led.get("jp", ""), "zh": zh,
             "voice": led.get("voice"), "file": led.get("file"), "func": led.get("func"),
@@ -208,6 +256,7 @@ class Reader:
                             "glossary_v": fwd.get("glossary_v"), "ts": fwd.get("ts"),
                             "batch": fwd.get("batch")} if fwd else None),
             "history": history,
+            "c1_hidden": sum(1 for h in history if h["c1_rename"]),
             "revised": bool(pats),
             "decisions": [
                 {"seg": d["seg"], "verdict": d.get("verdict"),

@@ -129,6 +129,16 @@ body{
 .hstep{display:flex; flex-direction:column; gap:2px; padding-left:10px; border-left:2px solid var(--rule-soft)}
 .hstep .to{color:var(--ink)}
 .hstep .fr{color:var(--faint); text-decoration:line-through}
+.hstep.c1{opacity:.62}
+.unfold{
+  margin-left:6px; font:inherit; font-size:11px; letter-spacing:normal; text-transform:none;
+  background:none; border:none; color:var(--accent); cursor:pointer; padding:0;
+}
+.unfold:hover{text-decoration:underline}
+.c1box{display:flex; flex-direction:column; gap:9px; margin-top:9px}
+/* `display:flex` 的类选择器会盖过 [hidden] 的 display:none（0,1,0 > 0,0,1），
+   不补这一条，折叠按钮点了也没反应——实测踩过。 */
+.c1box[hidden]{display:none}
 .dec{padding-left:10px; border-left:2px solid var(--accent); display:flex; flex-direction:column; gap:2px}
 .dec .note{color:var(--ink)}
 

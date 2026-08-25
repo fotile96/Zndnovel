@@ -117,14 +117,25 @@ function toggleAnn(row, ln) {
       + `<div class="kv mono">${esc(m.model || '')} · 批 ${esc(m.batch)} · v${esc(m.glossary_v)} · ${esc(m.ts)}</div></div>`);
   }
   if (ln.history.length) {
-    const steps = ln.history.map((h) => {
+    // v19 C1 的片假名→罗马音是一次机械全库改名，占全部修订步的一半以上。
+    // 默认折叠，但**照常计数并可展开**——藏起来不算数就成了假的修订史。
+    const step = (h) => {
       const pv = h.prov ? ` · ${esc(h.prov.channel || '')}${h.prov.seg ? ' @' + esc(h.prov.seg) : ''}`
         + (h.prov.retract ? ' · 撤回' : '') : '';
-      return `<div class="hstep"><div class="fr">${fmt(h.prev)}</div>`
+      return `<div class="hstep${h.c1_rename ? ' c1' : ''}"><div class="fr">${fmt(h.prev)}</div>`
         + `<div class="to">${fmt(h.zh)}</div>`
-        + `<div class="kv mono">${esc(h.reason)} · v${esc(h.glossary_v)} · ${esc(h.ts)}${pv}</div></div>`;
-    }).join('');
-    bits.push(`<div><h4>修订史 ${ln.history.length} 步</h4>${steps}</div>`);
+        + `<div class="kv mono">${esc(h.reason)} · v${esc(h.glossary_v)} · ${esc(h.ts)}${pv}`
+        + `${h.c1_rename ? ' · 仅罗马音化' : ''}</div></div>`;
+    };
+    const shown = ln.history.filter((h) => !h.c1_rename).map(step).join('');
+    const hidden = ln.history.filter((h) => h.c1_rename).map(step).join('');
+    const n = ln.history.length;
+    const head = ln.c1_hidden
+      ? `修订史 ${n} 步<button class="unfold" data-n="${ln.c1_hidden}">`
+        + `（其中 ${ln.c1_hidden} 步仅片假名→罗马音，已折叠 · 点开）</button>`
+      : `修订史 ${n} 步`;
+    bits.push(`<div><h4>${head}</h4>${shown}`
+      + (hidden ? `<div class="c1box" hidden>${hidden}</div>` : '') + `</div>`);
   }
   if (ln.decisions.length) {
     const ds = ln.decisions.map((d) => `<div class="dec">`
@@ -135,6 +146,14 @@ function toggleAnn(row, ln) {
     bits.push(`<div><h4>人裁记录 ${ln.decisions.length} 条</h4>${ds}</div>`);
   }
   a.innerHTML = bits.join('');
+  const btn = a.querySelector('.unfold');
+  if (btn) btn.onclick = () => {
+    const box = a.querySelector('.c1box');
+    box.hidden = !box.hidden;
+    btn.textContent = box.hidden
+      ? `（其中 ${btn.dataset.n} 步仅片假名→罗马音，已折叠 · 点开）`
+      : `（收起那 ${btn.dataset.n} 步机械改名）`;
+  };
   row.after(a);
 }
 

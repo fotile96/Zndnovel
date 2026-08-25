@@ -1,0 +1,45 @@
+{"id": 15753, "jp_tail": "が積もっていた。", "zh": "来到中庭，四周积满了雪。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15754, "jp_tail": "んが座っていた。", "zh": "身旁坐着Sakura同学。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15755, "jp_tail": "っていなかった。", "zh": "身旁没有坐着Sakura同学。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15756, "jp_tail": "っと座っていた。", "zh": "身旁一直坐着Sakura同学。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15757, "jp_tail": "クラさんが……。", "zh": "Sakura同学她……", "score": 90, "note": "", "adjudicate": false}
+{"id": 15758, "jp_tail": "大合唱していた。", "zh": "来到中庭，歌颂着短暂夏天的鸣蝉，像是大发了一通脾气，正在大合唱。", "score": 74, "note": "同病灶已在 6118（P5 前段，输出契约 alts 判例）定为搭配错位——「盛大」与「闹脾气」语域错配（盛大是褒场面的词，闹脾气是琐碎动作）；本行是同一「盛大に癇癪を起こした」构式的 s6s 侧，按该判例方向改。软锁锚点，请裁。", "adjudicate": true, "alts": [{"zh": "来到中庭，歌颂着短暂夏天的鸣蝉，像是闹了一场大脾气，正在大合唱。", "note": "保「闹脾气」词面、只补量词（6118 判例的备选方向），比主候选更贴原译。"}]}
+{"id": 15759, "jp_tail": "の姿もなかった。", "zh": "没有Ayano的身影。或者说，操场上除了我以外，一个人影都没有。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15760, "jp_tail": "、ほつれている。", "zh": "故事的接缝，脱线了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15761, "jp_tail": "る。解っている。", "zh": "记忆一片混乱。我明白。", "score": 72, "note": "「记忆正在混乱」不成立——汉语「混乱」不作进行态动词；改状态句「一片混乱」。15758–15761 的叙事裂缝（中庭/操场、人称滑动）在内容层是机关，语法层不必跟着破。", "adjudicate": false}
+{"id": 15762, "jp_tail": "ないといけない。", "zh": "可是我必须把这个故事连起来。", "score": 73, "note": "繋ぐ 与上一行 15760『故事的接缝，脱线了』同属一条织物隐喻链（繋ぎ目→接缝、ほつれ→脱线，v12 词族）；「拼起来」落在拼图域、断了链条，「连起来」接回缝合域（繋がる族主导字根「连」：2526/2598/2869/3103 连着）。软锁锚点，请裁。", "adjudicate": true}
+{"id": 15763, "jp_tail": "約束なんだから。", "zh": "因为那是约定。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15764, "jp_tail": "約束なんだから。", "zh": "因为那是和她的约定。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15765, "jp_tail": "……。", "zh": "……", "score": 90, "note": "", "adjudicate": false}
+{"id": 15766, "jp_tail": "きだったんだね」", "zh": "【彩野】「原来你喜欢的是≪Yuichi≫呢」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15767, "jp_tail": "サクラ】「……」", "zh": "【Sakura】「……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15768, "jp_tail": "』としたら――」", "zh": "【彩野】「让人两情相悦的咒语。可是，假如『≪某个人≫，有两个女孩喜欢』的话――」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15769, "jp_tail": "べきだったのに」", "zh": "【彩野】「那个里面，还包含着让『并非』两情相悦的人消失的意思。明明应该更早察觉到的」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15770, "jp_tail": "ようにしていう。", "zh": "Sakura同学探头看着我的脸说道。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15771, "jp_tail": "とかして遊んで」", "zh": "【Sakura】「比起冬天我更喜欢夏天。大家一起玩捉人游戏啦、踢罐子啦，一直玩到很晚」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15772, "jp_tail": "って家に帰るの」", "zh": "【Sakura】「回家的歌谣响起的同时，也能闻到晚饭的香味。然后大家一起说着明天见，各自回家」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15773, "jp_tail": "【彩野】「……」", "zh": "【彩野】「……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15774, "jp_tail": "が出来なかった。", "zh": "『那样的故事』，我没能写出来。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15775, "jp_tail": "、楽しかったよ」", "zh": "【Sakura】「彩野同学，不要逃避自己的心意哦。能和彩野同学一起创作『故事』，真的很开心」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15776, "jp_tail": "りと消えていく。", "zh": "Sakura同学的身影，像融雪一样慢慢地消失。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15777, "jp_tail": "ん、私は――！」", "zh": "【彩野】「呐！ 你听我说！ Sakura同学，我――！」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15778, "jp_tail": "、思い出してね」", "zh": "【Sakura】「到了夏天，偶尔就好，要想起我哦」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15779, "jp_tail": "サクラ……さん」", "zh": "【彩野】「Sakura……同学」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15780, "jp_tail": "静寂だけだった。", "zh": "留下的只有寂静。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15781, "jp_tail": "何の音もしない。", "zh": "一点声音也没有。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15782, "jp_tail": "収しているのだ。", "zh": "是雪，把所有的声音都吸了进去。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15783, "jp_tail": "雪が。", "zh": "是雪。", "score": 90, "note": "", "adjudicate": false}
+{"id": 15784, "jp_tail": "≫】「直哉くん」", "zh": "【≪彩野≫】「直哉君」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15785, "jp_tail": "んて、できない」", "zh": "【≪彩野≫】「要我去创作故事什么的，做不到」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15786, "jp_tail": "には、できない」", "zh": "【≪彩野≫】「我，做不到」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15787, "jp_tail": "もう、できない」", "zh": "【≪彩野≫】「已经，做不到了」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15788, "jp_tail": "誰かが落ちても」", "zh": "【≪彩野≫】「就算有谁从天台上掉下去」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15789, "jp_tail": "は何もできない」", "zh": "【≪彩野≫】「已经，我什么也做不到了」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15790, "jp_tail": "も浮かばないの」", "zh": "【≪彩野≫】「什么也浮现不出来」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15791, "jp_tail": "には、書けない」", "zh": "【≪彩野≫】「我，写不出来」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15792, "jp_tail": "≫】「書けない」", "zh": "【≪彩野≫】「写不出来」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15793, "jp_tail": "】「書けないの」", "zh": "【≪彩野≫】「写不出来的」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15794, "jp_tail": "「だから、もう」", "zh": "【≪彩野≫】「所以，已经」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15795, "jp_tail": "りにしましょう」", "zh": "【≪彩野≫】「已经，就到此结束吧」", "score": 90, "note": "", "adjudicate": false}
+{"id": 15796, "jp_tail": "「ごめんなさい」", "zh": "【≪彩野≫】「对不起」", "score": 90, "note": "", "adjudicate": false}
+{"id": 17033, "jp_tail": "が完結しました。", "zh": "故事模式：章节６已完结。", "score": 90, "note": "", "adjudicate": false}

@@ -1,0 +1,29 @@
+{"id": 9625, "jp_tail": "は図書室を出た。", "zh": "我走出了图书室。", "score": 92, "note": "答对支/答错支共用句（9625≡9632），逐字同形", "adjudicate": false}
+{"id": 9626, "jp_tail": "かったみたいだ。", "zh": "……嗯，看来Sakura同学出的题目，我好像也都没答错。", "score": 88, "note": "どうやら＋みたいだ 原文即双推量，中文「看来＋好像」镜像保留", "adjudicate": false}
+{"id": 9627, "jp_tail": "と、意地悪かも。", "zh": "不过Sakura同学，明明直接教我不就好了嘛……别看她那样，说不定还有点、坏心眼呢。", "score": 90, "note": "", "adjudicate": false}
+{"id": 9628, "jp_tail": "ものなのかなあ。", "zh": "要施咒语，居然还有题目要解……是不是像游戏……一样的东西呀。", "score": 92, "note": "逐字取冻结卡 96 body_zh（玩家同屏可见卡面）", "adjudicate": false}
+{"id": 9629, "jp_tail": "いんだけど……。", "zh": "总之，这下『咒语』能成功就好了……", "score": 90, "note": "引号形制随 vms 原文用『』（卡 62 用「」是卡面体例）", "adjudicate": false}
+{"id": 9630, "jp_tail": "チャイムの音だ。", "zh": "哎呀，铃声响了。", "score": 92, "note": "9630≡9635，逐字同形；中性「铃声」（既裁）", "adjudicate": false}
+{"id": 9631, "jp_tail": "。急がないとね！", "zh": "下一节课在视听教室，从图书室门口这边过去还有点距离呢。得快点才行！", "score": 92, "note": "9631≡9636（=b37 的 9444 族），逐字同形", "adjudicate": false}
+{"id": 9637, "jp_tail": "○放課後――", "zh": "○_n放学后――", "score": 92, "note": "", "adjudicate": false}
+{"id": 9638, "jp_tail": "チ】「アヤノ！」", "zh": "【Yuichi】「Ayano！」", "score": 92, "note": "", "adjudicate": false}
+{"id": 9639, "jp_tail": "…ユウイチ……」", "zh": "【Ayano】「啊……Yuichi……」", "score": 92, "note": "", "adjudicate": false}
+{"id": 9640, "jp_tail": "めた？ アヤノ」", "zh": "【Yuichi】「所以呢，去哪儿决定好了没？ Ayano」", "score": 90, "note": "", "adjudicate": false}
+{"id": 9641, "jp_tail": "】「どこ……？」", "zh": "【Ayano】「去哪儿……？」", "score": 92, "note": "", "adjudicate": false}
+{"id": 9642, "jp_tail": "て言ってたろ？」", "zh": "【Yuichi】「真是的——！ 你又——忘了是吧！ 周末去哪儿，之前不是说过吗？」", "score": 90, "note": "まったく 拉长（まあったく≠あったく 缩略）长音移词尾（既裁）", "adjudicate": false}
+{"id": 9643, "jp_tail": "そうだ。", "zh": "对了。", "score": 92, "note": "", "adjudicate": false}
+{"id": 9644, "jp_tail": "、話してたんだ。", "zh": "今天早上，我和Yuichi聊过周末出去玩要去哪儿的事来着。", "score": 90, "note": "补主语「我」为句法必需（第一人称段落）", "adjudicate": false}
+{"id": 9645, "jp_tail": "た後だから……。", "zh": "……毕竟刚在课间休息时，和Sakura同学打听过『咒语』的事……", "score": 90, "note": "", "adjudicate": false}
+{"id": 9646, "jp_tail": "意識してしまう。", "zh": "现在，一看到Yuichi的脸，就会有点、不由得在意起来。", "score": 90, "note": "当场反应位 意識する→在意（既定分治，对齐卡 43）", "adjudicate": false}
+{"id": 9647, "jp_tail": "…えっとね……」", "zh": "【Ayano】「嗯……那个呢……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 9648, "jp_tail": "イチ】「……？」", "zh": "【Yuichi】「……？」", "score": 92, "note": "", "adjudicate": false}
+{"id": 9649, "jp_tail": "】「えっと……」", "zh": "【Ayano】「那个……」", "score": 92, "note": "", "adjudicate": false}
+{"id": 9650, "jp_tail": "…ユウイチ……。", "zh": "……Yuichi……", "score": 90, "note": "", "adjudicate": false}
+{"id": 9651, "jp_tail": "に行くんだよね。", "zh": "要和Yuichi，一起出去玩呢。", "score": 90, "note": "", "adjudicate": false}
+{"id": 9652, "jp_tail": "……。", "zh": "……", "score": 92, "note": "", "adjudicate": false}
+{"id": 9653, "jp_tail": "チラチラと見て」", "zh": "【Yuichi】「……、干嘛啊，从刚才起就一直往这边瞟」", "score": 90, "note": "行首孤立的「、」照原样保留（既裁）；チラチラ→一直往这边瞟", "adjudicate": false}
+{"id": 9654, "jp_tail": "けど。場所、ね」", "zh": "【Ayano】「没有，嘛，嗯。也没什么啦。地方，是吧」", "score": 90, "note": "", "adjudicate": false}
+{"id": 9655, "jp_tail": "としちゃってる。", "zh": "啊……有点，发起呆来了。", "score": 90, "note": "", "adjudicate": false}
+{"id": 9656, "jp_tail": "になっちゃって。", "zh": "不行啊，脑袋的模式变得怪怪的了。", "score": 90, "note": "「模式」字面保留以接 9657 切り替え（既裁）", "adjudicate": false}
+{"id": 9657, "jp_tail": "替え、しないと！", "zh": "得切换一下才行！", "score": 90, "note": "原文读点顺掉为本行唯一主动放弃断读处（既裁）", "adjudicate": false}
+{"id": 0, "note": "批末说明：本批 28 行零改动。逐面检视——§0 取义：9642 まったく拉长（まあったく≠あったく缩略，长音移词尾为既裁）、9644 补主语『我』为句法必需、9628 逐字取冻结卡 96 body 均复核；§14 搭配：9655『发起呆来了』、9656『脑袋的模式』（→9657 切り替え 接续链）成立；§13 段级：9653 行首孤立『、』照原样保留（既裁）；9626『看来＋好像』双推量为原文 どうやら＋みたいだ 的镜像；§12 演出：9650–9652 的内心独白三拍（名→决意→沉默）节奏原样；孪生组 9625≡9632（b43）、9630≡9635、9631≡9636 已逐字同形。软锁 4 行（9629/9645/9650/9652）照抄 opus。"}

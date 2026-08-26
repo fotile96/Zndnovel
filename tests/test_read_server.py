@@ -5,8 +5,9 @@
    只是读起来是乱的，人不容易察觉；
 2. `timeline` 没覆盖到的行必须仍然出现（附录单元），否则"从头到尾显示所有行"
    是假的，而缺的那几十行也不会有任何报错；
-3. 本工具**只读**——任何写路径都是缺陷（它读的是生产车道）。
+3. 写只准落一处草稿——它读的是**生产车道**，任何直接写生产的路径都是缺陷。
 """
+import io
 import json
 import sys
 from pathlib import Path
@@ -14,8 +15,9 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.pipelib import write_jsonl
-from tools.read_server import APPENDIX_SEQ, Reader, make_handler
+from tools.pipelib import append_jsonl, read_jsonl, write_jsonl
+from tools.read_server import (APPENDIX_SEQ, Reader, append_edit, check_edit,
+                               load_edits, make_handler)
 
 
 def _mini(tmp_path):
@@ -155,18 +157,20 @@ def test_locate_maps_id_to_its_unit(reader):
     assert reader.locate(12345) is None
 
 
-# ---- 5. 只读 ----
+# ---- 5. 写只准落一处草稿，永不碰生产 ----
 
-def test_handler_exposes_no_write_endpoint(tmp_path):
-    """本工具读的是生产车道，任何 POST 端点都是缺陷。"""
+def test_only_write_endpoint_is_edit(tmp_path):
+    """写路径只有 POST /api/edit 一个；没有 PUT/DELETE。"""
     H = make_handler(Reader(repo=_mini(tmp_path)))
-    assert not hasattr(H, "do_POST")
+    assert hasattr(H, "do_POST")
     assert not hasattr(H, "do_PUT")
     assert not hasattr(H, "do_DELETE")
+    code, body = _post(H, "/api/nope", {"id": 11, "zh": "x"})
+    assert code == 404, "除 /api/edit 外不得接受任何 POST"
 
 
-def test_reader_writes_nothing(tmp_path):
-    """构造 + 取全部载荷 + 搜索，跑完仓库里不能多出或改动任何文件。"""
+def test_reading_writes_nothing(tmp_path):
+    """只读的那些动作，跑完仓库里不能多出或改动任何文件。"""
     repo = _mini(tmp_path)
     before = {p: p.read_bytes() for p in sorted(repo.rglob("*")) if p.is_file()}
     r = Reader(repo=repo)
@@ -175,8 +179,97 @@ def test_reader_writes_nothing(tmp_path):
         r.unit_payload(u["seq"])
     r.search("首译")
     r.locate(11)
+    r.pending_payload()
     after = {p: p.read_bytes() for p in sorted(repo.rglob("*")) if p.is_file()}
-    assert after == before, "通读工具写了文件"
+    assert after == before, "只读路径写了文件"
+
+
+def test_edit_touches_only_the_draft(tmp_path):
+    """落一条修改：**只**多出草稿文件，生产车道与 data/ 逐字节不变。"""
+    repo = _mini(tmp_path)
+    before = {p: p.read_bytes() for p in sorted(repo.rglob("*")) if p.is_file()}
+    r = Reader(repo=repo)
+    r.record_edit({"id": 11, "zh": "人工改的", "note": "理由"})
+    after = {p: p.read_bytes() for p in sorted(repo.rglob("*")) if p.is_file()}
+    new_files = set(after) - set(before)
+    assert len(new_files) == 1
+    assert next(iter(new_files)).name.endswith(".draft.jsonl")
+    assert {p: v for p, v in after.items() if p in before} == before, "生产文件被动了"
+
+
+def test_append_edit_refuses_non_draft_path(tmp_path):
+    """唯一写盘函数的名字断言——放在真正 open 的那一层。"""
+    with pytest.raises(AssertionError, match="拒绝写非草稿文件"):
+        append_edit(tmp_path / "patches.jsonl", {"id": 1, "zh": "x"})
+
+
+def test_edits_are_append_only_last_wins(tmp_path):
+    repo = _mini(tmp_path)
+    r = Reader(repo=repo)
+    r.record_edit({"id": 11, "zh": "第一版"})
+    r.record_edit({"id": 11, "zh": "第二版"})
+    assert len(read_jsonl(r.edits_path)) == 2, "改判要追加，不许改写旧行"
+    assert load_edits(r.edits_path)[11]["zh"] == "第二版"
+    ln = [l for l in Reader(repo=repo).unit_payload(3)["lines"] if l["id"] == 11][0]
+    assert ln["pending"]["zh"] == "第二版"
+
+
+def test_pending_flags_stale_when_lane_moved_under_it(tmp_path):
+    """草稿记的"改动前文本"与车道现值对不上 → 标 stale，清关前要重看。"""
+    repo = _mini(tmp_path)
+    r = Reader(repo=repo)
+    r.record_edit({"id": 11, "zh": "人工改的"})
+    assert r._pending_payload(11, "", r.current[11])["stale"] is False
+    # 模拟别处又改了这一行
+    lane = repo / "pilot" / "lanes" / "opus" / "data"
+    append_jsonl(lane / "patches.jsonl",
+                 [{"id": 11, "zh": "别处又改了", "reason": "review",
+                   "glossary_v": 9, "ts": "t9"}])
+    r2 = Reader(repo=repo)
+    assert r2.unit_payload(3)["lines"][1]["pending"]["stale"] is True
+
+
+def test_record_edit_rejects_unknown_id_and_non_string(tmp_path):
+    r = Reader(repo=_mini(tmp_path))
+    with pytest.raises(ValueError, match="ledger"):
+        r.record_edit({"id": 99999, "zh": "x"})
+    with pytest.raises(ValueError, match="字符串"):
+        r.record_edit({"id": 11, "zh": None})
+
+
+def test_edit_is_saved_raw_not_cleaned(tmp_path):
+    """原样保存——**警告归警告，不许替人清洗**。"""
+    r = Reader(repo=_mini(tmp_path))
+    out = r.record_edit({"id": 11, "zh": "  带首尾空白的  \n"})
+    assert out["record"]["zh"] == "  带首尾空白的  \n"
+    assert any("首尾" in w for w in out["warnings"])
+
+
+# ---- 5b. 机械体检（每条都对应一次真实翻过的车）----
+
+@pytest.mark.parametrize("jp,old,new,frag", [
+    ("あ。", "啊。", "啊。\n", "首尾"),
+    ("あ_nい", "啊_n哦", "啊哦", "_n"),
+    ("【彩野】「あ」", "【彩野】「啊」", "编【彩野】「啊」", "不在行首"),        # 14987 实测
+    ("彩野は笑う。", "彩野笑了。", "彩野『笑』了。", "卡名"),                   # 2810 实测
+    ("あ。", "啊。", "小千秋说的。", "小千秋"),
+    ("あ。", "<啊,a>。", "啊。", "ruby"),
+    ("あ。", "啊。", "<啊,a。", "不成对"),
+])
+def test_check_edit_catches(jp, old, new, frag):
+    assert any(frag in w for w in check_edit(jp, old, new)), check_edit(jp, old, new)
+
+
+def test_check_edit_allows_added_quote_marks_that_are_not_card_shell():
+    """SEG-4 已裁定 `参ったなあ` 处可以有意新增 `「」`——`「」` 不在卡名壳之列，
+    警告文案里不该扯上卡名。"""
+    w = check_edit("参ったなあ、というと", "说了句真拿你没办法", "说了句「真拿你没办法」")
+    assert w and all("卡名" not in x for x in w)
+
+
+def test_check_edit_quiet_on_a_clean_edit():
+    assert check_edit("【彩野】「あ、そう」", "【彩野】「啊，这样」",
+                      "【彩野】「啊，是这样」") == []
 
 
 # ---- 6. HTTP 端点 ----
@@ -205,6 +298,48 @@ def _call(handler_cls, path):
     f = Fake()
     f.do_GET()
     return f.sent.get("code"), (json.loads(f._buf) if f._buf.startswith(b"{") else f._buf)
+
+
+def _post(handler_cls, path, payload):
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    class Fake(handler_cls):
+        def __init__(self):
+            self.path = path
+            self.command = "POST"
+            self.headers = {"Content-Length": str(len(body))}
+            self.rfile = io.BytesIO(body)
+            self.sent = {}
+            self.wfile = self
+            self._buf = b""
+
+        def write(self, b):
+            self._buf += b
+
+        def send_response(self, code):
+            self.sent["code"] = code
+
+        def send_header(self, k, v):
+            self.sent.setdefault("headers", {})[k] = v
+
+        def end_headers(self):
+            pass
+    f = Fake()
+    f.do_POST()
+    return f.sent.get("code"), json.loads(f._buf)
+
+
+def test_http_edit_endpoint(tmp_path):
+    r = Reader(repo=_mini(tmp_path))
+    H = make_handler(r)
+    code, body = _post(H, "/api/edit", {"id": 11, "zh": "从 HTTP 改的", "note": "n"})
+    assert code == 200 and body["ok"] is True
+    assert load_edits(r.edits_path)[11]["zh"] == "从 HTTP 改的"
+    code, body = _post(H, "/api/edit", {"id": 99999, "zh": "x"})
+    assert code == 400
+
+    code, body = _call(H, "/api/pending")
+    assert code == 200 and body["total"] == 1 and body["rows"][0]["id"] == 11
 
 
 def test_http_routes(tmp_path):
@@ -292,3 +427,17 @@ def test_history_marks_and_counts_c1_steps(tmp_path):
     assert [h["c1_rename"] for h in ln["history"]] == [True, False]
     assert ln["c1_hidden"] == 1
     assert len(ln["history"]) == 2, "折叠的那一步仍要留在 history 里，只是打了标"
+
+
+@pytest.mark.parametrize("jp,old,new,frag", [
+    # 原文没有说话人、译文却凭空多出一个——只比旧译会漏掉这一种（6060 实测）
+    ("……なんてね。", "……开玩笑的。", "编【直哉】「骗你的」", "有无与原文不符"),
+    # 反过来：原文有说话人、译文把它删了
+    ("【彩野】「あ」", "【彩野】「啊」", "啊", "有无与原文不符"),
+    # 两边都"有"、名字也没变，只有位置能看出来（14987 实测的那一种）
+    ("【彩野】「あ」", "【彩野】「啊」", "编【彩野】「啊」", "不在行首"),
+    # 名字被改了
+    ("【彩野】「あ」", "【彩野】「啊」", "【直哉】「啊」", "前缀变了"),
+])
+def test_check_edit_speaker_presence_is_checked_against_jp(jp, old, new, frag):
+    assert any(frag in w for w in check_edit(jp, old, new)), check_edit(jp, old, new)

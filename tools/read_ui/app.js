@@ -91,14 +91,21 @@ function unitNode(u) {
 
 function rowNode(ln) {
   const row = document.createElement('div');
-  row.className = 'row' + (ln.revised ? ' rev' : '');
+  row.className = 'row' + (ln.revised ? ' rev' : '') + (ln.pending ? ' pend' : '');
   row.dataset.id = ln.id;
   const nAnn = ln.history.length + ln.decisions.length;
+  // 有未清关修改时，右栏显示的是**改后**的文字（划掉现值），因为读的人想看的
+  // 是自己改成了什么；现值仍在同一格里留着，免得改完就看不见原样了。
+  const zhCell = ln.pending
+    ? `<div class="zh"><span class="was">${fmt(ln.zh)}</span>`
+      + `<span class="now">${fmt(ln.pending.zh)}</span>`
+      + `${ln.pending.stale ? '<span class="warn">⚠ 你改完之后这行又被别处动过</span>' : ''}</div>`
+    : `<div class="zh${ln.zh ? '' : ' empty'}">${ln.zh ? fmt(ln.zh) : '（未翻译）'}</div>`;
   row.innerHTML =
-    `<div class="no mono" title="${nAnn ? nAnn + ' 条修订/裁决记录，点击展开' : '无修订记录'}">`
-    + `${ln.revised ? '<span class="dot">●</span>' : ''}${ln.id}</div>`
-    + `<div class="jp">${fmt(ln.jp)}</div>`
-    + `<div class="zh${ln.zh ? '' : ' empty'}">${ln.zh ? fmt(ln.zh) : '（未翻译）'}</div>`;
+    `<div class="no mono" title="${nAnn ? nAnn + ' 条修订/裁决记录' : ''}点击展开／编辑">`
+    + `${ln.pending ? '<span class="pen">✎</span>' : (ln.revised ? '<span class="dot">●</span>' : '')}`
+    + `${ln.id}</div>`
+    + `<div class="jp">${fmt(ln.jp)}</div>` + zhCell;
   row.querySelector('.no').onclick = () => toggleAnn(row, ln);
   return row;
 }
@@ -145,7 +152,20 @@ function toggleAnn(row, ln) {
       + (d.note ? `<div class="note">${esc(d.note)}</div>` : '') + `</div>`).join('');
     bits.push(`<div><h4>人裁记录 ${ln.decisions.length} 条</h4>${ds}</div>`);
   }
+  // 编辑区放在批注面最下方——先看清这一行的来历（首译、修订史、人裁），
+  // 再决定要不要动它。
+  const cur = ln.pending ? ln.pending.zh : ln.zh;
+  bits.push(`<div class="editbox"><h4>人工修改<span class="hintline">`
+    + `原样保存，不清洗；只落草稿，进生产要另跑 <code>tools/read_commit.py</code></span></h4>`
+    + `<textarea class="ed" rows="2" spellcheck="false">${esc(cur)}</textarea>`
+    + `<input class="ednote" placeholder="批注（可空）" value="${esc(ln.pending ? ln.pending.note : '')}">`
+    + `<div class="edbar"><button class="save">保存到草稿</button>`
+    + `<button class="reset">还原成现行译文</button>`
+    + `<span class="edmsg"></span></div>`
+    + `<div class="edwarn"></div></div>`);
+
   a.innerHTML = bits.join('');
+  wireEditor(a, ln);
   const btn = a.querySelector('.unfold');
   if (btn) btn.onclick = () => {
     const box = a.querySelector('.c1box');
@@ -155,6 +175,53 @@ function toggleAnn(row, ln) {
       : `（收起那 ${btn.dataset.n} 步机械改名）`;
   };
   row.after(a);
+}
+
+function renderWarnings(box, ws) {
+  box.innerHTML = ws && ws.length
+    ? `<div class="wl"><b>机械体检</b>${ws.map((w) => `<div>· ${esc(w)}</div>`).join('')}`
+      + `<div class="wnote">顾问级——草稿照存；但 <code>read_commit</code> 默认会拦下有警告的行。</div></div>`
+    : '';
+}
+
+function wireEditor(a, ln) {
+  const ed = a.querySelector('.ed');
+  const note = a.querySelector('.ednote');
+  const msg = a.querySelector('.edmsg');
+  const warn = a.querySelector('.edwarn');
+  if (ln.pending) renderWarnings(warn, ln.pending.warnings);
+  a.querySelector('.reset').onclick = () => { ed.value = ln.zh; ed.focus(); };
+  a.querySelector('.save').onclick = async () => {
+    msg.textContent = '保存中…';
+    try {
+      const r = await fetch('/api/edit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ln.id, zh: ed.value, note: note.value }),
+      });
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || r.statusText);
+      msg.textContent = `已存草稿（共 ${b.pending_total} 条待清关）`;
+      renderWarnings(warn, b.warnings);
+      // 就地刷新该行，让右栏立刻显示改后的样子
+      const row = a.previousElementSibling;
+      ln.pending = { zh: b.record.zh, note: b.record.note, ts: b.record.ts,
+                     base_zh: b.record.base_zh, stale: false, warnings: b.warnings };
+      const fresh = rowNode(ln);
+      row.replaceWith(fresh);
+      fresh.after(a);
+      S.pendingCount = b.pending_total;
+      updateStat();
+    } catch (e) {
+      msg.textContent = `失败：${e.message}`;
+    }
+  };
+}
+
+function updateStat() {
+  const el = $('#pendstat');
+  if (!el) return;
+  el.textContent = S.pendingCount ? `✎ ${S.pendingCount} 条待清关` : '';
+  el.style.display = S.pendingCount ? '' : 'none';
 }
 
 // ---- 流式装载 ----
@@ -248,6 +315,27 @@ function onFind() {
     }
     markOutline(S.cur);
   }, { passive: true });
+
+  const pend = await getJSON('/api/pending');
+  S.pendingCount = pend.total;
+  updateStat();
+
+  $('#pendstat').onclick = async () => {
+    const r = await getJSON('/api/pending');
+    $('#findinfo').textContent = `${r.total} 条待清关 · 草稿 ${r.path}`;
+    const box = $('#outline');
+    box.innerHTML = '';
+    for (const h of r.rows) {
+      const d = document.createElement('div');
+      d.className = 'hit';
+      d.innerHTML = `<div class="mono" style="color:var(--faint);font-size:11px">`
+        + `${h.id} · #${h.seq}${h.stale ? ' · ⚠ 已漂移' : ''}</div>`
+        + `<div class="hj">${esc(h.base_zh).slice(0, 56)}</div>`
+        + `<div>${esc(h.zh).slice(0, 56)}</div>`;
+      d.onclick = () => jumpTo(h.seq, h.id);
+      box.appendChild(d);
+    }
+  };
 
   $('#find').addEventListener('input', onFind);
   document.addEventListener('keydown', (e) => {

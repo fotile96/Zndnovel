@@ -32,7 +32,20 @@ id 序（1..17220）是脚本里的登记序，与玩家看到的顺序毫无关
 | 修订史 | 该 id 的全部 patch，逐条给 reason/glossary_v/ts/prov（哪个通道、哪个段） |
 | 人裁批注 | `pilot/polish/*/decisions.jsonl` 里该 id 的 note/reason_code |
 
-**只读**：本模块不写仓库任何文件。没有 POST 端点。
+## 写：只写一处草稿，永不碰生产
+
+本模块**唯一的写盘出口**是 `append_edit()`，且只写
+`pilot/read-edits/<lane>.draft.jsonl`（append-only，同 id 取最后一条）。
+生产车道的 `patches.jsonl` 由**另一个显式步骤** `tools/read_commit.py` 清关
+——沿用本项目「保税仓 + 唯一清关口」的既有纪律（见 `polish_commit` 模块
+docstring 的 2026-08-02 事故）：读的人一边读一边改，改动先落草稿，
+要不要进生产是另一个决定、由另一条命令做，且默认 dry-run。
+
+编辑框**原样保存**（不 trim 内部空白、不清洗、不拒收），但会**同时给出机械
+体检**（`check_edit()`）并显示在界面上——不阻断。这与裁决 UI 的口径不同，
+理由是那边的编辑框可能写着给主控会话的批注，这边写的就是最终译文本身；
+而实测里人手改出来的缺陷（多敲的「编」字前缀、尾随换行、新增原文没有的
+`『』`）都属于"当场就能看见、事后要靠闸才抓得到"那一类。
 """
 import argparse
 import difflib
@@ -42,6 +55,7 @@ import socket
 import socketserver
 import sys
 from collections import defaultdict
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -51,6 +65,10 @@ from tools.pipelib import REPO, read_jsonl
 from tools.resolve import resolve_map
 
 UI_DIR = Path(__file__).resolve().parent / "read_ui"
+#: 人工修改草稿的目录（相对仓库根）。与 `pilot/polish/<seg>/decisions.draft.jsonl`
+#: 同一性质：未清关的人工产物，入库跟踪，由显式命令清进生产。
+EDITS_DIR = "pilot/read-edits"
+DRAFT_SUFFIX = ".draft.jsonl"
 STATIC = {"/": "index.html", "/app.css": "app.css", "/app.js": "app.js"}
 DEFAULT_LANE = "pilot/lanes/opus"
 #: 附录单元的 seq——排在全部路线单元之后，容纳 timeline 未覆盖的 ambient 行。
@@ -105,6 +123,97 @@ def _lane_dir(repo: Path, lane: str) -> Path:
     return p if p.is_absolute() else repo / p
 
 
+def _lane_slug(lane: str) -> str:
+    return Path(lane).name or Path(lane).parent.name
+
+
+def edits_path(repo, lane: str) -> Path:
+    return Path(repo) / EDITS_DIR / (_lane_slug(lane) + DRAFT_SUFFIX)
+
+
+def append_edit(path, rec: dict) -> None:
+    """**本模块唯一的写盘函数**。文件名不以 `.draft.jsonl` 结尾就拒写。
+
+    断言放在真正 `open()` 的这一层，而不是算路径的 `edits_path()` 里——
+    算路径的函数只要还拼着后缀，校验它自己的产物就永远为真，那是一句恒真的
+    断言，比没有断言更糟（它看着像有保护）。放在这里，以后任何新增的调用点、
+    任何把路径参数化的改动，都必须过这一关。同 `adjudicate_server.append_draft`。
+    """
+    p = Path(path)
+    if not p.name.endswith(DRAFT_SUFFIX):
+        raise AssertionError(f"拒绝写非草稿文件：{p}（本服务只准写 *{DRAFT_SUFFIX}）")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def load_edits(path) -> dict:
+    """→ `{id: 最后一条编辑记录}`。append-only：同 id 后写覆盖先写。"""
+    p = Path(path)
+    if not p.exists():
+        return {}
+    out = {}
+    for r in read_jsonl(p):
+        if r.get("id"):
+            out[r["id"]] = r
+    return out
+
+
+_RUBY_RE = re.compile(r"<([^,>]+),([^>]+)>")
+_SPK_RE = re.compile(r"^【([^】]*)】")
+_MARKS = "「」『』≪≫≦≧"
+
+
+def check_edit(jp: str, old_zh: str, new_zh: str) -> list:
+    """人工改动的**机械体检**（顾问级，不阻断）→ 一串人话警告。
+
+    每一条都对应一次真实翻过的车：
+    - 首尾空白：`8872` 的编辑带了个尾随换行，一路落到车道才被发现；
+    - 说话人前缀：`14987` 的编辑多敲进一个「编」字（`编【Yuichi】…`），
+      是段末闸而不是当场发现的；
+    - **新增原文没有的 `『』`**：`『』` 在本作是卡名／场面名的专用壳，正文里
+      新增会被读成卡名（SEG-1 的 `2810`）。注意 `「」` 不在此列——SEG-4 已
+      裁定 `参ったなあ` 处可以有意新增 `「」`；
+    - `_n`/`_r` 计数：控制码是引擎的换行，多一个少一个都改版式；
+    - ruby 良构与不该丢：日文注音去掉、中文拼音新增都是既定口径，所以**不与
+      原文比数量**，只查括号是否成对良构、以及旧译有 ruby 而新译没有；
+    - 「小千秋」：v19 已废止的形。
+    """
+    w = []
+    if new_zh != new_zh.strip():
+        w.append("首尾有空白／换行——会原样落进 lua 字符串")
+    for k in ("_n", "_r"):
+        if jp.count(k) != new_zh.count(k):
+            w.append(f"控制码 {k} 数量与原文不符（原文 {jp.count(k)}，你写了 {new_zh.count(k)}）")
+    # 说话人前缀查三件事，缺一漏一种真实事故：
+    #   **有没有**——对着原文（jp 有【】译文就得有，反之亦然）。只比旧译会漏掉
+    #     「原文本来没有说话人、译文却凭空多出一个」；
+    #   **在不在行首**——`14987` 的编辑写成 `编【Yuichi】…`，多敲进一个字，
+    #     两边都"有"【】、名字也没变，只有位置能看出来；
+    #   **是谁**——对着旧译（名字是译过的，跟 jp 比不了内容）。
+    a, b = _SPK_RE.match(old_zh or ""), _SPK_RE.match(new_zh)
+    jp_has, new_has = "【" in jp, "【" in new_zh
+    if jp_has != new_has:
+        w.append("说话人前缀的有无与原文不符"
+                 f"（原文{'有' if jp_has else '没有'}【】，你{'写了' if new_has else '没写'}）")
+    elif jp_has and not b:
+        w.append("说话人前缀不在行首——前面是不是多敲了字符？")
+    elif b and (a.group(1) if a else None) != b.group(1):
+        w.append(f"说话人前缀变了：{a.group(0) if a else '（无）'} → {b.group(0)}")
+    for ch in _MARKS:
+        if jp.count(ch) != new_zh.count(ch):
+            extra = "——`『』` 是卡名／场面名的专用壳，正文新增会被读成卡名" if ch in "『』" else ""
+            w.append(f"记号 {ch} 数量与原文不符（原文 {jp.count(ch)}，你写了 {new_zh.count(ch)}）{extra}")
+    if new_zh.count("<") != new_zh.count(">") or len(_RUBY_RE.findall(new_zh)) * 2 != (
+            new_zh.count("<") + new_zh.count(">")):
+        w.append("ruby 括号不成对或不良构（应形如 `<汉字,pīn yīn>`）")
+    if _RUBY_RE.findall(old_zh or "") and not _RUBY_RE.findall(new_zh):
+        w.append("旧译里的 ruby 注音在新译里没有了")
+    if "小千秋" in new_zh:
+        w.append("含「小千秋」——v19 已废止，现行是对白「千秋酱」／旁白「千秋」")
+    return w
+
+
 class Reader:
     """把「路线序 + 原文 + 现行译文 + 修订史 + 人裁批注」装配成可分单元取用的模型。
 
@@ -138,6 +247,9 @@ class Reader:
             for r in read_jsonl(p):
                 if r.get("id"):
                     self.decisions[r["id"]].append({**r, "seg": seg})
+
+        self.edits_path = edits_path(self.repo, lane)
+        self.edits = load_edits(self.edits_path)
 
         self.units, self.by_seq = self._build_units()
 
@@ -258,6 +370,7 @@ class Reader:
             "history": history,
             "c1_hidden": sum(1 for h in history if h["c1_rename"]),
             "revised": bool(pats),
+            "pending": self._pending_payload(cid, led.get("jp", ""), zh),
             "decisions": [
                 {"seg": d["seg"], "verdict": d.get("verdict"),
                  "chosen_channel": d.get("chosen_channel"),
@@ -266,6 +379,57 @@ class Reader:
                 for d in self.decisions.get(cid, [])
             ],
         }
+
+    def _pending_payload(self, cid, jp, zh):
+        """该行是否有**未清关**的人工修改。`stale=True` 表示草稿记下的"改动前
+        文本"与车道现值已经对不上——多半是这行在你改完之后又被别处动过，
+        清关前要重看一眼。"""
+        e = self.edits.get(cid)
+        if not e:
+            return None
+        return {
+            "zh": e.get("zh", ""), "note": (e.get("note") or "").strip(),
+            "ts": e.get("ts"), "base_zh": e.get("base_zh", ""),
+            "stale": e.get("base_zh", "") != zh,
+            "warnings": check_edit(jp, zh, e.get("zh", "")),
+        }
+
+    def record_edit(self, payload: dict) -> dict:
+        """收一条人工修改，落草稿。**原样保存**——不 trim、不清洗、不拒收，
+        只把机械体检的结果一并回给前端显示（见模块 docstring）。"""
+        cid = payload.get("id")
+        if not isinstance(cid, int) or cid not in self.ledger:
+            raise ValueError(f"id 不在 ledger 里：{cid!r}")
+        zh = payload.get("zh")
+        if not isinstance(zh, str):
+            raise ValueError("zh 必须是字符串")
+        rec = {
+            "id": cid, "zh": zh, "note": payload.get("note") or "",
+            "base_zh": self.current.get(cid, ""),
+            "jp": self.ledger[cid].get("jp", ""),
+            "lane": self.lane_label,
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        append_edit(self.edits_path, rec)
+        self.edits[cid] = rec
+        return {"record": rec,
+                "warnings": check_edit(rec["jp"], rec["base_zh"], zh),
+                "pending_total": len(self.edits)}
+
+    def pending_payload(self) -> dict:
+        """全部未清关的修改，按路线序——给"只看改过的"那个视图用。"""
+        seq_of = {}
+        for u in self.units:
+            for i in u.get("ids", ()):
+                seq_of[i] = u["seq"]
+        rows = []
+        for cid in sorted(self.edits, key=lambda i: (seq_of.get(i, 10 ** 9), i)):
+            e = self.edits[cid]
+            rows.append({"id": cid, "seq": seq_of.get(cid), "zh": e.get("zh", ""),
+                         "base_zh": e.get("base_zh", ""), "note": (e.get("note") or "").strip(),
+                         "ts": e.get("ts"),
+                         "stale": e.get("base_zh", "") != self.current.get(cid, "")})
+        return {"path": str(self.edits_path), "total": len(rows), "rows": rows}
 
     def unit_payload(self, seq: int) -> dict:
         u = self.by_seq[seq]
@@ -372,6 +536,8 @@ def make_handler(model: Reader):
                     return self._err(404, f"没有 seq={seq} 这个单元")
             if path == "/api/search":
                 return self._json(model.search((q.get("q") or [""])[0]))
+            if path == "/api/pending":
+                return self._json(model.pending_payload())
             if path == "/api/locate":
                 raw = (q.get("id") or [""])[0]
                 try:
@@ -386,6 +552,20 @@ def make_handler(model: Reader):
 
         def do_HEAD(self):
             self.do_GET()
+
+        def do_POST(self):
+            # 唯一的写路径：落草稿。生产车道由 tools/read_commit.py 另行清关。
+            if urlparse(self.path).path != "/api/edit":
+                return self._err(404, f"没有这个端点：{self.path}")
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            except Exception as e:
+                return self._err(400, f"请求体不是合法 JSON：{e}")
+            try:
+                return self._json({"ok": True, **model.record_edit(payload)})
+            except ValueError as e:
+                return self._err(400, str(e))
 
     return Handler
 
@@ -408,7 +588,9 @@ def main(argv=None):
                       dict.fromkeys(["127.0.0.1", socket.gethostbyname(socket.gethostname())]))
     print(f"通读 UI：车道 {model.lane_label}，{n_units} 个演出单元 / "
           f"{sum(u['n_lines'] for u in model.units)} 行（ledger 共 {len(model.ledger)} 行）")
-    print(f"打开：http://{shown.split('、')[0]}/    （只读，不写任何文件；Ctrl-C 退出）")
+    print(f"打开：http://{shown.split('、')[0]}/    （Ctrl-C 退出）")
+    print(f"人工修改只写草稿：{model.edits_path}"
+          f"（现有 {len(model.edits)} 条）；进生产用 tools/read_commit.py")
     if len(shown.split("、")) > 1:
         print(f"局域网：http://{shown.split('、')[1]}/")
     try:

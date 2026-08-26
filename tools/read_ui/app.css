@@ -5,6 +5,7 @@
   --jp-ink:#2B2B30; --jp-bg:#F5F4F0;
   --accent:#1F5E8C; --accent-bg:#EAF1F7;
   --revised:#8A6D1F; --revised-bg:#FAF4E3;
+  --pen:#1F6E4A; --pen-bg:#E9F3ED;
   --side:#F3F2EE;
 }
 @media (prefers-color-scheme: dark){
@@ -14,6 +15,7 @@
     --jp-ink:#C9C9CE; --jp-bg:#1F1F23;
     --accent:#84B6DA; --accent-bg:#16232E;
     --revised:#D9BA6A; --revised-bg:#2A2417;
+    --pen:#7FCBA2; --pen-bg:#152418;
     --side:#171719;
   }
 }
@@ -23,6 +25,7 @@
   --jp-ink:#C9C9CE; --jp-bg:#1F1F23;
   --accent:#84B6DA; --accent-bg:#16232E;
   --revised:#D9BA6A; --revised-bg:#2A2417;
+  --pen:#7FCBA2; --pen-bg:#152418;
   --side:#171719;
 }
 *{box-sizing:border-box}
@@ -43,6 +46,11 @@ body{
 .brand{font-weight:650; letter-spacing:.02em; display:flex; align-items:baseline; gap:8px}
 .lane{font-size:11.5px; color:var(--muted); font-weight:400}
 .stat{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+.pendstat{
+  font-size:12px; color:var(--pen); cursor:pointer; font-variant-numeric:tabular-nums;
+  border:1px solid var(--pen); border-radius:2px; padding:1px 7px; align-self:flex-start;
+}
+.pendstat:hover{background:var(--pen-bg)}
 .find{
   width:100%; padding:6px 9px; border:1px solid var(--rule); border-radius:3px;
   background:var(--surface); color:var(--ink); font-size:13px; font-family:inherit;
@@ -107,6 +115,39 @@ body{
 .row:hover{background:var(--surface)}
 .row.rev{background:var(--revised-bg)}
 .row.rev:hover{filter:brightness(1.02)}
+.row.pend{background:var(--pen-bg); box-shadow:inset 3px 0 0 var(--pen)}
+.row .pen{color:var(--pen); font-size:10px}
+.zh .was{display:block; color:var(--faint); text-decoration:line-through; font-size:13.5px}
+.zh .now{display:block}
+.zh .warn{display:block; color:var(--pen); font-size:11.5px; margin-top:2px}
+
+.editbox{display:flex; flex-direction:column; gap:6px}
+.editbox .hintline{
+  font-weight:400; text-transform:none; letter-spacing:normal; color:var(--muted);
+  margin-left:8px; font-size:11px;
+}
+.ed, .ednote{
+  width:100%; font-family:inherit; font-size:14px; line-height:1.6; padding:7px 9px;
+  border:1px solid var(--rule); border-radius:3px; background:var(--paper); color:var(--ink);
+  resize:vertical;
+}
+.ednote{font-size:12.5px}
+.ed:focus, .ednote:focus{outline:2px solid var(--pen); outline-offset:-1px}
+.edbar{display:flex; align-items:center; gap:8px}
+.edbar button{
+  font:inherit; font-size:12.5px; padding:3px 11px; border-radius:3px; cursor:pointer;
+  border:1px solid var(--rule); background:var(--surface); color:var(--ink);
+}
+.edbar .save{border-color:var(--pen); color:var(--pen); font-weight:600}
+.edbar button:hover{background:var(--pen-bg)}
+.edmsg{font-size:12px; color:var(--muted)}
+.edwarn .wl{
+  border-left:3px solid var(--revised); background:var(--revised-bg);
+  padding:7px 11px; border-radius:0 3px 3px 0; font-size:12px; display:flex;
+  flex-direction:column; gap:2px;
+}
+.edwarn .wl b{font-size:11px; letter-spacing:.05em; color:var(--revised)}
+.edwarn .wnote{color:var(--muted); margin-top:3px}
 .row .no{
   color:var(--faint); font-size:11px; padding-top:4px; cursor:pointer;
   display:flex; gap:4px; align-items:baseline;

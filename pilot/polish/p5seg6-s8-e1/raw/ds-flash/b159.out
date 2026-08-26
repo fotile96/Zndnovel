@@ -1,0 +1,4 @@
+{"id": 13547, "jp_tail": "俺は、先生を――", "zh": "我，把老师――", "score": 90, "note": "", "adjudicate": false}
+{"id": 13548, "jp_tail": "ユカリ】「……」", "zh": "【Yukari】「……」", "score": 90, "note": "", "adjudicate": false}
+{"id": 13549, "jp_tail": "チ】「……先生」", "zh": "【Yuichi】「……老师」", "score": 90, "note": "", "adjudicate": false}
+{"id": 0, "note": "批末说明：3 行为 s4s_100_sel 悬置行（「我，把老师――」不补动词以免替玩家选分支；【Yukari】「……」、【Yuichi】「……老师」照 speakers.json），无 _n/ruby/≪≫，维持现译。"}

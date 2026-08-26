@@ -1,0 +1,4 @@
+{"id": 13547, "jp_tail": "俺は、先生を――", "zh": "我，把老师――", "score": 88, "note": "", "adjudicate": false}
+{"id": 13548, "jp_tail": "ユカリ】「……」", "zh": "【Yukari】「……」", "score": 88, "note": "", "adjudicate": false}
+{"id": 13549, "jp_tail": "チ】「……先生」", "zh": "【Yuichi】「……老师」", "score": 88, "note": "", "adjudicate": false}
+{"id": 0, "note": "批末说明：3 行零改动。13547 是 comDlgSelectItem 前的悬置行——『把老师――』的『把』为拼回卡 152『接受／不接受』分支、读点随原文『俺は、』，不补动词否则替玩家先选了分支；13548 与 e1s 已入线的 13540/13556 同形；13549『……老师』为 8 处同文族的已定形。"}

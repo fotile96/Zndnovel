@@ -1,0 +1,1 @@
+{"lane":"pilot/lanes/opus","findings":[{"id":5434,"rule":"W4","msg":"复现句族内不一致（同一 jp 另有译法，共 1 个其他成员）：id=16430@seg5-s6-s7f 作「那就是――」","siblings":[{"id":16430,"zh":"那就是――","seg":"seg5-s6-s7f"}]}]}

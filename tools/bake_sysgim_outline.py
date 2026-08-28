@@ -32,12 +32,14 @@ if _REPO not in sys.path:
 
 from tools.measure_sysgim import FILL_OFF, FILL_ON, STROKE, measure  # noqa: E402
 from tools.ui_font import resolve as _resolve_font  # noqa: E402
+from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import truetype as _ui_truetype
 
 warnings.filterwarnings("ignore", message="Palette images with Transparency")
 
 REPO = Path(__file__).resolve().parent.parent
 SYSGIM = REPO / "png" / "sysgim"
-OUTDIR = REPO / "build" / "sysgim"
+OUTDIR = _out_dir("sysgim")
 #: 字体按面可换：`ZND_UI_FONT_SYSGIM` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷 Regular
 #: （统一走 tools/ui_font.py；原先只认 ZND_UI_FONT，行为不变，只是多了按面指定）。
 #: 换成 Bold 字形时把 `FILL_GAIN` 一并调回 1.0——增益是为补 Regular 的细笔调而加的
@@ -237,7 +239,7 @@ def plan_file(name: str, rows: list[dict]) -> tuple[Image.Image, list[RowPlan]]:
 
 
 def _masks(text: str, size: int):
-    font = ImageFont.truetype(str(FONT_PATH), size)
+    font = _ui_truetype("sysgim", size)
     pad = 12
     d = ImageDraw.Draw(Image.new("L", (4, 4)))
     l, t, rr, bb = d.textbbox((0, 0), text, font=font, stroke_width=STROKE_WIDTH)

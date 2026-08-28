@@ -82,6 +82,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tools.ui_font import truetype as _ui_truetype
+from tools.bake_out import out_dir as _out_dir
 from tools.measure_card import (
     BODY_ZONE, CARD_H, CARD_W, FONT_PATH, INK_MIN_ALPHA, INTERIOR,
     RIGHT_ZONE, TITLE_ZONE, card_path, load_card_domain, load_cards_jp,
@@ -89,7 +91,7 @@ from tools.measure_card import (
     wrap_title_zh,
 )
 
-OUT_DIR = os.path.join(REPO, "build", "card_zh")
+OUT_DIR = str(_out_dir("card_zh"))
 
 # ---------------------------------------------------------------------------
 # Card 94 whitelist (see module docstring). Hardcoded, not detected.
@@ -597,7 +599,7 @@ _FONT_CACHE = {}
 
 def _font(size):
     if size not in _FONT_CACHE:
-        _FONT_CACHE[size] = ImageFont.truetype(FONT_PATH, size)
+        _FONT_CACHE[size] = _ui_truetype("card", size)
     return _FONT_CACHE[size]
 
 

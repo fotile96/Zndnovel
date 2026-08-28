@@ -43,6 +43,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tools.ui_font import truetype as _ui_truetype
 from tools.bake_select import (
     CELL_H, CELL_W, FONT_PATH, OUT_DIR, TEXT_BOX, _button_image_path,
     bake_button, measure_ink_extent,
@@ -82,7 +83,7 @@ def _row(button, text, size, label, draw_font):
     """渲染一行：左侧文字标签 + 右侧放大后的按钮。"""
     cell = Image.open(_button_image_path(button, VARIANT)).convert("RGBA")
     if text is not None:
-        font = ImageFont.truetype(FONT_PATH, size)
+        font = _ui_truetype("select", size)
         cell = bake_button(cell, text, font, VARIANT)
         x0, x1, y0, y1 = measure_ink_extent(text, font, TEXT_BOX)
         over = "  越界!" if not (TEXT_BOX[0] <= x0 and x1 <= TEXT_BOX[2]) else ""
@@ -96,7 +97,7 @@ def _row(button, text, size, label, draw_font):
 
 
 def build():
-    draw_font = ImageFont.truetype(FONT_PATH, 13)
+    draw_font = _ui_truetype("select", 13)
     rows = []
     for button, current in SEATS:
         rows.append(_row(button, None, 0, f"{button[-5:]} 原图", draw_font))

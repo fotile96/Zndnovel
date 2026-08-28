@@ -42,6 +42,8 @@ if REPO not in sys.path:  # allow `python3 tools/bake_plot.py` direct invocation
 
 from tools.zh_wrap import wrap as _zh_wrap
 from tools.ui_font import resolve as _resolve_font
+from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import truetype as _ui_truetype
 
 PLOT_DIR = os.path.join(REPO, "png", "plot")
 CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
@@ -49,7 +51,7 @@ CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
 #: Regular。面名＝plot。详见 tools/ui_font.py——那里也记着
 #: 「换字体后金标夹具会红，这是对的」。
 FONT_PATH = str(_resolve_font("plot"))
-OUT_DIR = os.path.join(REPO, "build", "plot_zh")
+OUT_DIR = str(_out_dir("plot_zh"))
 
 # ---------------------------------------------------------------------------
 # Grid geometry (measured + confirmed against lua_scripts/snr_common.lua and
@@ -768,7 +770,7 @@ def build_cellzoom_image(titles, font, cards=CELLZOOM_CARDS, scale=CELLZOOM_SCAL
 def run(write=True, with_cellzoom=None):
     if with_cellzoom is None:
         with_cellzoom = write
-    font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
+    font = _ui_truetype("plot", FONT_SIZE)
     titles = load_titles_zh()
     overflow = collect_overflow(titles, font)
 

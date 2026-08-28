@@ -141,6 +141,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import size_cascade as _size_cascade
 from tools.bake_select import (
     FONT_PATH, STROKE_WIDTH, TEXT_FILL_COLOR, _fits, build_render_plan,
     find_outside_box_diffs, load_fonts, measure_ink_extent,
@@ -148,7 +150,7 @@ from tools.bake_select import (
 )
 
 SELECT_DIR = os.path.join(REPO, "png", "select")
-OUT_DIR = os.path.join(REPO, "build", "select_zh")
+OUT_DIR = str(_out_dir("select_zh"))
 DATA_MAP_ZH = os.path.join(REPO, "data", "select_map_zh.jsonl")
 LUA_COMMON = os.path.join(REPO, "lua_scripts", "snr_common.lua")
 
@@ -172,7 +174,9 @@ MAP_TEXT_BOX = (15, 3, 104, 23)
 MAP_MAX_TEXT_W = MAP_TEXT_BOX[2] - MAP_TEXT_BOX[0]   # 89
 MAP_MAX_LINES = 1
 
-MAP_FONT_CASCADE = [18, 17]
+#: 与 bake_select 同源同理，共用 `ZND_UI_SIZE_CASCADE_SELECT`——地图格与按钮格
+#: 是同一套字号体系（格高同为 26px、文字框同为 20px 高），分开配只会让两者打架。
+MAP_FONT_CASCADE = _size_cascade("select", [18, 17])
 
 MAP_FILL_BY_VARIANT = {
     "on": (235, 164, 128, 255),

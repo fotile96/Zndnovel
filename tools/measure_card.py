@@ -57,6 +57,7 @@ if REPO not in sys.path:
 
 from tools.zh_wrap import wrap as _zh_wrap
 from tools.ui_font import resolve as _resolve_font
+from tools.ui_font import truetype as _ui_truetype
 from tools.pipelib import display_width
 
 CARD_DIR = os.path.join(REPO, "png", "card")
@@ -447,7 +448,7 @@ def wrap_right_zh(card, label_zh, font, max_width, max_lines_per_segment=2):
 # ---------------------------------------------------------------------------
 
 def trial_wrap_titles(cards_zh, font_size, max_width, cards=None):
-    font = ImageFont.truetype(FONT_PATH, font_size)
+    font = _ui_truetype("card", font_size)
     cards = cards or sorted(cards_zh)
     overflow = []
     for card in cards:
@@ -460,7 +461,7 @@ def trial_wrap_titles(cards_zh, font_size, max_width, cards=None):
 
 
 def trial_wrap_bodies(cards_zh, font_size, max_width, max_lines, cards=None):
-    font = ImageFont.truetype(FONT_PATH, font_size)
+    font = _ui_truetype("card", font_size)
     cards = cards if cards is not None else cards_with_real_body(cards_zh)
     overflow = []
     line_count_overflow = []
@@ -479,7 +480,7 @@ def trial_wrap_bodies(cards_zh, font_size, max_width, max_lines, cards=None):
 
 def trial_wrap_right_labels(cards_jp, section_labels_zh, font_size, max_width,
                              cards=None):
-    font = ImageFont.truetype(FONT_PATH, font_size)
+    font = _ui_truetype("card", font_size)
     cards = cards or sorted(cards_jp)
     overflow = []
     missing_label = []

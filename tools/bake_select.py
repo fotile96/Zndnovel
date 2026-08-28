@@ -126,13 +126,16 @@ if REPO not in sys.path:
 
 from tools.zh_wrap import wrap as _zh_wrap
 from tools.ui_font import resolve as _resolve_font
+from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import truetype as _ui_truetype
+from tools.ui_font import size_cascade as _size_cascade
 
 SELECT_DIR = os.path.join(REPO, "png", "select")
 #: 字体按面可换：`ZND_UI_FONT_SELECT` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
 #: Regular。面名＝select（bake_select_map.py 从本模块 import FONT_PATH）。详见 tools/ui_font.py——那里也记着
 #: 「换字体后金标夹具会红，这是对的」。
 FONT_PATH = str(_resolve_font("select"))
-OUT_DIR = os.path.join(REPO, "build", "select_zh")
+OUT_DIR = str(_out_dir("select_zh"))
 
 DATA_BUTTONS_ZH = os.path.join(REPO, "data", "select_buttons_zh.jsonl")
 DATA_OPTIONS_ZH = os.path.join(REPO, "data", "select_options_zh.jsonl")
@@ -156,9 +159,11 @@ TEXT_BOX = (15, 3, 235, 23)   # (x0, y0, x1, y1); centered on measured (124.5,12
 MAX_TEXT_W = TEXT_BOX[2] - TEXT_BOX[0]   # 220
 MAX_LINES = 1               # every real button caption is a single short line
 
-FONT_SIZE_CASCADE = [18, 17]   # biggest first; see module docstring for the
-                                 # measured 20/134 fallback set at 18px and
-                                 # the 0/134 overflow re-check at 17px.
+#: 从大到小逐档试，第一个不越界的胜出。默认 [18,17] 是对着霞鹜文楷逐格实测定的
+#: （18px 下 14/134 回落、17px 下 0/134 溢出）。**这是字体的函数**：思源黑体同 px
+#: 下字身更高，134 个里有 118 个在 17px 撞文字框下沿（框高仅 20px）。换字体时用
+#: `ZND_UI_SIZE_CASCADE_SELECT=18,17,16,15` 加档，默认不变。
+FONT_SIZE_CASCADE = _size_cascade("select", [18, 17])
 
 TEXT_FILL_COLOR = (255, 255, 255, 255)   # white, both variants -- measured
                                             # (see measure_ink_colors(); both
@@ -436,7 +441,7 @@ def _fits(text, font, box, max_width, max_lines):
 
 
 def load_fonts(cascade=FONT_SIZE_CASCADE):
-    return {size: ImageFont.truetype(FONT_PATH, size) for size in cascade}
+    return {size: _ui_truetype("select", size) for size in cascade}
 
 
 def build_render_plan(texts, fonts_by_size, cascade=FONT_SIZE_CASCADE,

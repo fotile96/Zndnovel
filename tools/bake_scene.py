@@ -144,13 +144,16 @@ if REPO not in sys.path:
 from tools.bake_plot import load_titles_zh
 from tools.zh_wrap import wrap as _zh_wrap
 from tools.ui_font import resolve as _resolve_font
+from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import truetype as _ui_truetype
+from tools.ui_font import size_cascade as _size_cascade
 
 SCENE_DIR = os.path.join(REPO, "png", "scene")
 #: 字体按面可换：`ZND_UI_FONT_SCENE` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
 #: Regular。面名＝scene。详见 tools/ui_font.py——那里也记着
 #: 「换字体后金标夹具会红，这是对的」。
 FONT_PATH = str(_resolve_font("scene"))
-OUT_DIR = os.path.join(REPO, "build", "scene_zh")
+OUT_DIR = str(_out_dir("scene_zh"))
 
 # ---------------------------------------------------------------------------
 # Grid geometry -- measured + confirmed against lua_scripts/snr_common.lua's
@@ -174,10 +177,10 @@ NUM_CARDS = 195
 # background template's fixed geometry (flat band + corner notches), not
 # from any font metric. This is a genuine invariant, not an oversight: see
 # the report section on "保全闸的矩形与字号无关".
-FONT_SIZE_CASCADE = [11, 10, 9]   # try largest first; step down only as far
-                                    # as a given card's title actually needs.
-                                    # A generic ladder, not a hardcoded 2-tier
-                                    # special case -- add/remove tiers here.
+#: 从大到小逐档试，只降到该格真正需要的那一档为止。默认 [11,10,9] 对着霞鹜文楷
+#: 实测选定（S4：用户看过 9/10/11 三版对照后取 11 打底）。换字体可用
+#: `ZND_UI_SIZE_CASCADE_SCENE=…` 覆盖——档位随字体而变，见 tools/ui_font.py。
+FONT_SIZE_CASCADE = _size_cascade("scene", [11, 10, 9])
 TEXT_BOX = (3, 0, 142, 15)   # (x0, y0, x1, y1); redraw + coverage rectangle
 MAX_TEXT_W = TEXT_BOX[2] - TEXT_BOX[0]   # 139
 MAX_LINES = 1                # cell height (15px) structurally forces one line
@@ -415,7 +418,7 @@ def bake_sheet(sheet_num, titles, fonts_by_card):
 def load_fonts(cascade=FONT_SIZE_CASCADE):
     """{size: ImageFont} for every size in `cascade`, loaded once up front
     so build_render_plan doesn't reopen the font file per card per tier."""
-    return {size: ImageFont.truetype(FONT_PATH, size) for size in cascade}
+    return {size: _ui_truetype("scene", size) for size in cascade}
 
 
 def build_render_plan(titles, fonts_by_size, cascade=FONT_SIZE_CASCADE,

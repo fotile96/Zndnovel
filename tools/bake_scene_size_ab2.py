@@ -46,6 +46,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+from tools.ui_font import truetype as _ui_truetype
 from tools.bake_scene import (
     CELL_H, CELL_W, CELLZOOM_CARDS, FONT_PATH, FONT_SIZE_CASCADE, OUT_DIR,
     TEXT_BOX, bake_cell, build_render_plan, cell_box, load_fonts,
@@ -135,7 +136,7 @@ def build_size_ab2_image(titles, old_font, fonts_by_card, plans, cards=CARDS,
 def run(write=True):
     all_titles = load_titles_zh()
     titles = {c: all_titles[c] for c in range(1, 196)}
-    old_font = ImageFont.truetype(FONT_PATH, OLD_FONT_SIZE)
+    old_font = _ui_truetype("scene", OLD_FONT_SIZE)
 
     fonts_by_size = load_fonts()
     plans, _fallbacks, hard_failures = build_render_plan(titles, fonts_by_size)

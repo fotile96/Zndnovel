@@ -26,7 +26,7 @@
 {"button":"sel_s2s_193b_sel_c","jp":"専門家の目","zh":"专家的眼力","source":"本轮新译"}
 {"button":"sel_s2s_193b_sel_d","jp":"元の作品","zh":"原作","source":"本轮新译"}
 {"button":"sel_s2s_193c_sel_a","jp":"完成していなかった","zh":"赝品没有完成","source":"本轮新译"}
-{"button":"sel_s2s_193c_sel_b","jp":"元にした物がニセ物","zh":"原作本身是赝品","source":"本轮新译"}
+{"button":"sel_s2s_193c_sel_b","jp":"元にした物がニセ物","zh":"原作本身是假货","source":"override:正文 v8 定 ニセモノ/ニセ物→假货（9597/9598/9609）、贋作→赝品（9593-9615，7/7）；骨架卡 41 tr_note 登记的图片轨待办"}
 {"button":"sel_s2s_193c_sel_c","jp":"男は贋作師ではない","zh":"男人不是做赝品的","source":"本轮新译"}
 {"button":"sel_s2s_220_sel_a","jp":"プール","zh":"游泳池","source":"既有语料"}
 {"button":"sel_s2s_220_sel_b","jp":"プラネタリウム","zh":"天象馆","source":"既有语料"}
@@ -41,7 +41,7 @@
 {"button":"sel_s3s_230_sel_c","jp":"図書室","zh":"图书室","source":"既有语料"}
 {"button":"sel_s3s_230_sel_d","jp":"校庭","zh":"操场","source":"本轮新译"}
 {"button":"sel_s3s_230_sel_e","jp":"屋上","zh":"天台","source":"既有语料"}
-{"button":"sel_s3s_230h_sel_a","jp":"ユカリ先生","zh":"ユカリ老师","source":"既有语料"}
+{"button":"sel_s3s_230h_sel_a","jp":"ユカリ先生","zh":"Yukari老师","source":"既有语料；v19 C1 罗马音化"}
 {"button":"sel_s3s_230h_sel_b","jp":"保健室の先生","zh":"保健室老师","source":"本轮新译"}
 {"button":"sel_s3s_230h_sel_c","jp":"カタカナ先生","zh":"片假名老师","source":"本轮新译"}
 {"button":"sel_s3s_230l_sel_a","jp":"いない","zh":"没有这个人","source":"本轮新译"}
@@ -77,16 +77,16 @@
 {"button":"sel_s4s_450_sel_h","jp":"図書室","zh":"图书室","source":"既有语料"}
 {"button":"sel_s4s_490_sel_b","jp":"引き戻す","zh":"拉回来","source":"本轮新译"}
 {"button":"sel_s4s_490_sel_c","jp":"元の姿に戻す","zh":"恢复原样","source":"本轮新译"}
-{"button":"sel_s4s_670_sel_a","jp":"サクラを待つ","zh":"等サクラ","source":"既有语料"}
+{"button":"sel_s4s_670_sel_a","jp":"サクラを待つ","zh":"等Sakura","source":"既有语料；v19 C1 罗马音化"}
 {"button":"sel_s4s_670_sel_b","jp":"家に帰る","zh":"回家","source":"既有语料"}
 {"button":"sel_s5s_190_sel_a","jp":"中庭に行く","zh":"去中庭","source":"本轮新译"}
 {"button":"sel_s5s_190_sel_b","jp":"家に帰る","zh":"回家","source":"既有语料"}
 {"button":"sel_s5s_350_sel_a","jp":"無理はしない","zh":"不硬撑","source":"本轮新译"}
 {"button":"sel_s5s_80_sel_b","jp":"人が落ちてくる","zh":"有人坠落","source":"既有语料"}
 {"button":"sel_s5s_80_sel_c","jp":"雪が降る","zh":"下雪","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_a","jp":"Aサクラ Bアヤノ Cユウイチ","zh":"Aサクラ Bアヤノ Cユウイチ","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_b","jp":"Aサクラ Bユウイチ Cアヤノ","zh":"Aサクラ Bユウイチ Cアヤノ","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_c","jp":"Aユウイチ Bアヤノ Cサクラ","zh":"Aユウイチ Bアヤノ Cサクラ","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_d","jp":"Aユウイチ Bサクラ Cアヤノ","zh":"Aユウイチ Bサクラ Cアヤノ","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_e","jp":"Aアヤノ Bサクラ Cユウイチ","zh":"Aアヤノ Bサクラ Cユウイチ","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_f","jp":"Aアヤノ Bユウイチ Cサクラ","zh":"Aアヤノ Bユウイチ Cサクラ","source":"本轮新译"}
+{"button":"sel_s6s_110_sel_a","jp":"Aサクラ Bアヤノ Cユウイチ","zh":"ASakura BAyano CYuichi","source":"本轮新译；v19 C1 罗马音化"}
+{"button":"sel_s6s_110_sel_b","jp":"Aサクラ Bユウイチ Cアヤノ","zh":"ASakura BYuichi CAyano","source":"本轮新译；v19 C1 罗马音化"}
+{"button":"sel_s6s_110_sel_c","jp":"Aユウイチ Bアヤノ Cサクラ","zh":"AYuichi BAyano CSakura","source":"本轮新译；v19 C1 罗马音化"}
+{"button":"sel_s6s_110_sel_d","jp":"Aユウイチ Bサクラ Cアヤノ","zh":"AYuichi BSakura CAyano","source":"本轮新译；v19 C1 罗马音化"}
+{"button":"sel_s6s_110_sel_e","jp":"Aアヤノ Bサクラ Cユウイチ","zh":"AAyano BSakura CYuichi","source":"本轮新译；v19 C1 罗马音化"}
+{"button":"sel_s6s_110_sel_f","jp":"Aアヤノ Bユウイチ Cサクラ","zh":"AAyano BYuichi CSakura","source":"本轮新译；v19 C1 罗马音化"}

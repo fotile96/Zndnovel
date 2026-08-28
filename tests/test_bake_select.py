@@ -184,9 +184,14 @@ def test_build_render_plan_real_texts_zero_hard_failures_and_known_fallback_set(
     assert hard_failures == []
     assert len(plans) == 134
     fb_buttons = sorted(b for b, _s, _t in fallbacks)
-    assert len(fb_buttons) == 20
-    assert set(fb_buttons) >= {f"sel_s6s_110_sel_{c}" for c in "abcdef"}
+    # 2026-08-28：回落集从 20 缩到 14。glossary v19 C1 把 s6s_110 六条座席文本从
+    # 全角片假名改成半角罗马音（Aサクラ… → ASakura…），18px 下实测墨迹 x 至 230、
+    # 框右界 235，**不再越界**——这六条正是当初把回落集撑到 20 的那批。
+    assert len(fb_buttons) == 14
+    assert not any(b.startswith("sel_s6s_110_") for b in fb_buttons)
     assert "sel_s4s_170_sel_a" in fb_buttons  # 最长常规译文（含标点）
+    # 现役 134 条里 x 轴越界者为 0，这 14 条全是字高（y 轴）越界。
+    # 下一个测试保留的那条 x 轴样例因此是**史料**，不是现役文本——见其 docstring。
     for b, size, tried in fallbacks:
         assert size == FONT_SIZE_CASCADE[-1] == 17
         assert tried == [FONT_SIZE_CASCADE[0]]
@@ -195,10 +200,15 @@ def test_build_render_plan_real_texts_zero_hard_failures_and_known_fallback_set(
 
 
 def test_measure_ink_extent_uses_real_rendered_pixels_not_char_count():
-    """s6s_110 的关键回归：18px 字号下这类字符串的 textlength 估算值本身
-    就已经很接近上限，但只有测真实描边墨迹才能精确判定是否越界——用真实
-    按钮文本直接验证 18px 下越界、17px 下不越界，两者都来自像素测量而非
-    估算。"""
+    """x 轴越界的关键回归：18px 下这类字符串的 textlength 估算值本身就已经
+    很接近上限，只有测真实描边墨迹才能精确判定是否越界。
+
+    ⚠ 这条字符串是 **v19 之前** 的 s6s_110 座席文本（现役已改为半角罗马音
+    `ASakura BAyano CYuichi`，18px 下不再越界）。**刻意保留为史料**：现役
+    134 条按钮里 x 轴越界者为 0，仅剩的 14 条回落全是字高越界，语料里再也
+    找不出第二个 x 轴样例。这条一旦删掉，「墨迹测量优于字符数估算」在**宽度
+    方向**上就此失去回归——而当初逼出这套测量法的正是宽度。
+    """
     text = "Aサクラ Bアヤノ Cユウイチ"
     font18 = _font(18)
     font17 = _font(17)
@@ -258,7 +268,7 @@ def test_run_raises_before_writing_any_file_on_hard_failure(tmp_path, monkeypatc
 
 def test_fallbacks_disabled_would_hide_the_downgrade():
     """变异回归形态：模拟 fallbacks 列表被静默清空的坏实现，证明如果真的
-    这样改，20 条真实回落就会从"能看到"变成"看不到"。"""
+    这样改，14 条真实回落就会从"能看到"变成"看不到"。"""
     covered, missing, _ev = compute_coverage()
     assert missing == []
     texts = {b: covered[b]["zh"] for b in covered}
@@ -270,7 +280,7 @@ def test_fallbacks_disabled_would_hide_the_downgrade():
         return plans, [], hard
 
     _plans2, fake_fallbacks, _hard2 = broken(texts, fonts_by_size)
-    assert len(real_fallbacks) == 20
+    assert len(real_fallbacks) == 14
     assert fake_fallbacks == []
 
 
@@ -378,7 +388,7 @@ def test_real_run_report_is_clean(tmp_path, monkeypatch):
     assert report["overflow"] == []
     assert report["pixel_preservation_violations"] == []
     assert report["font_size_cascade"] == FONT_SIZE_CASCADE
-    assert len(report["fallbacks"]) == 20
+    assert len(report["fallbacks"]) == 14
     assert len(report["button_font_sizes"]) == 134
     assert report["coverage_evidence"]["total_buttons"] == 134
 
@@ -448,4 +458,6 @@ def test_cli_reports_coverage_and_fallbacks(capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "coverage evidence" in out
     assert "fallbacks" in out
-    assert "sel_s6s_110_sel_a: -> 17px" in out
+    # 取最长常规译文那条：s6s_110 六条自 v19 罗马音化后已不再回落（半角拉丁更窄），
+    # 拿它们当样例会把这条测试钉在一段已经过去的历史上。
+    assert "sel_s4s_170_sel_a: -> 17px" in out

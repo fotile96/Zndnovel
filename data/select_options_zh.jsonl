@@ -38,7 +38,7 @@
 {"jp":"男の視力","zh":"男人的视力","buttons":["sel_s2s_193b_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":""}
 {"jp":"専門家の目","zh":"专家的眼力","buttons":["sel_s2s_193b_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":""}
 {"jp":"元の作品","zh":"原作","buttons":["sel_s2s_193b_sel_d"],"source":"override:正文 9615「原因在于原作」","note":"谜题二第二问正解（原因在原作）；与第 41 条『原本的作品是赝品』用词打通。"}
-{"jp":"元にした物がニセ物","zh":"原作本身是赝品","buttons":["sel_s2s_193c_sel_b"],"source":"override:同上，统一用「原作」「赝品」","note":"谜题二终答：他照着仿的那件『原作』本身就是赝品。"}
+{"jp":"元にした物がニセ物","zh":"原作本身是假货","buttons":["sel_s2s_193c_sel_b"],"source":"override:统一用「原作」「假货」——正文 v8 定 ニセモノ/ニセ物→假货，贋作→赝品","note":"谜题二终答：他照着仿的那件『原作』本身就是假货。与同屏的『赝品没有完成』『男人不是做赝品的』（jp 侧是 贋作）分用两词，是正文轨的既定分工，不是不一致。"}
 {"jp":"教室","zh":"教室","buttons":["sel_s3s_230_sel_a","sel_s4s_210_sel_a","sel_s4s_450_sel_a"],"source":"opus","note":"地图探索点。"}
 {"jp":"保健室","zh":"保健室","buttons":["sel_s3s_230_sel_b"],"source":"opus","note":"地图探索点；与第 45 条『保健室老师』同词。"}
 {"jp":"校庭","zh":"操场","buttons":["sel_s3s_230_sel_d","sel_s4s_210_sel_g","sel_s4s_450_sel_g"],"source":"opus","note":"术语表『校庭→操场』。"}
@@ -53,9 +53,9 @@
 {"jp":"美術室","zh":"美术室","buttons":["sel_s4s_210_sel_e","sel_s4s_450_sel_e"],"source":"opus","note":"同上。"}
 {"jp":"中庭に行く","zh":"去中庭","buttons":["sel_s5s_190_sel_a"],"source":"opus","note":"与已有 sel_s5s_190_sel_b『回家』成对；术语『中庭→中庭』。"}
 {"jp":"雪が降る","zh":"下雪","buttons":["sel_s5s_80_sel_c"],"source":"opus","note":"与已有 sel_s5s_80_sel_c 同组的 b『有人坠落』并列（另一项为『鲜花盛开』）；即『中庭の雪』伏笔，正解项。"}
-{"jp":"Aサクラ Bアヤノ Cユウイチ","zh":"Aサクラ Bアヤノ Cユウイチ","buttons":["sel_s6s_110_sel_a"],"source":"opus","note":"六选一推理题（三把椅子 A/B/C 坐着谁）。方案：A/B/C 是椅子编号，直接沿用；片假名角色名按硬要求 3 原样保留——故本条译文＝原文，只换字体重烤。原图为压宽度用了半角片假名，重制时建议照旧用半角/窄形片假名，宽度即与原版一致。"}
-{"jp":"Aサクラ Bユウイチ Cアヤノ","zh":"Aサクラ Bユウイチ Cアヤノ","buttons":["sel_s6s_110_sel_b"],"source":"opus","note":"同上。"}
-{"jp":"Aユウイチ Bアヤノ Cサクラ","zh":"Aユウイチ Bアヤノ Cサクラ","buttons":["sel_s6s_110_sel_c"],"source":"opus","note":"同上。"}
-{"jp":"Aユウイチ Bサクラ Cアヤノ","zh":"Aユウイチ Bサクラ Cアヤノ","buttons":["sel_s6s_110_sel_d"],"source":"opus","note":"同上。"}
-{"jp":"Aアヤノ Bサクラ Cユウイチ","zh":"Aアヤノ Bサクラ Cユウイチ","buttons":["sel_s6s_110_sel_e"],"source":"opus","note":"同上，且这是正解（B サクラ 说谎、C ユウイチ 说真话，均自洽）。"}
-{"jp":"Aアヤノ Bユウイチ Cサクラ","zh":"Aアヤノ Bユウイチ Cサクラ","buttons":["sel_s6s_110_sel_f"],"source":"opus","note":"同上。"}
+{"jp":"Aサクラ Bアヤノ Cユウイチ","zh":"ASakura BAyano CYuichi","buttons":["sel_s6s_110_sel_a"],"source":"opus","note":"六选一推理题（三把椅子 A/B/C 坐着谁）。A/B/C 是椅子编号直接沿用；故事层人名依 glossary v19 C1 罗马音化，标号与名之间不加空格——依正文 15589「ＡAyano、ＢSakura、ＣYuichi」先例。原图为压宽度用了半角片假名；罗马音是半角拉丁，18px 实测墨迹 x 至 230（框右界 235）不越界，故不再需要 17px 回落。"}
+{"jp":"Aサクラ Bユウイチ Cアヤノ","zh":"ASakura BYuichi CAyano","buttons":["sel_s6s_110_sel_b"],"source":"opus","note":"同上。"}
+{"jp":"Aユウイチ Bアヤノ Cサクラ","zh":"AYuichi BAyano CSakura","buttons":["sel_s6s_110_sel_c"],"source":"opus","note":"同上。"}
+{"jp":"Aユウイチ Bサクラ Cアヤノ","zh":"AYuichi BSakura CAyano","buttons":["sel_s6s_110_sel_d"],"source":"opus","note":"同上。"}
+{"jp":"Aアヤノ Bサクラ Cユウイチ","zh":"AAyano BSakura CYuichi","buttons":["sel_s6s_110_sel_e"],"source":"opus","note":"同上，且这是正解（B Sakura 说谎、C Yuichi 说真话，均自洽）。"}
+{"jp":"Aアヤノ Bユウイチ Cサクラ","zh":"AAyano BYuichi CSakura","buttons":["sel_s6s_110_sel_f"],"source":"opus","note":"同上。"}

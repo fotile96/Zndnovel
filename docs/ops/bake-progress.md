@@ -151,6 +151,78 @@ ZND_UI_FONT_CARD=/path/to/Other.ttf uv run python tools/bake_card.py
 汉字不是一种气质。以前拉丁字符罕见，这条无关紧要；罗马音化之后每张卡面、每个按钮、
 每条 scene 标题都躲不开（`card_zh/_cellzoom.png` 里 `Sakura的日记` 一眼可见）。
 
+## 思源黑体 SC 试烤（2026-08-28）
+
+`third_party/SourceHanSansSC-VF.ttf`（用户提供）全五面已烤一版，产物在
+`build/<面>__shs/`；对照图 `build/font_ab/{card,select,scene,plot,sysgim}.png`
+与数字差异 `build/font_ab/summary.md`（`tools/bake_font_ab.py` 生成）。
+
+复现：
+
+```bash
+export ZND_UI_FONT="$PWD/third_party/SourceHanSansSC-VF.ttf" ZND_BUILD_TAG=shs
+uv run python tools/bake_plot.py && uv run python tools/bake_scene.py
+uv run python tools/bake_card.py
+ZND_UI_SIZE_CASCADE_SELECT=18,17,16,15,14 uv run python tools/bake_select.py
+ZND_UI_SIZE_CASCADE_SELECT=18,17,16,15,14 uv run python tools/bake_select_map.py
+ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_sysgim_outline.py
+ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_sysgim_glow.py
+uv run python tools/bake_font_ab.py --tag shs
+```
+
+### 三个必须先知道的坑
+
+1. **变量字体的默认实例是 ExtraLight(250)，不是 Regular。** 那是权重轴的最小值。
+   裸调 `ImageFont.truetype()` 会拿到它，于是两千多张图会在发丝级字重下烤出来——
+   与换字动机恰好相反，而且**看起来是正常的**（不报错、不缺字，只是更灰一点）。
+   `tools/ui_font.py` 因此把变量字体默认钉在 `Regular`，另可用
+   `ZND_UI_FONT_WEIGHT[_<面>]` 指定（18px 实测纯白核：ExtraLight 4.9% →
+   Regular 24.7% → Medium 36.1% → Bold 47.0%）。
+2. **sysgim 的 `ZND_UI_FILL_GAIN` 要调回 1.0。** 2.2 是补霞鹜文楷细笔调的，
+   思源黑体笔画本就实，再叠增益会糊字腔（裁决 Y6/Y14 早已写明）。
+3. **`select/` 的字号级联撑不住，要加档。** 默认 `[18,17]` 下 134 个按钮里 **118 个**
+   撞文字框——但**原因不是字体太大，是居中方式**，见下。
+
+### `select/` 那 118 个越界：是定位，不是字体
+
+`render_text_layer` 用 `anchor="mm"`，即按**字体的设计度量**（ascender/descender）
+居中。思源黑体的设计度量比霞鹜文楷大得多，墨迹因此被整体压低。实测（文字框
+`(15,3,235,23)`，高 20px）：
+
+| 字号 | 文本 | 墨迹自身高 | mm 锚定实测 y | 判定 |
+|---:|---|---:|---|---|
+| 17px | `AAyano BSakura CYuichi` | **20px** | y[6,26] | 墨迹装得下，定位越界 3px |
+| 16px | 同上 | 19px | y[6,25] | 同上 |
+| 14px | 同上 | 16px | y[7,23] | 碰巧落进框里 |
+
+**17px 的墨迹正好等于框高，本来装得下。** 按墨迹居中即可，一路降到 14px 完全是
+定位方式的代价。本轮**没有改**——`anchor="mm"` 的居中是裁决 L6 对着原图验过的，
+改了会连带移动已入线的霞鹜文楷版全部 268 张按钮，不该顺手做。故 SHS 版的 select
+按现行管线落在 14–16px，对照图里它比霞鹜文楷版小一圈，**那一圈是管线欠的，不是字体欠的**。
+
+### 看图结论（我的观察，供你复核）
+
+- **`scene/` 差别最大。** 9–11px 下霞鹜文楷灰而糊，思源黑体是实白的，接近原图。
+  9px 回落的卡 180/182 尤其明显——那两张在霞鹜文楷下已接近不可读。
+- **`card/` 正文 9px 同向**，思源黑体更实、气质也更贴原图的日文黑体。
+- **`select/` 即便字号小两三档，思源黑体仍比霞鹜文楷更清楚**——这条最能说明问题：
+  「更小但更清楚」意味着现在的可读性瓶颈是**笔画密度**而不是字号。
+- **拉丁字形**：思源黑体的拉丁与其汉字同族同气质；霞鹜文楷的拉丁偏手写、偏轻、偏宽，
+  与汉字并置时明显是两套东西（`章节 5：Sakura` 一眼可见）。v19 罗马音化之后
+  这条的权重很大。
+- 反面：思源黑体是**黑体**，霞鹜文楷是**楷体**。原作日文用的是黑体系，故思源在
+  「像原作」这一维上占优；但如果中文版想要更柔的调子，那是另一种取舍，不是本对照能回答的。
+
+### 数字差异
+
+| 面 | 字号回落（霞鹜 → 思源） | 溢出 | 盒外像素改动 |
+|---|---|---|---|
+| `select` | 14 → **118** | 0 → 0 | 0 → 0 |
+| `scene` | 3 → 3 | 0 → 0 | 0 → 0 |
+| `card` / `plot` | — | 0 → 0 | 0 → 0 |
+
+回落数暴涨仅因上面那条定位问题；溢出与盒外像素改动两版都是 0，**两套字都没有真缺陷**。
+
 ## 本轮顺带产出的、跨面通用的东西
 
 - **`tools/check_ui_terms.py` + `config/ui_terms.yaml`（62 条术语）**：UI／标签译文与

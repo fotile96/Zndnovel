@@ -150,3 +150,68 @@ def test_baked_files_touch_nothing_they_shouldnt():
 def test_translations_pass_the_term_gate():
     v = T.run([G.DATA])
     assert v == [], "\n".join(str(x) for x in v)
+
+
+# ---------------------------------------------------------------------------
+# 段级横向对齐（2026-08-28）
+# ---------------------------------------------------------------------------
+
+def test_group_align_left_for_the_disclaimer_paragraph():
+    """**这条测试的主张**：同一段的多行必须判出同一种对齐。
+
+    逐行判据比的是原字芯的左右边距。一行若几乎填满盒宽，两边边距都很小、
+    差值落在容差内——「左对齐」与「居中」本质上不可分。sys_1_a 的免责声明五行
+    因此判出「中中中中左」：前四行满宽判不出、末行短判成左，同一段渲成锯齿。
+
+    段级判据换了个量：**左边缘跨度 vs 右边缘跨度**。那五行的左缘是
+    41/39/41/39/39（跨度 2），右缘 440/437/438/438/206（跨度 234）——
+    对齐的那一侧才会齐，这个信号对满宽行同样成立。
+    """
+    from PIL import Image
+
+    rows = G.load_text()[0]["sys_1_a"]
+    im = Image.open(G.SYSGIM / "sys_1_a.png").convert("RGBA")
+    glows = [G.measure_glow(im, tuple(r["box"])) for r in rows]
+    ga = G.group_align(im, rows, glows)
+    body = (30, 455)                      # 免责声明五行所在的盒列
+    assert body in ga
+    mode, anchor = ga[body]
+    assert mode == "left"
+    assert 35 <= anchor <= 45
+
+
+def test_group_align_leaves_centered_sheets_to_the_per_row_rule():
+    """判不出来就不判——`sys_2_b` 八行两侧跨度 17/18，是真居中，
+    段级不能硬给它一个答案。**能少答一句就少答一句**，回落到逐行即可。
+    """
+    from PIL import Image
+
+    for name in ("sys_2_b", "sys_2_c", "sys_5_i", "sys_5_j", "sys_13_a"):
+        rows = G.load_text()[0][name]
+        im = Image.open(G.SYSGIM / f"{name}.png").convert("RGBA")
+        glows = [G.measure_glow(im, tuple(r["box"])) for r in rows]
+        assert G.group_align(im, rows, glows) == {}, f"{name} 不该被段级判定接管"
+
+
+def test_group_align_ignores_single_row_columns():
+    """单行盒没有「段」可言——A/B 两族大量是单行标签，行为必须一字不变。"""
+    from PIL import Image
+
+    rows = G.load_text()[0]["sys_5_a"]
+    im = Image.open(G.SYSGIM / "sys_5_a.png").convert("RGBA")
+    glows = [G.measure_glow(im, tuple(r["box"])) for r in rows]
+    assert G.group_align(im, rows, glows) == {}
+
+
+def test_sys_5_f_was_silently_misaligned_before():
+    """回归：`sys_5_f` 是**已入库 B 族**里的同一个 bug，逐行判出「左中」。
+
+    它一直渲着不一致的两行而没人发现——因为没有任何检查在看"同一段的对齐是否一致"。
+    段级判据把它一并修了。
+    """
+    from PIL import Image
+
+    rows = G.load_text()[0]["sys_5_f"]
+    im = Image.open(G.SYSGIM / "sys_5_f.png").convert("RGBA")
+    glows = [G.measure_glow(im, tuple(r["box"])) for r in rows]
+    assert G.group_align(im, rows, glows)[(rows[0]["box"][0], rows[0]["box"][2])][0] == "left"

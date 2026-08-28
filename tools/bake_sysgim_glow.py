@@ -294,6 +294,47 @@ def _core_bbox(im: Image.Image, box, g: "Glow"):
     return min(xs), min(ys), max(xs), max(ys)
 
 
+def group_align(im: Image.Image, rows: list[dict], glows: list["Glow"]) -> dict[tuple, str]:
+    """**段级**横向对齐：同一列盒里的多行，一起判一次。
+
+    **为什么逐行判不出来。** 逐行判据是比原字芯的左右边距（`lm` vs `rm`）。一行若
+    几乎填满盒宽，两边边距都很小、差值落在容差内——「左对齐」与「居中」**本质上不可分**。
+    于是 `sys_1_a` 的免责声明五行判出「中中中中左」：前四行满宽判不出、末行短判成左，
+    同一段渲成锯齿。已入库的 `sys_5_f` 也早就中招（「左中」），一直没人发现。
+
+    信息其实在段级：那五行原文的左边缘是 41/39/41/39/39（跨度 2），右边缘
+    440/437/438/438/206（跨度 234）。**跨度差本身就是对齐方式**——对齐的那一侧
+    才会齐。这个判据对「满宽行」一样有效，正是逐行判据缺的东西。
+
+    只在同列盒且行数 ≥2 时生效；判不出来（两侧跨度接近，如居中段）就回落到逐行，
+    单行盒完全不受影响。实测：修 autosave / sys_1_a/e/f / sys_5_f 五张，
+    sys_13_a、sys_2_b/c、sys_5_i/j 判定不变。
+    """
+    cols: dict[tuple, list[tuple[int, int]]] = {}
+    for r, g in zip(rows, glows):
+        box = tuple(r["box"])
+        bb = _core_bbox(im, box, g)
+        if bb is None:
+            continue
+        cols.setdefault((box[0], box[2]), []).append((bb[0], bb[2]))
+
+    out: dict[tuple, tuple[str, int]] = {}
+    for col, edges in cols.items():
+        if len(edges) < 2:
+            continue
+        lefts = [e[0] for e in edges]
+        rights = [e[1] for e in edges]
+        ls, rs = max(lefts) - min(lefts), max(rights) - min(rights)
+        tol = max(3, round((col[1] - col[0]) * 0.02))
+        # 锚点取该侧的极值，让整段真正齐边——各行原文的左缘有 1–2px 抖动，
+        # 那是原文字形的左侧承距，对中文没有意义，不该照搬。
+        if ls + tol < rs:
+            out[col] = ("left", min(lefts))
+        elif rs + tol < ls:
+            out[col] = ("right", max(rights))
+    return out
+
+
 def bake_file(name: str, rows: list[dict], report: list[str]):
     im = Image.open(SYSGIM / f"{name}.png").convert("RGBA")
     out = im.copy()
@@ -301,9 +342,12 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
 
     # 先把所有盒擦成各自的底，再把各行的块合并进去。
     # **两步必须分开**：块自带底，若边擦边贴，后一行的擦除会抹掉前一行溢出过来的晕。
+    # 段级对齐先算一遍（需要所有行的 Glow），再进逐行循环。
+    _glows = [measure_glow(im, b) for b in boxes]
+    galign = group_align(im, rows, _glows)
+
     plans = []
-    for meta, box in zip(rows, boxes):
-        g = measure_glow(im, box)
+    for meta, box, g in zip(rows, boxes, _glows):
         bb = _core_bbox(im, box, g)
         if bb is None:
             raise ValueError(f"{name} 行{meta['row']}: 量不到原字芯墨迹")
@@ -338,9 +382,14 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
         # 原字芯在盒内的横向对齐，照搬到中文上
         # 居中判据的容差按盒宽取。绝对 3px 在 480px 的盒上太苛刻——`sys_11_a`
         # 原文左右边距 151 : 146，只差 5px 却被判成右对齐，中文整个被推到右边。
+        # 段级判定优先——同列多行时它比逐行判据可靠（见 group_align 的 docstring）。
+        grp = galign.get((box[0], box[2]))
         lm, rm = x0 - box[0], box[2] - 1 - x1
         tol = max(3, round((box[2] - box[0]) * 0.02))
-        if lm + tol < rm:
+        if grp:
+            mode, anchor = grp
+            gx = anchor if mode == "left" else anchor + 1 - core_w
+        elif lm + tol < rm:
             gx = x0
         elif rm + tol < lm:
             gx = x1 + 1 - core_w

@@ -29,16 +29,27 @@ def test_real_data_has_no_errors():
     assert errs == [], "\n".join(str(e) for e in errs)
 
 
-def test_untranslated_rows_are_todo_not_error():
+def test_untranslated_rows_are_todo_not_error(tmp_path):
     """`zh` 为空是「原始语料已落盘、译文待补」的中间态，不是缺陷。
 
-    C 类 21 行正处在这个状态；若把它算成错误，闸会一直红到翻译做完为止，
-    那期间它就守不住任何真问题了。
+    若把它算成错误，闸会一直红到翻译做完为止，那期间它守不住任何真问题。
+
+    ⚠ 这条起初写成「对真数据断言 len(todo) >= 1」——当时 C 类 21 行正待译。
+    翻译一做完它就红了：**它钉的是一个临时状态，不是机制**。改用合成数据测机制，
+    真数据的待译数交给 `test_real_data_has_no_errors` 那条去管（它只管错误数）。
     """
-    errs, todo = run()
+    todo_row = dict(GOOD); todo_row["zh"] = ""
+    errs, todo = check(_write(tmp_path, [todo_row]), box_required=True)
     assert errs == []
-    assert len(todo) >= 1
-    assert all(t.kind == "待译" for t in todo)
+    assert len(todo) == 1 and todo[0].kind == "待译"
+
+
+def test_deferred_rows_are_neither_error_nor_todo(tmp_path):
+    """`deferred`（工具做不了，如 sys_1_i 的箭头晕）与「待译」是两回事：
+    前者译文可能已经写好了、只是渲不出来，不该混进待译计数里催人去翻。"""
+    row = dict(GOOD); row["zh"] = ""; row["deferred"] = True
+    errs, todo = check(_write(tmp_path, [row]), box_required=True)
+    assert errs == [] and todo == []
 
 
 def test_missing_required_field_is_caught(tmp_path):

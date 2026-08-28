@@ -55,7 +55,7 @@ def test_bake_card_94_body_zone_byte_identical_to_original():
     plans, overflow = build_render_plan(cards_zh, cards_jp, section_labels_zh,
                                          cards=[CARD_94_ILLUSTRATION])
     assert not overflow["title_overflow"] and not overflow["right_overflow"]
-    new_card, diffs = bake_card(CARD_94_ILLUSTRATION, plans[CARD_94_ILLUSTRATION])
+    new_card, diffs, _ink, _n = bake_card(CARD_94_ILLUSTRATION, plans[CARD_94_ILLUSTRATION])
     assert diffs == []
     x0, y0, x1, y1 = BODY_ZONE
     opx, npx = orig.load(), new_card.load()
@@ -346,7 +346,7 @@ def test_bake_card_pixel_preservation_outside_zones():
     plans, overflow = build_render_plan(cards_zh, cards_jp, section_labels_zh, cards=sample)
     assert not any(overflow.values())
     for card in sample:
-        _new_card, diffs = bake_card(card, plans[card])
+        _new_card, diffs, _ink, _n = bake_card(card, plans[card])
         assert diffs == [], f"card {card} touched pixels outside its redraw zones: {diffs[:5]}"
 
 
@@ -407,3 +407,138 @@ def test_run_end_to_end_smoke(tmp_path, monkeypatch):
     import os
     assert os.path.exists(os.path.join(str(tmp_path), "crd_1_a.png"))
     assert os.path.exists(os.path.join(str(tmp_path), "manifest.json"))
+
+
+# ---------------------------------------------------------------------------
+# 9. 字色：原图的字**不是黑的**（用户 2026-08-28 指出，实测确认）
+# ---------------------------------------------------------------------------
+#
+# 旧实现写死 `FILL_COLOR = (12,11,10)`，近乎中性黑。而全库 195 张实测，字芯稳定
+# 落在 (56–60, 0, 0–1) 的暗红上，与卡片外框 (18,0,1,243) 同色系；卡 94 的框是褐色，
+# 它的字芯也相应是褐的。
+#
+# 这个错误能一直住着，是因为 C5 那道重建验证闸**只看"原图确无文字处"**——它守的是
+# 背景，从不看字本身。下面这组测试就是补上那块守不到的地方。
+
+import statistics as _stats
+from pathlib import Path as _Path
+
+from PIL import Image as _Image
+
+from tools.bake_card import (
+    INK_COLOR_FALLBACK, INK_CORE_MIN_PIXELS, measure_ink_color,
+    reconstruct_background,
+)
+from tools.measure_card import CARD_H, CARD_W, TITLE_ZONE, card_path
+
+_SHS = _Path(__file__).resolve().parent.parent / "third_party" / "SourceHanSansSC-VF.ttf"
+
+
+def _frame_color(card):
+    """卡片四周的纯色边框——从上往下第一条不透明的整行。"""
+    px = _Image.open(card_path(card)).convert("RGBA").load()
+    from collections import Counter
+    for y in range(CARD_H):
+        op = [px[x, y] for x in range(CARD_W) if px[x, y][3] > 200]
+        if len(op) > CARD_W * 0.6:
+            return Counter(op).most_common(1)[0][0][:3]
+    raise AssertionError(f"卡 {card} 找不到不透明边框行")
+
+
+def test_ink_is_not_black_and_not_the_old_constant():
+    for card in (3, 10, 46, 145):
+        ink, n = measure_ink_color(card)
+        assert n >= INK_CORE_MIN_PIXELS
+        r, g, b, a = ink
+        assert a == 255
+        assert r > 40, f"卡 {card} 字芯 {ink} 不该这么暗——原图的字不是黑的"
+        assert g < 15 and b < 15, f"卡 {card} 字芯 {ink} 应是暗红，G/B 接近 0"
+        assert (r, g, b) != (12, 11, 10), "旧的固定字色不该再出现"
+
+
+def test_ink_hue_points_at_the_cards_own_frame_colour():
+    """字色与框色同源——**这是本组测试的主张**，也是用户观察的实质。
+
+    判据取方向而非取值：字芯比框色浅（框 (18,0,1) vs 字 (57,0,0)），但从卡面底色
+    出发指向两者的向量几乎共线。全库 195 张 cos = 0.95–0.999。
+    """
+    import math
+    for card in (10, 46, 94, 145):
+        ink, _n = measure_ink_color(card)
+        frame = _frame_color(card)
+        bg = (245, 236, 230)          # 卡面底的浅色端，两个向量的共同起点
+        u = [ink[i] - bg[i] for i in range(3)]
+        v = [frame[i] - bg[i] for i in range(3)]
+        cos = (sum(u[i] * v[i] for i in range(3))
+               / (math.hypot(*u) * math.hypot(*v)))
+        assert cos > 0.94, f"卡 {card}：字色 {ink} 与框色 {frame} 不同向（cos={cos:.3f}）"
+
+
+def test_card_94_ink_differs_from_the_red_family():
+    """卡 94 的框是褐色，字也是褐的——逐卡实测才能自动接住这一张。
+
+    写死一个常量的实现，会把这张卡的字渲成和其余 195 张一样的红。
+    """
+    ink94, _ = measure_ink_color(94)
+    ink10, _ = measure_ink_color(10)
+    assert ink94[1] > 30 and ink94[2] > 10, f"卡 94 字芯 {ink94} 应带明显的绿/蓝分量"
+    assert sum(abs(ink94[i] - ink10[i]) for i in range(3)) > 60
+
+
+def test_too_few_core_pixels_falls_back_and_says_so(monkeypatch):
+    """取样不足要回退并**把数目报出来**，不能默默用一个看起来合理的颜色。"""
+    import tools.bake_card as bc
+    monkeypatch.setattr(bc, "INK_CORE_RATIO", 1.0000001)   # 谁都够不着
+    ink, n = bc.measure_ink_color(10)
+    assert ink == INK_COLOR_FALLBACK
+    assert n < INK_CORE_MIN_PIXELS
+
+
+def test_manifest_records_per_card_ink_and_fallbacks(tmp_path, monkeypatch):
+    import tools.bake_card as bc
+    monkeypatch.setattr(bc, "OUT_DIR", str(tmp_path))
+    report = bc.run(write=False, with_images=False)
+    ic = report["ink_color"]
+    assert len(ic["per_card"]) == 196
+    assert ic["fallback_color"] == list(INK_COLOR_FALLBACK)
+    assert all(len(v) == 4 for v in ic["per_card"].values())
+    # 取值种类应远少于卡数——全库外框只有两种颜色，字色与框色同源
+    assert len(ic["distinct"]) < 60
+
+
+@pytest.mark.skipif(not _SHS.exists(), reason="需要 SourceHanSansSC-VF.ttf")
+def test_saturating_font_reproduces_the_original_ink_exactly(tmp_path, monkeypatch):
+    """**这条才是"复刻成功"的判据。**
+
+    字色改对只是一半：笔画若细到没有一个像素达到满覆盖，纯字色根本不会出现在
+    产物里。霞鹜文楷 9–11px 正是如此（字芯色距约 42）；换成笔画能饱和的思源黑体，
+    同一段代码渲出来的字芯与原图**逐通道相等**。
+
+    所以这条测试同时守住两件事：字色取对了，以及"取对了就真的落到像素上"。
+    """
+    import tools.bake_card as bc
+    monkeypatch.setenv("ZND_UI_FONT", str(_SHS))
+    monkeypatch.setenv("ZND_UI_FONT_WEIGHT", "Regular")
+    bc._FONT_CACHE.clear()
+
+    def core_med(img, recon, ratio=0.97):
+        o, b = img.load(), recon.load()
+        x0, y0, x1, y1 = TITLE_ZONE
+        px = [(sum(abs(o[x, y][i] - b[x, y][i]) for i in range(3)), o[x, y])
+              for y in range(y0, y1) for x in range(x0, x1)]
+        dmax = max(p[0] for p in px)
+        sel = [p[1] for p in px if p[0] >= dmax * ratio]
+        return tuple(int(_stats.median(s[i] for s in sel)) for i in range(3))
+
+    try:
+        plans, _overflow = bc.build_render_plan(
+            load_cards_zh(), load_cards_jp(), load_section_labels_zh(),
+            cards=[10, 46])
+        for card in (10, 46):
+            recon = reconstruct_background(card)
+            new_card, _d, _ink, _n = bc.bake_card(card, plans[card])
+            got = core_med(new_card, recon)
+            want = core_med(_Image.open(card_path(card)).convert("RGBA"), recon)
+            assert got == want, f"卡 {card}：烤出来 {got}，原图 {want}"
+    finally:
+        bc._FONT_CACHE.clear()

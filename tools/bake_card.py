@@ -73,7 +73,7 @@ via `right_3line_fallback_to_uniform` -- this is a user-authorized fallback
 (see task brief "先尝试复刻...若有困难或效果不好就不强求"), so it MUST be
 visible, never silently substituted.
 """
-import argparse, json, os, sys
+import argparse, json, os, statistics, sys
 from collections import defaultdict
 
 from PIL import Image, ImageDraw, ImageFont
@@ -589,10 +589,76 @@ RIGHT_PITCH_UNIFORM = 23   # spec 4.3: measured 22-24px for 2-line labels, midpo
 RIGHT_3LINE_CARDS = (26, 118, 158, 162)
 RIGHT_3LINE_GAPS = (10, 25)   # spec 4.3: seg1->seg2 = 10px, seg2->seg3 = 25px
 
-FILL_COLOR = (12, 11, 10, 255)   # matches measure_card's measured original
-                                   # JP ink color (see its module docstring)
-                                   # -- dark-on-light needs no stroke, unlike
-                                   # scene/'s white-on-dark-band.
+#: 兜底字芯色：全库 195 张实测的中位（详见 `measure_ink_color`）。**不是纯黑**。
+#:
+#: 旧值是 `(12,11,10)` ——近乎中性黑，与原图差得远。它能一直错着，是因为 C5 那道
+#: 重建验证闸**只看"原图确无文字处"**：它守的是背景，从不看字本身的颜色。一道闸
+#: 守不到的地方，就是错误能安静住下来的地方。
+INK_COLOR_FALLBACK = (57, 0, 0, 255)
+
+#: 字芯取样门槛：相对**局部重建底**的色距达到该卡最大值的这个比例，才算字芯。
+#: 用相对底的色距而非绝对亮度，是因为卡面底是逐卡渐变（裁决 C4），绝对阈值会随位置漂。
+#:
+#: **0.97 是量出来的，不是挑好看的。** 逐档扫 49 张抽样卡，看逐卡估计值的离散度：
+#:
+#:   门槛   R 中位   R 标准差   分布      样本/卡
+#:   0.85     72      3.15    单峰        125     ← 太松，混进大量抗锯齿边，整体偏亮
+#:   0.92     62      4.80    **双峰**     61     ← 边界效应：字密的卡把更多 AA 算成字芯
+#:   0.95     59      2.97    近单峰       42
+#:   0.97     59    **2.18**  单峰         28     ← 最紧
+#:   0.99     58.5    2.97    单峰         14     ← 样本太少，反而回弹
+#:
+#: 0.92 那档的「双峰」曾看着像"卡片分两种字色"——**它其实是门槛的边界效应**。
+#: 换档即消失，且 0.97 的结果与另一条独立证据（全库 195 张"最暗像素"普查落在
+#: 56–60）吻合。凡是逐卡估计值出现分组，先怀疑估计量，再怀疑素材。
+INK_CORE_RATIO = 0.97
+
+#: 取样少于这个数就不可信（空卡、纯插画卡），回退到 `INK_COLOR_FALLBACK` 并播报。
+INK_CORE_MIN_PIXELS = 12
+
+def measure_ink_color(card, orig=None, recon=None):
+    """逐卡实测字芯色 → `(r, g, b, 255)`。
+
+    **为什么不是一个常量。** 原图的字**不是黑的**：全库 195 张实测，字芯稳定落在
+    `(56–60, 0, 0–1)` 的暗红上，与卡片外框 `(18,0,1,243)` 同一色系；卡 94 的框是
+    褐色 `(34,19,8,243)`，它的字芯也相应是 `(80,47,17)`。delta（原图 − 重建底）
+    与「外框色 − 底色」的方向夹角 **cos = 0.95–0.999**，195 张零离群——字色与框色
+    同源是这套卡面素材的设计，不是巧合。
+
+    **那道"晕"是什么。** 用户观察到字周围有一圈与外框同色的晕。量下来它只有约 2px：
+    α(d=0)=0.95、α(1)=0.36、α(2)=0.03、d≥3 为 0（中位数，减去远场基线）。也就是说
+    **它就是"有颜色的字"的抗锯齿边**，不是另加的一层发光——把字色改对，边缘自然
+    就对，不需要额外的距离场。
+
+    ⚠ 一开始按**均值**量，看到 d=5 处 delta 仍有 −13 而误判成"宽发光长尾"。那是
+    `reconstruct_background` 在文字密的卡上偏亮（干净像素少、块靠邻块补出来）导致的
+    少数像素偏差，换中位数即消失、远场基线归零。**均值会把重建偏差读成物理现象。**
+
+    取样跨该卡所有会重绘的区（卡 94 自动排除其插画正文区）。样本不足则回退到
+    `INK_COLOR_FALLBACK` —— 空卡与纯插画卡本来就没有字可量。
+    """
+    if orig is None:
+        orig = Image.open(card_path(card)).convert("RGBA")
+    if recon is None:
+        recon = reconstruct_background(card)
+    o, b = orig.load(), recon.load()
+
+    samples = []
+    for _name, (x0, y0, x1, y1) in zones_to_redraw(card):
+        px = [(sum(abs(o[x, y][i] - b[x, y][i]) for i in range(3)), o[x, y])
+              for y in range(y0, y1) for x in range(x0, x1)]
+        if not px:
+            continue
+        dmax = max(p[0] for p in px)
+        if dmax < 60:          # 该区没有字（或只有极淡的东西），不取样
+            continue
+        samples += [p[1] for p in px if p[0] >= dmax * INK_CORE_RATIO]
+
+    if len(samples) < INK_CORE_MIN_PIXELS:
+        return INK_COLOR_FALLBACK, len(samples)
+    med = tuple(int(statistics.median(s[i] for s in samples)) for i in range(3))
+    return med + (255,), len(samples)
+
 
 _FONT_CACHE = {}
 
@@ -739,23 +805,27 @@ def bake_card(card, plan):
     for _name, zone in zones:
         new_card.paste(recon.crop(zone), zone[:2])
 
+    # 字色**逐卡实测**，不用常量——原图的字不是黑的，是与该卡外框同色系的暗红／
+    # 暗褐。取样必须在贴上重建底**之前**用原图做（贴完就没有原字了）。
+    ink, n_ink = measure_ink_color(card, orig=orig, recon=recon)
+
     d = ImageDraw.Draw(new_card)
     if plan["title"]:
         font = _font(plan["title"]["font_size"])
         for (x, y, anchor) in plan["title"]["positions"]:
             text = plan["title"]["lines"][0] if plan["title"]["lines"] else ""
-            d.text((x, y), text, font=font, fill=FILL_COLOR, anchor=anchor)
+            d.text((x, y), text, font=font, fill=ink, anchor=anchor)
     if plan["body"] and "body" in zone_by_name:
         font = _font(plan["body"]["font_size"])
         for (x, y, anchor, line) in plan["body"]["positions"]:
-            d.text((x, y), line, font=font, fill=FILL_COLOR, anchor=anchor)
+            d.text((x, y), line, font=font, fill=ink, anchor=anchor)
     if plan["right"]:
         font = _font(plan["right"]["font_size"])
         for (x, y, anchor, line) in plan["right"]["positions"]:
-            d.text((x, y), line, font=font, fill=FILL_COLOR, anchor=anchor)
+            d.text((x, y), line, font=font, fill=ink, anchor=anchor)
 
     diffs = find_outside_zones_diffs(orig, new_card, [z for _n, z in zones])
-    return new_card, diffs
+    return new_card, diffs, ink, n_ink
 
 
 def find_outside_zones_diffs(orig, new, zones):
@@ -813,7 +883,7 @@ def build_cellzoom_image(cards, plans, scale=3, cols=3):
         col, row = i % cols, i // cols
         x, y = gap + col * cell_w, gap + row * cell_h
         orig = Image.open(card_path(card)).convert("RGBA")
-        new_card, _ = bake_card(card, plans[card])
+        new_card, _diffs, _ink, _n = bake_card(card, plans[card])
         d.text((x, y), f"#{card}", fill=(255, 255, 0, 255))
         y2 = y + label_h
         canvas.paste(orig.resize((cw, ch), Image.NEAREST), (x, y2))
@@ -872,17 +942,31 @@ def run(write=True, with_images=None):
     # --- 4. bake, collecting pixel-preservation diffs per card ---
     new_cards = {}
     bad_cards = {}
+    ink_colors = {}
+    ink_fallbacks = []
     for card in cards:
-        new_card, diffs = bake_card(card, plans[card])
+        new_card, diffs, ink, n_ink = bake_card(card, plans[card])
         new_cards[card] = new_card
+        ink_colors[card] = list(ink)
+        if n_ink < INK_CORE_MIN_PIXELS:
+            ink_fallbacks.append({"card": card, "core_pixels": n_ink})
         if diffs:
             bad_cards[card] = diffs
 
     right_fallbacks = [c for c in RIGHT_3LINE_CARDS
                        if plans[c]["right"] and plans[c]["right"]["spacing_mode"] != "nonuniform_3line"]
 
+    distinct_ink = sorted({tuple(v) for v in ink_colors.values()})
     report = {
         "num_cards": len(cards),
+        # 字色逐卡实测（原图的字不是黑的，见 measure_ink_color）。取值种类少是
+        # 预期的——全库外框只有两种颜色，字色与框色同源。
+        "ink_color": {
+            "per_card": {str(c): v for c, v in sorted(ink_colors.items())},
+            "distinct": [list(t) for t in distinct_ink],
+            "fallback_used": ink_fallbacks,
+            "fallback_color": list(INK_COLOR_FALLBACK),
+        },
         "card_94_illustration_skip": {
             "card": CARD_94_ILLUSTRATION,
             "zones_redrawn": [n for n, _z in zones_to_redraw(CARD_94_ILLUSTRATION)],
@@ -940,6 +1024,12 @@ def main():
     vg = report["validation_gate"]
     print(f"validation gate: {vg['num_checked']} cards checked, threshold={vg['threshold']}, "
           f"max_diff_overall={vg['max_diff_overall']}, over_threshold={len(vg['over_threshold'])}")
+    ic = report["ink_color"]
+    print(f"字色（逐卡实测，非纯黑）：{len(ic['distinct'])} 种取值 "
+          f"{ic['distinct'][:4]}{' …' if len(ic['distinct']) > 4 else ''}")
+    if ic["fallback_used"]:
+        print(f"  ⚠ {len(ic['fallback_used'])} 张取样不足、回退到 {ic['fallback_color']}："
+              f"{[f['card'] for f in ic['fallback_used']]}")
     print(f"clusters: {report['clusters']['num_clusters']} "
           f"(sizes: {[c['size'] for c in report['clusters']['clusters']]})")
     print(f"right 3-line cards attempted: {report['right_3line_cards']}, "

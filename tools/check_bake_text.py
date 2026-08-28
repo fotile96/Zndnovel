@@ -43,6 +43,7 @@ EVENT_OP = REPO / "data" / "event_op_text.jsonl"
 CUTIN_TITLE = REPO / "data" / "cutin_title_text.jsonl"
 MODE_FRAME = REPO / "data" / "mode_frame_text.jsonl"
 MEMORY_THUMB = REPO / "data" / "memory_thumb_text.jsonl"
+SYSGIM_PANEL = REPO / "data" / "sysgim_panel_text.jsonl"
 
 #: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
 #:
@@ -57,10 +58,14 @@ SOURCES = [
     # 原图目录取两者的公共父目录。
     (MODE_FRAME, REPO / "png", True),
     (MEMORY_THUMB, REPO / "png", True),
+    (SYSGIM_PANEL, SYSGIM, True),
 ]
 
 REQUIRED = ("file", "row", "jp", "zh")
-KNOWN = REQUIRED + ("box", "note", "deferred")
+# `align` / `left`：D 族（面板）逐行的横向对齐。**同一张图里两种对齐**——
+# sys_5_d 第 1 行居中、第 2/3 行齐左于 x=51，实测两行左缘同为 51 而块心差 25px，
+# 不是同一种版式。故对齐必须逐行可写，不能按面定死。
+KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left")
 
 
 @dataclass(frozen=True)

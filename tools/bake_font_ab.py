@@ -160,22 +160,26 @@ def _trio_col(trio, name, scale, font):
     return [row]
 
 
-def build_face(face: str, tag: str) -> Image.Image | None:
+def build_face(face: str, tags: list[str]) -> Image.Image | None:
     sub, cells_fn, scale, _orig, layout = FACES[face]
-    dir_a, dir_b = REPO / "build" / sub, REPO / "build" / f"{sub}__{tag}"
-    if not dir_b.exists():
-        print(f"  跳过 {face}：{dir_b} 不存在（B 版没烤）")
+    dirs = [("霞鹜文楷", REPO / "build" / sub)]
+    for t in tags:
+        d = REPO / "build" / f"{sub}__{t}"
+        if d.exists():
+            dirs.append((t, d))
+        else:
+            print(f"  {face}: 跳过标签 {t}（{d} 不存在）")
+    if len(dirs) < 2:
         return None
 
     font = _label_font()
     make = _trio_col if layout == "cols" else _trio_rows
     rows = []
-    for name, spec in cells_fn(tag):
-        trio = [("原图", _orig_for(face, spec)),
-                ("霞鹜文楷", _load(spec, dir_a)),
-                (tag, _load(spec, dir_b))]
+    for name, spec in cells_fn(tags):
+        trio = [("原图", _orig_for(face, spec))]
+        trio += [(lab, _load(spec, d)) for lab, d in dirs]
         if any(img is None for _l, img in trio):
-            print(f"    {face}/{name}: 三联缺图，跳过")
+            print(f"    {face}/{name}: 有版本缺图，跳过")
             continue
         rows += make(trio, name, scale, font)
         rows.append(None)
@@ -205,32 +209,57 @@ def _manifest(d: Path):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
-def summarize(tag: str) -> str:
+def _count(v):
+    if v is None:
+        return None
+    return len(v) if isinstance(v, list) else sum(len(x) for x in v.values())
+
+
+def _size_hist(d: Path) -> str:
+    """实际用了哪些字号档、各多少格——比「回落了几条」更能说明代价。"""
+    import collections
+    for name, key in (("manifest.json", "button_font_sizes"),
+                      ("manifest.json", "cell_font_sizes")):
+        m = _manifest(d)
+        if m and key in m:
+            h = collections.Counter(m[key].values())
+            return " ".join(f"{s}px×{n}" for s, n in sorted(h.items(), reverse=True))
+    return "—"
+
+
+def summarize(tags: list[str]) -> str:
+    cols = ["霞鹜文楷"] + list(tags)
     lines = ["# 换字体的数字差异", "",
-             f"A 版＝`build/<面>`（霞鹜文楷 Regular）；B 版＝`build/<面>__{tag}`。", "",
-             "| 面 | 指标 | A 版 | B 版 |", "|---|---|---:|---:|"]
+             "基准＝`build/<面>`（霞鹜文楷 Regular）；其余＝`build/<面>__<标签>`。", "",
+             "| 面 | 指标 | " + " | ".join(cols) + " |",
+             "|---|---|" + "---:|" * len(cols)]
     for face, (sub, *_rest) in FACES.items():
-        a, b = _manifest(REPO / "build" / sub), _manifest(REPO / "build" / f"{sub}__{tag}")
-        if not (a and b):
+        dirs = [REPO / "build" / sub] + [REPO / "build" / f"{sub}__{t}" for t in tags]
+        ms = [_manifest(d) for d in dirs]
+        if not all(ms):
             continue
         for key, label in (("fallbacks", "字号回落"), ("overflow", "溢出"),
                            ("pixel_preservation_violations", "盒外像素改动")):
-            va, vb = a.get(key), b.get(key)
-            if va is None or vb is None:
+            vals = [_count(m.get(key)) for m in ms]
+            if any(v is None for v in vals):
                 continue
-            fa = len(va) if isinstance(va, list) else sum(len(v) for v in va.values())
-            fb = len(vb) if isinstance(vb, list) else sum(len(v) for v in vb.values())
-            mark = "" if fa == fb else "  ⚠"
-            lines.append(f"| `{face}` | {label} | {fa} | {fb}{mark} |")
-    lines += ["", "⚠ 标记＝两版不同。字号回落变多意味着这套字在同档下更宽或更高，",
+            mark = "" if len(set(vals)) == 1 else "  ⚠"
+            lines.append(f"| `{face}` | {label} | " + " | ".join(str(v) for v in vals) + f"{mark} |")
+        hist = [_size_hist(d) for d in dirs]
+        if any(h != "—" for h in hist):
+            lines.append(f"| `{face}` | 字号分布 | " + " | ".join(hist) + " |")
+    lines += ["", "⚠ 标记＝各版不同。字号回落变多意味着这套字在同档下更宽或更高，",
               "游戏内可读性会随之下降；溢出或盒外像素改动**任何一版不为 0 都是缺陷**，",
-              "不是风格问题。"]
+              "不是风格问题。", "",
+              "「字号分布」比「回落了几条」更实在：回落只说明降过档，分布直接说明",
+              "**最终有多少格落在哪一档**——两套字的回落数一样、分布可以完全不同。"]
     return "\n".join(lines) + "\n"
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tag", default="shs", help="B 版的 ZND_BUILD_TAG")
+    ap.add_argument("--tag", nargs="+", default=["shs"],
+                    help="要并排比的 ZND_BUILD_TAG，可给多个（顺序即出图顺序）")
     ap.add_argument("--faces", nargs="*", default=list(FACES))
     a = ap.parse_args(argv)
 

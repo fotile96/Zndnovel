@@ -56,10 +56,14 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tools.zh_wrap import wrap as _zh_wrap
+from tools.ui_font import resolve as _resolve_font
 from tools.pipelib import display_width
 
 CARD_DIR = os.path.join(REPO, "png", "card")
-FONT_PATH = os.path.join(REPO, "third_party", "LXGWWenKai-Regular.ttf")
+#: 字体按面可换：`ZND_UI_FONT_CARD` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
+#: Regular。面名＝card（bake_card.py 从本模块 import FONT_PATH）。详见 tools/ui_font.py——那里也记着
+#: 「换字体后金标夹具会红，这是对的」。
+FONT_PATH = str(_resolve_font("card"))
 CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
 CARDS_JP_PATH = os.path.join(REPO, "skeleton", "cards.jp.yaml")
 SECTION_LABELS_PATH = os.path.join(REPO, "data", "card_section_labels.jsonl")

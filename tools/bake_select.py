@@ -125,9 +125,13 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from tools.zh_wrap import wrap as _zh_wrap
+from tools.ui_font import resolve as _resolve_font
 
 SELECT_DIR = os.path.join(REPO, "png", "select")
-FONT_PATH = os.path.join(REPO, "third_party", "LXGWWenKai-Regular.ttf")
+#: 字体按面可换：`ZND_UI_FONT_SELECT` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
+#: Regular。面名＝select（bake_select_map.py 从本模块 import FONT_PATH）。详见 tools/ui_font.py——那里也记着
+#: 「换字体后金标夹具会红，这是对的」。
+FONT_PATH = str(_resolve_font("select"))
 OUT_DIR = os.path.join(REPO, "build", "select_zh")
 
 DATA_BUTTONS_ZH = os.path.join(REPO, "data", "select_buttons_zh.jsonl")

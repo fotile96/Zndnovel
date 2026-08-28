@@ -34,17 +34,19 @@ _REPO = str(Path(__file__).resolve().parent.parent)
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
 
+from tools.ui_font import resolve as _resolve_font  # noqa: E402
+
 warnings.filterwarnings("ignore", message="Palette images with Transparency")
 
 REPO = Path(__file__).resolve().parent.parent
 SYSGIM = REPO / "png" / "sysgim"
 OUTDIR = REPO / "build" / "sysgim"
-#: 字体可换。换成 Bold 字形时把 `FILL_GAIN` 一并调回 1.0——增益是为补 Regular
-#: 的细笔调而加的补偿，粗体上再叠增益只会把字腔糊死。
-#:   ZND_UI_FONT=/path/to/Bold.ttf ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_...
-FONT_PATH = Path(
-    os.environ.get("ZND_UI_FONT", REPO / "third_party" / "LXGWWenKai-Regular.ttf")
-)
+#: 字体按面可换：`ZND_UI_FONT_SYSGIM` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷 Regular
+#: （统一走 tools/ui_font.py；原先只认 ZND_UI_FONT，行为不变，只是多了按面指定）。
+#: 换成 Bold 字形时把 `FILL_GAIN` 一并调回 1.0——增益是为补 Regular 的细笔调而加的
+#: 补偿，粗体上再叠增益只会把字腔糊死。
+#:   ZND_UI_FONT_SYSGIM=/path/to/Bold.ttf ZND_UI_FILL_GAIN=1.0 uv run python tools/bake_...
+FONT_PATH = _resolve_font("sysgim")
 DATA = REPO / "data" / "sysgim_glow_text.jsonl"
 
 FONT_CASCADE = (20, 19, 18, 17, 16, 15, 14, 13, 12, 11)

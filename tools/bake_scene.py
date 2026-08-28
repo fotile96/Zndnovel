@@ -143,9 +143,13 @@ if REPO not in sys.path:
 
 from tools.bake_plot import load_titles_zh
 from tools.zh_wrap import wrap as _zh_wrap
+from tools.ui_font import resolve as _resolve_font
 
 SCENE_DIR = os.path.join(REPO, "png", "scene")
-FONT_PATH = os.path.join(REPO, "third_party", "LXGWWenKai-Regular.ttf")
+#: 字体按面可换：`ZND_UI_FONT_SCENE` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
+#: Regular。面名＝scene。详见 tools/ui_font.py——那里也记着
+#: 「换字体后金标夹具会红，这是对的」。
+FONT_PATH = str(_resolve_font("scene"))
 OUT_DIR = os.path.join(REPO, "build", "scene_zh")
 
 # ---------------------------------------------------------------------------

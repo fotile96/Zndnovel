@@ -41,10 +41,14 @@ if REPO not in sys.path:  # allow `python3 tools/bake_plot.py` direct invocation
     sys.path.insert(0, REPO)
 
 from tools.zh_wrap import wrap as _zh_wrap
+from tools.ui_font import resolve as _resolve_font
 
 PLOT_DIR = os.path.join(REPO, "png", "plot")
 CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
-FONT_PATH = os.path.join(REPO, "third_party", "LXGWWenKai-Regular.ttf")
+#: 字体按面可换：`ZND_UI_FONT_PLOT` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
+#: Regular。面名＝plot。详见 tools/ui_font.py——那里也记着
+#: 「换字体后金标夹具会红，这是对的」。
+FONT_PATH = str(_resolve_font("plot"))
 OUT_DIR = os.path.join(REPO, "build", "plot_zh")
 
 # ---------------------------------------------------------------------------

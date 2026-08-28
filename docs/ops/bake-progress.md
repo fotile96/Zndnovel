@@ -102,15 +102,54 @@ glossary v19 的召回令原文：「图片轨（select 按钮、卡面烤字、
    现在两边都是拉丁，`A` 和 `Sakura` 黏成一个词。glossary v19 对这一处的原话是
    「全角标号并置暂按机械结果，**游戏内实测后再定间隔**」，现已有实测：
 
-   | 写法 | 18px | 17px | 备注 |
-   |---|---|---|---|
-   | `ASakura BAyano CYuichi`（现状，机械） | ✓ | ✓ | 无分界 |
-   | `ＡSakura ＢAyano ＣYuichi`（全角标号） | ✗ | **✓** | 与正文 15589「ＡAyano、ＢSakura、ＣYuichi」逐字同形 |
-   | `A Sakura` / `A:Sakura` / `A.Sakura` | ✗ | ✗ | 需新开 16px 档 |
+   | 写法 | 18px | 17px | 16px | 备注 |
+   |---|---|---|---|---|
+   | `ASakura BAyano CYuichi`（现状，机械） | ✓ | ✓ | ✓ | 无分界 |
+   | `ＡSakura ＢAyano ＣYuichi`（全角标号） | ✗ | **✓** | ✓ | 与正文 15589「ＡAyano、ＢSakura、ＣYuichi」逐字同形 |
+   | `A.Sakura B.Ayano C.Yuichi`（点分隔） | ✗ | ✗ | **✓** | 需给 `bake_select` 开第三档 |
+   | `A Sakura` / `A:Sakura` | ✗ | ✗ | ✓ | 同上 |
 
-   全角标号既恢复分界、又与正文先例一致、且落在**已有的** 17px 回落档内，不必新开档位。
-   现状是机械结果、与冻结的 glossary 一致，故先按现状落地，等你看图定夺。
-   放大样在 `build/select_zh/_cellzoom.png`。
+   **对照片：`build/select_zh/_seat_ab.png`**（`tools/bake_select_seat_ab.py` 生成，
+   六条按钮 × 原图／现状 18px／点分隔 16px／全角标号 17px，4 倍放大）。
+
+   看图后的观察，供参考不作结论：
+   - **点分隔 16px 的分界最清楚**，`A.Sakura` 一眼就是「标号 + 名」，代价是字号掉两档、
+     比原图明显小一圈，且现行级联 `[18,17]` 放不下它，要开第三档。
+   - **全角标号 17px 的间隔反而有点尴尬**：`Ａ` 后面留的空当与词组之间的空当宽度接近，
+     远看会读成「Ａ　Sakura　Ｂ　Ayano」四段而非三组——分界是有了，分组反而糊了。
+   - 三版都比原图那行**细一档**，这是字体本身的问题，不是这几种写法的问题（见下节）。
+
+   现状是机械结果、与冻结的 glossary 一致，故先按现状落地，等你定夺。
+
+## 换字体（2026-08-28 起可做）
+
+字体不再写死。优先级 `ZND_UI_FONT_<面>` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
+Regular，五个面 `PLOT` / `SCENE` / `CARD` / `SELECT` / `SYSGIM` 各自可指。
+解析器在 `tools/ui_font.py`。
+
+```bash
+# 全库换一套试
+ZND_UI_FONT=/path/to/Other.ttf uv run python tools/bake_card.py
+
+# 只给 card 换，其余照旧
+ZND_UI_FONT_CARD=/path/to/Other.ttf uv run python tools/bake_card.py
+```
+
+- 路径打错**当场炸**，不会悄悄回落到默认字体——悄悄回落时你以为在评估新字体，
+  看到的却仍是霞鹜文楷，而两次输出的差别恰好是零，最像「这字体没救了」的那种零。
+- **换字体后金标夹具会红，这是对的**：墨迹尺寸、字号回落集、溢出判定全是对着默认
+  字体实测出来的。换字评估看图与看 `manifest.json`，不看测试绿不绿。
+- 换 Bold 时 sysgim 两个工具的 `ZND_UI_FILL_GAIN` 要一并调回 1.0（裁决 Y6/Y14）。
+
+**为什么值得按面分开选。** 各面的字号档位差得很远——`select/` 18/17px 带描边、
+`sysgim/` 12–17px 带描边或发光、`scene/` 11/10/9px、`card/` 正文 9px 且最紧的行只余
+2px。同一套字在 18px 和 9px 上不是一回事：霞鹜文楷 Regular 在 15px 以下笔干到不了
+一个像素，整行发灰（sysgim 为此加了 2.2 的填充增益补偿）。`scene_zh/_cellzoom.png`
+里中文条比原文日文明显更细更灰，就是这个成因在另一个面上的同一副面孔。
+
+另有一条 v19 之后才显形的：**霞鹜文楷的拉丁字形偏手写、偏轻、偏宽**，与它自己的
+汉字不是一种气质。以前拉丁字符罕见，这条无关紧要；罗马音化之后每张卡面、每个按钮、
+每条 scene 标题都躲不开（`card_zh/_cellzoom.png` 里 `Sakura的日记` 一眼可见）。
 
 ## 本轮顺带产出的、跨面通用的东西
 

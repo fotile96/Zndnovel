@@ -121,9 +121,9 @@ def load_pairs(path: Path) -> list[dict]:
     """读一个 {jp, zh} 的 jsonl 标签文件。
 
     **`zh` 为空的行跳过**：那是「原始语料已落盘、译文待补」的中间态（见
-    `tools/check_sysgim_text.py`），不是译错。拿空串去比对术语只会得到一串
+    `tools/check_bake_text.py`），不是译错。拿空串去比对术语只会得到一串
     必然的 mismatch，把真信号淹掉——闸一旦开始狼来了就等于没有。
-    待译的计数由 `check_sysgim_text.py` 单独负责。
+    待译的计数由 `check_bake_text.py` 单独负责。
     """
     rows = []
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

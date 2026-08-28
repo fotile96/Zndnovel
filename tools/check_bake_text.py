@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`data/sysgim_{outline,glow}_text.jsonl` 的 schema 闸。
+"""烤字译文数据（`data/*_text.jsonl`）的 schema 闸。
 
 **为什么现在才补。** 这两份文件是 A/B 两族烤字的译文来源，共 99 行，此前**零校验**：
 `tests/` 里搜不到对它们的任何一处引用。打错的后果实测过两种——图名写错要跑到读图
@@ -22,7 +22,7 @@
 先把「原文是什么、在哪个盒里」这件可测的事定死，再谈翻译。空 `zh` 会被单独报成
 `待译`，并由 `bake_sysgim_*` 拒绝渲染（而不是渲成一片空白）。
 
-    uv run python tools/check_sysgim_text.py
+    uv run python tools/check_bake_text.py
 """
 
 from __future__ import annotations
@@ -39,6 +39,17 @@ REPO = Path(__file__).resolve().parent.parent
 SYSGIM = REPO / "png" / "sysgim"
 OUTLINE = REPO / "data" / "sysgim_outline_text.jsonl"
 GLOW = REPO / "data" / "sysgim_glow_text.jsonl"
+EVENT_OP = REPO / "data" / "event_op_text.jsonl"
+
+#: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
+#:
+#: **加新面时往这里加一行，别新起一个闸。** `cutin/` 那 40 张、`graphic/` 的
+#: memoryThumbnail 都会进来——每个面一个专用闸，等于每个面都有机会漏掉一条检查。
+SOURCES = [
+    (OUTLINE, SYSGIM, False),
+    (GLOW, SYSGIM, True),
+    (EVENT_OP, REPO / "png" / "event", True),
+]
 
 REQUIRED = ("file", "row", "jp", "zh")
 KNOWN = REQUIRED + ("box", "note", "deferred")
@@ -62,7 +73,7 @@ def _rows(path: Path):
             yield n, json.loads(line)
 
 
-def check(path: Path, box_required: bool) -> tuple[list[Problem], list[Problem]]:
+def check(path: Path, box_required: bool, img_dir: Path = SYSGIM) -> tuple[list[Problem], list[Problem]]:
     """返回 (错误, 待译)。待译单独一列——它不是缺陷，是工作还没做完。"""
     errs: list[Problem] = []
     todo: list[Problem] = []
@@ -90,9 +101,9 @@ def check(path: Path, box_required: bool) -> tuple[list[Problem], list[Problem]]
         seen.add(key)
         by_file.setdefault(r["file"], []).append((n, r))
 
-        img_p = SYSGIM / f"{r['file']}.png"
+        img_p = img_dir / f"{r['file']}.png"
         if not img_p.exists():
-            errs.append(Problem(rel, n, "图不存在", f"png/sysgim/{r['file']}.png"))
+            errs.append(Problem(rel, n, "图不存在", str(img_p.relative_to(REPO)) if REPO in img_p.parents else str(img_p)))
             continue
 
         if not str(r["jp"]).strip():
@@ -128,9 +139,15 @@ def check(path: Path, box_required: bool) -> tuple[list[Problem], list[Problem]]
 
 
 def run() -> tuple[list[Problem], list[Problem]]:
-    e1, t1 = check(OUTLINE, box_required=False)
-    e2, t2 = check(GLOW, box_required=True)
-    return e1 + e2, t1 + t2
+    errs: list[Problem] = []
+    todo: list[Problem] = []
+    for data, img_dir, box_req in SOURCES:
+        if not data.exists():
+            continue
+        e, t = check(data, box_required=box_req, img_dir=img_dir)
+        errs += e
+        todo += t
+    return errs, todo
 
 
 def main(argv=None) -> int:

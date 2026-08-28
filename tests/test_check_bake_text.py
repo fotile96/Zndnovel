@@ -1,4 +1,4 @@
-"""`tools/check_sysgim_text.py` —— sysgim 译文数据的 schema 闸。
+"""`tools/check_bake_text.py` —— 烤字译文数据的 schema 闸（全部面共用一道）。
 
 这两份文件在此之前**零校验**：`tests/` 里搜不到对它们的任何引用。实测过两种打错
 方式——图名写错要跑到读图那一步才 `FileNotFoundError`，漏 `zh` 字段是
@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from tools.check_sysgim_text import GLOW, OUTLINE, check, run
+from tools.check_bake_text import GLOW, OUTLINE, SOURCES, check, run
 
 
 def _write(tmp_path, rows, name="t.jsonl"):
@@ -115,3 +115,36 @@ def test_single_box_override_is_allowed(tmp_path):
     rows[0]["box"] = [0, 0, 50, 16]
     errs, _ = check(_write(tmp_path, rows), box_required=False)
     assert errs == []
+
+
+def test_every_registered_source_is_actually_checked():
+    """**加新面时往 SOURCES 加一行，别新起一个闸。**
+
+    每个面一个专用闸，等于每个面都有机会漏掉一条检查——sysgim 那两份数据此前
+    零校验，正是因为没人为它们单独写过闸。
+    """
+    names = {d.name for d, _img, _b in SOURCES}
+    assert "sysgim_outline_text.jsonl" in names
+    assert "sysgim_glow_text.jsonl" in names
+    assert "event_op_text.jsonl" in names
+    for data, img_dir, _box in SOURCES:
+        assert img_dir.is_dir(), img_dir
+
+
+def test_event_op_corpus_is_four_paragraph_blocks():
+    """`event/op_*` 的渲染单元是**段**不是行。
+
+    发光半径 18 与行距 18–19 相当，逐行盒的远场永远不干净——实测 15 个逐行盒有 4 个
+    被底色收敛检查拒绝，且放宽/收紧盒形都救不回来（离底 6.5→45.0 反而更差）。
+    段落盒可行，但需 ≥14px 边距。这条钉住那个结构性事实。
+    """
+    import json
+
+    from tools.check_bake_text import EVENT_OP
+
+    rows = [json.loads(l) for l in EVENT_OP.read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert len(rows) == 4
+    assert sum(r["jp"].count("\n") + 1 for r in rows) == 15
+    assert {r["file"] for r in rows} == {"op_1_a", "op_2_a", "op_3_a"}
+    # _b 不进数据：它是 _a 的虚化版（高斯 r=1.5，alpha 平均残差 0.4）
+    assert not any(r["file"].endswith("_b") for r in rows)

@@ -58,6 +58,15 @@ class Spec:
     data: Path                   #: 译文数据 jsonl
     out: Path                    #: 产物目录
     blur_variant: float | None = None   #: 非 None 时另存一张 `_b` 虚化版
+    #: 横向对齐。`center`＝复现原文块的**重心**（裁决 Y15，op/cutin 用）；
+    #: `left`＝复现原文的**左缘**。前提不同结论就不同：Y15 的理由是原文填满整宽、
+    #: 中文只有 65–70% 长，照搬左缘会整块塌左；而模式画面框那三张是**贴着屏幕
+    #: 左上角的一行标签**，居中反而会在标题条左侧留出一个豁口。
+    align: str = "center"
+    #: 把渲染夹在盒内，盒外一个像素不动。默认关——op 的相邻段本就靠溢出的晕
+    #: 互相衔接，夹了会在段间切出硬边。模式画面框要开：它下方 7px 处就是**必须
+    #: 原样保留**的英文大词，而发光半径 18px 一定会盖过去。
+    clip_to_box: bool = False
 
 #: 分行阈值：相对该盒峰值墨距的比例。
 #:
@@ -280,7 +289,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
                 continue
             cbb = _core_mask(s, size, name, spec.face).getbbox()
             cells.append((s, cbb[2] - cbb[0], cbb[3] - cbb[1],
-                          size if s.startswith("　") else 0, size))
+                          size if s.startswith("　") else 0, size,
+                          cbb[0], cbb[1]))
         # 按**真实墨迹范围**居中，不是按「含缩进的概念块」。
         #
         # 差别只在整段全是缩进行时显形（`op_1_a` 的单行段）：缩进那一截是空白，
@@ -288,29 +298,36 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         # 实际左右端（最小缩进 → 最右端）来居中，两种情形都对。
         ink_lo = min(c[3] for c in cells if c)
         ink_hi = max(c[3] + c[1] for c in cells if c)
-        cx = (para.ink_x0 + para.ink_x1) / 2
-        left = round(cx - (ink_lo + ink_hi) / 2)
+        if spec.align == "left":
+            left = para.left - ink_lo
+        else:
+            cx = (para.ink_x0 + para.ink_x1) / 2
+            left = round(cx - (ink_lo + ink_hi) / 2)
         # 不许越出盒；越出说明这段本就放不下，交给 OVERFLOW 那条报
         left = max(box[0] - ink_lo, min(left, box[2] - ink_hi))
 
         for i, c in enumerate(cells):
             if c is None:
                 continue
-            s, core_w, core_h, indent, size = c
+            s, core_w, core_h, indent, size, ink_dx, ink_dy = c
             glyph = render_glow(s, size, g, name, spec.face)
             # 纵向：按实测行距落位，行内以**该行自己**的原墨迹高居中
             top = para.tops[0] + round(para.pitch * i) if para.pitch else para.tops[0]
             own_h = para.heights[min(i, len(para.heights) - 1)]
             gy = top + (own_h - core_h) // 2
             gx = left + indent
-            halo = (glyph.width - core_w) // 2
-            vhalo = (glyph.height - core_h) // 2
-            plans.append((g, glyph, gx - halo, gy - vhalo))
+            # 贴片里的墨迹**不一定居中**：`_core_mask` 按 `textbbox` 加等边距，
+            # 而 textbbox 含字体的边距——「。」这类全角标点右侧几乎是空的，墨迹
+            # 因此偏左。早先按 `(贴片宽 − 墨迹宽)/2` 反推贴点，等于假定它居中，
+            # 实测在以「。」结尾的行上差 5px。改用 `getbbox()` 给的真实偏移。
+            # （cutin/event 现有译文都不带尾部标点，实测偏差恰为 0，故产物不变。）
+            plans.append((g, glyph, gx - ink_dx, gy - ink_dy,
+                          box if spec.clip_to_box else None))
 
     for box, meta in zip(boxes, rows):
         out.paste(measure_glow(im, box).bg, box)
-    for g, glyph, ox, oy in plans:
-        _merge_farther(out, glyph, ox, oy, g.bg)
+    for g, glyph, ox, oy, clip in plans:
+        _merge_farther(out, glyph, ox, oy, g.bg, bounds=clip)
     return out
 
 
@@ -339,7 +356,12 @@ def run(spec: "Spec", write: bool = True, label: str = "段落烤字") -> int:
     for name in sorted(text):
         img = bake_file(name, text[name], report, spec)
         if write:
-            img.save(spec.out / f"{name}.png")
+            dst = spec.out / f"{name}.png"
+            # `file` 可以带子目录（模式画面框那三张分处 png/music 与 png/graphic，
+            # `src` 取的是两者的公共父目录）。产物照搬那层子目录，回注时不必再猜
+            # 哪张回哪个目录——但那样顶层 mkdir 就不够了。
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            img.save(dst)
         if spec.blur_variant is not None:
             # `_b` 由 `_a` 虚化而来，不单独渲染
             blurred = img.filter(ImageFilter.GaussianBlur(spec.blur_variant))

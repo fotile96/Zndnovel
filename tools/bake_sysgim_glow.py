@@ -442,14 +442,21 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
     return out, bad
 
 
-def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg) -> None:
+def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg,
+                   bounds=None) -> None:
     """把 tile 并进 dst：**离底更远者胜**。
 
     块自带底，直接 paste 会把邻行的晕、乃至盒外本该保留的东西（`sys_11_a` 下方那
     行英文）一起盖掉。按「离底的距离」取胜方后：块里等于底的那些像素不会覆盖任何
     已有内容，而两行的晕重叠处取更强的一侧——与原图叠加发光的观感一致。
+
+    `bounds` 给定时把写入夹在该矩形内。**「更远者胜」还不够强**的场合要用它：
+    模式画面框下方 7px 就是必须原样保留的英文大词，那里原图本就有强发光，
+    单靠比较会让中文的晕在英文的字间空隙里赢下来——空隙是弱的。
     """
     W, H = dst.size
+    if bounds is not None:
+        bl, bt, br, bb = bounds
     tp, dp = tile.load(), dst.load()
     bgpm = _pm(bg)
     far = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
@@ -460,6 +467,8 @@ def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg) ->
         for x in range(tile.width):
             xx = ox + x
             if not (0 <= xx < W):
+                continue
+            if bounds is not None and not (bl <= xx < br and bt <= yy < bb):
                 continue
             src = tp[x, y]
             if far(src) > far(dp[xx, yy]):

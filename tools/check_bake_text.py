@@ -41,6 +41,7 @@ OUTLINE = REPO / "data" / "sysgim_outline_text.jsonl"
 GLOW = REPO / "data" / "sysgim_glow_text.jsonl"
 EVENT_OP = REPO / "data" / "event_op_text.jsonl"
 CUTIN_TITLE = REPO / "data" / "cutin_title_text.jsonl"
+MODE_FRAME = REPO / "data" / "mode_frame_text.jsonl"
 
 #: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
 #:
@@ -51,6 +52,9 @@ SOURCES = [
     (GLOW, SYSGIM, True),
     (EVENT_OP, REPO / "png" / "event", True),
     (CUTIN_TITLE, REPO / "png" / "cutin", True),
+    # 模式画面框三张分处 png/music 与 png/graphic，故 `file` 带子目录、
+    # 原图目录取两者的公共父目录。
+    (MODE_FRAME, REPO / "png", True),
 ]
 
 REQUIRED = ("file", "row", "jp", "zh")

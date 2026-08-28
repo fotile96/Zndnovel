@@ -172,3 +172,42 @@ def test_flush_baseline_comes_only_from_non_indented_lines():
              for y0, y1 in bands]
     flush = [lefts[i] for i, ln in enumerate(jp) if not ln.startswith("　")]
     assert para.left == min(flush), (para.left, lefts, flush)
+
+
+def test_baked_block_is_centred_like_the_original_not_pinned_to_its_left_edge():
+    """**这条是本模块最容易搞错的地方。**
+
+    起初照搬原文量出来的齐左基准，结果整段明显塌向画面左侧：实测块心偏离
+    49–73px，左距 47–71 而右距 155–193。而**原文块本来是居中的**——它填满整宽，
+    左右边距 52/52、53/53、58/59，块心正落在画面中心 239.5–243.5。
+
+    错的不是算法，是**目标**：中文只有日文 65–70% 长，同一个左缘下重心必然塌左。
+    该复现的是块的**重心**，不是它的左缘。段内结构（各行齐左、段首缩进）不变。
+
+    另：居中要按**真实墨迹范围**，不是「含缩进的概念块」——整段全是缩进行时
+    （op_1_a 的单行段），把那截空白算进块宽再居中，墨迹会被推右半个缩进（实测 10.5px）。
+    """
+    from tools.bake_event_op import bake_file
+    from tools.bake_sysgim_glow import measure_glow as _mg
+
+    rows_by_file = {}
+    for r in ROWS:
+        rows_by_file.setdefault(r["file"], []).append(r)
+
+    for name, rs in rows_by_file.items():
+        if any(not r["zh"].strip() for r in rs):
+            pytest.skip(f"{name} 尚无译文")
+        baked = bake_file(name, sorted(rs, key=lambda r: r["row"]), [])
+        orig = _img(name)
+        for r in rs:
+            box = tuple(r["box"])
+            l, _t, rr, _b = box
+
+            def centre(im):
+                a = im.split()[-1].load()
+                xs = [x for y0, y1 in segment_lines(im, box, _mg(im, box))
+                      for x in range(l, rr) for y in range(y0, y1) if a[x, y] > 140]
+                return (min(xs) + max(xs) + 1) / 2
+
+            co, cb = centre(orig), centre(baked)
+            assert abs(cb - co) <= 8, f"{name} 段{r['row']}：原块心 {co}，烤后 {cb}"

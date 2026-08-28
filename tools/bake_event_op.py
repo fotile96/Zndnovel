@@ -70,7 +70,10 @@ class Para:
     tops: list[int]      #: 各行墨迹顶端的 y（绝对坐标）
     heights: list[int]   #: 各行墨迹高
     pitch: float         #: 行距（顶到顶的中位数）；单行段为 0
-    left: int            #: 段落左缘（各行墨迹左缘的最小值）＝齐左基准
+    left: int            #: 原文的齐左基准（只由非缩进行给出）
+    indent_px: int       #: 原文的段首缩进量（实测）
+    ink_x0: int          #: 原文整段墨迹的左端
+    ink_x1: int          #: 原文整段墨迹的右端（开区间）
 
 
 def segment_lines(im: Image.Image, box, g: Glow) -> list[tuple[int, int]]:
@@ -132,6 +135,10 @@ def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str]) -> Para:
         indent_px = int(statistics.median([b[1] - b[0] for b in bands]))
     left = (min(lefts[i] for i in flush) if flush
             else min(lefts) - max(indent_px, 1))
+    rights = []
+    for y0, y1 in bands:
+        xs = [x for x in range(l, r) for y in range(y0, y1) if dist(px[x, y]) >= thr]
+        rights.append(max(xs) + 1 if xs else l)
 
     tops = [y0 for y0, _ in bands]
     # ⚠ 这里曾写成 `[y1 - y0 for _, y1 in bands]`——那个 `y0` 不是本推导式的变量，
@@ -142,7 +149,8 @@ def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str]) -> Para:
     pitch = statistics.median(
         [tops[i + 1] - tops[i] for i in range(len(tops) - 1)]
     ) if len(tops) > 1 else 0.0
-    return Para(tops=tops, heights=heights, pitch=pitch, left=left)
+    return Para(tops=tops, heights=heights, pitch=pitch, left=left,
+                indent_px=max(indent_px, 1), ink_x0=min(lefts), ink_x1=max(rights))
 
 
 def choose_size(zh_lines: list[str], para: Para, box, sheet: str) -> tuple[int, list[str]]:
@@ -188,18 +196,44 @@ def bake_file(name: str, rows: list[dict], report: list[str]) -> Image.Image:
             )
         size, warn = choose_size(zh_lines, para, box, name)
         report += warn
-        for i, s in enumerate(zh_lines):
+
+        # ── 横向：复现原文块的**重心**，不是它的左缘 ────────────────────
+        #
+        # 起初照搬原文的齐左基准 `para.left`，结果整段明显塌向画面左侧：实测块心
+        # 偏离 49–73px，左距 47–71 而右距 155–193。原因不是算错，是**目标定错了**
+        # ——原文填满整宽（左右边距 52/52、53/53、58/59），块心正落在画面中心
+        # 239.5–243.5；中文只有它 65–70% 长，同一个左缘下重心必然塌到左边。
+        #
+        # 所以该复现的是块心。段内结构不变：各行仍齐左，段首仍缩进一个字宽。
+        cells = []
+        for s in zh_lines:
             if not s.strip():
+                cells.append(None)
                 continue
-            glyph = render_glow(s, size, g, name)
             cbb = _core_mask(s, size, name).getbbox()
-            core_w, core_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
+            cells.append((s, cbb[2] - cbb[0], cbb[3] - cbb[1],
+                          size if s.startswith("　") else 0))
+        # 按**真实墨迹范围**居中，不是按「含缩进的概念块」。
+        #
+        # 差别只在整段全是缩进行时显形（`op_1_a` 的单行段）：缩进那一截是空白，
+        # 把它算进块宽再居中，墨迹就被推右半个缩进——实测偏 10.5px。取墨迹的
+        # 实际左右端（最小缩进 → 最右端）来居中，两种情形都对。
+        ink_lo = min(c[3] for c in cells if c)
+        ink_hi = max(c[3] + c[1] for c in cells if c)
+        cx = (para.ink_x0 + para.ink_x1) / 2
+        left = round(cx - (ink_lo + ink_hi) / 2)
+        # 不许越出盒；越出说明这段本就放不下，交给 OVERFLOW 那条报
+        left = max(box[0] - ink_lo, min(left, box[2] - ink_hi))
+
+        for i, c in enumerate(cells):
+            if c is None:
+                continue
+            s, core_w, core_h, indent = c
+            glyph = render_glow(s, size, g, name)
             # 纵向：按实测行距落位，行内以该行墨迹高居中
             top = para.tops[0] + round(para.pitch * i) if para.pitch else para.tops[0]
             gy = top + (int(statistics.median(para.heights)) - core_h) // 2
-            # 横向：段落齐左；段首行的一个全角字缩进照原样保留
-            indent = size if s.startswith("　") else 0
-            gx = para.left + indent
+            gx = left + indent
             halo = (glyph.width - core_w) // 2
             vhalo = (glyph.height - core_h) // 2
             plans.append((g, glyph, gx - halo, gy - vhalo))

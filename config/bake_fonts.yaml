@@ -40,6 +40,13 @@ faces:
     font: third_party/SourceHanSansSC-VF.ttf
     weight: Medium
 
+  # ── event/op_*：序章题词。**叙事文本**，不是 UI 文本 ─────────────────
+  #
+  # 第一人称题词式独白，压在夜景背景上。与其余各面的取舍未必相同——它更接近正文轨，
+  # 而非标签。暂随默认，等看过烤出来的效果再定。
+  event:
+    font: third_party/LXGWWenKai-Regular.ttf
+
   # ── sysgim 未定：61 张分五个重建族，逐张可指 ─────────────────────────
   #
   # 这一面与其余四面不同：字要么套描边、要么套距离场发光，字号 12–17px 跨度大，

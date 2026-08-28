@@ -91,7 +91,7 @@ def segment_lines(im: Image.Image, box, g: Glow) -> list[tuple[int, int]]:
     return [(a, c + 1) for a, c in out]
 
 
-def measure_para(im: Image.Image, box, g: Glow, expect_lines: int) -> Para:
+def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str]) -> Para:
     """量一段的行位置、行距与齐左基准。
 
     **行数与转写互相校验**：分段结果必须与 `jp` 的行数一致，不一致就抛错而不是
@@ -99,9 +99,9 @@ def measure_para(im: Image.Image, box, g: Glow, expect_lines: int) -> Para:
     这时候继续渲染只会把错误固化进产物。
     """
     bands = segment_lines(im, box, g)
-    if len(bands) != expect_lines:
+    if len(bands) != len(jp_lines):
         raise ValueError(
-            f"盒 {box}：图上分出 {len(bands)} 行，而 jp 转写是 {expect_lines} 行——"
+            f"盒 {box}：图上分出 {len(bands)} 行，而 jp 转写是 {len(jp_lines)} 行——"
             f"两条独立来源不一致，先查清楚是哪边错了"
         )
     l, _t, r, _b = box
@@ -114,6 +114,25 @@ def measure_para(im: Image.Image, box, g: Glow, expect_lines: int) -> Para:
     for y0, y1 in bands:
         xs = [x for x in range(l, r) for y in range(y0, y1) if dist(px[x, y]) >= thr]
         lefts.append(min(xs) if xs else l)
+    # **齐左基准只能由「非缩进行」给出。**
+    #
+    # 曾经写成 `min(所有行左缘)`：多行段里既有缩进行又有齐左行时它是对的，但
+    # **单行段那一行本身就是缩进的**——min 取到的是已含缩进的位置，外面再加一次
+    # 缩进，就成了双重缩进。`op_1_a` 的单行段实测右偏 17px，且与第二段的缩进行
+    # 不齐；而那正是玩家看到的第一行。
+    #
+    # 整段全是缩进行时，从观测值里把一个缩进量减掉。缩进量优先用同段实测
+    # （缩进行与齐左行的左缘之差），拿不到就用该段的字芯高当一个全角字宽。
+    flush = [i for i, ln in enumerate(jp_lines) if not ln.startswith("　")]
+    indented = [i for i, ln in enumerate(jp_lines) if ln.startswith("　")]
+    if flush and indented:
+        indent_px = int(statistics.median([lefts[i] for i in indented])
+                        - statistics.median([lefts[i] for i in flush]))
+    else:
+        indent_px = int(statistics.median([b[1] - b[0] for b in bands]))
+    left = (min(lefts[i] for i in flush) if flush
+            else min(lefts) - max(indent_px, 1))
+
     tops = [y0 for y0, _ in bands]
     # ⚠ 这里曾写成 `[y1 - y0 for _, y1 in bands]`——那个 `y0` 不是本推导式的变量，
     # 而是上面那个真 for 循环泄漏下来的**最后一行**的 y0，于是除末行外全是负数
@@ -123,7 +142,7 @@ def measure_para(im: Image.Image, box, g: Glow, expect_lines: int) -> Para:
     pitch = statistics.median(
         [tops[i + 1] - tops[i] for i in range(len(tops) - 1)]
     ) if len(tops) > 1 else 0.0
-    return Para(tops=tops, heights=heights, pitch=pitch, left=min(lefts))
+    return Para(tops=tops, heights=heights, pitch=pitch, left=left)
 
 
 def choose_size(zh_lines: list[str], para: Para, box, sheet: str) -> tuple[int, list[str]]:
@@ -160,7 +179,7 @@ def bake_file(name: str, rows: list[dict], report: list[str]) -> Image.Image:
         boxes.append(box)
         g = measure_glow(im, box)
         jp_lines = meta["jp"].split("\n")
-        para = measure_para(im, box, g, len(jp_lines))
+        para = measure_para(im, box, g, jp_lines)
         zh_lines = [s for s in meta["zh"].split("\n")]
         if len(zh_lines) > len(jp_lines):
             report.append(

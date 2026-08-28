@@ -60,7 +60,7 @@ def test_measure_para_line_heights_are_all_positive():
     for r in ROWS:
         im = _img(r["file"])
         para = measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])),
-                            r["jp"].count("\n") + 1)
+                            r["jp"].split("\n"))
         assert all(h > 0 for h in para.heights), (r["file"], para.heights)
         assert all(10 <= h <= 16 for h in para.heights), (r["file"], para.heights)
 
@@ -69,7 +69,7 @@ def test_measure_para_pitch_matches_the_measured_18_to_19():
     for r in ROWS:
         im = _img(r["file"])
         para = measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])),
-                            r["jp"].count("\n") + 1)
+                            r["jp"].split("\n"))
         if len(para.tops) > 1:
             assert 17 <= para.pitch <= 20, (r["file"], para.pitch)
         else:
@@ -81,7 +81,7 @@ def test_line_count_mismatch_raises_instead_of_rendering():
     r = ROWS[2]
     im = _img(r["file"])
     with pytest.raises(ValueError, match="两条独立来源不一致"):
-        measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])), 99)
+        measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])), ["假"] * 99)
 
 
 def test_blur_radius_reproduces_the_real_b_variants():
@@ -114,7 +114,7 @@ def test_choose_size_anchors_to_original_ink_height_not_pitch():
     r = ROWS[3]
     im = _img(r["file"])
     para = measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])),
-                        r["jp"].count("\n") + 1)
+                        r["jp"].split("\n"))
     import statistics
 
     from tools.bake_sysgim_glow import FONT_CASCADE, _core_mask
@@ -135,3 +135,40 @@ def test_choose_size_anchors_to_original_ink_height_not_pitch():
 
     # 而且必须明显小于行距——按行距选会渲出比原文大一圈的字（裁决 Y7）
     assert size < para.pitch
+
+
+def test_single_line_indented_block_is_not_double_indented():
+    """回归：`op_1_a` 的**单行段**曾被缩进两次，实测右偏 17px。
+
+    齐左基准 `para.left` 原先取「所有行左缘的最小值」。多行段里既有缩进行又有
+    齐左行时它是对的；但**单行段那一行本身就是缩进的**——min 取到的是已含缩进的
+    位置，外面再加一次缩进就成了双重缩进。而那正是玩家看到的第一行，且与第二段的
+    缩进行不齐。
+
+    判据：单行缩进段的 `left` 必须与同图多行段的 `left` 接近（同一左边距），
+    而不是比它大一个字宽。
+    """
+    im = _img("op_1_a")
+    single = next(r for r in ROWS if r["file"] == "op_1_a" and r["row"] == 0)
+    multi = next(r for r in ROWS if r["file"] == "op_1_a" and r["row"] == 1)
+    p1 = measure_para(im, tuple(single["box"]), measure_glow(im, tuple(single["box"])),
+                      single["jp"].split("\n"))
+    p2 = measure_para(im, tuple(multi["box"]), measure_glow(im, tuple(multi["box"])),
+                      multi["jp"].split("\n"))
+    assert single["jp"].startswith("　"), "前提：这一段唯一的一行是缩进的"
+    assert abs(p1.left - p2.left) <= 4, (p1.left, p2.left)
+
+
+def test_flush_baseline_comes_only_from_non_indented_lines():
+    """齐左基准只能由非缩进行给出——这是上面那个 bug 的根因。"""
+    r = next(x for x in ROWS if x["file"] == "op_2_a")
+    im = _img(r["file"])
+    jp = r["jp"].split("\n")
+    para = measure_para(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])), jp)
+    im_a = im.split()[-1].load()
+    l, _t, rr, _b = r["box"]
+    bands = segment_lines(im, tuple(r["box"]), measure_glow(im, tuple(r["box"])))
+    lefts = [min([x for x in range(l, rr) for y in range(y0, y1) if im_a[x, y] > 140] or [l])
+             for y0, y1 in bands]
+    flush = [lefts[i] for i, ln in enumerate(jp) if not ln.startswith("　")]
+    assert para.left == min(flush), (para.left, lefts, flush)

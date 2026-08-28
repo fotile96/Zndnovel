@@ -12,6 +12,10 @@
 # 路径相对仓库根。`weight` 只对变量字体有意义，写在静态字体上会报错——
 # 静默忽略的话，你以为在看 Bold、其实还是 Regular。
 #
+# 字体集合（.ttc）写成 `路径#N` 指明取其中第几款，例如 `…/Songti.ttc#6`。
+# **集合不写索引会报错**：不写＝静默取第 0 款，而 Songti.ttc 的第 0 款是 Black，
+# 与「你以为在看 Regular」是同一种错。
+#
 # ⚠ 改这里等于改产物：`build/` 下的图要重烤，受字体影响的金标夹具要按实测更新。
 
 default:
@@ -48,8 +52,25 @@ faces:
     font: third_party/LXGWWenKai-Regular.ttf
 
   # ── cutin/：章节起止字幕卡（cut_e_* / cut_s_*）。透明底发光单行条 ────────
+  #
+  # 用户 2026-08-28 看过八路对照（build/font_ab/cutin.png）后裁定：**华文仿宋**。
+  # 动因是霞鹜文楷「衬线的感觉不明显」——LXGW WenKai 本质是楷体风，笔画粗细对比小，
+  # 在 15–21px 的发光字幕条上读不出印刷体的味道。
+  #
+  # ⚠ **这一面无法在别的机器上复现。** 华文仿宋是 Apple 随系统分发的商业字体，
+  #   不是 OFL，不能像霞鹜文楷/思源黑体那样入库（裁决 G1 的例外）。产物只能在装了
+  #   它的 mac 上重烤；换机器时 resolve() 会抛 FileNotFoundError 而不是悄悄换字。
+  #
+  # ⚠ **路径带哈希，是按需下载的字体资产，系统更新后可能变。** 重新定位：
+  #     ls /System/Library/AssetsV2/com_apple_MobileAsset_Font7/*/AssetData/STFANGSO.ttf
+  #
+  # 缺字实测（对 cutin 24 张的真实译文逐字比对 .notdef）：0 缺。全部待烤文本
+  # （cutin+sysgim+event 共 370 字）只缺 `・`，而它仅出现在 sysgim 的 sys_21_a
+  # 「自动模式・文字设定」三行——**若日后把这套字用到 sysgim，那三行会出豆腐块**。
+  #
+  # 填充增益维持 2.2：仿宋与霞鹜文楷同属细笔画，不是裁决 Y6/Y14 说的粗体情形。
   cutin:
-    font: third_party/LXGWWenKai-Regular.ttf
+    font: /System/Library/AssetsV2/com_apple_MobileAsset_Font7/1821952872c81043711aab6910052b65da8edf2c.asset/AssetData/STFANGSO.ttf
 
   # ── sysgim 未定：61 张分五个重建族，逐张可指 ─────────────────────────
   #

@@ -31,6 +31,15 @@
 
 优先级：`ZND_UI_FONT_<面>` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷 Regular。
 
+**字体集合（.ttc）用 `路径#N` 取其中一款**，环境变量与配置文件同一套解析：
+
+    ZND_UI_FONT_CUTIN=/System/Library/Fonts/Supplemental/Songti.ttc#3 \
+        uv run python tools/bake_cutin_title.py
+
+集合**不带索引会被拒**，见 `_check_index` 处的说明——不是从严，是那种"看起来
+正常"的错。
+
+
 ⚠ **换字体后测试会红**，这是对的：金标夹具里的墨迹尺寸、字号回落集、溢出判定全都是
 对着默认字体实测出来的。换字评估应当看图与看 manifest，不是看测试绿不绿。
 
@@ -91,8 +100,63 @@ def _config_entry(face: str, sheet: str | None) -> dict:
     return dict(cfg.get("default") or {})
 
 
-def resolve(face: str, sheet: str | None = None) -> Path:
-    """取某个面（必要时某一张）该用的字体路径。
+def _split_index(spec: str) -> tuple[str, int | None]:
+    """把 `路径#N` 拆成路径与子字体索引；没写索引则第二项为 None。
+
+    只认结尾的 `#<数字>`，故文件名里出现 `#` 不受影响（`a#b.ttf` 原样返回）。
+    """
+    head, sep, tail = spec.rpartition("#")
+    if sep and tail.isdigit():
+        return head, int(tail)
+    return spec, None
+
+
+def _num_faces(path: Path) -> int:
+    """字体文件里装了几款。
+
+    TTC 头是 `ttcf` + 版本(2+2) + numFonts(4)，12 字节读完即知——不必开字体，
+    也就不必为此引入 fontTools。非集合（普通 ttf/otf）一律算 1 款。
+    """
+    with path.open("rb") as fh:
+        head = fh.read(12)
+    if head[:4] != b"ttcf":
+        return 1
+    return int.from_bytes(head[8:12], "big")
+
+
+def _check_index(path: Path, idx: int | None) -> int:
+    """把「写了/没写索引」判成确定的一款，或者报错。
+
+    **集合不带索引必须报错，不能默认取第 0 款。** `Songti.ttc` 的第 0 款实测是
+    Songti SC **Black**——集合里最重的一款，而不是常规字重。它不报错、不缺字，
+    只是"比预期黑一圈"，于是你以为在评估宋体正文、看到的却是黑体级字重的宋。
+    这与 `SourceHanSansSC-VF` 默认实例是 ExtraLight 是同一种失效形态
+    （见 `DEFAULT_VF_INSTANCE`），处理也一样：当场炸掉，并列出可选范围。
+
+    越界也自己判：Pillow 只会抛 `OSError: invalid argument`，看不出是索引的事。
+    """
+    n = _num_faces(path)
+    if n == 1:
+        if idx not in (None, 0):
+            raise ValueError(
+                f"{path.name} 不是字体集合（只有 1 款），无法取索引 {idx}——"
+                f"`#N` 只对 .ttc 这类集合有意义"
+            )
+        return 0
+    if idx is None:
+        raise ValueError(
+            f"{path.name} 是含 {n} 款子字体的集合，须写成 `路径#N` 指明取哪一款"
+            f"（N=0..{n - 1}）——不指明会静默取第 0 款，而第 0 款未必是常规字重"
+            f"（Songti.ttc 的第 0 款是 Black）"
+        )
+    if not 0 <= idx < n:
+        raise ValueError(
+            f"{path.name} 只有 {n} 款子字体（N=0..{n - 1}），索引 {idx} 越界")
+    return idx
+
+
+def _resolve_spec(face: str, sheet: str | None = None) -> tuple[Path, int]:
+    """字体的完整取用结果：文件 + 子字体索引。`resolve`/`index` 都从这里取。
 
     优先级：`ZND_UI_FONT_<面>` > `ZND_UI_FONT` > 配置的逐张 > 逐面 > 兜底 > 随仓库
     分发的霞鹜文楷。环境变量胜出是刻意的——它是试验用的临时开关，配置文件是持久决定。
@@ -109,23 +173,39 @@ def resolve(face: str, sheet: str | None = None) -> Path:
         val = os.environ.get(var)
         if not val:
             continue
-        p = Path(val)
+        raw, idx = _split_index(val)
+        p = Path(raw)
         if not p.exists():
             raise FileNotFoundError(f"{var} 指向的字体不存在：{p}")
-        return p
+        return p, _check_index(p, idx)
 
     cfg_font = _config_entry(face, sheet).get("font")
     if cfg_font:
-        p = Path(cfg_font)
+        raw, idx = _split_index(str(cfg_font))
+        p = Path(raw)
         if not p.is_absolute():
             p = REPO / p
         if not p.exists():
             raise FileNotFoundError(
                 f"{CONFIG.name} 给 {face}"
                 f"{'/' + sheet if sheet else ''} 指的字体不存在：{p}")
-        return p
+        return p, _check_index(p, idx)
 
-    return BUNDLED
+    return BUNDLED, 0
+
+
+def resolve(face: str, sheet: str | None = None) -> Path:
+    """取某个面（必要时某一张）该用的字体**文件**路径（不含 `#N`）。
+
+    优先级与报错见 `_resolve_spec`。集合选了哪一款用 `index()` 取——分成两个
+    取用口是因为消费者里有 `FONT_PATH = str(resolve(...))` 这种要能直接 open 的。
+    """
+    return _resolve_spec(face, sheet)[0]
+
+
+def index(face: str, sheet: str | None = None) -> int:
+    """该面用集合里的第几款；非集合恒为 0。优先级同 `resolve`。"""
+    return _resolve_spec(face, sheet)[1]
 
 
 #: 变量字体在没有显式指定重量时用哪一档。
@@ -166,8 +246,8 @@ def truetype(face: str, size: int, sheet: str | None = None):
     在**静态**字体上指定重量会抛 `ValueError` 而不是静默忽略：静默忽略意味着你以为
     在看 Bold、其实还是 Regular，而这正是拿来比较字重的场合，结论会整个反过来。
     """
-    path = resolve(face, sheet)
-    font = ImageFont.truetype(str(path), size)
+    path, idx = _resolve_spec(face, sheet)
+    font = ImageFont.truetype(str(path), size, index=idx)
     names = _variation_names(font)
     want = weight(face, sheet)
 
@@ -219,9 +299,17 @@ def size_cascade(face: str, default: list[int]) -> list[int]:
 
 
 def describe(face: str, sheet: str | None = None) -> str:
-    """给报告用的一行自述：字体文件名 + 重量档（若为变量字体）。"""
-    path = resolve(face, sheet)
-    names = _variation_names(ImageFont.truetype(str(path), 12))
-    if not names:
-        return path.name
-    return f"{path.name}[{weight(face, sheet) or DEFAULT_VF_INSTANCE}]"
+    """给报告用的一行自述：字体文件名 + 括号里那一档具体是什么。
+
+    括号里放的是"同一个文件里到底取了哪一款"：变量字体是重量实例，集合是子字体
+    自报的家族与样式。集合只写文件名等于没写——`Songti.ttc` 里有 8 款。
+    """
+    path, idx = _resolve_spec(face, sheet)
+    font = ImageFont.truetype(str(path), 12, index=idx)
+    label = path.name if _num_faces(path) == 1 else f"{path.name}#{idx}"
+    names = _variation_names(font)
+    if names:
+        return f"{label}[{weight(face, sheet) or DEFAULT_VF_INSTANCE}]"
+    if label != path.name:
+        return f"{label}[{' '.join(font.getname())}]"
+    return label

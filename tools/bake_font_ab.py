@@ -98,6 +98,17 @@ def _cells_scene(_tag):
     return _sheet_cropper(m, [1, 2, 89, 90, 178, 180, 182], "scene")
 
 
+def _cells_cutin(_tag):
+    """章节起止字幕卡。取样覆盖这一族的四种极端，而不是随手挑四张：
+
+    `cut_s_s1` 常规开始卡（白字暖晕）／`cut_e_s1` 结束卡（**橙晕**，配色另一路）／
+    `cut_s_ex2` 全族唯一的两行卡（21px 标题 + 13px 小注，字号差最大）／
+    `cut_s_s82` 最短的一条（89px，字少，单字形态看得最清）。
+    """
+    picks = ["cut_s_s1", "cut_e_s1", "cut_s_ex2", "cut_s_s82"]
+    return [(b, lambda d, b=b: d / f"{b}.png") for b in picks]
+
+
 #: 面 -> (产物子目录, 取样函数, 放大倍数, 原图目录, 三联方向)
 #:
 #: 方向：宽而扁的格（select/scene/plot 条）上下叠着看最直接；卡面 212×148 又高又方，
@@ -108,6 +119,7 @@ FACES = {
     "scene":  ("scene_zh",  _cells_scene,  8, None,         "rows"),
     "plot":   ("plot_zh",   _cells_plot,   6, None,         "rows"),
     "sysgim": ("sysgim",    _cells_sysgim, 3, "png/sysgim", "cols"),
+    "cutin":  ("cutin_zh",  _cells_cutin,  2, "png/cutin",  "rows"),
 }
 
 
@@ -134,7 +146,7 @@ def _trio_rows(trio, name, scale, font):
     for lab, img in trio:
         big = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
         row = Image.new("RGBA", (LABEL_W + big.width, big.height), (26, 26, 26, 255))
-        row.paste(big, (LABEL_W, 0))
+        row.alpha_composite(big, (LABEL_W, 0))
         ImageDraw.Draw(row).text((5, max(2, big.height // 2 - 8)),
                                  f"{name}\n{lab}" if lab == "原图" else lab,
                                  font=font, fill=(225, 225, 225, 255))
@@ -155,7 +167,7 @@ def _trio_col(trio, name, scale, font):
     x = LABEL_W
     for lab, b in bigs:
         d.text((x + 2, 2), lab, font=font, fill=(200, 200, 200, 255))
-        row.paste(b, (x, head))
+        row.alpha_composite(b, (x, head))
         x += b.width + pad
     return [row]
 

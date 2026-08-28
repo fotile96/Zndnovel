@@ -184,6 +184,39 @@ faces:
 键＝不带扩展名的文件名，与 `data/sysgim_*_text.jsonl` 的 `file` 字段一致。
 ⚠ 换成笔画更实的字体时 `ZND_UI_FILL_GAIN` 要从 2.2 调回 1.0（Y6/Y14）。
 
+### ✅ cutin 已定（2026-08-28）：华文仿宋 STFangsong（F5–F7）
+
+用户指霞鹜文楷「衬线的感觉不明显」，八路对照（`build/font_ab/cutin.png`）后裁定。
+**这一面不能在别的机器上复现**——华文仿宋是 Apple 随系统分发的商业字体，不能入库，
+是裁决 G1 的明示例外（F6）。路径带哈希、系统更新后可能变，重新定位：
+
+```bash
+ls /System/Library/AssetsV2/com_apple_MobileAsset_Font7/*/AssetData/STFANGSO.ttf
+```
+
+`event/op_*` 仍是霞鹜文楷（叙事文本，未定）。填充增益维持 2.2：仿宋与霞鹜文楷同属
+细笔画，不触 Y6/Y14。
+
+⚠ **同轮推翻的一条**：上一轮记的「候选九款全部零缺字」是错的。按真实待烤文本
+（370 字）逐字与 `.notdef` 位图比对：儷宋缺 43 字、蘋果儷細宋缺 100 字（都是繁体
+字库），`章节` 的「节」就在其中，对照图上是豆腐块——两款出局。其余五款只缺 `・`，
+它仅出现在 sysgim 的 `sys_21_a`。**PIL 渲染缺字时静默画豆腐块，不抛异常、不返回空
+墨迹**，所以「渲染没报错」不能当缺字判据。详见 `bake-decisions.md` F5–F7。
+
+### 字体集合（.ttc）怎么指
+
+`tools/ui_font.py` 认 `路径#N`，环境变量与配置文件同一套解析：
+
+```bash
+ZND_UI_FONT_CUTIN=/System/Library/Fonts/Supplemental/Songti.ttc#6 \
+    ZND_BUILD_TAG=songtiR uv run python tools/bake_cutin_title.py
+```
+
+**集合不写索引会报错**（F7）：`Songti.ttc` 8 款里第 0 款是 Songti SC **Black**，
+静默取 0 与「变量字体默认实例是 ExtraLight」（F3）是同一种错。索引越界也自己判——
+Pillow 只会抛 `OSError: invalid argument`，看不出是索引的事。已知索引：
+`#3` Songti SC Light、`#4` STSong、`#6` Songti SC Regular；`SimSong.ttc` 只有 `#0/#1`。
+
 ### 同时修掉的两处判据缺陷（都是换字体才照出来的）
 
 1. **`select` 的居中**（裁决 L11）：`anchor="mm"` 按字体**设计度量**居中，把思源系

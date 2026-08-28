@@ -3,9 +3,18 @@
 > 新会话直接读这一份即可上手。**下面每一条数字都是实测的**，凡"大概/少量/个别"这类
 > 词都已被清点替换——本轮最大的教训就是台账里的形容词等于那一格从没被清点过。
 
-## 0. 手头没做完的那件事（优先）
+## 0. ~~手头没做完的那件事~~ ✅ 已完成（2026-08-28 当日）
 
 **用户看了 `cutin/` 的成品，觉得「衬线的感觉不明显」，提出试仿宋，让先看 macOS 自带字体。**
+
+**结果：`cutin` 定为华文仿宋 STFangsong**（用户看过八路对照 `build/font_ab/cutin.png`
+后裁定）。已落 `config/bake_fonts.yaml`，`build/cutin_zh/` 24 张已用它重烤。
+裁决 F5–F7 见 `bake-decisions.md`；`tools/ui_font.py` 已支持 `路径#N` 的 TTC 子字体索引。
+
+⚠ **下表「九款全部零缺字」这句是错的，勿再引用。** 按真实待烤文本逐字与 `.notdef`
+位图比对：**儷宋缺 43 字、蘋果儷細宋缺 100 字**（繁体字库，`章节` 的「节」即在其中），
+两款已出局；其余七款对 cutin 零缺字，只缺 `・`（仅见于 sysgim 的 `sys_21_a`）。
+当初的错法是拿手编测试串、以「渲染没报错」当判据——**PIL 渲染缺字时静默画豆腐块**。
 
 已完成的调研：
 
@@ -21,20 +30,22 @@
 | 蘋果儷細宋 AppleLiSung-Light | `…/2ae839cb…asset/AssetData/AppleLiSung-Light.ttf` | ✓ |
 | SimSong | `…/857d6c90…asset/AssetData/SimSong.ttc` | ✓ |
 
-测试串 `章节 1：完 章节 5：Sakura 章节 EX2：雪乃 五年后 女学生 梗概跳过` 九款**全部零缺字**。
+~~测试串 `章节 1：完 章节 5：Sakura 章节 EX2：雪乃 五年后 女学生 梗概跳过` 九款
+**全部零缺字**。~~ ← **这句是错的，见本节开头的更正。**
 
-**下一步（被打断处）**：`tools/ui_font.py` 目前只接受字体文件路径，**不支持 TTC 子字体
-索引**，而 `Songti.ttc` 里有 8 款。需要先加索引支持（建议 `path#N` 语法，配置与环境
-变量同一套解析），然后用真实烤字管线（`ZND_UI_FONT_CUTIN=…` + `ZND_BUILD_TAG=…`）
-逐款烤 `cutin/` 出对照图给用户挑。
+~~**下一步（被打断处）**：`tools/ui_font.py` 不支持 TTC 子字体索引~~
+✅ 已加：`路径#N`，环境变量与配置同一套解析，**集合不写索引报错**（F7）。
+已知索引：`Songti.ttc` `#3` SC Light / `#4` STSong / `#6` SC Regular；`SimSong.ttc` 仅 `#0/#1`。
 
-⚠ **两条必须先告诉用户的约束**：
+两条约束**已告知用户并被接受**：
 
 1. **除霞鹜文楷与思源黑体外，上表全是 Apple 随系统分发的商业字体**，不是 SIL OFL。
-   裁决 G1 把霞鹜文楷入库正是为了"换机器即开即用"；这些**不能入库**。若最终选中，
-   要么接受"只能在装了该字体的 mac 上复现"，要么另找同风格的开源替代
-   （思源宋体 Source Han Serif 是最直接的 OFL 衬线候选，**本机未装，需用户提供**）。
+   裁决 G1 把霞鹜文楷入库正是为了"换机器即开即用"；这些**不能入库**。用户选定华文
+   仿宋，即**接受"cutin 只能在装了该字体的 mac 上复现"**（裁决 F6）。若日后要回到
+   可移植方案，思源宋体 Source Han Serif 是最直接的 OFL 衬线候选（**本机未装**）。
 2. **`AssetsV2` 下的路径带哈希**，是按需下载的字体资产，系统更新后可能变化。
+   重新定位：`ls /System/Library/AssetsV2/com_apple_MobileAsset_Font7/*/AssetData/STFANGSO.ttf`。
+   路径失效时 `resolve()` 抛 `FileNotFoundError`，不会悄悄换字。
 
 ---
 
@@ -178,8 +189,12 @@ uv run python -m pytest tests/ -q                # 1466 passed
 ## 5. 已定的字体
 
 `config/bake_fonts.yaml`：**card / plot / scene / select = 思源黑体 SC Medium**
-（用户 2026-08-28 看过四路对照后裁定）。sysgim 与 event、cutin **仍是霞鹜文楷，未定**，
-且 sysgim 保留了**逐张覆盖**位（`faces.sysgim.sheets.<图名>`）。
+（用户 2026-08-28 看过四路对照后裁定）；**cutin = 华文仿宋 STFangsong**（同日看过
+八路对照后裁定，F5–F7；**机器本地商业字体，换机器不可复现**）。
+sysgim 与 event **仍是霞鹜文楷，未定**，且 sysgim 保留了**逐张覆盖**位
+（`faces.sysgim.sheets.<图名>`）。
+
+⚠ 若把仿宋/宋体系推广到 sysgim，先查 `sys_21_a` 的 `・`——那五款系统字都缺它。
 
 选 Medium 的实测依据：卡面 9px 正文的字腔数（被墨迹完整围住的背景连通块）
 霞鹜 198 / Regular 304 / **Medium 378**——不降反升 24%。**字腔数低等于「笔画没成形」，
@@ -209,7 +224,12 @@ uv run python -m pytest tests/ -q                # 1466 passed
    时，`bake_para_glow` 直接报错而不是将就——继续渲染只会把错误固化进产物。
 7. **一个常数满足两面，别给单张开特例。** `LINE_MERGE_GAP` 从 4 改 3 是被
    `cut_s_ex2` 逼出来的，但逐档验过对 `event/op_*` 同样成立才改。
-8. **闸恒绿不可怕，闸反着绿才可怕。** `ui_terms.yaml` 的 evidence 是冻结字符串，
+8. **「没报错」不是判据，尤其在渲染上。** 候选字体的缺字检查当初用手编测试串 +
+   「渲染没报错」，得出"九款全部零缺字"——而 PIL 遇到缺字**静默画豆腐块**：不抛
+   异常、不返回空墨迹、`getlength()` 照样非零。改用「按真正会被烤上去的那串文本
+   逐字渲染，与 `.notdef` 位图逐字节比对」后，两款繁体字库分别缺 43 / 100 字。
+   同族的坑：`_num_faces` 越界时 Pillow 只说 `OSError: invalid argument`。
+9. **闸恒绿不可怕，闸反着绿才可怕。** `ui_terms.yaml` 的 evidence 是冻结字符串，
    glossary v19 改了正文而它没动，于是这道闸**反向运行了 9 天**——既漏报真问题，
    又把已改对的报成错。故有了 `measure_ui_terms.py` 这道自校准闸。
 

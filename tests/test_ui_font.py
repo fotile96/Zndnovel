@@ -8,6 +8,7 @@ sysgim 是 12–17px 还要叠描边与发光——同一套字在这几档上�
 """
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -241,9 +242,181 @@ def test_config_pointing_at_a_missing_font_raises(cfg, monkeypatch):
         cfg.resolve("card")
 
 
+def _config_defect(face):
+    """真配置在这一面上有没有毛病；没有则返回 None。
+
+    **两种「取不到字体」要分开**：
+
+    - 仓库内字体（相对路径）取不到 = 配置错，必须红。裁决 G1 把字体入库正是为了
+      换机器即开即用，它缺了就是坏了。
+    - 机器本地的系统字体（绝对路径）取不到 = 这台机器没装，不是配置错。cutin 定的
+      华文仿宋是 macOS 随系统分发的，云端 Ubuntu 上根本不存在——若与「路径打错」
+      同等对待，整套测试在云端会一片红，真正的配置错反倒淹没在里面。
+
+    面名打错、索引越界这类 `ValueError` 两种情形下都是错，一律不吞。
+    """
+    import tools.ui_font as uf
+    try:
+        return None if resolve(face).exists() else f"{face}: 解析出的路径不存在"
+    except FileNotFoundError:
+        raw, _idx = uf._split_index(str(uf._config_entry(face, None).get("font", "")))
+        if Path(raw).is_absolute():
+            return None          # 系统字体，这台机器没装
+        return f"{face}: 仓库内字体缺失 {raw}"
+
+
+@pytest.mark.parametrize("font,defective", [
+    ("third_party/DoesNotExist.ttf", True),      # 仓库内缺失＝配置错
+    ("/nowhere/SystemOnly.ttf", False),          # 机器本地没装＝允许
+])
+def test_repo_fonts_must_exist_but_system_fonts_may_be_absent(cfg, monkeypatch,
+                                                              font, defective):
+    import yaml
+
+    bad = yaml.safe_load(CFG_YAML)
+    bad["faces"]["card"]["font"] = font
+    monkeypatch.setattr(cfg, "_CONFIG_CACHE", bad)
+    assert (_config_defect("card") is not None) is defective
+
+
 def test_real_config_resolves_every_face():
     """真配置必须能解析——打错路径或面名在这里就该红，而不是等到烤到一半。"""
     import tools.ui_font as uf
     uf._CONFIG_CACHE = None          # 强制读盘上的真文件
-    for face in FACES:
-        assert resolve(face).exists()
+    assert [d for d in (_config_defect(f) for f in FACES) if d] == []
+
+
+# ---------------------------------------------------------------------------
+# TTC 子字体索引：`路径#N`
+# ---------------------------------------------------------------------------
+#
+# 字体评估要选仿宋/宋体时撞上的：macOS 的 `Songti.ttc` 一个文件里装着 8 款
+# （Songti SC Black/Bold/Light/Regular、Songti TC 三款、STSong），
+# 而本模块此前只接受"字体文件路径"，8 选 1 根本表达不出来。
+
+SONGTI = Path("/System/Library/Fonts/Supplemental/Songti.ttc")
+needs_songti = pytest.mark.skipif(
+    not SONGTI.exists(), reason="需要 macOS 自带的 Songti.ttc（8 款子字体）")
+
+
+def _fake_ttc(tmp_path, n_faces, name="Fake.ttc"):
+    """一份只有 TTC 头的假集合：`ttcf` + 版本 + numFonts。
+
+    索引的**解析与校验**不该需要真字体——这样这几条在没装 Songti 的机器
+    （云端 Ubuntu）上照样跑，只有"真渲染出来的确实是那一款"需要真字体。
+    """
+    p = tmp_path / name
+    p.write_bytes(b"ttcf" + (1).to_bytes(2, "big") + (0).to_bytes(2, "big")
+                  + n_faces.to_bytes(4, "big"))
+    return p
+
+
+def test_a_single_face_font_has_index_zero(monkeypatch):
+    from tools.ui_font import index
+
+    monkeypatch.delenv("ZND_UI_FONT", raising=False)
+    monkeypatch.delenv("ZND_UI_FONT_CARD", raising=False)
+    assert index("card") == 0
+
+
+def test_index_is_parsed_off_the_path_and_not_left_in_it(monkeypatch, tmp_path):
+    """`#N` 是**取字体的一部分**，不是路径的一部分——`resolve()` 仍须返回可 open 的路径。"""
+    from tools.ui_font import index
+
+    ttc = _fake_ttc(tmp_path, 8)
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", f"{ttc}#3")
+    assert resolve("cutin") == ttc
+    assert resolve("cutin").exists()
+    assert index("cutin") == 3
+
+
+def test_a_collection_without_an_index_is_rejected(monkeypatch, tmp_path):
+    """**与变量字体默认实例同型的陷阱，必须挡住。**
+
+    `Songti.ttc` 不带索引 = 第 0 款 = **Songti SC Black**（实测），即整个集合里
+    最重的一款。它不报错、不缺字，只是"比预期黑一圈"——于是你以为在评估宋体正文，
+    看到的其实是黑体级字重的宋，结论会整个反过来。
+
+    与 `SourceHanSansSC-VF` 默认实例是 ExtraLight 是同一种失效形态，处理也该一样：
+    当场炸掉，并把可选项列出来。
+    """
+    from tools.ui_font import index
+
+    ttc = _fake_ttc(tmp_path, 8)
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", str(ttc))
+    with pytest.raises(ValueError, match="8"):
+        index("cutin")
+    with pytest.raises(ValueError, match="8"):
+        resolve("cutin")        # 早于任何渲染——FONT_PATH 类消费者也被挡住
+
+
+def test_index_out_of_range_says_how_many_there_are(monkeypatch, tmp_path):
+    """Pillow 自己只会抛 `OSError: invalid argument`，看不出是索引越界。"""
+    from tools.ui_font import index
+
+    ttc = _fake_ttc(tmp_path, 8)
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", f"{ttc}#8")   # 合法索引是 0..7
+    with pytest.raises(ValueError, match="8"):
+        index("cutin")
+
+
+def test_index_on_a_single_face_font_is_rejected(monkeypatch):
+    """`.ttf#1` 说明写的人以为它是集合——静默取 0 会让这个误解一直留着。"""
+    from tools.ui_font import index
+
+    monkeypatch.setenv("ZND_UI_FONT_CARD", f"{BUNDLED}#1")
+    with pytest.raises(ValueError, match="LXGWWenKai"):
+        index("card")
+
+
+def test_index_zero_on_a_single_face_font_is_fine(monkeypatch):
+    from tools.ui_font import index
+
+    monkeypatch.setenv("ZND_UI_FONT_CARD", f"{BUNDLED}#0")
+    assert resolve("card") == BUNDLED
+    assert index("card") == 0
+
+
+def test_missing_file_error_shows_the_path_without_the_index(monkeypatch):
+    monkeypatch.setenv("ZND_UI_FONT_PLOT", "/nope/Missing.ttc#3")
+    with pytest.raises(FileNotFoundError, match="Missing.ttc") as e:
+        resolve("plot")
+    assert "#3" not in str(e.value), "报错该指向要找的文件本身"
+
+
+def test_config_carries_the_index_too(cfg, monkeypatch, tmp_path):
+    """环境变量与配置文件**同一套解析**——否则试验选定的字进不了持久决定。"""
+    import yaml
+
+    from tools.ui_font import index
+
+    ttc = _fake_ttc(tmp_path, 8)
+    conf = yaml.safe_load(CFG_YAML)
+    conf["faces"]["cutin"] = {"font": f"{ttc}#6"}
+    monkeypatch.setattr(cfg, "_CONFIG_CACHE", conf)
+    assert cfg.resolve("cutin") == ttc
+    assert index("cutin") == 6
+
+
+@needs_songti
+def test_truetype_loads_the_requested_subfont(monkeypatch):
+    """**本组测试的主张**：索引真的走到了 FreeType，而不只是被解析掉。
+
+    判据用 `getname()`（字体自报家门），不是墨迹量——后者只能说"不一样"，
+    说不出"是不是要的那一款"。
+    """
+    from tools.ui_font import truetype
+
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", f"{SONGTI}#3")
+    assert truetype("cutin", 18).getname() == ("Songti SC", "Light")
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", f"{SONGTI}#4")
+    assert truetype("cutin", 18).getname() == ("STSong", "Regular")
+
+
+@needs_songti
+def test_describe_names_which_subfont(monkeypatch):
+    """报告里只写 `Songti.ttc` 等于没写——8 款里的哪一款才是这次要记的决定。"""
+    from tools.ui_font import describe
+
+    monkeypatch.setenv("ZND_UI_FONT_CUTIN", f"{SONGTI}#3")
+    assert describe("cutin") == "Songti.ttc#3[Songti SC Light]"

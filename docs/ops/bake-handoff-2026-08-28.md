@@ -11,6 +11,11 @@
 后裁定）。已落 `config/bake_fonts.yaml`，`build/cutin_zh/` 24 张已用它重烤。
 裁决 F5–F7 见 `bake-decisions.md`；`tools/ui_font.py` 已支持 `路径#N` 的 TTC 子字体索引。
 
+**2026-08-29 续**：用户又提「原图感觉都有点像斜体」，逐档试后加了两个**主动偏离
+原图**的旋钮——`slant: 0.10` + `size_bias: 1`（裁决 F8–F10）。⚠ 同轮实测证明
+**原图并没有被切变**（残差中位 +0.008，n=23）：中途我报的「原图右倾 19°」是判据
+错了，那把尺子量的是字形内容而非几何。详见 `bake-decisions.md` 的更正节。
+
 ⚠ **下表「九款全部零缺字」这句是错的，勿再引用。** 按真实待烤文本逐字与 `.notdef`
 位图比对：**儷宋缺 43 字、蘋果儷細宋缺 100 字**（繁体字库，`章节` 的「节」即在其中），
 两款已出局；其余七款对 cutin 零缺字，只缺 `・`（仅见于 sysgim 的 `sys_21_a`）。
@@ -167,6 +172,8 @@ uv run python -m pytest tests/ -q                # 1466 passed
 | `ZND_UI_FONT_<面>` / `ZND_UI_FONT` | 字体（面：PLOT/SCENE/CARD/SELECT/SYSGIM/EVENT/CUTIN） |
 | `ZND_UI_FONT_WEIGHT_<面>` / `ZND_UI_FONT_WEIGHT` | 变量字体的重量实例 |
 | `ZND_UI_SIZE_CASCADE_<面>` / `ZND_UI_SIZE_CASCADE` | 字号级联档位 |
+| `ZND_UI_SLANT_<面>` / `ZND_UI_SLANT` | 倾斜斜率（tan 值，正＝右倾；<1，写角度会炸） |
+| `ZND_UI_SIZE_BIAS_<面>` / `ZND_UI_SIZE_BIAS` | 在算出来的字号上加减几档（整数） |
 | `ZND_BUILD_TAG` | 产物目录后缀（`build/<面>__<tag>`），多版本并存对比用 |
 | `ZND_UI_FILL_GAIN` | sysgim 填充增益（默认 2.2） |
 
@@ -189,8 +196,8 @@ uv run python -m pytest tests/ -q                # 1466 passed
 ## 5. 已定的字体
 
 `config/bake_fonts.yaml`：**card / plot / scene / select = 思源黑体 SC Medium**
-（用户 2026-08-28 看过四路对照后裁定）；**cutin = 华文仿宋 STFangsong**（同日看过
-八路对照后裁定，F5–F7；**机器本地商业字体，换机器不可复现**）。
+（用户 2026-08-28 看过四路对照后裁定）；**cutin = 华文仿宋 STFangsong
++ 斜 0.10 + 字号 +1pt**（F5–F10；**机器本地商业字体，换机器不可复现**）。
 sysgim 与 event **仍是霞鹜文楷，未定**，且 sysgim 保留了**逐张覆盖**位
 （`faces.sysgim.sheets.<图名>`）。
 

@@ -42,6 +42,7 @@ if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
 
 from tools.bake_out import out_dir as _out_dir  # noqa: E402
+from tools.ui_font import size_bias as _ui_size_bias  # noqa: E402
 from tools.bake_sysgim_glow import (  # noqa: E402
     FONT_CASCADE, Glow, _core_mask, _merge_farther, _pm, measure_glow, render_glow,
 )
@@ -199,6 +200,7 @@ def choose_size(zh_lines: list[str], para: Para, box, sheet: str,
     avail_w = box[2] - box[0] - 2 * (para.left - box[0])
     spread = max(para.heights) - min(para.heights)
     uniform = spread <= UNIFORM_HEIGHT_TOL
+    bias = _ui_size_bias(face, sheet)
     over: list[str] = []
     sizes: list[int] = []
     for i, s in enumerate(zh_lines):
@@ -208,10 +210,39 @@ def choose_size(zh_lines: list[str], para: Para, box, sheet: str,
         target = (int(statistics.median(para.heights)) if uniform
                   else para.heights[min(i, len(para.heights) - 1)])
         size, warn = _fit_one(s, target, avail_w, sheet, face)
+        if bias:
+            size, bwarn = _apply_bias(s, size, bias, avail_w, sheet, face)
+            warn = warn or bwarn
         sizes.append(size)
         if warn:
             over.append(warn)
     return sizes, over
+
+
+def _apply_bias(text: str, size: int, bias: int, avail_w: int,
+                sheet: str, face: str) -> tuple[int, str | None]:
+    """把算出来的档位抬（或压）`bias` 档，**但不许撞出盒外**。
+
+    加成是风格选择，溢出不是——所以撞盒时逐档退回到放得下的最大档并报告，
+    而不是渲一张超出盒子的图。逐行加，不是整段缩放：字号本就是**逐行**选的
+    （`cut_s_ex2` 是 21px 标题 + 13px 小字注），统一缩放会把那个差抹掉。
+    """
+    # 加成把**整个可用区间**一起平移，而不是被级联的天花板吞掉。
+    # 级联上限 20px 是「没有哪一行原文比它更高」得来的；显式加成正是要主动越过
+    # 那条线——不平移的话，本就顶到 20px 的卡（`cut_s_s8`）会原地不动，
+    # 于是 24 张里 23 张变大、1 张没变，而且不报错。
+    lo = FONT_CASCADE[-1] + min(bias, 0)
+    hi = FONT_CASCADE[0] + max(bias, 0)
+    want = min(max(size + bias, lo), hi)
+    for cand in range(want, size - 1, -1) if want > size else [want]:
+        bb = _core_mask(text, cand, sheet, face).getbbox()
+        if bb is not None and bb[2] - bb[0] <= avail_w:
+            warn = (None if cand == want else
+                    f"{sheet} 字号加成 {bias:+d} 到 {want}px 会超出可用宽 {avail_w}，"
+                    f"退回 {cand}px「{text[:16]}」")
+            return cand, warn
+    return size, (f"{sheet} 字号加成 {bias:+d} 无一档放得下，维持 {size}px"
+                  f"「{text[:16]}」")
 
 
 def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> Image.Image:

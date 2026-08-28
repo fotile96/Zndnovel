@@ -172,9 +172,20 @@ def _trio_col(trio, name, scale, font):
     return [row]
 
 
+def _baseline_label(face: str) -> str:
+    """基准行（无标签的 `build/<面>`）该写什么名字。
+
+    **不能写死。** 各面的字已经不是同一套了（card/plot/scene/select 思源黑体、
+    cutin 华文仿宋、sysgim/event 霞鹜文楷），而两套字的产物肉眼极难分辨——
+    标签与实际不符时，读图的人无从察觉，比较的结论就是错的且没人会发现。
+    """
+    from tools.ui_font import describe
+    return describe(face)
+
+
 def build_face(face: str, tags: list[str]) -> Image.Image | None:
     sub, cells_fn, scale, _orig, layout = FACES[face]
-    dirs = [("霞鹜文楷", REPO / "build" / sub)]
+    dirs = [(_baseline_label(face), REPO / "build" / sub)]
     for t in tags:
         d = REPO / "build" / f"{sub}__{t}"
         if d.exists():
@@ -240,9 +251,9 @@ def _size_hist(d: Path) -> str:
 
 
 def summarize(tags: list[str]) -> str:
-    cols = ["霞鹜文楷"] + list(tags)
+    cols = [_baseline_label(next(iter(FACES)))] + list(tags)
     lines = ["# 换字体的数字差异", "",
-             "基准＝`build/<面>`（霞鹜文楷 Regular）；其余＝`build/<面>__<标签>`。", "",
+             "基准＝`build/<面>`（各面的当前配置字体）；其余＝`build/<面>__<标签>`。", "",
              "| 面 | 指标 | " + " | ".join(cols) + " |",
              "|---|---|" + "---:|" * len(cols)]
     for face, (sub, *_rest) in FACES.items():

@@ -10,6 +10,7 @@ import json
 import yaml
 from PIL import Image
 
+from tests.conftest import needs_face_font
 from tools.bake_cutin_title import DATA, SPEC, SRC
 from tools.bake_para_glow import Para, choose_size, measure_para, segment_lines
 from tools.bake_sysgim_glow import measure_glow
@@ -57,6 +58,7 @@ def test_every_box_passes_the_glow_convergence_check():
         measure_glow(_img(r["file"]), tuple(r["box"]))
 
 
+@needs_face_font("cutin")
 def test_two_line_card_splits_and_gets_two_different_sizes():
     """`cut_s_ex2` 是唯一的两行卡，它逼出了共用核心的两处设定。
 
@@ -80,6 +82,7 @@ def test_two_line_card_splits_and_gets_two_different_sizes():
     assert sizes[0] > sizes[1], sizes
 
 
+@needs_face_font("cutin")
 def test_single_line_cards_get_one_size():
     """单行卡与行高一致的段仍是全段同档——Y7 警告过「一行 15px 一行 16px 会显得坏掉」。"""
     for name in ("cut_e_s1", "cut_s_s1", "cut_s_s82"):
@@ -91,6 +94,7 @@ def test_single_line_cards_get_one_size():
         assert len(set(sizes)) == 1, (name, sizes)
 
 
+@needs_face_font("cutin")
 def test_baked_blocks_are_centred_like_the_originals():
     """中文比日文短得多（`章节 1：完` 6 字 vs `セクション１：おわり` 10 字），
     块宽 99 vs 180——若沿用原文左缘会明显塌左。承 op 那轮的结论：复现**重心**。
@@ -110,3 +114,55 @@ def test_baked_blocks_are_centred_like_the_originals():
             return (min(xs) + max(xs) + 1) / 2
 
         assert abs(centre(baked) - centre(orig)) <= 6, name
+
+
+# ---------------------------------------------------------------------------
+# 字号加成：人工把算出来的档位再抬一格
+# ---------------------------------------------------------------------------
+
+
+@needs_face_font("cutin")
+def test_size_bias_raises_every_line_by_one_step(monkeypatch):
+    """`ZND_UI_SIZE_BIAS_CUTIN=1` 就该让每一行都比算出来的大一档。
+
+    加成必须走在 `choose_size` 里、而不是烤完再放大：字号是**逐行**选的
+    （`cut_s_ex2` 是 21px 标题 + 13px 小字注），整段统一缩放会把那个差抹掉。
+    """
+    # 基线显式设 0，**不能用 delenv**：配置文件里已经有 size_bias 了，
+    # 删掉环境变量只会退回到配置那一档，于是"基线"与"加成后"是同一个值，
+    # 这条断言就永远绿。环境变量压过配置，这里正是要用它。
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "0")
+    base = {}
+    for r in ROWS:
+        im, box = _img(r["file"]), tuple(r["box"])
+        para = measure_para(im, box, measure_glow(im, box), r["jp"].split("\n"))
+        base[r["file"]] = (choose_size(r["zh"].split("\n"), para, box,
+                                       r["file"], SPEC.face)[0], para, box)
+
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "1")
+    for name, (sizes, para, box) in base.items():
+        r = next(x for x in ROWS if x["file"] == name)
+        got, _ = choose_size(r["zh"].split("\n"), para, box, name, SPEC.face)
+        assert got == [s + 1 for s in sizes], (name, sizes, got)
+
+
+@needs_face_font("cutin")
+def test_size_bias_never_pushes_text_out_of_its_box(monkeypatch):
+    """抬档若会撞出盒外，必须退回并报告——**溢出是缺陷，不是风格**。
+
+    这是加成与倾斜的分界：倾斜在取值域内不改变可用宽的判定，抬档直接改。
+    """
+    # 撞盒的是**最窄的那张**（`cut_s_s82`「五年后」，89px 宽、可用 71px），
+    # 不是字最多的那张——中文比日文短得多，宽盒里加成 +6 照样绰绰有余
+    # （`cut_s_ex2` 可用 301px，26px 下才 205px）。挑错卡这条就永远绿。
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "6")
+    r = next(x for x in ROWS if x["file"] == "cut_s_s82")
+    im, box = _img(r["file"]), tuple(r["box"])
+    para = measure_para(im, box, measure_glow(im, box), r["jp"].split("\n"))
+    sizes, over = choose_size(r["zh"].split("\n"), para, box, r["file"], SPEC.face)
+    assert over, "撞盒了却没报告"
+    avail = box[2] - box[0] - 2 * (para.left - box[0])
+    from tools.bake_sysgim_glow import _core_mask
+    for line, size in zip(r["zh"].split("\n"), sizes):
+        bb = _core_mask(line, size, r["file"], SPEC.face).getbbox()
+        assert bb[2] - bb[0] <= avail, (line, size, bb[2] - bb[0], avail)

@@ -203,6 +203,24 @@ ls /System/Library/AssetsV2/com_apple_MobileAsset_Font7/*/AssetData/STFANGSO.ttf
 它仅出现在 sysgim 的 `sys_21_a`。**PIL 渲染缺字时静默画豆腐块，不抛异常、不返回空
 墨迹**，所以「渲染没报错」不能当缺字判据。详见 `bake-decisions.md` F5–F7。
 
+### ✅ cutin 两个旋钮已定（2026-08-29）：`slant: 0.10` + `size_bias: 1`（F8–F10）
+
+用户看过五档倾斜 × 字号 ±1 的对照后裁定。两个都是**主动偏离原图**的风格选择，
+不是复现——**原图实测并未被切变**（残差中位 +0.008，n=23，详见 `bake-decisions.md`
+的更正节）。实测代价：字号降档 0 张、宽度退回 0 条、纵向余量 5px→4px 未越界。
+
+```bash
+# 试别的档（环境变量压过配置）
+ZND_UI_SLANT_CUTIN=0.15 ZND_UI_SIZE_BIAS_CUTIN=2 ZND_BUILD_TAG=t \
+    uv run python tools/bake_cutin_title.py
+uv run python tools/bake_font_ab.py --faces cutin --tag t
+```
+
+⚠ **`size_bias` 打破了一个原本成立的不变量**：`choose_size` 保证 `核高 ≤ 原行墨迹高`，
+而 `bake_file` 的纵向落位 `gy = top + (own_h − core_h)//2` 正是靠它才不越出盒
+（横向有夹取，**纵向没有任何检查**）。当前 +1 到 +6 实测都没越界（最坏余量 4px），
+但这是个真实空档——若日后把加成开大，或用到盒更紧的面，先补纵向闸。
+
 ### 字体集合（.ttc）怎么指
 
 `tools/ui_font.py` 认 `路径#N`，环境变量与配置文件同一套解析：

@@ -36,6 +36,7 @@ if _REPO not in sys.path:
 
 from tools.ui_font import resolve as _resolve_font  # noqa: E402
 from tools.bake_out import out_dir as _out_dir
+from tools.ui_font import slant as _ui_slant
 from tools.ui_font import truetype as _ui_truetype
 
 warnings.filterwarnings("ignore", message="Palette images with Transparency")
@@ -224,11 +225,23 @@ def _core_mask(text: str, size: int, sheet: str | None = None,
     sysgim 面的字——而 `config/bake_fonts.yaml` 里那条 `event:` 是**死配置**。
     两面当时指向同一字体，所以没有任何症状。"""
     font = _ui_truetype(face, size, sheet)
+    k = _ui_slant(face, sheet)
     pad = MAX_DIST + 4
     d = ImageDraw.Draw(Image.new("L", (4, 4)))
     l, t, rr, bb = d.textbbox((0, 0), text, font=font)
-    m = Image.new("L", (rr - l + 2 * pad, bb - t + 2 * pad), 0)
+    W, H = rr - l + 2 * pad, bb - t + 2 * pad
+    m = Image.new("L", (W, H), 0)
     ImageDraw.Draw(m).text((pad - l, pad - t), text, font=font, fill=255)
+    if k:
+        # 不必为切变加宽画布：摆动的是**墨迹**，不是整张画布，幅度 |k|·墨迹高/2。
+        # 字号级联最大 20px、`MAX_SLANT` < 1，故上界约 12px，而 `pad` 是 22。
+        # （先写过一版按 |k|·H/2 加宽，实测在整个取值域内都用不上——留着就是
+        #   一段声称在防裁切、其实从未生效的代码。）
+        # 绕画布竖向中心切变。**双线性**而非双三次：三次会在字缘冲出振铃，
+        # 而这张掩膜下游要按 >128 二值化取字芯，振铃会变成假的字芯像素。
+        y0 = (H - 1) / 2.0
+        m = m.transform(m.size, Image.AFFINE, (1, k, -k * y0, 0, 1, 0),
+                        Image.BILINEAR)
     return m
 
 

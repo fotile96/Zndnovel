@@ -52,3 +52,17 @@ def test_cutin_is_a_comparable_face():
     assert (REPO / orig).is_dir()
     for _name, spec in cells_fn([]):
         assert spec(REPO / orig).exists(), "取样指向了不存在的原图"
+
+
+def test_baseline_row_is_labelled_from_the_actual_font(monkeypatch):
+    """基准行的标签必须来自**当前配置**，不能写死。
+
+    这张对照图是挑字体时唯一的证据，而两套字的产物肉眼极难分辨（都是中文、
+    都在同样的位置）。标签写死成「霞鹜文楷」而基准其实早换成了别的字，
+    读图的人无从察觉——这正是本工具 docstring 自己警告过的那种搞混。
+    """
+    from tools.bake_font_ab import _baseline_label
+
+    monkeypatch.setenv("ZND_UI_FONT_CARD", str(REPO / "third_party" / "SourceHanSansSC-VF.ttf"))
+    assert "SourceHan" in _baseline_label("card")
+    assert "霞鹜文楷" not in _baseline_label("card")

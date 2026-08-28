@@ -242,6 +242,145 @@ def test_config_pointing_at_a_missing_font_raises(cfg, monkeypatch):
         cfg.resolve("card")
 
 
+# ---------------------------------------------------------------------------
+# 倾斜：原图 cutin 是斜的，而汉字字体没有真斜体
+# ---------------------------------------------------------------------------
+#
+# 实测（行间互相关的零点法，双向自检过、有直立对照）：`png/cutin/` 24 张全部右倾
+# 约 0.3–0.5（17°–27°），而 `png/select/`、`png/sysgim/` 的原图都是 0——**斜是
+# cutin 这一面的设计，不是全局风格**。汉字没有真正的斜体字形，复现只能靠切变。
+
+
+def test_no_slant_by_default(monkeypatch):
+    from tools.ui_font import slant
+
+    monkeypatch.delenv("ZND_UI_SLANT", raising=False)
+    monkeypatch.delenv("ZND_UI_SLANT_CARD", raising=False)
+    assert slant("card") == 0.0
+
+
+def test_slant_from_env_per_face_beats_global(monkeypatch):
+    from tools.ui_font import slant
+
+    monkeypatch.setenv("ZND_UI_SLANT", "0.10")
+    monkeypatch.setenv("ZND_UI_SLANT_CUTIN", "0.35")
+    assert slant("cutin") == 0.35
+    assert slant("card") == 0.10
+
+
+def test_slant_comes_from_config_too(cfg, monkeypatch):
+    import yaml
+
+    from tools.ui_font import slant
+
+    conf = yaml.safe_load(CFG_YAML)
+    conf["faces"]["cutin"] = {"font": "third_party/LXGWWenKai-Regular.ttf",
+                              "slant": 0.35}
+    monkeypatch.setattr(cfg, "_CONFIG_CACHE", conf)
+    assert slant("cutin") == 0.35
+    assert slant("card") == 0.0        # 未指定的面不受影响
+
+
+def test_slant_is_a_slope_not_an_angle(monkeypatch):
+    """写 `19`（想写 19°）必须炸。
+
+    斜率与角度差一个 tan，而 19 与 0.34 都是"看着像那么回事"的数——静默接受 19
+    会把字切成一条横糊，且**不报错**，正是最难从产物反推回配置的失效形态。
+    """
+    from tools.ui_font import slant
+
+    monkeypatch.setenv("ZND_UI_SLANT_CUTIN", "19")
+    with pytest.raises(ValueError, match="斜率"):
+        slant("cutin")
+
+
+def test_slant_rejects_garbage(monkeypatch):
+    from tools.ui_font import slant
+
+    monkeypatch.setenv("ZND_UI_SLANT_CUTIN", "很斜")
+    with pytest.raises(ValueError, match="ZND_UI_SLANT_CUTIN"):
+        slant("cutin")
+
+
+def test_describe_states_the_slant(monkeypatch):
+    """报告里必须写出来：斜体版与直立版**只差一个切变**，产物混起来无从分辨。"""
+    from tools.ui_font import describe
+
+    monkeypatch.delenv("ZND_UI_FONT_CUTIN", raising=False)
+    monkeypatch.setenv("ZND_UI_SLANT_CUTIN", "0.35")
+    assert describe("cutin").endswith("斜0.35")
+
+
+def test_describe_states_the_size_bias_too(monkeypatch):
+    """两个旋钮都要出现在自述里。
+
+    对照图的基准行标签就是 `describe()`——只写字体名的话，「直立 / 斜 / 加成」
+    三种产物在图上完全分辨不出，而这张图正是拿来做决定的那张。
+    """
+    from tools.ui_font import describe
+
+    monkeypatch.delenv("ZND_UI_FONT_CUTIN", raising=False)
+    monkeypatch.setenv("ZND_UI_SLANT_CUTIN", "0.1")
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "1")
+    assert describe("cutin").endswith("斜0.1 +1pt")
+
+
+# ---------------------------------------------------------------------------
+# 字号加成：在「锚定原文墨迹高」之外主动调大调小
+# ---------------------------------------------------------------------------
+#
+# 字号本来是**算出来的**——按裁决 Y7 锚在原图那一行的墨迹高（锚行距会渲大一圈）。
+# 但「照原图那么大」与「中文在这个字号下好不好读」是两件事，后者要人看了才知道。
+# 这个加成就是那道人工旋钮，与 `slant` 同类：**主动偏离原图**，不是复现原图。
+
+
+def test_no_size_bias_by_default(monkeypatch):
+    from tools.ui_font import size_bias
+
+    monkeypatch.delenv("ZND_UI_SIZE_BIAS", raising=False)
+    monkeypatch.delenv("ZND_UI_SIZE_BIAS_CUTIN", raising=False)
+    assert size_bias("cutin") == 0
+
+
+def test_size_bias_per_face_beats_global(monkeypatch):
+    from tools.ui_font import size_bias
+
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS", "2")
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "1")
+    assert size_bias("cutin") == 1
+    assert size_bias("card") == 2
+
+
+def test_size_bias_can_be_negative(monkeypatch):
+    """调小同样要能表达——原图偏大时中文可能需要收一档。"""
+    from tools.ui_font import size_bias
+
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "-1")
+    assert size_bias("cutin") == -1
+
+
+def test_size_bias_must_be_a_whole_step(monkeypatch):
+    """字号级联是整数 px 的档位，`0.5` 档不存在——写了要炸而不是被静默取整。"""
+    from tools.ui_font import size_bias
+
+    monkeypatch.setenv("ZND_UI_SIZE_BIAS_CUTIN", "0.5")
+    with pytest.raises(ValueError, match="整数"):
+        size_bias("cutin")
+
+
+def test_size_bias_comes_from_config_too(cfg, monkeypatch):
+    import yaml
+
+    from tools.ui_font import size_bias
+
+    conf = yaml.safe_load(CFG_YAML)
+    conf["faces"]["cutin"] = {"font": "third_party/LXGWWenKai-Regular.ttf",
+                              "size_bias": 1}
+    monkeypatch.setattr(cfg, "_CONFIG_CACHE", conf)
+    assert size_bias("cutin") == 1
+    assert size_bias("card") == 0
+
+
 def _config_defect(face):
     """真配置在这一面上有没有毛病；没有则返回 None。
 

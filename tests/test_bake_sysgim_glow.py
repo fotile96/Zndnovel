@@ -215,3 +215,72 @@ def test_sys_5_f_was_silently_misaligned_before():
     im = Image.open(G.SYSGIM / "sys_5_f.png").convert("RGBA")
     glows = [G.measure_glow(im, tuple(r["box"])) for r in rows]
     assert G.group_align(im, rows, glows)[(rows[0]["box"][0], rows[0]["box"][2])][0] == "left"
+
+
+# ---------------------------------------------------------------------------
+# 倾斜：汉字没有真斜体，只能切变
+# ---------------------------------------------------------------------------
+
+
+def _row_centroids(mask):
+    """每一行墨迹的横向重心；空行为 None。切变的判据就看它随 y 怎么走。"""
+    px = mask.load()
+    W, H = mask.size
+    out = []
+    for y in range(H):
+        s = n = 0
+        for x in range(W):
+            v = px[x, y]
+            s += v * x
+            n += v
+        out.append(s / n if n else None)
+    return [c for c in out if c is not None]
+
+
+def _lean(mask):
+    """顶行墨迹重心 −底行墨迹重心。右倾为正。"""
+    c = _row_centroids(mask)
+    return c[0] - c[-1]
+
+
+def test_slanted_ink_is_not_clipped_by_the_canvas(monkeypatch):
+    """切变把顶部推右、底部推左；`pad`（=MAX_DIST+4）必须吃得下这份摆动。
+
+    摆动幅度是 |k|·**墨迹高**/2，取值域内上界约 12px，而 pad 是 22——本条守的就是
+    这个界。若被裁，掩膜自己看不出异常：`getbbox()` 会紧贴画布边，像是"字正好占满"。
+    故取**取值域的极端**（最大字号 × 逼近 MAX_SLANT 的斜率）来验，不取常用档。
+    """
+    monkeypatch.setenv("ZND_UI_SLANT_SYSGIM", "0.95")   # 逼近 MAX_SLANT
+    m = G._core_mask("章节 1：完", max(G.FONT_CASCADE))   # 级联里最大的字号
+    l, _t, r, _b = m.getbbox()
+    assert l > 0 and r < m.size[0], f"墨迹贴到画布横向边缘：{m.getbbox()} / {m.size}"
+
+
+def test_slant_leans_the_top_to_the_right(monkeypatch):
+    """正的斜率＝**右倾**（顶部靠右、底部靠左），与原图 cutin 的朝向一致。
+
+    朝向搞反在合成图上极难看出来——两个方向都"像斜体"，只有与原图并排才现形，
+    故这里钉死朝向而不只钉"斜了"。
+
+    判据取**同一个字倾斜前后之差**：单看一张的逐行重心不行，字形自身就不对称
+    （霞鹜文楷是楷体风，「十」直立时逐行重心极差就有 4.9px）。作差把它消掉，
+    剩下的才是切变。24px 的「十」墨迹约 22 行，k=0.35 应位移约 7px。
+    """
+    monkeypatch.delenv("ZND_UI_SLANT_SYSGIM", raising=False)
+    upright = _lean(G._core_mask("十", 24))
+    monkeypatch.setenv("ZND_UI_SLANT_SYSGIM", "0.35")
+    slanted = _lean(G._core_mask("十", 24))
+    assert slanted - upright > 4.0, f"顶部没有明显右移：{slanted - upright:+.2f}px"
+
+
+def test_slanted_mask_is_wider_so_the_size_cascade_can_see_it(monkeypatch):
+    """斜体更宽，而字号级联是拿 `_core_mask(...).getbbox()` 判越界的。
+
+    若切变发生在级联**之后**，级联会按直立宽度选定字号，斜完再溢出盒外——
+    而溢出是缺陷不是风格（见 bake_font_ab 的 summary 口径）。
+    """
+    monkeypatch.delenv("ZND_UI_SLANT_SYSGIM", raising=False)
+    upright = G._core_mask("章节 1：完", 18).getbbox()
+    monkeypatch.setenv("ZND_UI_SLANT_SYSGIM", "0.35")
+    slanted = G._core_mask("章节 1：完", 18).getbbox()
+    assert (slanted[2] - slanted[0]) > (upright[2] - upright[0])

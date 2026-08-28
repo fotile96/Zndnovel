@@ -49,6 +49,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -268,6 +269,89 @@ def truetype(face: str, size: int, sheet: str | None = None):
     return font
 
 
+#: 斜率上限（排他）。**不是从严，是挡一种具体的写错**：斜率与角度差一个 tan，
+#: 而「19」与「0.34」都像那么回事。静默接受 19 会把字切成一条横糊——不报错，
+#: 且从产物几乎反推不回配置。
+MAX_SLANT = 1.0
+
+
+def _check_slant(k: float, where: str) -> float:
+    if abs(k) >= MAX_SLANT:
+        raise ValueError(
+            f"{where} 的倾斜要写**斜率**（tan 值，正数＝右倾），收到 {k}——"
+            f"若想写角度，{k}° 的斜率是 {math.tan(math.radians(k)):.3f}"
+        )
+    return k
+
+
+def slant(face: str, sheet: str | None = None) -> float:
+    """该面（必要时该张）的倾斜斜率；未指定为 0.0。优先级同 `resolve`。
+
+    **为什么需要它。** 原图 `cutin/` 的章节字幕卡是右倾的（实测 24 张全部倾斜，
+    斜率 0.3–0.5），而 `select/`、`sysgim/` 的原图都是直立的——斜是这一面的设计。
+    汉字字体没有真正的斜体字形（西文的 italic 是另画一套字，中日文没有这个传统），
+    所以只能靠**切变**复现，这个值就是切变量。
+    """
+    key = face.upper()
+    if key not in FACES:
+        raise ValueError(f"未知的烤字面 {face!r}；可用：{', '.join(FACES)}")
+
+    for var in (f"ZND_UI_SLANT_{key}", "ZND_UI_SLANT"):
+        raw = os.environ.get(var)
+        if not raw:
+            continue
+        try:
+            return _check_slant(float(raw), var)
+        except ValueError as e:
+            if "倾斜要写" in str(e):
+                raise
+            raise ValueError(f"{var} 要写成斜率（tan 值），收到 {raw!r}") from None
+
+    v = _config_entry(face, sheet).get("slant")
+    if v is None:
+        return 0.0
+    return _check_slant(float(v), f"{CONFIG.name} 的 faces.{face}.slant")
+
+
+def size_bias(face: str, sheet: str | None = None) -> int:
+    """在算出来的字号上再加几档；未指定为 0。优先级同 `resolve`。
+
+    **为什么要有这道人工旋钮。** 字号本是**算出来的**——按裁决 Y7 锚在原图那一行的
+    墨迹高（锚行距会渲出比原文大一圈的字）。但「与原图一样大」和「中文在这个档位
+    好不好读」是两件事：中文笔画比假名密，同样的墨迹高下更容易糊成一团。后者只有
+    人看了才知道，所以要能手动抬档——与 `slant` 同类，**主动偏离原图，不是复现**。
+
+    抬档若会撞出盒外，`choose_size` 会退回并报告：**溢出是缺陷，不是风格**。
+    """
+    key = face.upper()
+    if key not in FACES:
+        raise ValueError(f"未知的烤字面 {face!r}；可用：{', '.join(FACES)}")
+
+    for var in (f"ZND_UI_SIZE_BIAS_{key}", "ZND_UI_SIZE_BIAS"):
+        raw = os.environ.get(var)
+        if not raw:
+            continue
+        try:
+            return _check_bias(raw, var)
+        except ValueError:
+            raise
+    v = _config_entry(face, sheet).get("size_bias")
+    if v is None:
+        return 0
+    return _check_bias(v, f"{CONFIG.name} 的 faces.{face}.size_bias")
+
+
+def _check_bias(raw, where: str) -> int:
+    """字号级联是整数 px 的档位，没有半档——`0.5` 要炸，不能被静默取整。"""
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"{where} 要写成整数档位，收到 {raw!r}") from None
+    if v != int(v):
+        raise ValueError(f"{where} 要写成**整数**档位（字号级联是整 px），收到 {raw!r}")
+    return int(v)
+
+
 def size_cascade(face: str, default: list[int]) -> list[int]:
     """该面的字号级联档位，可按面覆盖：`ZND_UI_SIZE_CASCADE_<面>` > `ZND_UI_SIZE_CASCADE`。
 
@@ -309,7 +393,11 @@ def describe(face: str, sheet: str | None = None) -> str:
     label = path.name if _num_faces(path) == 1 else f"{path.name}#{idx}"
     names = _variation_names(font)
     if names:
-        return f"{label}[{weight(face, sheet) or DEFAULT_VF_INSTANCE}]"
-    if label != path.name:
-        return f"{label}[{' '.join(font.getname())}]"
-    return label
+        label = f"{label}[{weight(face, sheet) or DEFAULT_VF_INSTANCE}]"
+    elif label != path.name:
+        label = f"{label}[{' '.join(font.getname())}]"
+    k = slant(face, sheet)
+    if k:
+        label = f"{label} 斜{k:g}"
+    b = size_bias(face, sheet)
+    return f"{label} {b:+d}pt" if b else label

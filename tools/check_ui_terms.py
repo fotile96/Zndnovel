@@ -118,7 +118,13 @@ def load_suppressions(path: Path) -> set[tuple[str, str]]:
 
 
 def load_pairs(path: Path) -> list[dict]:
-    """读一个 {jp, zh} 的 jsonl 标签文件。"""
+    """读一个 {jp, zh} 的 jsonl 标签文件。
+
+    **`zh` 为空的行跳过**：那是「原始语料已落盘、译文待补」的中间态（见
+    `tools/check_sysgim_text.py`），不是译错。拿空串去比对术语只会得到一串
+    必然的 mismatch，把真信号淹掉——闸一旦开始狼来了就等于没有。
+    待译的计数由 `check_sysgim_text.py` 单独负责。
+    """
     rows = []
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
@@ -127,6 +133,8 @@ def load_pairs(path: Path) -> list[dict]:
         r = json.loads(line)
         if "jp" not in r or "zh" not in r:
             raise ValueError(f"{path}:{n} 缺 jp/zh 字段")
+        if not str(r["zh"]).strip():
+            continue
         rows.append(r)
     return rows
 

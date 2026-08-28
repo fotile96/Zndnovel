@@ -66,7 +66,7 @@ def test_monotonicity_is_what_separates_them():
 @pytest.mark.parametrize("name", ["sys_5_a", "sys_5_c", "sys_5_f", "sys_6_b", "sys_13_a"])
 def test_model_reproduces_the_original(name):
     """拿原图自己的字芯回放模型，平均偏差要小。各向异性的光会在这里露馅。"""
-    rows = G.load_text()[name]
+    rows = G.load_text()[0][name]
     for (mx, mean), meta in zip(G.verify_model(name, [tuple(r["box"]) for r in rows]), rows):
         if mx < 0:
             continue
@@ -75,7 +75,7 @@ def test_model_reproduces_the_original(name):
 
 def test_deferred_files_are_not_rendered():
     """暂缓的图不能悄悄渲染出来。"""
-    text = G.load_text()
+    text = G.load_text()[0]
     assert "sys_1_i" not in text
 
 
@@ -141,7 +141,7 @@ def test_deferred_rows_still_carry_their_translation():
 
 
 def test_baked_files_touch_nothing_they_shouldnt():
-    text = G.load_text()
+    text = G.load_text()[0]
     for name in sorted(text):
         _, bad = G.bake_file(name, text[name], [])
         assert bad == 0, name

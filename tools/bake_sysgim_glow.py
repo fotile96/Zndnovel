@@ -252,17 +252,30 @@ def render_glow(text: str, size: int, g: Glow, sheet: str | None = None) -> Imag
     return out
 
 
-def load_text() -> dict[str, list[dict]]:
+def load_text() -> tuple[dict[str, list[dict]], list[str]]:
+    """返回 (可渲染的行, 待译的张)。
+
+    **`zh` 为空的张整张不渲染，并且是整张、不是整行。** 原始语料先落盘、译文后补是
+    刻意的两步走；但一张图上若有一行没译，只渲染其余行会得到一张**半中半日**的图——
+    它看起来像"做完了"，而那正是最坏的失效形态。两个理由必须分开报：`deferred` 是
+    「工具做不了」（如 sys_1_i 的箭头晕），`untranslated` 是「人还没译」。
+    """
     out: dict[str, list[dict]] = {}
+    untranslated: set[str] = set()
     for line in DATA.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            r = json.loads(line)
-            if r.get("deferred"):
-                continue
-            out.setdefault(r["file"], []).append(r)
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if r.get("deferred"):
+            continue
+        if not str(r.get("zh", "")).strip():
+            untranslated.add(r["file"])
+        out.setdefault(r["file"], []).append(r)
+    for f in untranslated:
+        out.pop(f, None)
     for v in out.values():
         v.sort(key=lambda r: r["row"])
-    return out
+    return out, sorted(untranslated)
 
 
 def _core_bbox(im: Image.Image, box, g: "Glow"):
@@ -436,7 +449,7 @@ def verify_model(name: str, boxes) -> list[tuple[int, float]]:
 
 
 def run(write: bool = True, verify: bool = False) -> int:
-    text = load_text()
+    text, untranslated = load_text()
     report: list[str] = []
     OUTDIR.mkdir(parents=True, exist_ok=True)
     total_viol = 0
@@ -454,6 +467,8 @@ def run(write: bool = True, verify: bool = False) -> int:
                     print(f"  verify {name} 行{meta['row']}: 最大偏差 {mx:5.1f}  平均 {mean:.1f}")
 
     print(f"发光字族：{len(text)} 张 / {sum(len(v) for v in text.values())} 行")
+    if untranslated:
+        print(f"待译（整张不渲染，避免半中半日）：{len(untranslated)} 张 {untranslated}")
     deferred = sorted(
         {json.loads(l)["file"] for l in DATA.read_text(encoding="utf-8").splitlines()
          if l.strip() and json.loads(l).get("deferred")}

@@ -52,7 +52,7 @@ BUNDLED = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
 
 #: 有字可换的五个面。**写成白名单**，好让打错的面名当场炸掉——
 #: `ZND_UI_FONT_CARDS`（多个 s）若被默默忽略，人会以为"换了没效果"。
-FACES = ("PLOT", "SCENE", "CARD", "SELECT", "SYSGIM", "EVENT")
+FACES = ("PLOT", "SCENE", "CARD", "SELECT", "SYSGIM", "EVENT", "CUTIN")
 
 
 #: 持久配置：哪一面（必要时哪一张）最后用了哪套字。见该文件头部的优先级说明。

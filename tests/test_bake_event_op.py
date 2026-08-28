@@ -11,7 +11,7 @@ import pytest
 from PIL import Image, ImageFilter
 
 from tools.bake_event_op import (
-    BLUR_RADIUS, DATA, SRC, choose_size, load_text, measure_para, segment_lines,
+    BLUR_RADIUS, DATA, SPEC, SRC, choose_size, load_text, measure_para, segment_lines,
 )
 from tools.bake_sysgim_glow import measure_glow
 
@@ -101,7 +101,7 @@ def test_blur_radius_reproduces_the_real_b_variants():
 
 def test_untranslated_sheets_are_not_rendered():
     """空 `zh` 的图整张不渲染——只渲一半会得到半中半日的图，看起来像"做完了"。"""
-    text, untranslated = load_text()
+    text, untranslated = load_text(SPEC)
     for name in untranslated:
         assert name not in text
 
@@ -120,7 +120,11 @@ def test_choose_size_anchors_to_original_ink_height_not_pitch():
     from tools.bake_sysgim_glow import FONT_CASCADE, _core_mask
 
     lines = ["测试文本一二三四五六七八九十"] * 3
-    size, _over = choose_size(lines, para, tuple(r["box"]), r["file"])
+    sizes, _over = choose_size(lines, para, tuple(r["box"]), r["file"])
+    # choose_size 现在返回**逐行**字号表（为 cut_s_ex2 那种「大字+小字注」的块）。
+    # 本段各行高一致（差 ≤ UNIFORM_HEIGHT_TOL），故应全段同档。
+    assert len(set(sizes)) == 1, sizes
+    size = sizes[0]
     target_h = int(statistics.median(para.heights))
 
     # 断言**不变量**而非某个具体档位：选中档的核高不超过原行墨迹高，
@@ -197,7 +201,7 @@ def test_baked_block_is_centred_like_the_original_not_pinned_to_its_left_edge():
     for name, rs in rows_by_file.items():
         if any(not r["zh"].strip() for r in rs):
             pytest.skip(f"{name} 尚无译文")
-        baked = bake_file(name, sorted(rs, key=lambda r: r["row"]), [])
+        baked = bake_file(name, sorted(rs, key=lambda r: r["row"]), [], SPEC)
         orig = _img(name)
         for r in rs:
             box = tuple(r["box"])

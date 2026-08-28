@@ -40,6 +40,7 @@ SYSGIM = REPO / "png" / "sysgim"
 OUTLINE = REPO / "data" / "sysgim_outline_text.jsonl"
 GLOW = REPO / "data" / "sysgim_glow_text.jsonl"
 EVENT_OP = REPO / "data" / "event_op_text.jsonl"
+CUTIN_TITLE = REPO / "data" / "cutin_title_text.jsonl"
 
 #: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
 #:
@@ -49,6 +50,7 @@ SOURCES = [
     (OUTLINE, SYSGIM, False),
     (GLOW, SYSGIM, True),
     (EVENT_OP, REPO / "png" / "event", True),
+    (CUTIN_TITLE, REPO / "png" / "cutin", True),
 ]
 
 REQUIRED = ("file", "row", "jp", "zh")

@@ -78,7 +78,7 @@ def test_unknown_face_is_rejected(monkeypatch):
 
 
 def test_every_bake_tool_face_is_registered():
-    assert FACES == ("PLOT", "SCENE", "CARD", "SELECT", "SYSGIM", "EVENT")
+    assert FACES == ("PLOT", "SCENE", "CARD", "SELECT", "SYSGIM", "EVENT", "CUTIN")
 
 
 # ---------------------------------------------------------------------------

@@ -47,6 +47,10 @@ faces:
   event:
     font: third_party/LXGWWenKai-Regular.ttf
 
+  # ── cutin/：章节起止字幕卡（cut_e_* / cut_s_*）。透明底发光单行条 ────────
+  cutin:
+    font: third_party/LXGWWenKai-Regular.ttf
+
   # ── sysgim 未定：61 张分五个重建族，逐张可指 ─────────────────────────
   #
   # 这一面与其余四面不同：字要么套描边、要么套距离场发光，字号 12–17px 跨度大，

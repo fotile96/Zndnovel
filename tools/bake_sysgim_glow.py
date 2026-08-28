@@ -217,8 +217,13 @@ def measure_glow(im: Image.Image, box) -> Glow:
     return Glow(core_pm, bg, ring)
 
 
-def _core_mask(text: str, size: int, sheet: str | None = None) -> Image.Image:
-    font = _ui_truetype("sysgim", size, sheet)
+def _core_mask(text: str, size: int, sheet: str | None = None,
+               face: str = "sysgim") -> Image.Image:
+    """`face` 是**烤字面**（决定用哪套字），`sheet` 是**哪一张图**（决定逐张覆盖）。
+    两者都要，别混：`bake_event_op` 复用本函数时曾没有 face 参数，于是 op 一直用
+    sysgim 面的字——而 `config/bake_fonts.yaml` 里那条 `event:` 是**死配置**。
+    两面当时指向同一字体，所以没有任何症状。"""
+    font = _ui_truetype(face, size, sheet)
     pad = MAX_DIST + 4
     d = ImageDraw.Draw(Image.new("L", (4, 4)))
     l, t, rr, bb = d.textbbox((0, 0), text, font=font)
@@ -227,13 +232,14 @@ def _core_mask(text: str, size: int, sheet: str | None = None) -> Image.Image:
     return m
 
 
-def render_glow(text: str, size: int, g: Glow, sheet: str | None = None) -> Image.Image:
+def render_glow(text: str, size: int, g: Glow, sheet: str | None = None,
+                face: str = "sysgim") -> Image.Image:
     """中文字芯 + 实测发光曲线。返回的图**已经含底**，直接盖到盒里即可。
 
     每个像素 = `lerp(该距离处的环色, 字芯色, 字芯蒙版)`。环色是绝对值（底已含在
     里面），故这一式对透明底与不透明底同样成立——这正是能把两条路径合成一条的原因。
     """
-    m = _core_mask(text, size, sheet)
+    m = _core_mask(text, size, sheet, face)
     W, H = m.size
     mp = m.load()
     core = [[mp[x, y] > 128 for x in range(W)] for y in range(H)]

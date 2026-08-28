@@ -10,9 +10,9 @@
 
 import json
 
-from PIL import Image, ImageChops
+from PIL import Image
 
-from tests.conftest import needs_face_font
+from tests.conftest import diff_bbox, needs_face_font
 from tools.bake_mode_frame import DATA, SPEC, SRC
 from tools.bake_para_glow import bake_file, measure_para
 from tools.bake_sysgim_glow import measure_glow
@@ -62,9 +62,10 @@ def test_english_subtitle_is_left_byte_identical():
         orig = _img(name)
         baked = bake_file(name, [r], [], SPEC)
         # 盒外整体不许变（英文小注、右下 Cancel、中间面板都在盒外）
-        outside = ImageChops.difference(orig, baked)
-        outside.paste((0, 0, 0, 0), box)
-        assert outside.getbbox() is None, f"{name} 盒外像素被改动：{outside.getbbox()}"
+        masked = baked.copy()
+        masked.paste(orig.crop(box), box)      # 把盒内换回原图，只剩盒外的差异
+        assert diff_bbox(orig, masked) is None, (
+            f"{name} 盒外像素被改动：{diff_bbox(orig, masked)}")
 
 
 @needs_face_font("sysgim")

@@ -28,3 +28,22 @@ def needs_face_font(face: str):
     return pytest.mark.skipif(
         face_font_missing(face),
         reason=f"这台机器没有 {face} 面配置的字体（见 config/bake_fonts.yaml）")
+
+
+def diff_bbox(a, b):
+    """两张图差异的包围盒；无差异返回 None。
+
+    **不要用 `ImageChops.difference(a, b).getbbox()`。** 在 RGBA 上 `getbbox()`
+    只按 alpha 通道判非零——RGB 差到 255 而 alpha 相同时它照样返回 None。于是
+    「盒外一个像素不动」这类断言会**永远绿**，而这正是它要守的东西。
+    （2026-08-29 实测：`difference` 的 extrema 是 ((0,255),(0,255),(0,255),(0,0))，
+    `getbbox()` 仍是 None，逐像素直接比却有 16788 个不同。）
+    """
+    from PIL import ImageChops
+
+    d = ImageChops.difference(a.convert("RGBA"), b.convert("RGBA"))
+    boxes = [bb for band in d.split() if (bb := band.getbbox()) is not None]
+    if not boxes:
+        return None
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))

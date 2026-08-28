@@ -1,0 +1,14 @@
+{"file": "graphic/memoryThumbnail_1_a", "row": 0, "box": [0, 53, 120, 66], "jp": "プロローグ", "zh": "序章", "note": "回想模式缩略图的章节名（3×3 格，每格 120×68）。字样实测：白芯 y[55,63] 高 9px、黑边外扩 1px、右对齐于格内 x=115。底由来源 CG 重建，见 tools/bake_memory_thumb.py 的 SOURCES 表。"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 1, "box": [120, 53, 240, 66], "jp": "セクション１", "zh": "章节 1", "note": "「章节 N」的写法与 cutin/cut_s_* 同源（cut_s_s1「セクション１：アヤノ」→「章节 1：Ayano」），数字前有半角空格。"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 2, "box": [240, 53, 360, 66], "jp": "セクション２", "zh": "章节 2"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 3, "box": [0, 121, 120, 134], "jp": "セクション３Ａ", "zh": "章节 3A", "note": "分支章。全角ＡＢ在中文里作半角，与 cut_s_ex1「セクションＥＸ１」→「章节 EX1」同一处理。"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 4, "box": [120, 121, 240, 134], "jp": "セクション３Ｂ", "zh": "章节 3B"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 5, "box": [240, 121, 360, 134], "jp": "いつかきみがみるお話", "zh": "总有一天你会看到的故事", "note": "骨架卡 145 的 title_zh 是「总有一天你会看到的故事。」带句号；缩略图这一格的日文写作「いつかきみがみるお話」——**既无句号也无分词空格**，故此处取去掉句号的形式与之对齐（同 cut_e_* 的「X：おわり」→「X：完」，各随各自载体的字面）。⚠ 这一格的底图在 png/ 全库 2100 张里找不到来源（最好的匹配也差 52.4），故用上下干净行插值就地修补——用户 2026-08-29 裁定。"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 6, "box": [0, 189, 120, 202], "jp": "セクション４Ａ", "zh": "章节 4A"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 7, "box": [120, 189, 240, 202], "jp": "セクション４Ｂ", "zh": "章节 4B"}
+{"file": "graphic/memoryThumbnail_1_a", "row": 8, "box": [240, 189, 360, 202], "jp": "セクション５", "zh": "章节 5"}
+{"file": "graphic/memoryThumbnail_2_a", "row": 0, "box": [0, 53, 120, 66], "jp": "セクション６", "zh": "章节 6"}
+{"file": "graphic/memoryThumbnail_2_a", "row": 1, "box": [120, 53, 240, 66], "jp": "セクション７", "zh": "章节 7"}
+{"file": "graphic/memoryThumbnail_2_a", "row": 2, "box": [240, 53, 360, 66], "jp": "セクション８", "zh": "章节 8"}
+{"file": "graphic/memoryThumbnail_2_a", "row": 3, "box": [0, 121, 120, 134], "jp": "セクションＥＸ１", "zh": "章节 EX1"}
+{"file": "graphic/memoryThumbnail_2_a", "row": 4, "box": [120, 121, 240, 134], "jp": "セクションＥＸ２", "zh": "章节 EX2"}

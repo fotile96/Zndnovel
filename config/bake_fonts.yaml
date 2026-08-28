@@ -1,0 +1,57 @@
+# 烤字用字体 —— 按面、必要时按张指定。`tools/ui_font.py` 读这里。
+#
+# **这个文件是「最后用了哪套字」的持久记录。** 环境变量只适合临时试验，试完就没了；
+# 而"这一面最终用什么字"是要跟着仓库走的决定，得写下来。
+#
+# 取用优先级（前者胜）：
+#   1. `ZND_UI_FONT_<面>` / `ZND_UI_FONT`            —— 临时试验，压过一切
+#   2. 本文件 `faces.<面>.sheets.<张>`               —— 逐张（目前只 sysgim 需要）
+#   3. 本文件 `faces.<面>`                           —— 逐面
+#   4. 本文件 `default`                              —— 兜底
+#
+# 路径相对仓库根。`weight` 只对变量字体有意义，写在静态字体上会报错——
+# 静默忽略的话，你以为在看 Bold、其实还是 Regular。
+#
+# ⚠ 改这里等于改产物：`build/` 下的图要重烤，受字体影响的金标夹具要按实测更新。
+
+default:
+  font: third_party/LXGWWenKai-Regular.ttf
+
+faces:
+  # ── 用户 2026-08-28 看过四路对照后裁定：思源黑体 Medium ──────────────
+  #
+  # 理由（见 docs/ops/bake-progress.md「思源黑体 SC 试烤」节）：原作日文用的就是
+  # 较重的黑体，思源在「像原作、够清楚」两维上都占优；霞鹜文楷 Regular 在 9–15px
+  # 下笔干到不了一个像素，整行发灰（sysgim 为此长期挂着 2.2 的填充增益补偿）。
+  # Medium 相对 Regular 没有付出档位代价，且卡面 9px 正文的字腔实测不降反升 24%。
+  card:
+    font: third_party/SourceHanSansSC-VF.ttf
+    weight: Medium
+  plot:
+    font: third_party/SourceHanSansSC-VF.ttf
+    weight: Medium
+  scene:
+    font: third_party/SourceHanSansSC-VF.ttf
+    weight: Medium
+  # select 原本要押后到「anchor 居中修完」再定（2026-08-28 用户裁定）。居中已改为
+  # 按真实墨迹居中，条件满足：同一份级联 [18,17] 下，Medium 回落 116→2、
+  # 18px 档 18→132 张，反超霞鹜文楷的 131。故一并采用。
+  select:
+    font: third_party/SourceHanSansSC-VF.ttf
+    weight: Medium
+
+  # ── sysgim 未定：61 张分五个重建族，逐张可指 ─────────────────────────
+  #
+  # 这一面与其余四面不同：字要么套描边、要么套距离场发光，字号 12–17px 跨度大，
+  # 还有「英文大词 + 片假名小注」这类保留原英文的版式。用户 2026-08-28 明示
+  # 「可能需要分别指定最后使用的字体」，故这里保留逐张覆盖的位置。
+  #
+  # ⚠ 换成笔画更实的字体时，`ZND_UI_FILL_GAIN` 要从 2.2 调回 1.0（裁决 Y6/Y14）——
+  #   那个增益是为补霞鹜文楷的细笔调而加的，粗体上再叠会把字腔糊死。
+  sysgim:
+    font: third_party/LXGWWenKai-Regular.ttf
+    sheets: {}
+      # 逐张覆盖写在这里，例如：
+      #   sys_20_c: {font: third_party/SourceHanSansSC-VF.ttf, weight: Medium}
+      #   sys_1_g:  {font: third_party/SourceHanSansSC-VF.ttf, weight: Bold}
+      # 键＝不带扩展名的文件名（与 data/sysgim_*_text.jsonl 的 `file` 字段一致）。

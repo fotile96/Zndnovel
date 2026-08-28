@@ -376,9 +376,55 @@ def compute_coverage():
 # 2. Ink-extent measurement (both axes) -- the authoritative overflow check.
 # ---------------------------------------------------------------------------
 
+def box_center(box):
+    """盒的几何中心。**按半开区间算**：盒 (15,3,235,23) 覆盖像素 x∈[15,234]、
+    y∈[3,22]，中心是 (124.5, 12.5) —— 与裁决 L6 实测的原图墨迹中心
+    （134 张中位 (124.5, 12.5)，σ=0.72px）**逐位相等**。
+
+    旧代码写的是 `(box[0]+box[2])/2 = 125`，把闭区间的算法用在半开的盒上，
+    整整差半个像素。差得不多，但它正是 L6 想对齐的那个数。
+    """
+    return ((box[0] + box[2] - 1) / 2, (box[1] + box[3] - 1) / 2)
+
+
+def ink_center_offset(text, font, stroke_width=STROKE_WIDTH, pad=160):
+    """这段文字的**真实墨迹**中心，相对其绘制原点（anchor="lt"）的偏移。
+
+    返回 None 表示压根没有墨迹（空串等）。
+    """
+    canvas = Image.new("L", (pad * 3, pad * 3), 0)
+    ImageDraw.Draw(canvas).text(
+        (pad, pad), text, font=font, fill=255,
+        stroke_width=stroke_width, stroke_fill=255, anchor="lt")
+    bbox = canvas.getbbox()
+    if bbox is None:
+        return None
+    x0, y0, x1, y1 = bbox
+    return ((x0 + x1 - 1) / 2 - pad, (y0 + y1 - 1) / 2 - pad)
+
+
+def ink_centered_origin(text, font, box=TEXT_BOX, stroke_width=STROKE_WIDTH):
+    """让**真实墨迹**在 `box` 内居中所需的绘制原点（配 anchor="lt"）。
+
+    **为什么不能再用 `anchor="mm"`。** Pillow 的 `mm` 按字体自报的
+    ascender/descender 居中，即**设计度量**，不是这段字实际画出来的墨迹。
+    同一串字、同一字号，度量大的字体会被整体压低：思源黑体在 17px 下墨迹高
+    正好 20px＝框高、**本来装得下**，却因 mm 定位落在 y[6,26]、越界 3px；
+    一路降到 14px 才碰巧进框。134 个按钮里 118 个栽在这上面——而它们越的是
+    **定位的界，不是字的界**。
+
+    改按墨迹居中之后，「装不装得下」退化成一个干净的问题：墨迹本身比盒大吗。
+    """
+    off = ink_center_offset(text, font, stroke_width)
+    if off is None:
+        return None
+    cx, cy = box_center(box)
+    return (cx - off[0], cy - off[1])
+
+
 def measure_ink_extent(text, font, box=TEXT_BOX, stroke_width=STROKE_WIDTH, pad=120):
-    """Render `text` centered on `box` (same anchor="mm" convention
-    bake_button/render_text_layer use) onto a canvas padded well beyond any
+    """Render `text` centered on `box` (**按真实墨迹居中**，与
+    bake_button/render_text_layer 用同一个 `ink_centered_origin`) onto a canvas padded well beyond any
     realistic overflow, then return the REAL rendered ink's (x0,x1,y0,y1) in
     the cell's own absolute coordinate frame, or None if no ink at all.
 
@@ -395,9 +441,12 @@ def measure_ink_extent(text, font, box=TEXT_BOX, stroke_width=STROKE_WIDTH, pad=
     bh = (box[3] - box[1]) + 2 * pad
     layer = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    cx = pad + (box[2] - box[0]) / 2
-    cy = pad + (box[3] - box[1]) / 2
-    d.text((cx, cy), text, font=font, fill=TEXT_FILL_COLOR, anchor="mm",
+    # 测量与渲染必须用**同一个**定位函数，否则闸检的是一个不会被烤出来的版式。
+    shifted = (pad, pad, pad + (box[2] - box[0]), pad + (box[3] - box[1]))
+    origin = ink_centered_origin(text, font, shifted, stroke_width)
+    if origin is None:
+        return None
+    d.text(origin, text, font=font, fill=TEXT_FILL_COLOR, anchor="lt",
            stroke_width=stroke_width, stroke_fill=(0, 0, 0, 255))
     bbox = layer.split()[-1].getbbox()
     if bbox is None:
@@ -490,9 +539,10 @@ def resolve_fonts_by_button(plans, fonts_by_size):
 def render_text_layer(text, font, variant, size=(CELL_W, CELL_H), box=TEXT_BOX):
     layer = Image.new("RGBA", size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    cx = (box[0] + box[2]) / 2
-    cy = (box[1] + box[3]) / 2
-    d.text((cx, cy), text, font=font, fill=TEXT_FILL_COLOR, anchor="mm",
+    origin = ink_centered_origin(text, font, box)
+    if origin is None:
+        return layer
+    d.text(origin, text, font=font, fill=TEXT_FILL_COLOR, anchor="lt",
            stroke_width=STROKE_WIDTH, stroke_fill=STROKE_BY_VARIANT[variant])
     return layer
 

@@ -31,8 +31,14 @@ from tools.measure_card import (
 )
 
 
+from tools.ui_font import truetype as _ui_truetype
+
+
 def _font(size):
-    return ImageFont.truetype(FONT_PATH, size)
+    # **必须走 ui_font.truetype，不能裸调 ImageFont.truetype。** FONT_PATH 现在可能
+    # 指向变量字体，裸调拿到的是它的默认实例（思源黑体是 ExtraLight＝权重轴最小值），
+    # 于是测试量的字重和工具烤的根本不是同一档——而且不报错、不缺字，只是更细一点。
+    return _ui_truetype("card", size)
 
 
 # ---------------------------------------------------------------------------

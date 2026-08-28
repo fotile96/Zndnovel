@@ -144,6 +144,7 @@ if REPO not in sys.path:
 from tools.bake_out import out_dir as _out_dir
 from tools.ui_font import size_cascade as _size_cascade
 from tools.bake_select import (
+    ink_centered_origin as _ink_centered_origin,
     FONT_PATH, STROKE_WIDTH, TEXT_FILL_COLOR, _fits, build_render_plan,
     find_outside_box_diffs, load_fonts, measure_ink_extent,
     resolve_fonts_by_button,
@@ -358,9 +359,13 @@ def measure_fill_colors(img):
 def render_text_layer_map(text, font, fill_color, stroke_color, size, box):
     layer = Image.new("RGBA", size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    cx = (box[0] + box[2]) / 2
-    cy = (box[1] + box[3]) / 2
-    d.text((cx, cy), text, font=font, fill=fill_color, anchor="mm",
+    # 与 bake_select 同源同理：按**真实墨迹**居中，不用 anchor="mm" 的设计度量。
+    # 地图格与按钮格是同一套模板（格高同 26px、文字框同 20px 高），定位方式必须一致，
+    # 否则同一屏里两种格的字会一高一低。
+    origin = _ink_centered_origin(text, font, box, STROKE_WIDTH)
+    if origin is None:
+        return layer
+    d.text(origin, text, font=font, fill=fill_color, anchor="lt",
            stroke_width=STROKE_WIDTH, stroke_fill=stroke_color)
     return layer
 

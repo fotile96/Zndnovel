@@ -31,8 +31,14 @@ from tools.bake_select import measure_ink_extent, TEXT_FILL_COLOR
 FONT_PATH = "third_party/LXGWWenKai-Regular.ttf"
 
 
+from tools.ui_font import truetype as _ui_truetype
+
+
 def _font(size):
-    return ImageFont.truetype(FONT_PATH, size)
+    # **必须走 ui_font.truetype，不能裸调 ImageFont.truetype。** FONT_PATH 现在可能
+    # 指向变量字体，裸调拿到的是它的默认实例（思源黑体是 ExtraLight＝权重轴最小值），
+    # 于是测试量的字重和工具烤的根本不是同一档——而且不报错、不缺字，只是更细一点。
+    return _ui_truetype("select", size)
 
 
 def _real_image():
@@ -206,20 +212,30 @@ def test_build_map_render_plan_real_texts_zero_hard_failures_known_fallback():
     assert hard_failures == []
     assert len(plans) == 10
     fb_keys = sorted(k for k, _s, _t in fallbacks)
-    assert fb_keys == ["corridor"]
+    # 2026-08-28 起为空：走廊原本在 18px 顶部越界 1px，那是 anchor="mm" 按字体
+    # 设计度量居中造成的位移，不是字太大。改按真实墨迹居中后 10/10 都进 18px。
+    assert fb_keys == []
     for k, size, tried in fallbacks:
         assert size == MAP_FONT_CASCADE[-1] == 17
         assert tried == [MAP_FONT_CASCADE[0]]
-    non_fb = set(plans) - set(fb_keys)
-    assert {plans[k]["font_size"] for k in non_fb} == {MAP_FONT_CASCADE[0]}
+    assert {plans[k]["font_size"] for k in plans} == {MAP_FONT_CASCADE[0]}
 
 
-def test_corridor_overflows_at_18px_vertically_real_measurement():
-    """回归：走廊在 18px 下垂直方向真实越界（不是字符数估算得出的猜测）。"""
+def test_all_locations_fit_at_18px_after_ink_centering():
+    """这条测试**换了主张**，原因值得记下来。
+
+    原先它断言「走廊在 18px 下顶部越界 1px（y0=2 < box y0=3）」——那是真实测量，
+    但测的是 `anchor="mm"` 下的结果：mm 按字体**设计度量**居中，墨迹被整体推离
+    盒心，于是"越界"的其实是定位，不是字。2026-08-28 改为按**真实墨迹**居中后，
+    10 个地点在 18px 全部装得下，回落集从 ['corridor'] 变成空。
+
+    它守的性质没变：**判据是真实渲染墨迹，不是字符数估算**。
+    """
     font18 = _font(18)
-    ext = measure_ink_extent("走廊", font18, MAP_TEXT_BOX)
-    x0, x1, y0, y1 = ext
-    assert y0 < MAP_TEXT_BOX[1], "18px 下「走廊」理应实测顶部越界"
+    for zh in ("走廊", "教职员室", "音乐室", "保健室", "图书室"):
+        x0, x1, y0, y1 = measure_ink_extent(zh, font18, MAP_TEXT_BOX)
+        assert MAP_TEXT_BOX[0] <= x0 and x1 <= MAP_TEXT_BOX[2], zh
+        assert MAP_TEXT_BOX[1] <= y0 and y1 <= MAP_TEXT_BOX[3], zh
 
 
 def test_corridor_fits_at_17px_real_measurement():

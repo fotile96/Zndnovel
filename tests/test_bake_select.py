@@ -31,8 +31,14 @@ from tools.bake_select import (
 FONT_PATH = "third_party/LXGWWenKai-Regular.ttf"
 
 
+from tools.ui_font import truetype as _ui_truetype
+
+
 def _font(size):
-    return ImageFont.truetype(FONT_PATH, size)
+    # **必须走 ui_font.truetype，不能裸调 ImageFont.truetype。** FONT_PATH 现在可能
+    # 指向变量字体，裸调拿到的是它的默认实例（思源黑体是 ExtraLight＝权重轴最小值），
+    # 于是测试量的字重和工具烤的根本不是同一档——而且不报错、不缺字，只是更细一点。
+    return _ui_truetype("select", size)
 
 
 def _button_path(button, variant):
@@ -184,14 +190,13 @@ def test_build_render_plan_real_texts_zero_hard_failures_and_known_fallback_set(
     assert hard_failures == []
     assert len(plans) == 134
     fb_buttons = sorted(b for b, _s, _t in fallbacks)
-    # 2026-08-28：回落集从 20 缩到 14。glossary v19 C1 把 s6s_110 六条座席文本从
-    # 全角片假名改成半角罗马音（Aサクラ… → ASakura…），18px 下实测墨迹 x 至 230、
-    # 框右界 235，**不再越界**——这六条正是当初把回落集撑到 20 的那批。
-    assert len(fb_buttons) == 14
+    # 回落集三次变化，每次都是**输入变了而判据没变**：
+    #   20 → 14  glossary v19 C1 罗马音化，s6s_110 六条从全角片假名变半角拉丁，变窄
+    #   14 →  2  居中改为按**真实墨迹**（原先 anchor="mm" 按字体设计度量，把整段
+    #            墨迹压低，134 条里一大批越的是"定位的界"而非"字的界"）
+    #      →  2  默认字体改思源黑体 Medium；同一份级联下反而比霞鹜文楷更省
+    assert len(fb_buttons) == 2
     assert not any(b.startswith("sel_s6s_110_") for b in fb_buttons)
-    assert "sel_s4s_170_sel_a" in fb_buttons  # 最长常规译文（含标点）
-    # 现役 134 条里 x 轴越界者为 0，这 14 条全是字高（y 轴）越界。
-    # 下一个测试保留的那条 x 轴样例因此是**史料**，不是现役文本——见其 docstring。
     for b, size, tried in fallbacks:
         assert size == FONT_SIZE_CASCADE[-1] == 17
         assert tried == [FONT_SIZE_CASCADE[0]]
@@ -268,7 +273,7 @@ def test_run_raises_before_writing_any_file_on_hard_failure(tmp_path, monkeypatc
 
 def test_fallbacks_disabled_would_hide_the_downgrade():
     """变异回归形态：模拟 fallbacks 列表被静默清空的坏实现，证明如果真的
-    这样改，14 条真实回落就会从"能看到"变成"看不到"。"""
+    这样改，2 条真实回落就会从"能看到"变成"看不到"。"""
     covered, missing, _ev = compute_coverage()
     assert missing == []
     texts = {b: covered[b]["zh"] for b in covered}
@@ -280,7 +285,7 @@ def test_fallbacks_disabled_would_hide_the_downgrade():
         return plans, [], hard
 
     _plans2, fake_fallbacks, _hard2 = broken(texts, fonts_by_size)
-    assert len(real_fallbacks) == 14
+    assert len(real_fallbacks) == 2
     assert fake_fallbacks == []
 
 
@@ -388,7 +393,7 @@ def test_real_run_report_is_clean(tmp_path, monkeypatch):
     assert report["overflow"] == []
     assert report["pixel_preservation_violations"] == []
     assert report["font_size_cascade"] == FONT_SIZE_CASCADE
-    assert len(report["fallbacks"]) == 14
+    assert len(report["fallbacks"]) == 2
     assert len(report["button_font_sizes"]) == 134
     assert report["coverage_evidence"]["total_buttons"] == 134
 
@@ -458,6 +463,6 @@ def test_cli_reports_coverage_and_fallbacks(capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "coverage evidence" in out
     assert "fallbacks" in out
-    # 取最长常规译文那条：s6s_110 六条自 v19 罗马音化后已不再回落（半角拉丁更窄），
-    # 拿它们当样例会把这条测试钉在一段已经过去的历史上。
-    assert "sel_s4s_170_sel_a: -> 17px" in out
+    # 样例取当下真实回落的那条。它换过几次（s6s_110 → sel_s4s_170 → 现在）——
+    # 每次都是内容或定位变了，钉住某个具体按钮只会把测试钉在过去。
+    assert "sel_s4s_420_sel_b: -> 17px" in out

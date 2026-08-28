@@ -217,8 +217,8 @@ def measure_glow(im: Image.Image, box) -> Glow:
     return Glow(core_pm, bg, ring)
 
 
-def _core_mask(text: str, size: int) -> Image.Image:
-    font = _ui_truetype("sysgim", size)
+def _core_mask(text: str, size: int, sheet: str | None = None) -> Image.Image:
+    font = _ui_truetype("sysgim", size, sheet)
     pad = MAX_DIST + 4
     d = ImageDraw.Draw(Image.new("L", (4, 4)))
     l, t, rr, bb = d.textbbox((0, 0), text, font=font)
@@ -227,13 +227,13 @@ def _core_mask(text: str, size: int) -> Image.Image:
     return m
 
 
-def render_glow(text: str, size: int, g: Glow) -> Image.Image:
+def render_glow(text: str, size: int, g: Glow, sheet: str | None = None) -> Image.Image:
     """中文字芯 + 实测发光曲线。返回的图**已经含底**，直接盖到盒里即可。
 
     每个像素 = `lerp(该距离处的环色, 字芯色, 字芯蒙版)`。环色是绝对值（底已含在
     里面），故这一式对透明底与不透明底同样成立——这正是能把两条路径合成一条的原因。
     """
-    m = _core_mask(text, size)
+    m = _core_mask(text, size, sheet)
     W, H = m.size
     mp = m.load()
     core = [[mp[x, y] > 128 for x in range(W)] for y in range(H)]
@@ -300,14 +300,14 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
 
         size = FONT_CASCADE[-1]
         for cand in FONT_CASCADE:
-            cbb = _core_mask(meta["zh"], cand).getbbox()
+            cbb = _core_mask(meta["zh"], cand, name).getbbox()
             if cbb and (cbb[3] - cbb[1]) <= target_h:
                 size = cand
                 break
         # 判「放不放得下」只看**字芯**。发光晕本来就会溢出行盒——原图也溢出，
         # 正因如此 sys_2_b 的八行在自动分段里才粘成一段。
         for cand in [c for c in FONT_CASCADE if c <= size]:
-            cbb = _core_mask(meta["zh"], cand).getbbox()
+            cbb = _core_mask(meta["zh"], cand, name).getbbox()
             if cbb and (cbb[2] - cbb[0]) <= avail_w and (cbb[3] - cbb[1]) <= avail_h:
                 if cand != size:
                     report.append(f"cascade {name} 行{meta['row']} {size}→{cand}px（字芯宽度）")
@@ -318,8 +318,8 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
                 f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」字芯放不下 {avail_w}x{avail_h}"
             )
 
-        glyph = render_glow(meta["zh"], size, g)
-        cbb = _core_mask(meta["zh"], size).getbbox()
+        glyph = render_glow(meta["zh"], size, g, name)
+        cbb = _core_mask(meta["zh"], size, name).getbbox()
         core_w, core_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
 
         # 原字芯在盒内的横向对齐，照搬到中文上

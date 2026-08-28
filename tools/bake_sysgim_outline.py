@@ -238,8 +238,8 @@ def plan_file(name: str, rows: list[dict]) -> tuple[Image.Image, list[RowPlan]]:
     return im, plans
 
 
-def _masks(text: str, size: int):
-    font = _ui_truetype("sysgim", size)
+def _masks(text: str, size: int, sheet: str | None = None):
+    font = _ui_truetype("sysgim", size, sheet)
     pad = 12
     d = ImageDraw.Draw(Image.new("L", (4, 4)))
     l, t, rr, bb = d.textbbox((0, 0), text, font=font, stroke_width=STROKE_WIDTH)
@@ -257,9 +257,10 @@ def _masks(text: str, size: int):
     return fill_m, str_m
 
 
-def render_row(text: str, size: int, fill: tuple[int, int, int], alpha: float = 1.0) -> Image.Image:
+def render_row(text: str, size: int, fill: tuple[int, int, int], alpha: float = 1.0,
+               sheet: str | None = None) -> Image.Image:
     """填充覆在描边之上，按原图的两色插值结构合成。"""
-    fill_m, str_m = _masks(text, size)
+    fill_m, str_m = _masks(text, size, sheet)
     W, H = fill_m.size
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     fp, sp, op = fill_m.load(), str_m.load(), out.load()
@@ -291,7 +292,7 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
         (
             s
             for s in FONT_CASCADE
-            if max(render_row(p.zh, s, p.fill, p.alpha).height for p in plans) <= target_h
+            if max(render_row(p.zh, s, p.fill, p.alpha, name).height for p in plans) <= target_h
         ),
         FONT_CASCADE[-1],
     )
@@ -303,7 +304,7 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
             p
             for p in plans
             if (lambda g: g.width > p.box[2] - p.box[0] or g.height > p.box[3] - p.box[1])(
-                render_row(p.zh, cand, p.fill, p.alpha)
+                render_row(p.zh, cand, p.fill, p.alpha, name)
             )
         ]
         if not over:
@@ -320,7 +321,7 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
     for p in plans:
         l, t, r, b = p.box
         avail_w, avail_h = r - l, b - t
-        g = render_row(p.zh, size, p.fill, p.alpha)
+        g = render_row(p.zh, size, p.fill, p.alpha, name)
         if g.width > avail_w or g.height > avail_h:
             report.append(
                 f"OVERFLOW {name} 行{p.idx} 「{p.zh}」 {g.width}x{g.height} > {avail_w}x{avail_h}"

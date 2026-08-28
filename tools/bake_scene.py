@@ -522,20 +522,44 @@ def measure_vertical_extent(text, font, box=TEXT_BOX, pad=20):
 
 
 def collect_vertical_clip_risks(titles, fonts_by_card, box=TEXT_BOX):
-    """For every card in `fonts_by_card` (i.e. every card that made it
-    through build_render_plan), measure its actual rendered ink y-extent at
-    its RESOLVED cascade size via measure_vertical_extent's padded-canvas
-    trick, and flag any card whose extent falls outside [box[1], box[3]) --
-    meaning the real CELL_H-sized render would have silently clipped its
-    top and/or bottom. MUST be surfaced -- never discarded (same
-    never-silent principle as collect_ink_outliers/collect_overflow)."""
+    """真的会被切掉的格：墨迹落在 [box[1], box[3]) 之外。
+
+    `measure_vertical_extent` 返回的 `y1` 来自 `getbbox()`，是**排他**上界——
+    `y1 == box[3]` 表示最后一行墨迹落在 `box[3]-1`，**正好在格内、没有被切**。
+
+    ⚠ 这里原先写的是 `y1 >= box[3]`，拿排他上界去比排他边界，差整整一个像素。
+    霞鹜文楷笔画短、够不着底，所以这条一直没响；换成思源黑体 Medium 后 165 张
+    同时报警，而逐格实证（真实 CELL_H 画布的渲染与加垫画布的渲染**逐字节相同**）
+    表明**真被切掉的是 0 张**。判据错了不等于素材错了。
+
+    「贴到最后一行但没被切」是另一回事，也值得知道（裁决 S4 早就写明垂直余量已
+    用尽），故单列 `collect_vertical_zero_margin`，不与"真切了"混为一谈——
+    把警告和缺陷混在一栏，久了两者都没人看。
+    """
     out = []
     for card in sorted(fonts_by_card):
         extent = measure_vertical_extent(titles[card], fonts_by_card[card], box=box)
         if extent is None:
             continue
         y0, y1 = extent
-        if y0 < box[1] or y1 >= box[3]:
+        if y0 < box[1] or y1 > box[3]:
+            out.append((card, y0, y1))
+    return out
+
+
+def collect_vertical_zero_margin(titles, fonts_by_card, box=TEXT_BOX):
+    """墨迹**贴到**格子上沿或下沿（还没越界）的格。
+
+    不是缺陷，是余量为零的告知：此后译文若引入更高的字形组合（带声调的拼音注音、
+    某些标点组合），这些格会第一批切顶。承 S4 的余量提示。
+    """
+    out = []
+    for card in sorted(fonts_by_card):
+        extent = measure_vertical_extent(titles[card], fonts_by_card[card], box=box)
+        if extent is None:
+            continue
+        y0, y1 = extent
+        if y0 == box[1] or y1 == box[3]:
             out.append((card, y0, y1))
     return out
 
@@ -664,6 +688,7 @@ def run(write=True, with_cellzoom=None):
     fonts_by_card = resolve_fonts_by_card(plans, fonts_by_size)
     ink_outliers = collect_ink_outliers()
     vertical_clip_risks = collect_vertical_clip_risks(titles, fonts_by_card)
+    vertical_zero_margin = collect_vertical_zero_margin(titles, fonts_by_card)
 
     new_sheets = []
     orig_sheets = []
@@ -709,6 +734,10 @@ def run(write=True, with_cellzoom=None):
         "ink_outliers": [{"card": c, "reason": r, "bbox": b} for c, r, b in ink_outliers],
         "vertical_clip_risks": [
             {"card": c, "y_extent": [y0, y1]} for c, y0, y1 in vertical_clip_risks
+        ],
+        # 贴边但未越界——余量为零的告知，不是缺陷。见 collect_vertical_zero_margin。
+        "vertical_zero_margin": [
+            {"card": c, "y_extent": [y0, y1]} for c, y0, y1 in vertical_zero_margin
         ],
         "text_box": list(TEXT_BOX),
     }
@@ -769,6 +798,9 @@ def main():
           f"canvas bounds): {len(report['vertical_clip_risks'])}")
     for c in report["vertical_clip_risks"]:
         print(f"  card {c['card']}: y_extent={c['y_extent']}")
+    zm = report["vertical_zero_margin"]
+    print(f"垂直余量为零（贴到格子上/下沿，未越界）：{len(zm)} 格"
+          + (f"，例 {[c['card'] for c in zm[:5]]}…" if zm else ""))
 
     print(f"pixel-preservation violations: {len(report['pixel_preservation_violations'])}")
     if report["pixel_preservation_violations"]:

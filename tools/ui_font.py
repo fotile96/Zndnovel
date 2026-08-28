@@ -55,8 +55,47 @@ BUNDLED = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
 FACES = ("PLOT", "SCENE", "CARD", "SELECT", "SYSGIM")
 
 
-def resolve(face: str) -> Path:
-    """取某个面该用的字体路径。
+#: 持久配置：哪一面（必要时哪一张）最后用了哪套字。见该文件头部的优先级说明。
+CONFIG = REPO / "config" / "bake_fonts.yaml"
+
+_CONFIG_CACHE: dict | None = None
+
+
+def _config() -> dict:
+    global _CONFIG_CACHE
+    if _CONFIG_CACHE is None:
+        if CONFIG.exists():
+            import yaml
+            _CONFIG_CACHE = yaml.safe_load(CONFIG.read_text(encoding="utf-8")) or {}
+        else:
+            _CONFIG_CACHE = {}
+    return _CONFIG_CACHE
+
+
+def _config_entry(face: str, sheet: str | None) -> dict:
+    """配置里对这一面（必要时这一张）的条目；逐张优先于逐面，逐面优先于兜底。"""
+    cfg = _config()
+    faces = cfg.get("faces") or {}
+    entry = faces.get(face.lower()) or {}
+    if sheet:
+        sheets = entry.get("sheets") or {}
+        if sheet in sheets:
+            merged = dict(entry)
+            merged.pop("sheets", None)
+            merged.update(sheets[sheet] or {})
+            return merged
+    if entry:
+        out = dict(entry)
+        out.pop("sheets", None)
+        return out
+    return dict(cfg.get("default") or {})
+
+
+def resolve(face: str, sheet: str | None = None) -> Path:
+    """取某个面（必要时某一张）该用的字体路径。
+
+    优先级：`ZND_UI_FONT_<面>` > `ZND_UI_FONT` > 配置的逐张 > 逐面 > 兜底 > 随仓库
+    分发的霞鹜文楷。环境变量胜出是刻意的——它是试验用的临时开关，配置文件是持久决定。
 
     路径不存在时抛 `FileNotFoundError` 而**不回落到默认字体**：悄悄回落意味着
     你以为在评估新字体，看到的却仍是霞鹜文楷——而两次输出的差别恰好是零，
@@ -73,6 +112,17 @@ def resolve(face: str) -> Path:
         p = Path(val)
         if not p.exists():
             raise FileNotFoundError(f"{var} 指向的字体不存在：{p}")
+        return p
+
+    cfg_font = _config_entry(face, sheet).get("font")
+    if cfg_font:
+        p = Path(cfg_font)
+        if not p.is_absolute():
+            p = REPO / p
+        if not p.exists():
+            raise FileNotFoundError(
+                f"{CONFIG.name} 给 {face}"
+                f"{'/' + sheet if sheet else ''} 指的字体不存在：{p}")
         return p
 
     return BUNDLED
@@ -97,13 +147,17 @@ def _variation_names(font) -> list[str]:
         return []   # Pillow 对非变量字体抛 OSError
 
 
-def weight(face: str) -> str | None:
-    """该面显式要求的重量；未指定返回 None。"""
+def weight(face: str, sheet: str | None = None) -> str | None:
+    """该面（必要时该张）要求的重量；未指定返回 None。优先级同 `resolve`。"""
     key = face.upper()
-    return os.environ.get(f"ZND_UI_FONT_WEIGHT_{key}") or os.environ.get("ZND_UI_FONT_WEIGHT")
+    env = (os.environ.get(f"ZND_UI_FONT_WEIGHT_{key}")
+           or os.environ.get("ZND_UI_FONT_WEIGHT"))
+    if env:
+        return env
+    return _config_entry(face, sheet).get("weight")
 
 
-def truetype(face: str, size: int):
+def truetype(face: str, size: int, sheet: str | None = None):
     """取该面的字体对象，并把变量字体钉到确定的重量档上。
 
     优先级同路径：`ZND_UI_FONT_WEIGHT_<面>` > `ZND_UI_FONT_WEIGHT` >
@@ -112,10 +166,10 @@ def truetype(face: str, size: int):
     在**静态**字体上指定重量会抛 `ValueError` 而不是静默忽略：静默忽略意味着你以为
     在看 Bold、其实还是 Regular，而这正是拿来比较字重的场合，结论会整个反过来。
     """
-    path = resolve(face)
+    path = resolve(face, sheet)
     font = ImageFont.truetype(str(path), size)
     names = _variation_names(font)
-    want = weight(face)
+    want = weight(face, sheet)
 
     if not names:
         if want:
@@ -164,10 +218,10 @@ def size_cascade(face: str, default: list[int]) -> list[int]:
     return sizes
 
 
-def describe(face: str) -> str:
+def describe(face: str, sheet: str | None = None) -> str:
     """给报告用的一行自述：字体文件名 + 重量档（若为变量字体）。"""
-    path = resolve(face)
+    path = resolve(face, sheet)
     names = _variation_names(ImageFont.truetype(str(path), 12))
     if not names:
         return path.name
-    return f"{path.name}[{weight(face) or DEFAULT_VF_INSTANCE}]"
+    return f"{path.name}[{weight(face, sheet) or DEFAULT_VF_INSTANCE}]"

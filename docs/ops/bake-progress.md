@@ -140,6 +140,45 @@ glossary v19 的召回令原文：「图片轨（select 按钮、卡面烤字、
 逐张放大对照：`build/font_ab/_ink_zoom.png`。两条方法教训（均值误读、双峰是门槛的
 边界效应）与那道守不到字色的闸缺口，记在 `bake-decisions.md` 的 C8。
 
+## ✅ 字体已定（2026-08-28）：card/plot/scene/select = 思源黑体 SC Medium
+
+用户看过四路对照后裁定，落在 **`config/bake_fonts.yaml`**——该文件是「最后用了哪套
+字」的持久记录，环境变量只作临时试验用。裁决理由见 `bake-decisions.md` 的 F1–F4。
+
+**`sysgim` 未定**，配置里保留了**逐张覆盖**位（用户明示「可能需要分别指定最后使用
+的字体」）。写法：
+
+```yaml
+faces:
+  sysgim:
+    font: third_party/LXGWWenKai-Regular.ttf     # 面默认
+    sheets:
+      sys_20_c: {font: third_party/SourceHanSansSC-VF.ttf, weight: Bold}
+```
+
+键＝不带扩展名的文件名，与 `data/sysgim_*_text.jsonl` 的 `file` 字段一致。
+⚠ 换成笔画更实的字体时 `ZND_UI_FILL_GAIN` 要从 2.2 调回 1.0（Y6/Y14）。
+
+### 同时修掉的两处判据缺陷（都是换字体才照出来的）
+
+1. **`select` 的居中**（裁决 L11）：`anchor="mm"` 按字体**设计度量**居中，把思源系
+   整体压低 3px，134 个按钮里 118 个"越界"——越的是定位的界，不是字的界。
+   改按**真实墨迹**居中后：霞鹜 14→3、Regular 118→1、Medium 116→2，级联 `[18,17]`
+   原样够用；`sel_map` 1→0。L6 反而对得更准（墨迹中心偏移 −0.50→0.00，σ 减半）。
+2. **`scene` 的切顶判据**：`y1 >= box[3]` 拿排他上界比排他边界，差一像素。换 Medium
+   后 165 张报警，而逐格实证真被切的是 **0 张**。已修，并把「贴边未越界」单列
+   `vertical_zero_margin`。
+
+### 现在的实测状态（默认配置）
+
+| 面 | 字号回落 | 溢出 | 盒外像素改动 |
+|---|---|---|---|
+| `select` | 2 / 134 | 0 | 0 |
+| `sel_map` | 0 / 10 | 0 | 0 |
+| `scene` | 3 / 195（11px×192） | 0 | 0 |
+| `card` | — | 0（闸 52/60） | 0 |
+| `plot` | — | 0 | 0 |
+
 ## 换字体（2026-08-28 起可做）
 
 字体不再写死。优先级 `ZND_UI_FONT_<面>` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷

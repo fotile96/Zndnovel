@@ -7,9 +7,23 @@ card/select 四个写死路径。于是「换个字体看看」这件本该一�
 sysgim 是 12–17px 还要叠描边与发光——同一套字在这几档上的表现不是一回事。
 """
 
+import os
+
 import pytest
 
 from tools.ui_font import BUNDLED, FACES, resolve
+
+
+@pytest.fixture(autouse=True)
+def _neutral_config(monkeypatch):
+    """默认把持久配置**清空**，让每条测试只检它自己声明的那一层。
+
+    否则 `config/bake_fonts.yaml` 一改（比如把 card 定成思源 Medium），
+    这里一堆测环境变量优先级的用例就会莫名其妙地红——它们要检的是**机制**，
+    不是仓库当前选了哪套字。要检真配置的用例自己把缓存置回 None。
+    """
+    import tools.ui_font as uf
+    monkeypatch.setattr(uf, "_CONFIG_CACHE", {})
 
 
 def test_default_is_the_bundled_regular(monkeypatch):
@@ -162,3 +176,74 @@ def test_truetype_without_weight_on_static_font_works(monkeypatch):
               "ZND_UI_FONT_WEIGHT_CARD"):
         monkeypatch.delenv(v, raising=False)
     assert truetype("card", 18).getlength("章节") > 0
+
+
+# ---------------------------------------------------------------------------
+# 配置文件：哪一面（必要时哪一张）最后用了哪套字
+# ---------------------------------------------------------------------------
+
+CFG_YAML = """
+default:
+  font: third_party/LXGWWenKai-Regular.ttf
+faces:
+  card:
+    font: third_party/SourceHanSansSC-VF.ttf
+    weight: Medium
+  sysgim:
+    font: third_party/LXGWWenKai-Regular.ttf
+    sheets:
+      sys_20_c: {font: third_party/SourceHanSansSC-VF.ttf, weight: Bold}
+"""
+
+
+@pytest.fixture
+def cfg(monkeypatch):
+    import yaml
+
+    import tools.ui_font as uf
+    for v in list(os.environ):
+        if v.startswith("ZND_UI_FONT"):
+            monkeypatch.delenv(v, raising=False)
+    monkeypatch.setattr(uf, "_CONFIG_CACHE", yaml.safe_load(CFG_YAML))
+    return uf
+
+
+def test_config_gives_per_face_font_and_weight(cfg):
+    assert cfg.resolve("card").name == "SourceHanSansSC-VF.ttf"
+    assert cfg.weight("card") == "Medium"
+    assert cfg.resolve("plot") == BUNDLED          # 未列出的面走 default
+    assert cfg.weight("plot") is None
+
+
+@needs_shs
+def test_config_per_sheet_beats_per_face(cfg):
+    """**sysgim 存在的理由**：61 张分五个重建族，某一张需要例外时要能表达。"""
+    assert cfg.describe("sysgim") == "LXGWWenKai-Regular.ttf"
+    assert cfg.describe("sysgim", "sys_5_a") == "LXGWWenKai-Regular.ttf"
+    assert cfg.describe("sysgim", "sys_20_c") == "SourceHanSansSC-VF.ttf[Bold]"
+
+
+def test_env_still_wins_over_config(cfg, monkeypatch, tmp_path):
+    """环境变量是**试验用的临时开关**，配置文件是持久决定——试验必须能压过决定。"""
+    f = tmp_path / "Tmp.ttf"
+    f.write_bytes(b"")
+    monkeypatch.setenv("ZND_UI_FONT_CARD", str(f))
+    assert cfg.resolve("card") == f
+
+
+def test_config_pointing_at_a_missing_font_raises(cfg, monkeypatch):
+    import yaml
+
+    bad = yaml.safe_load(CFG_YAML)
+    bad["faces"]["card"]["font"] = "third_party/DoesNotExist.ttf"
+    monkeypatch.setattr(cfg, "_CONFIG_CACHE", bad)
+    with pytest.raises(FileNotFoundError, match="bake_fonts.yaml"):
+        cfg.resolve("card")
+
+
+def test_real_config_resolves_every_face():
+    """真配置必须能解析——打错路径或面名在这里就该红，而不是等到烤到一半。"""
+    import tools.ui_font as uf
+    uf._CONFIG_CACHE = None          # 强制读盘上的真文件
+    for face in FACES:
+        assert resolve(face).exists()

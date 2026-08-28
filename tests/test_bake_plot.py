@@ -29,8 +29,14 @@ from tools.bake_plot import (
 )
 
 
+from tools.ui_font import truetype as _ui_truetype
+
+
 def _font(size=10):
-    return ImageFont.truetype(FONT_PATH, size)
+    # **必须走 ui_font.truetype，不能裸调 ImageFont.truetype。** FONT_PATH 现在可能
+    # 指向变量字体，裸调拿到的是它的默认实例（思源黑体是 ExtraLight＝权重轴最小值），
+    # 于是测试量的字重和工具烤的根本不是同一档——而且不报错、不缺字，只是更细一点。
+    return _ui_truetype("plot", size)
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +454,9 @@ def test_real_card162_fallback_band_sized_to_zh_caption_not_fixed_height():
 
     # 用户裁定的具体诉求：改前是 32 行（0..31）的整片黑色带，明显盖过 1 行
     # 字实际需要的高度、留出了『第二行』的空当；改后必须显著变矮。
-    assert decision.band_bottom < 20
+    # 用户的诉求是"色带别再盖出第二行的空当"，判据是**显著矮于 32**，不是某个
+    # 具体数字——具体数字跟着字体走（霞鹜文楷 17，思源 Medium 21）。
+    assert decision.band_bottom < 24
     assert decision.band_bottom < 32
 
 
@@ -530,18 +538,23 @@ def test_cli_check_mode_prints_ink_fallback_coverage_warning(capsys):
 # hard_range（ink 侧，未变）仍是 (2,20)。
 _NONFALLBACK_GOLDEN = {
     #  card: (content_bottom, band_bottom, hard_range)
-    1:   (26, 30, (2, 24)),
-    2:   (27, 31, (2, 24)),
-    3:   (14, 18, (2, 12)),
+    #
+    # 2026-08-28：默认字体改为思源黑体 Medium（用户看过四路对照后裁定），这些数
+    # 随之上移——Medium 的字身比霞鹜文楷高，同字号下 content_bottom 大 2–3px。
+    # 值本身是**跟着字体走的**；这条测试守的是"非回退分支的算法没被 fallback
+    # 分支的改动带歪"，不是守这些具体数字。
+    1:   (29, 33, (2, 24)),
+    2:   (29, 33, (2, 24)),
+    3:   (17, 21, (2, 12)),
     6:   (24, 28, (2, 24)),
-    9:   (15, 19, (2, 12)),
-    25:  (27, 31, (2, 12)),
-    59:  (14, 18, (2, 12)),
-    60:  (14, 18, (2, 12)),
+    9:   (17, 21, (2, 12)),
+    25:  (29, 33, (2, 12)),
+    59:  (17, 21, (2, 12)),
+    60:  (17, 21, (2, 12)),
     101: (24, 28, (2, 24)),
-    115: (15, 19, (3, 12)),  # v19：『Ayano』拉丁 descender 使 content/band 各 +1
-    170: (27, 31, (2, 20)),  # v19：含 Ayano，descender +1
-    180: (26, 30, (2, 24)),
+    115: (17, 21, (3, 12)),
+    170: (29, 33, (2, 20)),
+    180: (29, 33, (2, 24)),
     195: (24, 28, (3, 24)),
 }
 

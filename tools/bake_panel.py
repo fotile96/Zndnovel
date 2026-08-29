@@ -46,7 +46,10 @@ OUTDIR = _out_dir("sysgim_panel_zh")
 
 #: 与其余 sysgim 各族同面——这一面的字尚未定案，D 族该跟着它一起定，不各定各的。
 FACE = "sysgim"
-FONT_CASCADE = (14, 13, 12, 11, 10, 9, 8)
+#: 级联下限取到 6：8 是当初只对着霞鹜文楷定的，而**下限是字体的函数**——
+#: 思源黑体在同 px 下墨迹更高，sys_1_g 第 2 行要落到 7px 才进得去（9h/98w），
+#: 停在 8 会让它直接判 OVERFLOW 而渲不出来。
+FONT_CASCADE = (14, 13, 12, 11, 10, 9, 8, 7, 6)
 
 #: 允许比原行墨迹高出几像素。**必须给**：假名不填满字身、汉字填满，同字号下汉字的
 #: 墨迹恒高约 1px。`sys_1_g` 第 2 行原文墨迹 8px，而中文最小档 8px 就已经是 9px 高
@@ -69,8 +72,12 @@ def rows_by_file() -> dict[str, list[dict]]:
 def ink_colour(row: dict) -> tuple[int, ...]:
     """该行字芯的颜色——**逐行从原图实测**。
 
-    取盒内「离面板底最远」的那一成像素的中位数。用中位数而非均值：抗锯齿边会把
+    取盒内「离面板底最远」的 **2%** 像素的中位数。用中位数而非均值：抗锯齿边会把
     均值往底色拉，而我们要的是笔画中心的颜色（同 C8 的取法）。
+
+    ⚠ 比例要小。这些行只有 8–13px 高，墨迹里大半是抗锯齿边——取一成时中位数
+    已经被边缘拉掉一截（sys_5_d 行0：1% 时 (90,48,10)，10% 时 (102,61,24)），
+    等于**先把颜色调淡一次，渲染时抗锯齿再淡一次**。取字芯色，让抗锯齿自己去淡。
     """
     im = Image.open(SRC / f"{row['file']}.png").convert("RGBA")
     px = im.load()
@@ -81,7 +88,7 @@ def ink_colour(row: dict) -> tuple[int, ...]:
     dist = lambda p: sum(abs(p[k] - base[k]) for k in range(4))
     px_in = [px[x, y] for y in range(t, b) for x in range(l, r)]
     px_in.sort(key=dist, reverse=True)
-    core = px_in[: max(1, len(px_in) // 10)]
+    core = px_in[: max(1, len(px_in) // 50)]
     return tuple(round(statistics.median([c[k] for c in core])) for k in range(4))
 
 

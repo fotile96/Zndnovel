@@ -32,7 +32,7 @@ import argparse
 import json
 import statistics
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from PIL import Image, ImageFilter
@@ -67,6 +67,13 @@ class Spec:
     #: 互相衔接，夹了会在段间切出硬边。模式画面框要开：它下方 7px 处就是**必须
     #: 原样保留**的英文大词，而发光半径 18px 一定会盖过去。
     clip_to_box: bool = False
+    #: 字号锚在**字芯**高，而不是 `segment_lines` 判的行高。
+    #:
+    #: 行高是用 `LINE_RATIO=0.5` 的距离阈值量的，**把发光的晕算了进去**——
+    #: `title_*` 的小注实测行高比真字芯高 1–2px，锚在虚高上渲出来就偏大
+    #: （原字芯 7px 的几张渲成了 10px，用户看图指出）。晕越强的面偏得越多，
+    #: 故做成选项而不是一律改：event/op 与 cutin 的产物已按行高定案并经用户看过。
+    core_anchor: bool = False
 
 #: 分行阈值：相对该盒峰值墨距的比例。
 #:
@@ -254,6 +261,23 @@ def _apply_bias(text: str, size: int, bias: int, avail_w: int,
                   f"「{text[:16]}」")
 
 
+#: 字芯判据：高不透明 + 高亮度。与 `measure_glow` 的 `CORE_ALPHA_RATIO` 同精神，
+#: 但这里要的是**纵向范围**而非颜色，故直接取阈值，不必再拟合。
+CORE_ALPHA, CORE_LUMA = 200, 170
+
+
+def _core_heights(im: Image.Image, box, para: Para) -> list[int]:
+    """逐行的**字芯**高（不含晕）。量不到字芯的行退回原行高。"""
+    px = im.load()
+    out = []
+    for i, top in enumerate(para.tops):
+        h = para.heights[min(i, len(para.heights) - 1)]
+        ys = [y for y in range(top, top + h) for x in range(box[0], box[2])
+              if px[x, y][3] > CORE_ALPHA and min(px[x, y][:3]) > CORE_LUMA]
+        out.append(max(ys) - min(ys) + 1 if ys else h)
+    return out
+
+
 def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> Image.Image:
     im = Image.open(spec.src / f"{name}.png").convert("RGBA")
     out = im.copy()
@@ -271,6 +295,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
                 f"OVERFLOW {name} 段{meta['row']}：中文 {len(zh_lines)} 行 > "
                 f"原文 {len(jp_lines)} 行，段落盒放不下"
             )
+        if spec.core_anchor:
+            para = replace(para, heights=_core_heights(im, box, para))
         sizes, warn = choose_size(zh_lines, para, box, name, spec.face)
         report += warn
 

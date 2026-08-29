@@ -37,7 +37,7 @@ DATA = REPO / "data" / "sysgim_title_text.jsonl"
 #: 居中：小注是英文大词的注脚，复现原文墨迹的**重心**即可保持它相对英文的位置
 #: （07–12 那几张小注在英文左侧，重心复现同样成立）。
 SPEC = Spec(face="sysgim", src=SRC, data=DATA, out=_out_dir("sysgim_title_zh"),
-            clip_to_box=True)
+            clip_to_box=True, core_anchor=True)
 
 
 def main(argv=None) -> int:

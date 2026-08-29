@@ -293,6 +293,24 @@ def _core_heights(im: Image.Image, box, para: Para) -> list[int]:
     return out
 
 
+def _white_core_bbox(im: Image.Image, box) -> tuple[int, int, int, int] | None:
+    """盒内白芯（α≥217 且 min(RGB)≥150）的 bbox；没有则 None。
+
+    作 `ref_center`/`ref_right` 对齐的**参照物**：12 系是下方英文行（含两侧
+    `-`，bbox 中心即两短线跨距的中点），面板两张是上方英文大词（右缘对齐）。
+    """
+    l, t, r, b = box
+    px = im.load()
+    pts = [(x, y) for y in range(max(0, t), min(im.height, b))
+           for x in range(max(0, l), min(im.width, r))
+           if px[x, y][3] >= 217 and min(px[x, y][:3]) >= 150]
+    if not pts:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> Image.Image:
     im = Image.open(spec.src / f"{name}.png").convert("RGBA")
     out = im.copy()
@@ -375,8 +393,24 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         # 实际左右端（最小缩进 → 最右端）来居中，两种情形都对。
         ink_lo = min(c[3] for c in cells if c)
         ink_hi = max(c[3] + c[1] for c in cells if c)
-        if spec.align == "left":
+        # 行级对齐（数据字段 `align`，盖过 Spec）：`ref_center`＝与参照物 bbox
+        # 中心对齐；`ref_right`＝新墨右缘对齐参照物右缘。参照物＝geo 第一个
+        # 保留组的白芯 bbox（12 系＝英文行含两侧 `-`；面板＝英文大词）。
+        # 用户 2026-08-30：原假名块自身与英文差 3.5–5.5px，照搬它的重心会把
+        # 偏差原样带进成品。
+        align = meta.get("align", spec.align)
+        ref_bbox = None
+        if align.startswith("ref_"):
+            ref_bbox = _white_core_bbox(im, rows[0]["geo"]["keep"][0]["box"])
+            if ref_bbox is None:
+                raise ValueError(f"{name}: align={align} 但参照组量不到白芯")
+        if align == "left":
             left = para.left - ink_lo
+        elif align == "ref_center" and ref_bbox:
+            left = round((ref_bbox[0] + ref_bbox[2] + 1) / 2
+                         - (ink_lo + ink_hi) / 2)
+        elif align == "ref_right" and ref_bbox:
+            left = round(ref_bbox[2] + 1 - ink_hi)
         else:
             cx = (para.ink_x0 + para.ink_x1) / 2
             left = round(cx - (ink_lo + ink_hi) / 2)

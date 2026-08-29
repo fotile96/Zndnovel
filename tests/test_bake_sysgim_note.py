@@ -236,6 +236,51 @@ def test_products_rendered_chinese_present():
 
 
 @needs_face_font("sysgim")
+def test_products_alignment_matches_reference():
+    """对齐回归（2026-08-30 用户反馈）：
+
+    - 12 系：新墨中心与英文行（含两侧 `-`）bbox 中心差 ≤1px——原假名块自身
+      偏右 3.5–5.5px，照搬其重心会把偏差带进成品；
+    - 2a/3a：新墨右缘与大标题芯右缘差 ≤1px。
+    """
+    for name in FIVE:
+        r0 = ROWS[name]
+        im, dst = _img(name), _product(name)
+        sp, dp = im.load(), dst.load()
+        kb = r0["geo"]["keep"][0]["box"]
+        kpts = [(x, y) for y in range(kb[1], kb[3]) for x in range(kb[0], kb[2])
+                if sp[x, y][3] >= 217 and min(sp[x, y][:3]) >= 150]
+        kx0, kx1 = min(p[0] for p in kpts), max(p[0] for p in kpts)
+        ylo, yhi = (0, 22) if name.startswith("sys_12") else (25, 37)
+        npts = [(x, y) for y in range(ylo, yhi) for x in range(im.width)
+                if dp[x, y][3] >= 217 and min(dp[x, y][:3]) >= 150]
+        nx0, nx1 = min(p[0] for p in npts), max(p[0] for p in npts)
+        if name.startswith("sys_12"):
+            delta = (nx0 + nx1 + 1) / 2 - (kx0 + kx1 + 1) / 2
+            assert abs(delta) <= 1.0, f"{name}: 居中偏 {delta:+.1f}px"
+        else:
+            assert abs(nx1 - kx1) <= 1, f"{name}: 右缘差 {nx1 - kx1:+d}px"
+
+
+@needs_face_font("sysgim")
+def test_panel_annotations_have_visible_dashes():
+    """面板两张的小注两侧必须有**看得见**的短线（α≥150 的实心像素）。
+
+    ASCII '-' 在 8–9px 字号只有 3×1px 且大半发灰（3a 实测 α12–31，观感＝
+    没有），已改全角 '－'（6×1 实心）。
+    """
+    for name in ("sys_2_a", "sys_3_a"):
+        dp = _product(name).load()
+        npts = [(x, y) for y in range(25, 37) for x in range(_img(name).width)
+                if dp[x, y][3] >= 217 and min(dp[x, y][:3]) >= 150]
+        nx0, nx1 = min(p[0] for p in npts), max(p[0] for p in npts)
+        for tag, a, b in (("左", nx0, nx0 + 8), ("右", nx1 - 8, nx1)):
+            solid = [1 for y in range(25, 37) for x in range(a, b + 1)
+                     if dp[x, y][3] >= 150]
+            assert solid, f"{name}: {tag}短线不可见"
+
+
+@needs_face_font("sysgim")
 def test_sys_2_a_glyph_tops_not_clipped():
     """写带回归（2026-08-30 用户反馈）：新字顶行不许被保护区拦成「削平」。
 

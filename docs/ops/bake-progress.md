@@ -18,7 +18,7 @@
 | `png/scene/` | 2 | **2** | — | — | `bake_scene.py` |
 | `png/card/` | 197 | **196** | 1（空白模板） | — | `bake_card.py` |
 | `png/select/` | 278 | **134 按钮 + 地图** | 22 孤儿 + 3 异形 | — | `bake_select.py` / `bake_select_map.py` |
-| `png/sysgim/` | 61（处理面） | **54** | 2 | 5 | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` |
+| `png/sysgim/` | 61（处理面） | **59** | 2 | — | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` / `bake_sysgim_note.py` |
 | `png/novel/` | 993 | — | — | 993 | 建议单独立项 |
 
 ### ✅ 那五个「从未清点过」的目录已清点（2026-08-28，详见 `bake-misc-inventory.md`）
@@ -35,7 +35,8 @@
 | `bg/` | 81 | **0** | — | 目录闭合 |
 | 合计 | 297 | ≈61 | **51** | |
 
-**要做的 51 张，比 sysgim 剩下的 19 张多两倍半。** 其中：
+**要做的 51 张，比 sysgim 剩下的 19 张多两倍半。**（这句写于 2026-08-28；到
+**2026-08-30 这 51 张只剩 `cutin/tut_*` 16 张**，sysgim 那 19 张也已清零。）其中：
 
 - `cutin/cut_e_*` 10 + `cut_s_*` 14 ＝ 章节起止字幕卡。**`cut_s_*` 带片假名人名**
   （アヤノ／ユウイチ／サクラ／ユカリ），是 glossary v19 C1 罗马音化的对象——
@@ -81,7 +82,7 @@ glossary v19 的召回令原文：「图片轨（select 按钮、卡面烤字、
    卡 41 的 `tr_note` 里白纸黑字挂了很久的图片轨待办：正文 v8 定 `贋作→赝品`（7/7）、
    `ニセモノ/ニセ物→假货`；旧译「赝品」与正文轨反向。
 
-## `png/sysgim/` 细分（唯一在做的面）
+## `png/sysgim/` 细分（**已完工**，2026-08-30；仅余 `sys_1_i` 1 张暂缓）
 
 103 张全部逐张读过。按**重建方式**分五类；类的边界是实测出来的，不是按文件名分的。
 
@@ -91,7 +92,7 @@ glossary v19 的召回令原文：「图片轨（select 按钮、卡面烤字、
 | B 发光字（字芯+外发光） | 17 | 16 | ✅ 完成（`sys_1_i` 1 张暂缓，见下） |
 | C 全屏正文（发光字压在不透明底上） | 4 | 4 | ✅ 完成 |
 | D 面板内文字 | 2 | 2 | ✅ 完成（`bake_panel.py`，裁决 M 族） |
-| E 英文大词 + 片假名小注 | 17 | **12** | `title_02..13_a` ✅ 完成（两步遮盖，裁决 E1–E7）；剩 `sys_2_a`/`sys_3_a`（适用 A 族描边模型）+ `sys_12_a/b/c`（同 `sys_11_a`，B 族模型已通） |
+| E 英文大词 + 片假名小注 | 17 | 17 | ✅ 完成。`title_02..13_a` 12 张走**两步遮盖**（`bake_sysgim_title.py`，裁决 E1–E7）；`sys_2_a`/`sys_3_a`/`sys_12_a/b/c` 5 张走**几何足迹 + 幽灵晕剥离**（`bake_sysgim_note.py`，裁决 E8–E19）。⚠ 这 5 张原记的模型归属是错的（不是 A 族描边、`sys_12_b` 的底是照片），更正见 inventory |
 
 清单外含日文但**刻意不动**：`sys_10_a`、`title_01_a/b`（题名 logo）、`IPL01/02`（厂牌 logo）。
 

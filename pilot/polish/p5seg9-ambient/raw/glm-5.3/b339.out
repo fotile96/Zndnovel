@@ -1,0 +1,56 @@
+{"id": 21, "jp_tail": "うになりました。", "zh": "现在可以用『梗概』向彩野说明故事了。", "score": 92, "note": "", "adjudicate": false}
+{"id": 22, "jp_tail": "になりました。\"", "zh": "\"这样一来，在故事模式中阅读『\" .. v7 .. \"』时经过的时间就能缩短了。\"", "score": 90, "note": "Lua 拼接串：原样保留 \" .. v7 .. \" 结构、只译两侧字面文本；故事模式等术语合规，字面读着顺，不再动", "adjudicate": false}
+{"id": 57, "jp_tail": "はどこに行こう」", "zh": "【Ayano】「那么，接下来去哪儿呢」", "score": 95, "note": "正文轨逐字沿用（8113 定译「那么，接下来去哪儿呢」），不动", "adjudicate": false}
+{"id": 58, "jp_tail": "v0", "zh": "v0", "score": 95, "note": "vms 第三参数为变量 v0（vms(58,\"NONVOICE\", v0)），非文本，不译，zh=jp", "adjudicate": false}
+{"id": 3, "jp_tail": "討してください。", "zh": "★エラーです。記憶ルートが９０を超えました。Story配列を増加させることを検討してください。", "score": 95, "note": "oCom.debagvms 开发者调试串，正常游玩不可见，不译，zh=jp", "adjudicate": false}
+{"id": 4, "jp_tail": ".sceneId", "zh": "i0 .. \"_rsceneId：\" .. gameSave.storyRoute[i0].sceneId", "score": 95, "note": "Lua 拼接表达式，不译，zh=jp", "adjudicate": false}
+{"id": 5, "jp_tail": "yanoTime", "zh": "i0 .. \"_rayanoTime：\" .. gameSave.storyRoute[i0].ayanoTime", "score": 95, "note": "Lua 拼接表达式，不译，zh=jp", "adjudicate": false}
+{"id": 103, "jp_tail": "を中止しました。", "zh": "已取消卡片选择。", "score": 90, "note": "", "adjudicate": false}
+{"id": 1, "jp_tail": "v1", "zh": "v1", "score": 95, "note": "vms 第三参数为变量 v1（vms(1,\"NONVOICE\", v1)），非文本，硬规则不译，zh=jp", "adjudicate": false}
+{"id": 2, "jp_tail": "＿\" .. g5", "zh": "\"Ｋｅｙ＿\" .. g4 .. \"：Ｖａｌｕｅ＿\" .. g5", "score": 95, "note": "Lua 拼接表达式（调试输出），硬规则不译，zh=jp", "adjudicate": false}
+{"id": 99, "jp_tail": "】「ありがとう」", "zh": "【彩野】「谢谢你」", "score": 95, "note": "正文轨逐字沿用（6613「谢谢你」），不动", "adjudicate": false}
+{"id": 100, "jp_tail": "とう、直哉くん」", "zh": "【彩野】「谢谢你，直哉君」", "score": 93, "note": "ありがとう 族定译「谢谢你」，与 99/101 同形", "adjudicate": false}
+{"id": 101, "jp_tail": "】「ありがとう」", "zh": "【彩野】「谢谢你」", "score": 95, "note": "正文轨逐字沿用（6613「谢谢你」），不动", "adjudicate": false}
+{"id": 83, "jp_tail": "も浮かばないの」", "zh": "【彩野】「对不起，直哉君……。什么都想不出来」", "score": 88, "note": "", "adjudicate": false}
+{"id": 84, "jp_tail": "首を横に振った。", "zh": "彩野同学看了看卡片，遗憾地摇了摇头。", "score": 90, "note": "", "adjudicate": false}
+{"id": 85, "jp_tail": "野】「…………」", "zh": "【彩野】「…………」", "score": 95, "note": "沉默行，逐字照抄", "adjudicate": false}
+{"id": 86, "jp_tail": "それを見ている。", "zh": "彩野同学从我手里接过卡片，一直盯着它看。", "score": 88, "note": "", "adjudicate": false}
+{"id": 87, "jp_tail": "っと、違うかも」", "zh": "【彩野】「……对不起。可能有点不对」", "score": 68, "note": "§7(b)：jp「ちょっと、」的読点被原样搬到「可能」之后——「可能」「有点」在汉语里是连用的两级缓和词，此处不停顿；她此刻的迟疑由句首省略号与「对不起」已足够承载", "adjudicate": false}
+{"id": 88, "jp_tail": "ドは……うーん」", "zh": "【彩野】「这张卡片……唔——」", "score": 92, "note": "", "adjudicate": false}
+{"id": 89, "jp_tail": "目を見ていった。", "zh": "彩野同学想了一会儿，然后看着我的眼睛说道。", "score": 88, "note": "", "adjudicate": false}
+{"id": 90, "jp_tail": "て貰っていい？」", "zh": "【彩野】「直哉君……可以给我看看别的卡片吗？」", "score": 92, "note": "", "adjudicate": false}
+{"id": 91, "jp_tail": "では無いようだ。", "zh": "看来该递的卡片不是这一张。", "score": 92, "note": "", "adjudicate": false}
+{"id": 92, "jp_tail": "。ごめんなさい」", "zh": "【彩野】「果然……。好像想不出来。对不起」", "score": 90, "note": "", "adjudicate": false}
+{"id": 93, "jp_tail": "きがちに言った。", "zh": "彩野同学低着头说道。", "score": 90, "note": "", "adjudicate": false}
+{"id": 94, "jp_tail": "まとまらなくて」", "zh": "【彩野】「对不起……我理不出头绪」", "score": 88, "note": "", "adjudicate": false}
+{"id": 95, "jp_tail": "を伏せていった。", "zh": "彩野同学垂下眼睛说道。", "score": 92, "note": "", "adjudicate": false}
+{"id": 96, "jp_tail": "違う感じがする」", "zh": "【彩野】「对不起……这张卡片，感觉和我想象的不一样」", "score": 90, "note": "", "adjudicate": false}
+{"id": 97, "jp_tail": "の場所に戻した。", "zh": "彩野同学轻轻把卡片放回了原处。", "score": 92, "note": "", "adjudicate": false}
+{"id": 98, "jp_tail": "を渡してみよう。", "zh": "……试着递别的卡片吧。", "score": 90, "note": "", "adjudicate": false}
+{"id": 60, "jp_tail": "…直哉くん……」", "zh": "【彩野】「对不起……直哉君……」", "score": 93, "note": "ごめんなさい 定译「对不起」；疑为正文轨沿用行，不动", "adjudicate": false}
+{"id": 61, "jp_tail": "、難しそう……」", "zh": "【彩野】「用我们现在手上的卡片，要做出这个场面，好像很难……」", "score": 88, "note": "", "adjudicate": false}
+{"id": 62, "jp_tail": "そうなんだ……」", "zh": "【直哉】「这样啊……」", "score": 92, "note": "そうなんだ 短应答，豁免名单族（语境分治），现形合规", "adjudicate": false}
+{"id": 63, "jp_tail": "……。", "zh": "……", "score": 95, "note": "独立沉默行：jp「……。」按 §7(a) 已落为「……」，现译合规", "adjudicate": false}
+{"id": 64, "jp_tail": "…直哉くん……」", "zh": "【彩野】「啊……直哉君……」", "score": 93, "note": "", "adjudicate": false}
+{"id": 65, "jp_tail": "、どうかした？」", "zh": "【直哉】「嗯，怎么了？」", "score": 92, "note": "どうかした？ 短应答，语料既有形（735「怎么了？」），合规", "adjudicate": false}
+{"id": 66, "jp_tail": "ら足りないかも」", "zh": "【彩野】「卡片的种类，说不定还不够呢」", "score": 88, "note": "", "adjudicate": false}
+{"id": 67, "jp_tail": "いうことかな？」", "zh": "【直哉】「你是说，用我们现在手上的卡片，做不出『梗概』？」", "score": 90, "note": "", "adjudicate": false}
+{"id": 68, "jp_tail": "はこくんと頷く。", "zh": "彩野同学轻轻点了点头。", "score": 90, "note": "", "adjudicate": false}
+{"id": 69, "jp_tail": "】「うーん……」", "zh": "【彩野】「唔——……」", "score": 92, "note": "", "adjudicate": false}
+{"id": 70, "jp_tail": "皺を寄せている。", "zh": "彩野同学皱着眉头。", "score": 92, "note": "汉字名彩野＝现实层。与 78 的片假名 アヤノ（→Ayano）之别是原作在 mesNot2 里的两层混用，不得拉平", "adjudicate": false}
+{"id": 71, "jp_tail": "なにかあった？」", "zh": "【直哉】「怎么了吗？」", "score": 90, "note": "なにかあった？ 取「怎么了吗？」，语料 3420 对近义 どうかした？已有同形，合规", "adjudicate": false}
+{"id": 72, "jp_tail": "、浮かばなくて」", "zh": "【彩野】「我在想这个场面的梗概，可是想不出来」", "score": 90, "note": "", "adjudicate": false}
+{"id": 73, "jp_tail": "た方がいいかも」", "zh": "【直哉】「这样啊。也许再多收集一些卡片比较好」", "score": 90, "note": "", "adjudicate": false}
+{"id": 74, "jp_tail": "ん……ごめんね」", "zh": "【彩野】「嗯……对不起哦」", "score": 55, "note": "adjudicate：ごめんね 的软化尾。口调表 ayano_real §3 将 ごめんね 固定为「对不起哦／对不起」（锚点 185「……对不起哦，……」同族），现译「对不起呢」不在固定形内、语感偏幼。⚠ 本行也可能是本批 12 条正文轨逐字沿用行之一——若是，改动即与正文轨分家，牵连范围＝正文轨中独立成句的 ごめんね 各行，请并案核对后定", "adjudicate": true, "alts": [{"zh": "【彩野】「嗯……对不起」", "note": "口调表另一固定形：去终助词，更轻、更收敛"}]}
+{"id": 75, "jp_tail": "りないみたいだ。", "zh": "要归纳这个场面，手上的卡片好像还不够。", "score": 92, "note": "", "adjudicate": false}
+{"id": 76, "jp_tail": "を集めてみよう。", "zh": "去收集新的卡片吧。", "score": 90, "note": "", "adjudicate": false}
+{"id": 77, "jp_tail": "】「うーん……」", "zh": "【彩野】「唔——……」", "score": 92, "note": "", "adjudicate": false}
+{"id": 78, "jp_tail": "皺を寄せている。", "zh": "Ayano同学皱着眉头。", "score": 95, "note": "mesNot2 用故事层名 アヤノ→Ayano（v19 罗马音），与 70 的「彩野」成对，保留原作的两层差异", "adjudicate": false}
+{"id": 79, "jp_tail": "……。", "zh": "……", "score": 95, "note": "独立沉默行：同 63", "adjudicate": false}
+{"id": 80, "jp_tail": "たまま動かない。", "zh": "……。彩野同学盯着卡片，一动不动。", "score": 90, "note": "", "adjudicate": false}
+{"id": 81, "jp_tail": "足りないようだ。", "zh": "要让这个场面进行下去，手上的卡片好像还不够。", "score": 90, "note": "", "adjudicate": false}
+{"id": 82, "jp_tail": "るかもしれない。", "zh": "也许需要展开别的场面，去获得新的卡片。", "score": 88, "note": "", "adjudicate": false}
+{"id": 102, "jp_tail": "必要があります。", "zh": "○这份梗概之前的『前一场面的梗概』还没有制作。_r梗概必须从故事的开头按顺序制作。", "score": 92, "note": "", "adjudicate": false}
+{"id": 6056, "jp_tail": "イしてください。", "zh": "【■通知】没有可以制作梗概的故事。_r请先游玩故事模式。", "score": 92, "note": "", "adjudicate": false}
+{"id": 16817, "jp_tail": "追加されました。", "zh": "【■通知】游戏菜单中追加了『Ｆｒａｇｍｅｎｔ』模式。", "score": 95, "note": "正文轨 ■通知 定译沿用（7306/7307 族）；『Ｆｒａｇｍｅｎｔ』全角拉丁原样", "adjudicate": false}
+{"id": 16818, "jp_tail": "ことができます。", "zh": "【■通知】故事的后续可以从Ｆｒａｇｍｅｎｔ模式中浏览。", "score": 95, "note": "正文轨 ■通知 定译沿用；jp 此行 Ｆｒａｇｍｅｎｔモード 无『』，zh 同样不加（与 16817 的形制差是原文自带的）", "adjudicate": false}

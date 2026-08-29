@@ -21,9 +21,13 @@ from tools import bake_mask
 from tools.bake_sysgim_glow import _pm
 from tools.bake_sysgim_note import DATA, SPEC, SRC
 
-ROWS = {json.loads(l)["file"]: json.loads(l)
-        for l in DATA.read_text(encoding="utf-8").splitlines() if l.strip()}
-FIVE = sorted(ROWS)
+# 按文件聚合（sys_1_i 有三行；geo 放在 row 0）
+ROWS = {}
+for _l in DATA.read_text(encoding="utf-8").splitlines():
+    if _l.strip():
+        _r = json.loads(_l)
+        ROWS.setdefault(_r["file"], []).append(_r)
+SIX = sorted(ROWS)
 
 
 @lru_cache(maxsize=None)
@@ -33,8 +37,9 @@ def _img(name):
 
 @lru_cache(maxsize=None)
 def _plan(name):
-    r = ROWS[name]
-    return bake_mask.plan_geo(_img(name), [tuple(r["box"])], r["geo"])
+    rs = ROWS[name]
+    return bake_mask.plan_geo(_img(name),
+                              [tuple(r["box"]) for r in rs], rs[0]["geo"])
 
 
 @lru_cache(maxsize=None)
@@ -159,16 +164,19 @@ def test_synth_too_small_r_old_raises():
 # ── 真图上的结构断言 ──────────────────────────────────────────────────────
 
 def test_corpus_is_the_five_leftovers_all_translated():
-    assert FIVE == ["sys_12_a", "sys_12_b", "sys_12_c", "sys_2_a", "sys_3_a"]
-    for r in ROWS.values():
-        assert r["zh"].strip(), f"{r['file']} 未译"
-    assert ROWS["sys_12_b"]["zh"] == "时间耗尽"
-    assert "时间结束" in ROWS["sys_12_b"]["note"], "备选译文应记在 note 里"
+    assert SIX == ["sys_12_a", "sys_12_b", "sys_12_c", "sys_1_i", "sys_2_a", "sys_3_a"]
+    assert len(ROWS["sys_1_i"]) == 3 and all(r["zh"].strip() for r in ROWS["sys_1_i"])
+    assert ROWS["sys_1_i"][0]["geo"]["keep"][0]["hard"] is True
+    for rs in ROWS.values():
+        for r in rs:
+            assert r["zh"].strip(), f"{r['file']} row{r['row']} 未译"
+    assert ROWS["sys_12_b"][0]["zh"] == "时间耗尽"
+    assert "时间结束" in ROWS["sys_12_b"][0]["note"], "备选译文应记在 note 里"
 
 
 def test_plan_geo_tiles_allowed_region_with_rects():
     """rects 必须精确铺满允许区（不多盖不少盖）——can_write 的语义靠它。"""
-    for name in FIVE:
+    for name in SIX:
         mp = _plan(name)
         im = _img(name)
         covered = [[False] * im.width for _ in range(im.height)]
@@ -184,7 +192,7 @@ def test_plan_geo_tiles_allowed_region_with_rects():
 
 
 def test_products_keep_layer_byte_identical():
-    for name in FIVE:
+    for name in SIX:
         mp = _plan(name)
         hurt = bake_mask.check_keep_intact(_img(name), _product(name), mp,
                                            skip_ink=True)
@@ -192,7 +200,7 @@ def test_products_keep_layer_byte_identical():
 
 
 def test_products_change_only_inside_mask_region():
-    for name in FIVE:
+    for name in SIX:
         mp = _plan(name)
         bad = bake_mask.check_apply_exact(_img(name), _product(name), mp)
         assert not bad, f"{name}: 矩形外越界写入 {bad[:5]}"
@@ -227,7 +235,7 @@ def test_products_subtracted_pixels_match_plan():
 @needs_face_font("sysgim")
 def test_products_rendered_chinese_present():
     """成品里必须有新墨（不能只擦不写）。"""
-    for name in FIVE:
+    for name in SIX:
         src, dst = _img(name).load(), _product(name).load()
         W, H = _img(name).size
         diff = sum(1 for y in range(H) for x in range(W)
@@ -241,12 +249,22 @@ def test_products_alignment_matches_reference():
 
     - 12 系：新墨中心与英文行（含两侧 `-`）bbox 中心差 ≤1px——原假名块自身
       偏右 3.5–5.5px，照搬其重心会把偏差带进成品；
-    - 2a/3a：新墨右缘与大标题芯右缘差 ≤1px。
+    - 2a/3a：新墨右缘与大标题芯右缘差 ≤1px；
+    - sys_1_i：左对齐——行1 新墨左缘与原棕芯左缘差 ≤1px。
     """
-    for name in FIVE:
-        r0 = ROWS[name]
+    for name in SIX:
+        r0 = ROWS[name][0]
         im, dst = _img(name), _product(name)
         sp, dp = im.load(), dst.load()
+        if name == "sys_1_i":
+            oldl = min(x for y in range(8, 34) for x in range(30, im.width)
+                       if sp[x, y][3] >= 150 and sp[x, y][0] >= 100
+                       and sp[x, y][1] - sp[x, y][2] >= 30)
+            newl = min(x for y in range(8, 34) for x in range(30, im.width)
+                       if dp[x, y][3] >= 150 and dp[x, y][0] >= 100
+                       and dp[x, y][1] - dp[x, y][2] >= 30)
+            assert abs(newl - oldl) <= 1, f"{name}: 左缘 {oldl}→{newl}"
+            continue
         kb = r0["geo"]["keep"][0]["box"]
         kpts = [(x, y) for y in range(kb[1], kb[3]) for x in range(kb[0], kb[2])
                 if sp[x, y][3] >= 217 and min(sp[x, y][:3]) >= 150]
@@ -295,7 +313,7 @@ def test_sys_2_a_glyph_tops_not_clipped():
     from tools.bake_sysgim_glow import MAX_TAIL_DEV, _pm, measure_glow
 
     name = "sys_2_a"
-    meta = ROWS[name]
+    meta = ROWS[name][0]
     im = _img(name)
     mp = _plan(name)
     box = tuple(meta["box"])

@@ -118,14 +118,15 @@ class Para:
     ink_x1: int          #: 原文整段墨迹的右端（开区间）
 
 
-def segment_lines(im: Image.Image, box, g: Glow) -> list[tuple[int, int]]:
+def segment_lines(im: Image.Image, box, g: Glow,
+                  line_ratio: float = LINE_RATIO) -> list[tuple[int, int]]:
     """把一段切成行。返回各行的 (y0, y1] 闭开区间。"""
     l, t, r, b = box
     px = im.load()
     bgpm = _pm(g.bg)
     dist = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
     peak = max(dist(px[x, y]) for y in range(t, b) for x in range(l, r))
-    thr = peak * LINE_RATIO
+    thr = peak * line_ratio
     ys = [y for y in range(t, b) if any(dist(px[x, y]) >= thr for x in range(l, r))]
     out: list[list[int]] = []
     for y in ys:
@@ -136,14 +137,19 @@ def segment_lines(im: Image.Image, box, g: Glow) -> list[tuple[int, int]]:
     return [(a, c + 1) for a, c in out]
 
 
-def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str]) -> Para:
+def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str],
+                 line_ratio: float = LINE_RATIO) -> Para:
     """量一段的行位置、行距与齐左基准。
 
     **行数与转写互相校验**：分段结果必须与 `jp` 的行数一致，不一致就抛错而不是
     将就——两条独立来源（图上的墨迹、人转写的文本）对不上，说明其中一条错了，
     这时候继续渲染只会把错误固化进产物。
+
+    `line_ratio`：墨迹阈值的比例覆盖。默认 0.5×盒内峰值；**渐变墨**（sys_1_i
+    行1：棕字 374 里有白热点 1020）会被 0.5×1020=510 的阈值整片落选，量出的
+    左缘偏右 2px——按 geo 给 0.35 让墨体入选。
     """
-    bands = segment_lines(im, box, g)
+    bands = segment_lines(im, box, g, line_ratio)
     if len(bands) != len(jp_lines):
         raise ValueError(
             f"盒 {box}：图上分出 {len(bands)} 行，而 jp 转写是 {len(jp_lines)} 行——"
@@ -154,7 +160,7 @@ def measure_para(im: Image.Image, box, g: Glow, jp_lines: list[str]) -> Para:
     bgpm = _pm(g.bg)
     dist = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
     peak = max(dist(px[x, y]) for y0, y1 in bands for y in range(y0, y1) for x in range(l, r))
-    thr = peak * LINE_RATIO
+    thr = peak * line_ratio
     lefts = []
     for y0, y1 in bands:
         xs = [x for x in range(l, r) for y in range(y0, y1) if dist(px[x, y]) >= thr]
@@ -357,7 +363,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
             g.ring = [bgpm if k >= geo["r_old"] else ring
                       for k, ring in enumerate(g.ring, 1)]
         jp_lines = meta["jp"].split("\n")
-        para = measure_para(im, box, g, jp_lines)
+        para = measure_para(im, box, g, jp_lines,
+                            line_ratio=geo.get("line_ratio", LINE_RATIO))
         zh_lines = [s for s in meta["zh"].split("\n")]
         if len(zh_lines) > len(jp_lines):
             report.append(

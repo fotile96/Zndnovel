@@ -193,10 +193,30 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
         p = px[x, y]
         return p[3] >= CORE_ALPHA and min(p[:3]) >= CORE_LUMA
 
-    # ── 旧墨字芯：白芯连通块按盒归属分（和 `plan` 同一判据）──────────────
-    core = [[is_white(x, y) for x in range(W)] for y in range(H)]
+    def is_brown(x, y):
+        # 暗棕/橙色墨（sys_1_i 行1：174,69,0 族）。黄晕（12b）也匹配此判据，
+        # 故做成 geo 开关而不是全局——谁用谁开。
+        p = px[x, y]
+        return p[3] >= 150 and p[0] >= 100 and p[1] - p[2] >= 30
+
+    drop_extra = geo.get("drop_extra")
+
+    def is_ink_px(x, y):
+        return is_white(x, y) or (drop_extra == "brown" and is_brown(x, y))
+
+    # ── 旧墨字芯：墨色连通块按盒归属分（和 `plan` 同一判据）──────────────
+    # **保留组盒优先**：组件多数落在任一保留组盒内 → 它是保留层的一部分
+    # （sys_1_i 箭头的亮粉环碎片整个落在行1 盒 x≥33 里，但同时也整个落在
+    # 箭头保留组盒 (0,0,45,70) 里——按行1 盒归类会把箭头的环当墨擦掉）。
+    keep_boxes = [g["box"] for g in geo["keep"]]
+    core = [[is_ink_px(x, y) for x in range(W)] for y in range(H)]
     drop_core = set()
     for pts in _components(core, W, H):
+        in_keep = sum(1 for x, y in pts
+                      if any(l <= x < r and t <= y < b
+                             for (l, t, r, b) in keep_boxes))
+        if in_keep * 2 > len(pts):
+            continue
         inside = sum(1 for x, y in pts
                      if any(l <= x < r and t <= y < b for (l, t, r, b) in boxes))
         if inside * 2 > len(pts):

@@ -44,6 +44,7 @@ CUTIN_TITLE = REPO / "data" / "cutin_title_text.jsonl"
 MODE_FRAME = REPO / "data" / "mode_frame_text.jsonl"
 MEMORY_THUMB = REPO / "data" / "memory_thumb_text.jsonl"
 SYSGIM_PANEL = REPO / "data" / "sysgim_panel_text.jsonl"
+SYSGIM_TITLE = REPO / "data" / "sysgim_title_text.jsonl"
 
 #: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
 #:
@@ -59,6 +60,7 @@ SOURCES = [
     (MODE_FRAME, REPO / "png", True),
     (MEMORY_THUMB, REPO / "png", True),
     (SYSGIM_PANEL, SYSGIM, True),
+    (SYSGIM_TITLE, SYSGIM, True),
 ]
 
 REQUIRED = ("file", "row", "jp", "zh")

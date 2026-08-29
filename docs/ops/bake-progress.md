@@ -18,7 +18,7 @@
 | `png/scene/` | 2 | **2** | — | — | `bake_scene.py` |
 | `png/card/` | 197 | **196** | 1（空白模板） | — | `bake_card.py` |
 | `png/select/` | 278 | **134 按钮 + 地图** | 22 孤儿 + 3 异形 | — | `bake_select.py` / `bake_select_map.py` |
-| `png/sysgim/` | 61（处理面） | **36** | 2 | 23 | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` |
+| `png/sysgim/` | 61（处理面） | **54** | 2 | 5 | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` |
 | `png/novel/` | 993 | — | — | 993 | 建议单独立项 |
 
 ### ✅ 那五个「从未清点过」的目录已清点（2026-08-28，详见 `bake-misc-inventory.md`）
@@ -89,9 +89,9 @@ glossary v19 的召回令原文：「图片轨（select 按钮、卡面烤字、
 |---|---:|---:|---|
 | A 描边字（白填充+褐描边，透明底） | 21 | 20 | ✅ 完成（`sys_22_c` 零引用孤儿不烤） |
 | B 发光字（字芯+外发光） | 17 | 16 | ✅ 完成（`sys_1_i` 1 张暂缓，见下） |
-| C 全屏正文（发光字压在不透明底上） | 4 | 0 | 已测绘，**模型已通**，可直接烤 |
-| D 面板内文字 | 2 | 0 | 已测绘，待烤（`sys_1_g` 等裁） |
-| E 英文大词 + 片假名小注 | 17 | 0 | **唯一尚未测绘的一类** |
+| C 全屏正文（发光字压在不透明底上） | 4 | 4 | ✅ 完成 |
+| D 面板内文字 | 2 | 2 | ✅ 完成（`bake_panel.py`，裁决 M 族） |
+| E 英文大词 + 片假名小注 | 17 | **12** | `title_02..13_a` ✅ 完成（两步遮盖，裁决 E1–E7）；剩 `sys_2_a`/`sys_3_a`（适用 A 族描边模型）+ `sys_12_a/b/c`（同 `sys_11_a`，B 族模型已通） |
 
 清单外含日文但**刻意不动**：`sys_10_a`、`title_01_a/b`（题名 logo）、`IPL01/02`（厂牌 logo）。
 

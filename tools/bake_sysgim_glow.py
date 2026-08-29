@@ -147,24 +147,58 @@ def _dist_field(core: list[list[bool]], W: int, H: int) -> list[list[int]]:
     return d
 
 
-def measure_glow(im: Image.Image, box) -> Glow:
-    """从原图的一个盒子里量出「距离 → RGBA」这条曲线。"""
+def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
+                 bg=None, probe_d: int = GLOW_PROBE_D) -> Glow:
+    """从原图的一个盒子里量出「距离 → RGBA」这条曲线。
+
+    `ignore(x, y)` 给定时，那些像素**完全不参与**取底、判字芯与测环。用于盒里
+    混着另一层字的场合：`sysgim/title_*` 的小注盒必然含英文大词的晕（小注就写在
+    英文下方 3–4px 处），不排除的话量出来的「小注的晕」在 d=5..10 处是 36/48/57/
+    35/20/34——**非单调，且远到 d=10 还不收敛**，那是英文的晕被当成了小注的。
+    照这条环去渲中文，新字就会拖一圈本不存在的远场晕（钻石形，因为距离场是
+    4 邻域的），在产物上肉眼可见。
+
+    ⚠ **`MAX_TAIL_DEV` 那道收敛检查抓不到这种污染**：它只看 d=18 的尾端，而
+    污染在中段。这与「盒外扩把英文推进盒里」是同一个盲点（见
+    docs/ops/bake-handoff-2026-08-29.md §5.3），此为第四次。
+
+    `core_of(x, y)` 给定时用它替代默认的字芯判据。默认判据是「离底的距离 ≥
+    峰值的 `CORE_ALPHA_RATIO`」，那把尺子**把 alpha 与颜色混在一起量**：全不透明
+    的纯青 `(36,119,160,255)` 离底 570、而白芯 1020，只有 56%，于是纯青的细笔
+    （`title_*` 小注两端那对 `-`，太细以致整笔都到不了白）被判成「晕」而不是「墨」。
+    它离最近的白芯 5–9px，环于是在 d=5..9 处凭空多出 27–43 的 alpha。
+    底透明时正确的尺子是 alpha 本身；但默认判据要同时管不透明底的 C 类，
+    故做成可传入而不是改默认。
+
+    `bg` 给定时用它替代「盒边框取众数」。**边框众数在盒边整个泡在晕里时不成立**：
+    `title_06_a` 的边框 140 个像素散成一堆各不相同的淡白，众数只占 10 个，量出来的
+    底是 `(255,255,255,20)` 而不是透明——擦盒时就擦成了一块淡灰的矩形（旧产物上
+    肉眼可见的那块）；`title_13_a` 同病，量成 `(255,255,255,14)`。盒边有干净背景时
+    众数是对的，这一族没有，所以由外面把底传进来。
+
+    `probe_d`：判「有没有发光」时探到多远。默认 5 是按 sysgim 各族的字号定的，
+    而 `title_*` 小注的晕半径实测只有 4——在 d=5 处要求还剩 `GLOW_TAIL_MIN_A`
+    的强度，等于要求晕比它自己的外沿还长，于是真发光被判成没发光、环被压平。
+    """
     l, t, r, b = box
     W, H = r - l, b - t
     px = im.load()
     n_all = W * H
+    skip = (lambda x, y: False) if ignore is None else ignore
     # 底取**盒边框**的众数，不取全盒众数。
     #
     # 全盒众数会在字密的盒里翻车：`sys_2_b` 行 3（亮态「あらすじ作成済」）几乎填满
     # 19px 的行，白色像素多过背景，于是底被测成 (255,255,255,255)——字芯与底整个
     # 反了过来，那一行渲成了一大团无晕的白字。文字总有边距，边框上就是底。
     border = (
-        [px[x, t] for x in range(l, r)]
-        + [px[x, b - 1] for x in range(l, r)]
-        + [px[l, y] for y in range(t, b)]
-        + [px[r - 1, y] for y in range(t, b)]
+        [(x, t) for x in range(l, r)]
+        + [(x, b - 1) for x in range(l, r)]
+        + [(l, y) for y in range(t, b)]
+        + [(r - 1, y) for y in range(t, b)]
     )
-    bg = Counter(border).most_common(1)[0][0]
+    if bg is None:
+        kept = [px[x, y] for x, y in border if not skip(x, y)]
+        bg = Counter(kept or [px[x, y] for x, y in border]).most_common(1)[0][0]
 
     # 「离底多远」取代「alpha 多高」作为字芯判据：底可能是不透明的，那时 alpha
     # 恒为 255，按 alpha 判会把整盒都算成字芯。
@@ -175,12 +209,18 @@ def measure_glow(im: Image.Image, box) -> Glow:
     # alpha→0 的像素自然趋近底，单调性才成立。
     bg_pm = _pm(bg)
     dist = lambda p: sum(abs(_pm(p)[i] - bg_pm[i]) for i in range(4))
-    ink = [(x, y) for y in range(t, b) for x in range(l, r) if dist(px[x, y]) > 8]
+    ink = [(x, y) for y in range(t, b) for x in range(l, r)
+           if dist(px[x, y]) > 8 and not skip(x, y)]
     if not ink:
         raise ValueError(f"盒 {box} 里没有与底不同的像素")
     peak = max(dist(px[x, y]) for x, y in ink)
     thr = peak * CORE_ALPHA_RATIO
-    core = [[dist(px[l + x, t + y]) >= thr for x in range(W)] for y in range(H)]
+    if core_of is None:
+        core = [[dist(px[l + x, t + y]) >= thr and not skip(l + x, t + y)
+                 for x in range(W)] for y in range(H)]
+    else:
+        core = [[core_of(l + x, t + y) and not skip(l + x, t + y)
+                 for x in range(W)] for y in range(H)]
     n_core = sum(sum(row) for row in core)
     if n_core == 0:
         raise ValueError(f"盒 {box} 量不到字芯")
@@ -195,7 +235,7 @@ def measure_glow(im: Image.Image, box) -> Glow:
             _pm(px[l + x, t + y])
             for y in range(H)
             for x in range(W)
-            if d[y][x] == k
+            if d[y][x] == k and not skip(l + x, t + y)
         ]
         if not vals:
             ring.append(bg_pm)
@@ -215,7 +255,7 @@ def measure_glow(im: Image.Image, box) -> Glow:
             f"——底色 {bg} 恐怕取错了，或发光半径超出了 MAX_DIST"
         )
 
-    head = [ringdist(r) for r in ring[:GLOW_PROBE_D]]
+    head = [ringdist(r) for r in ring[:probe_d]]
     monotone = all(head[i] >= head[i + 1] for i in range(len(head) - 1))
     if not (monotone and head[-1] >= GLOW_TAIL_MIN_A):
         ring = [bg_pm] * MAX_DIST
@@ -457,9 +497,14 @@ def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg,
     `bounds` 给定时把写入夹在该矩形内。**「更远者胜」还不够强**的场合要用它：
     模式画面框下方 7px 就是必须原样保留的英文大词，那里原图本就有强发光，
     单靠比较会让中文的晕在英文的字间空隙里赢下来——空隙是弱的。
+
+    `bounds` 也可以是一个 `(x, y) -> bool` 的谓词，用于**非矩形**的保留区：
+    `title_*` 要保护的是英文的发光足迹（一条绕着字形的阶梯边界），拿矩形夹
+    只有两种结局——夹住小注就压到英文，让开英文就切断小注的晕。见 tools/bake_mask.py。
     """
     W, H = dst.size
-    if bounds is not None:
+    fn = bounds if callable(bounds) else None
+    if bounds is not None and fn is None:
         bl, bt, br, bb = bounds
     tp, dp = tile.load(), dst.load()
     bgpm = _pm(bg)
@@ -472,7 +517,10 @@ def _merge_farther(dst: Image.Image, tile: Image.Image, ox: int, oy: int, bg,
             xx = ox + x
             if not (0 <= xx < W):
                 continue
-            if bounds is not None and not (bl <= xx < br and bt <= yy < bb):
+            if fn is not None:
+                if not fn(xx, yy):
+                    continue
+            elif bounds is not None and not (bl <= xx < br and bt <= yy < bb):
                 continue
             src = tp[x, y]
             if far(src) > far(dp[xx, yy]):

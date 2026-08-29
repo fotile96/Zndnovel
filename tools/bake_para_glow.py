@@ -41,6 +41,7 @@ _REPO = str(Path(__file__).resolve().parent.parent)
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
 
+from tools import bake_mask  # noqa: E402
 from tools.bake_out import out_dir as _out_dir  # noqa: E402
 from tools.ui_font import size_bias as _ui_size_bias  # noqa: E402
 from tools.bake_sysgim_glow import (  # noqa: E402
@@ -74,6 +75,14 @@ class Spec:
     #: （原字芯 7px 的几张渲成了 10px，用户看图指出）。晕越强的面偏得越多，
     #: 故做成选项而不是一律改：event/op 与 cutin 的产物已按行高定案并经用户看过。
     core_anchor: bool = False
+    #: **遮盖与嵌字分两步**（`tools/bake_mask.py`）。None＝老行为：把译文盒整个
+    #: 擦成底、再把新字夹在同一个盒里。
+    #:
+    #: `"glow_footprint"`＝按实测的发光足迹另算一套**遮盖矩形**：擦掉旧墨连同它
+    #: 的晕（外边界落在全透明处，故不会切出矩形亮边），同时逐像素避开必须保留的
+    #: 那层字的发光足迹。**两步的框不是同一个**——译文盒仍只管字该多大、落在哪。
+    #: 设了它就不要再设 `clip_to_box`：那是矩形夹，而这里的保留区不是矩形。
+    mask_mode: str | None = None
 
 #: 分行阈值：相对该盒峰值墨距的比例。
 #:
@@ -283,10 +292,24 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
     out = im.copy()
     plans = []
     boxes = []
+    mp = None
+    if spec.mask_mode == "glow_footprint":
+        mp = bake_mask.plan(im, [tuple(r["box"]) for r in rows])
+        if mp.residual:
+            report.append(
+                f"residual {name}: 旧墨有 {len(mp.residual)} 个像素压在保留层的发光里，"
+                f"擦不掉（最亮 alpha {mp.residual_max_alpha}）"
+            )
+    elif spec.mask_mode is not None:
+        raise ValueError(f"未知的 mask_mode：{spec.mask_mode!r}")
     for meta in rows:
         box = tuple(meta["box"])
         boxes.append(box)
-        g = measure_glow(im, box)
+        # 保留层的地盘不参与量环——盒里混着它的晕，不排除就会把它当成本层的晕。
+        # 字芯也由 mask 给：默认判据会漏掉纯青的细笔，漏掉的笔画会变成假的远场晕。
+        g = (measure_glow(im, box) if mp is None else
+             measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
+                          bg=mp.bg, probe_d=bake_mask.GLOW_PROBE_D))
         jp_lines = meta["jp"].split("\n")
         para = measure_para(im, box, g, jp_lines)
         zh_lines = [s for s in meta["zh"].split("\n")]
@@ -347,13 +370,21 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
             # 因此偏左。早先按 `(贴片宽 − 墨迹宽)/2` 反推贴点，等于假定它居中，
             # 实测在以「。」结尾的行上差 5px。改用 `getbbox()` 给的真实偏移。
             # （cutin/event 现有译文都不带尾部标点，实测偏差恰为 0，故产物不变。）
-            plans.append((g, glyph, gx - ink_dx, gy - ink_dy,
-                          box if spec.clip_to_box else None))
+            clip = (mp.can_write if mp is not None
+                    else (box if spec.clip_to_box else None))
+            plans.append((g, glyph, gx - ink_dx, gy - ink_dy, clip))
 
-    for box, meta in zip(boxes, rows):
-        out.paste(measure_glow(im, box).bg, box)
+    if mp is not None:
+        bake_mask.apply(out, mp)
+    else:
+        for box, meta in zip(boxes, rows):
+            out.paste(measure_glow(im, box).bg, box)
     for g, glyph, ox, oy, clip in plans:
         _merge_farther(out, glyph, ox, oy, g.bg, bounds=clip)
+    if mp is not None:
+        hurt = bake_mask.check_keep_intact(im, out, mp)
+        if hurt:
+            report.append(f"PIXEL-VIOLATION {name}: 保留层被改动 {hurt} 个像素")
     return out
 
 

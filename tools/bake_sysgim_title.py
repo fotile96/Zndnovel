@@ -36,8 +36,12 @@ DATA = REPO / "data" / "sysgim_title_text.jsonl"
 
 #: 居中：小注是英文大词的注脚，复现原文墨迹的**重心**即可保持它相对英文的位置
 #: （07–12 那几张小注在英文左侧，重心复现同样成立）。
+#:
+#: `mask_mode`：遮盖与嵌字分两步、两个框。数据里的 `box` 只当**嵌字框**（字多大、
+#: 落在哪）；遮盖另按实测的发光足迹算矩形。先前一个框两用，收紧到嵌字合适就盖不住
+#: 小注的晕（产物上一圈矩形亮边）、放大到盖得住就压到英文——**那个框不存在**。
 SPEC = Spec(face="sysgim", src=SRC, data=DATA, out=_out_dir("sysgim_title_zh"),
-            clip_to_box=True, core_anchor=True)
+            mask_mode="glow_footprint", core_anchor=True)
 
 
 def main(argv=None) -> int:

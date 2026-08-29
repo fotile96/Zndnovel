@@ -100,6 +100,10 @@ def photo_fill(im: Image.Image, region: list[list[bool]],
     `protect` 里的像素（保留层）**不得当边界**：roi 网格常撞进保留层的行
     （12a/12b 的 roi 底行就是英文），白芯作边界会把白色引进重建区。它们以
     `bg` 的名义值固定成「墙」——既不参与也不污染。
+
+    **图外格子是「未知」，不是边界。** 早先把它们当 (0,0,0,0) 的固定边界，
+    而 12b 的擦除区大范围贴着 y=0——整条解被拽向全透明（实测 α 11–142，
+    原图 237–247）。改为未知后解自然延伸，顶/左缘不再塌。
     """
     out = im.copy()
     op = out.load()
@@ -117,12 +121,12 @@ def photo_fill(im: Image.Image, region: list[list[bool]],
         for i in range(W):
             x, y = l - 1 + i, t - 1 + j
             if not (0 <= x < im.width and 0 <= y < im.height):
-                continue                                  # 图外：不参与迭代
+                known[j][i] = False            # 图外：未知，参与迭代不落盘
+                continue
             if wall[j][i]:
                 for c in range(4):
                     f[c][j][i] = bgpm[c]                  # 名义底色成墙
             elif not (l <= x < r and t <= y < b and region[y][x]):
-                known[j][i] = True
                 p = _pm(px[x, y])
                 for c in range(4):
                     f[c][j][i] = p[c]
@@ -141,11 +145,22 @@ def photo_fill(im: Image.Image, region: list[list[bool]],
                     f[c][j][i] = v
     for _ in range(600):
         for c in range(4):
-            for j in range(1, H - 1):
-                for i in range(1, W - 1):
-                    if not known[j][i]:
-                        f[c][j][i] = (f[c][j-1][i] + f[c][j+1][i]
-                                      + f[c][j][i-1] + f[c][j][i+1]) / 4
+            for j in range(H):
+                for i in range(W):
+                    if known[j][i]:
+                        continue
+                    # 网格边缘的未知格用 Neumann（只平均存在的邻居）：
+                    # 图外方向没有数据，梯度为零地延伸进去。
+                    nb = []
+                    if j > 0:
+                        nb.append(f[c][j-1][i])
+                    if j < H - 1:
+                        nb.append(f[c][j+1][i])
+                    if i > 0:
+                        nb.append(f[c][j][i-1])
+                    if i < W - 1:
+                        nb.append(f[c][j][i+1])
+                    f[c][j][i] = sum(nb) / len(nb)
     for y in range(t, b):
         for x in range(l, r):
             if region[y][x]:
@@ -254,6 +269,8 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
     # 晕真为零，那里超地板的像素才必然是旧墨——这道自查的职责是抓 r_old 量错
     # 的数据事故，不是裁决重叠区（那由 protected_glow 与看图负责）。
     deaths = [g.get("death", g["r"] + 2) for g in geo["keep"]]
+    dg_min = [[min(dg[y][x] for dg, _r in keep_edts) for x in range(W)]
+              for y in range(H)]
     beyond_keep_glow = [[all(dg[y][x] >= death
                              for (dg, _r), death in zip(keep_edts, deaths))
                          for x in range(W)] for y in range(H)]
@@ -294,62 +311,52 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
     fill = (photo_fill(im, allowed, roi, protect, geo["bg"])
             if geo.get("photo") else None)
 
-    # ── 幽灵晕减法（透明底重叠区）──────────────────────────────────────
-    # 保留层足迹罩住的旧墨黑晕擦不掉（r=5 时保留层彩晕被削平，r=10 时鬼影
-    # 可辨——sys_3_a 实测两难）。物理事实：这些像素是「彩晕在下、黑晕在上」
-    # 的两层叠加，out = blk + red·(1−aB)。黑晕的 α(d_old) 是实测环（合成图
-    # 已知答案自检：按此式还原红单层误差为 0），于是红层可从像素**自身**解出，
-    # 根本不需要彩晕模型：
-    #     red_rgb = out_rgb / (1−aB)      aR = (out_a − aB) / (1−aB)
-    # 黑晕独存的像素（aR→0）自然归零——纯晕无源，正合语义。
+    # ── 幽灵晕清理（透明底重叠区）────────────────────────────────────
+    # 旧墨黑晕与保留层彩晕叠在同一批像素上。黑加进混合只改变**幅值**、不改变
+    # **色相**（pm_rgb 方向仍指着晕色），于是：
+    #   - 无彩暗像素（黑晕本体）→ 归透明；
+    #   - 亮灰像素按 d_old 近者归属（旧墨 AA 清掉 / 保留层 AA 不动）；
+    #   - 彩色且 pm 方向与晕色一致（cos≥0.95）→ 重写为**纯晕色**、α＝沿晕色
+    #     的投影幅值——黑被剥掉，晕恢复饱和。字母边缘的白晕过渡（粉/浅绿，
+    #     cos≈0.8）与离保留层字芯 ≤2px 的像素天然排除，一个字都不动。
+    # 强度模型在这里两个方向都会错（厚晕处环中位数低估→残留暗痕；绿主导处
+    # 整层 alpha 被当黑减→透明洞，2026-08-30 用户反馈实测），色相不会。
     post_writes: dict[tuple[int, int], tuple[int, int, int, int]] = {}
-    if geo.get("ghost_subtract"):
-        # 黑晕环：**无彩且暗**（max−min≤6、max≤120）的像素，α 按 d_old 中位。
-        # 不需要「远离保留层」：红/绿晕与它的混合像素必然带彩色，色度过滤
-        # 自然把它们排除；框的灰填充亮（max≈150+）也进不来。白色抗锯齿边
-        # 同样被 max≤120 挡住——它是旧墨自己的边，不是黑晕。
-        bins = {}
+    glow = geo.get("glow_rgb")
+    if geo.get("ghost_subtract") and glow:
+        ch = [v / 255.0 for v in glow]
+        ch_norm = math.sqrt(sum(v * v for v in ch))
+        ch = [v / ch_norm for v in ch]
+        gmax = max(glow)
         for y in range(roi[1], roi[3]):
             for x in range(roi[0], roi[2]):
-                do = d_old[y][x]
-                if not (0 < do <= 8):
+                if not (protect[y][x] and d_old[y][x] < r_old
+                        and not ink_core[y][x] and (x, y) not in keep_core):
                     continue
                 p = px[x, y]
-                if (max(p[:3]) - min(p[:3]) <= 6 and max(p[:3]) <= 120
-                        and p[3] < 250):
-                    bins.setdefault(round(do, 1), []).append(p[3])
-        ringB = {k: sorted(v)[len(v) // 2] for k, v in bins.items() if len(v) >= 4}
-        if not ringB:
-            raise ValueError("ghost_subtract：量不到黑晕环（无干净的暗色像素）")
-
-        def a_black(do: float) -> float:
-            return ringB.get(round(do, 1), 0.0) / 255.0
-
-        for y in range(roi[1], roi[3]):
-            for x in range(roi[0], roi[2]):
-                if not (protect[y][x] and d_old[y][x] < r_old and not ink_core[y][x]):
+                if p[3] == 0:
                     continue
-                if (x, y) in keep_core:
-                    continue       # 保留层自己的字芯：一个字都不能动
-                aB = a_black(d_old[y][x])
-                if aB <= 0.004:
+                lo, hi = min(p[:3]), max(p[:3])
+                if hi - lo > 24:
+                    # 彩色：方向与晕色一致才剥黑，否则不动
+                    if dg_min[y][x] < 2:
+                        continue              # 贴着保留层字芯：它的 AA 区，别碰
+                    q = _pm(p)
+                    mag = q[0] * ch[0] + q[1] * ch[1] + q[2] * ch[2]
+                    qn = math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2)
+                    if qn < 1e-6 or mag < 0.15 * p[3]:
+                        continue
+                    if mag / qn < 0.95:
+                        continue              # 方向偏离晕色（白晕过渡等）：不动
+                    a = round(min(mag * 255.0 / gmax, float(p[3])))
+                    post_writes[(x, y)] = (glow[0], glow[1], glow[2], a)
                     continue
-                p = px[x, y]
-                # 减量钳到实际 alpha：描边缘的暗像素常比环中位数低一截
-                # （实测 153 vs 158），硬减会留暗斑；钳制后 rgb 至多偏亮一成，
-                # 在晕上不可见。
-                aB = min(aB, p[3] / 255.0)
-                if aB <= 0.004:
-                    continue
-                # 全程预乘空间（PIL 的 alpha_composite 就在这算）：
-                #   pm_out = pm_blk + pm_red·(1−aB)，pm_blk 的 RGB 分量为 0
-                #   ⇒ pm_red = pm_out / (1−aB)，aR = (a_out − aB·255)/(1−aB)
-                # 非预乘 RGB 上直接除会在低 alpha 处出错（合成测试抓到的）。
-                q = _pm(p)
-                pm_red = tuple(q[i] / (1 - aB) for i in range(3))
-                a = round((q[3] - aB * 255) / (1 - aB))
-                post_writes[(x, y)] = _unpm((*pm_red, float(a)))
-        # 被减掉的像素不再是「原样保留」——两份账必须互斥，报告才不撒谎
+                if hi <= 120:
+                    post_writes[(x, y)] = (0, 0, 0, 0)   # 暗灰＝黑晕本体
+                elif d_old[y][x] < dg_min[y][x]:
+                    post_writes[(x, y)] = (0, 0, 0, 0)   # 亮灰贴旧墨＝旧墨 AA
+                # 其余亮灰＝保留层 AA，不动
+        # 被清掉的像素不再是「原样保留」——两份账必须互斥，报告才不撒谎
         protected_glow = [g for g in protected_glow if g[:2] not in post_writes]
 
     return MaskPlan(rects=rects, roi=roi, bg=tuple(geo["bg"]), protect=protect,

@@ -330,6 +330,14 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
              measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
                           bg=mp.bg, probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
                           tail_tol=geo.get("tail_tol", MAX_TAIL_DEV)))
+        if geo.get("r_old") is not None:
+            # 晕的物理死距已实测（r_old）：ring 在此之外是底/照片的残渣，不是晕。
+            # 12b 的量环盒只有 11 行高、tail_tol 又为照片放宽，远端环灌满了照片
+            # 纹理；照写进新字远场就是一圈浑浊（实测 d∈[9,16) pm 亮度 211，
+            # 底只该 10–40）。
+            bgpm = _pm(g.bg)
+            g.ring = [bgpm if k >= geo["r_old"] else ring
+                      for k, ring in enumerate(g.ring, 1)]
         jp_lines = meta["jp"].split("\n")
         para = measure_para(im, box, g, jp_lines)
         zh_lines = [s for s in meta["zh"].split("\n")]

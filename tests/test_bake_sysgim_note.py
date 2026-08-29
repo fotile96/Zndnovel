@@ -86,36 +86,52 @@ def _synth():
     return im, red, black, geo
 
 
-def test_synth_subtract_recovers_red_layer_exactly():
-    """已知答案：减法后保留层足迹内的像素应等于红单层。
+def test_synth_hue_aligned_mixed_pixels_purified():
+    """色相对齐剥离（2026-08-30 最终语义）：
 
-    在**预乘空间**比较（容差 2.5）：RGB 绝对容差会被低 alpha 处的 unpm 放大
-    （α=18 时 ×13），失真；pm 空间里量化往返 ≤1，逻辑错误（非预乘直接除）
-    的偏差 ≥8，分得开。
+    黑加进混合只改幅值不改色相，故 pm 方向与晕色一致的像素应被重写为
+    **纯晕色**、α＝沿晕色的投影幅值（＝aG·(1−aB)，合成是黑在上时按此
+    尊重事实；黑在下则恰好精确）。无彩暗像素归透明；亮灰按 d_old 归属。
     """
     im, red, black, geo = _synth()
+    geo["glow_rgb"] = [1, 254, 1]
     mp = bake_mask.plan_geo(im, [[18, 10, 46, 18]], geo)
     out = im.copy()
     bake_mask.apply(out, mp)
-    rp, op = red.load(), out.load()
-    bad = []
+    op, ip = out.load(), im.load()
+    assert mp.post_writes, "合成图上应有清理写入"
+    n_clear = n_purify = 0
     for (x, y), c in mp.post_writes.items():
-        want, got = _pm(rp[x, y]), _pm(op[x, y])
-        if any(abs(want[i] - got[i]) > 2.5 for i in range(4)):
-            bad.append((x, y, rp[x, y], op[x, y]))
-    assert mp.post_writes, "合成图上应发生减法"
-    assert not bad, f"减法偏离红单层: {bad[:5]}"
+        p = ip[x, y]
+        if max(p[:3]) - min(p[:3]) <= 24:
+            assert c == (0, 0, 0, 0), f"({x},{y}) 无彩像素应清成透明，实测 {c}"
+            n_clear += 1
+        else:
+            # 混合像素：色相必须提纯到晕色，α 介于 aG·(1−aB) 与 aG 之间
+            assert c[:3] == (1, 254, 1), f"({x},{y}) 应提纯为晕色，实测 {c}"
+            aG = p[1] * p[3] / 255.0 / (254 / 255.0)
+            aB = _pm(black.load()[x, y])[3] / 255.0
+            assert aG * (1 - aB) - 2 <= c[3] <= aG + 2, \
+                f"({x},{y}) 剥黑后 α={c[3]}，应落在 [{aG * (1 - aB):.0f},{aG:.0f}]"
+            n_purify += 1
+    assert n_clear and n_purify, f"两类都应发生: 清透明 {n_clear} / 剥黑 {n_purify}"
+    # 字母边缘的白晕过渡（色相偏离）不许动：合成里没有，但纯晕像素不许变
+    for (x, y), c in mp.post_writes.items():
+        assert op[x, y][3] <= ip[x, y][3] + 2, f"({x},{y}) α 不许变大"
 
 
 def test_synth_black_halo_with_no_red_vanishes():
-    """红晕已衰减到 ≈0 的减法像素（黑晕独存）减完后应归透明。"""
+    """黑晕独存（无彩暗）的清理像素减完后应归透明。"""
     im, red, black, geo = _synth()
+    geo["glow_rgb"] = [1, 254, 1]
     mp = bake_mask.plan_geo(im, [[18, 10, 46, 18]], geo)
     out = im.copy()
     bake_mask.apply(out, mp)
-    op, rp = out.load(), red.load()
-    zone = [(x, y) for (x, y) in mp.post_writes if rp[x, y][3] <= 8]
-    assert zone, "应存在红晕≈0 的减法像素"
+    op, ip = out.load(), im.load()
+    zone = [(x, y) for (x, y) in mp.post_writes
+            if max(ip[x, y][:3]) <= 120 and ip[x, y][3] >= 40
+            and max(ip[x, y][:3]) - min(ip[x, y][:3]) <= 24]
+    assert zone, "应存在无彩暗（黑晕本体）的清理像素"
     for x, y in zone:
         assert op[x, y][3] <= 14, f"({x},{y}) 黑晕应归零，实测 {op[x, y]}"
 

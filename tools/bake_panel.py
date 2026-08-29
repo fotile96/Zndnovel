@@ -127,6 +127,65 @@ def choose_size(text: str, target_h: int, avail_w: int) -> tuple[int, tuple | No
     return (over or FONT_CASCADE[-1]), None
 
 
+#: 原文墨迹高相差 ≤ 此值的行算同一档，共用一个字号。
+GROUP_TOL = 1
+
+
+def _measure(name: str, rows: list[dict]):
+    """逐行量原文墨迹：返回 {row: (ys, xs)}。"""
+    op = Image.open(SRC / f"{name}.png").convert("RGBA").load()
+    out = {}
+    for r in rows:
+        l, t, rr, b = r["box"]
+        base = tuple(round(statistics.median([op[x, t - 1][k] for x in range(l, rr)]))
+                     for k in range(4))
+        ink = [(x, y) for y in range(t, b) for x in range(l, rr)
+               if sum(abs(op[x, y][k] - base[k]) for k in range(4)) > 90]
+        out[r["row"]] = ([y for _x, y in ink], [x for x, _y in ink]) if ink else None
+    return out
+
+
+def line_sizes(name: str) -> dict[int, int]:
+    """该图各行的字号。**按原文墨迹高分组，组内统一**。
+
+    逐行各选各的会出用户看图指出的那种毛病：`sys_1_g` 三行原文同为 8px 高，
+    中间行最长、撞宽度掉一档，末行只有 4 字、按高度吃到最大档——末行看着比中间行大
+    （霞鹜文楷 9/8/9，思源更是 8/7/9）。裁决 Y7 早写过「同段里一行 15px 一行 16px
+    会显得坏掉」。
+
+    但**不能一律统一**：`sys_5_d` 第 1 行原文 13px、另两行 11px，是真的分两档
+    （同 `cut_s_ex2` 的大字标题 + 小字注）。故按原文高分组，组间各自。
+    """
+    rows = rows_by_file()[name]
+    meas = _measure(name, rows)
+    heights = {r["row"]: (max(meas[r["row"]][0]) - min(meas[r["row"]][0]) + 1)
+               for r in rows if meas[r["row"]]}
+    groups: list[list[int]] = []
+    for rid in sorted(heights, key=lambda k: -heights[k]):
+        for g in groups:
+            if abs(heights[g[0]] - heights[rid]) <= GROUP_TOL:
+                g.append(rid)
+                break
+        else:
+            groups.append([rid])
+    by_row = {r["row"]: r for r in rows}
+    sizes: dict[int, int] = {}
+    for g in groups:
+        # 组内取**每一行都放得下**的最大档：高度用组内最小的原文高，宽度逐行判
+        target_h = min(heights[rid] for rid in g)
+        best = None
+        for size in FONT_CASCADE:
+            boxes = [_ink_box(by_row[rid]["zh"], size) for rid in g]
+            if all(bb is not None and bb[3] - bb[1] <= target_h + HEIGHT_SLACK
+                   and bb[2] - bb[0] <= by_row[rid]["box"][2] - by_row[rid]["box"][0]
+                   for rid, bb in zip(g, boxes)):
+                best = size
+                break
+        for rid in g:
+            sizes[rid] = best if best is not None else FONT_CASCADE[-1]
+    return sizes
+
+
 def bake_file(name: str, rows: list[dict], report: list[str] | None = None) -> Image.Image:
     report = report if report is not None else []
     orig = Image.open(SRC / f"{name}.png").convert("RGBA")
@@ -134,6 +193,7 @@ def bake_file(name: str, rows: list[dict], report: list[str] | None = None) -> I
     for r in rows:                      # 先把所有盒的底补回来，再落字
         out = vfill(out, tuple(r["box"]))
     op = orig.load()
+    sizes = line_sizes(name)
     for r in rows:
         l, t, rr, b = r["box"]
         # 原行的墨迹几何：高度定字号，左缘/中心定落位
@@ -148,8 +208,9 @@ def bake_file(name: str, rows: list[dict], report: list[str] | None = None) -> I
         xs = [x for x, _y in ink]
         target_h = max(ys) - min(ys) + 1
         avail_w = rr - l
-        size, bb = choose_size(r["zh"], target_h, avail_w)
-        if bb is None:
+        size = sizes[r["row"]]
+        bb = _ink_box(r["zh"], size)
+        if bb is None or bb[3] - bb[1] > target_h + HEIGHT_SLACK or bb[2] - bb[0] > avail_w:
             report.append(
                 f"OVERFLOW {name} 行{r['row']}：「{r['zh']}」在 {size}px 下"
                 f"放不进 {avail_w}×{target_h}")

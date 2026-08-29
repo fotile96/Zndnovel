@@ -98,3 +98,23 @@ def test_every_line_fits_its_box():
     for name, rows in rows_by_file().items():
         bake_file(name, rows, report)
     assert [x for x in report if x.startswith("OVERFLOW")] == []
+
+
+@needs_face_font("sysgim")
+def test_lines_of_the_same_original_size_get_the_same_size():
+    """原文同一档的行，中文也必须同一档——**用户看图指出的**：`sys_1_g` 末行
+    比中间行明显大。
+
+    成因是逐行选字号：中间行最长、撞宽度掉一档，末行「恢复清晰」只有 4 字、
+    按高度吃到最大档。原图三行是同一个字号（日文墨迹高都是 8）。
+    这正是裁决 Y7 警告的「同段里一行 15px 一行 16px 会显得坏掉」。
+
+    但**不能一律统一**：`sys_5_d` 第 1 行原文墨迹 13px、另两行 11px，是真的分两档。
+    故按**原文墨迹高分组**，组内统一、组间各自。
+    """
+    from tools.bake_panel import line_sizes
+
+    assert len(set(line_sizes("sys_1_g").values())) == 1, line_sizes("sys_1_g")
+    s5 = line_sizes("sys_5_d")
+    assert s5[1] == s5[2], s5           # 原文同为 11px 的两行
+    assert s5[0] >= s5[1], s5           # 原文 13px 的那行不该更小

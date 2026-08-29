@@ -307,6 +307,31 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
                 continue
             allowed[y][x] = True
 
+    # ── 写带：新字墨迹的合法领土（替换语义）────────────────────────────
+    # 旧墨 bbox ±2px。汉字比假名高约 1px 且笔画位置不同，新字顶行必然撞进
+    # 大标题晕的保护区——只豁免「旧字芯像素」时，没恰好落在旧芯上的顶行
+    # 全被拦（sys_2_a 四个汉字顶上被削平，2026-08-30 用户反馈）。带内排除
+    # 硬保护（缩略图框等，`hard: true` 的组）与保留层字芯：那两处一个像素不让。
+    keep_core_mask = [[(x, y) in keep_core for x in range(W)] for y in range(H)]
+    protect_hard = [[False] * W for _ in range(H)]
+    for (dg, rg), g in zip(keep_edts, geo["keep"]):
+        if not g.get("hard"):
+            continue
+        for y in range(H):
+            drow = dg[y]
+            row = protect_hard[y]
+            for x in range(W):
+                if drow[x] < rg:
+                    row[x] = True
+    xs = [p[0] for p in drop_core]
+    ys = [p[1] for p in drop_core]
+    band = [[False] * W for _ in range(H)]
+    slack = 2
+    for y in range(max(0, min(ys) - slack), min(H, max(ys) + 1 + slack)):
+        for x in range(max(0, min(xs) - slack), min(W, max(xs) + 1 + slack)):
+            if not protect_hard[y][x] and not keep_core_mask[y][x]:
+                band[y][x] = True
+
     rects = _rects_of(allowed, roi)
     fill = (photo_fill(im, allowed, roi, protect, geo["bg"])
             if geo.get("photo") else None)
@@ -362,7 +387,7 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
     return MaskPlan(rects=rects, roi=roi, bg=tuple(geo["bg"]), protect=protect,
                     ink_core=ink_core, residual=[], residual_max_alpha=0,
                     fill=fill, protected_glow=protected_glow, geo_exemption=True,
-                    writable=allowed, post_writes=post_writes)
+                    writable=allowed, post_writes=post_writes, write_band=band)
 
 
 def check_apply_exact(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list:
@@ -384,6 +409,8 @@ def check_apply_exact(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list:
         for x in range(src.width):
             if inrect[y][x]:
                 continue
+            if mp.write_band is not None and mp.write_band[y][x]:
+                continue        # 写带：新字墨迹许落（替换语义），不比字节
             if (x, y) in mp.post_writes:
                 if dp[x, y] != mp.post_writes[(x, y)]:
                     bad.append((x, y))
@@ -466,6 +493,11 @@ class MaskPlan:
     #: `plan_geo` 专用：字芯豁免开着——`can_write` 允许写回落在保留层足迹内的
     #: 本层字芯位（新字同位替换旧字）。
     geo_exemption: bool = False
+    #: `plan_geo` 专用：**写带**——旧墨 bbox ±2px 内、排除硬保护与保留层字芯的
+    #: 像素。新字的墨迹许在这里落笔（替换语义：新字住旧字住的地方，汉字本就比
+    #: 假名高且笔画位置不同）；带内的保留层晕被新墨盖掉属替换的固有代价。
+    #: `can_write` 与两处校验都认它。
+    write_band: list[list[bool]] | None = None
     #: `plan_geo` 专用：逐像素的可写域（＝擦除允许区本身）。给了它 `can_write`
     #: 就直接查它——旧墨足迹比 roi 小，若仍按「roi∧¬protect」判，晕圈外沿的
     #: roi 边缘就成了法外之地（实测 sys_12_a 越界 93 像素）。
@@ -495,8 +527,12 @@ class MaskPlan:
         作用域的外边界在全透明处（`ROI_PAD` 保证），所以那条边界不会显形。
 
         `writable`（几何足迹方案）给定时直接查它——它就是擦除允许区，连
-        「roi 之内、足迹之外」的边角也一并排除。
+        「roi 之内、足迹之外」的边角也一并排除。`write_band`（写带）在其上
+        追加：旧墨带内的保留层**软晕**许被新字墨迹盖掉（替换语义），硬保护
+        （缩略图框等）与保留层字芯除外——那两处在建带时就已排除。
         """
+        if self.write_band is not None and self.write_band[y][x]:
+            return True
         if self.writable is not None:
             return self.writable[y][x]
         l, t, r, b = self.roi
@@ -639,6 +675,10 @@ def check_keep_intact(src: Image.Image, dst: Image.Image, mp: MaskPlan,
             if not mp.protect[y][x]:
                 continue
             if (skip_ink and mp.ink_core[y][x]) or (x, y) in mp.post_writes:
+                continue
+            # 写带内的保留层软晕许被新字墨迹盖掉（替换语义，E11′/E18）：
+            # 有意改动，豁免。硬保护（框）在建带时已排除，不在此列。
+            if mp.write_band is not None and mp.write_band[y][x]:
                 continue
             if sp[x, y] != dp[x, y]:
                 bad += 1

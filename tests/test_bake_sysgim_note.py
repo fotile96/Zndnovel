@@ -207,11 +207,21 @@ def test_real_panels_subtract_hits_the_ghost_zone():
 
 
 def test_products_subtracted_pixels_match_plan():
-    """成品与计划一致：减法表里的像素必须等于表里的值（防 apply 漏写）。"""
+    """成品与计划一致：**写带之外**的清理像素必须等于计划值。
+
+    写带内的清理像素可能随后被新字的晕按 farther-wins 合法覆盖（新晕压旧晕，
+    与原图行为一致），故不在断言之列。
+    """
     for name in ("sys_2_a", "sys_3_a"):
+        mp = _plan(name)
         dp = _product(name).load()
-        for (x, y), c in _plan(name).post_writes.items():
-            assert dp[x, y] == c, f"{name}: ({x},{y}) 减法未落盘"
+        checked = 0
+        for (x, y), c in mp.post_writes.items():
+            if mp.write_band is not None and mp.write_band[y][x]:
+                continue
+            assert dp[x, y] == c, f"{name}: ({x},{y}) 清理未落盘"
+            checked += 1
+        assert checked, f"{name}: 写带外竟无清理像素？"
 
 
 @needs_face_font("sysgim")
@@ -223,3 +233,54 @@ def test_products_rendered_chinese_present():
         diff = sum(1 for y in range(H) for x in range(W)
                    if src[x, y] != dst[x, y])
         assert diff > 200, f"{name}: 成品与原图差异仅 {diff} 像素，像是没渲染"
+
+
+@needs_face_font("sysgim")
+def test_sys_2_a_glyph_tops_not_clipped():
+    """写带回归（2026-08-30 用户反馈）：新字顶行不许被保护区拦成「削平」。
+
+    汉字比假名高约 1px 且笔画位置不同，顶行若只豁免「旧字芯像素」，没恰好
+    落在旧芯上的墨迹全被拦（当时 128 个像素、含 (249,249,249,249) 的实心白）。
+    重放合并、断言**实心墨**（贴片 mask>200）不再有被拦的。
+    """
+    import dataclasses
+
+    from tools.bake_para_glow import (_core_heights, choose_size, measure_para,
+                                      render_glow, _core_mask)
+    from tools.bake_sysgim_glow import MAX_TAIL_DEV, _pm, measure_glow
+
+    name = "sys_2_a"
+    meta = ROWS[name]
+    im = _img(name)
+    mp = _plan(name)
+    box = tuple(meta["box"])
+    geo = meta["geo"]
+    g = measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
+                     bg=mp.bg, probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
+                     tail_tol=geo.get("tail_tol", MAX_TAIL_DEV))
+    if geo.get("r_old") is not None:
+        bgpm = _pm(g.bg)
+        g.ring = [bgpm if k >= geo["r_old"] else ring
+                  for k, ring in enumerate(g.ring, 1)]
+    zh = meta["zh"]
+    para = measure_para(im, box, g, meta["jp"].split("\n"))
+    para = dataclasses.replace(para, heights=_core_heights(im, box, para))
+    size = choose_size([zh], para, box, name, "sysgim")[0][0]
+    cbb = _core_mask(zh, size, name, "sysgim").getbbox()
+    left = round(((para.ink_x0 + para.ink_x1) / 2) - (cbb[0] + cbb[2]) / 2)
+    gy = para.tops[0] + (para.heights[0] - (cbb[3] - cbb[1])) // 2
+    ox, oy = left - cbb[0], gy - cbb[1]
+    tile = render_glow(zh, size, g, name, "sysgim")
+    mask = _core_mask(zh, size, name, "sysgim").load()
+    mpaste = mask
+    blocked_solid = []
+    for ty in range(tile.height):
+        for tx in range(tile.width):
+            if mpaste[tx, ty] <= 200:
+                continue
+            xx, yy = ox + tx, oy + ty
+            if 0 <= xx < im.width and 0 <= yy < im.height \
+                    and not mp.can_write(xx, yy):
+                blocked_solid.append((xx, yy))
+    assert not blocked_solid, \
+        f"实心墨仍被拦 {len(blocked_solid)} 个: {blocked_solid[:8]}"

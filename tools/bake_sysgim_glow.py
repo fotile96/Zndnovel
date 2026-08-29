@@ -148,7 +148,8 @@ def _dist_field(core: list[list[bool]], W: int, H: int) -> list[list[int]]:
 
 
 def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
-                 bg=None, probe_d: int = GLOW_PROBE_D) -> Glow:
+                 bg=None, probe_d: int = GLOW_PROBE_D,
+                 tail_tol: int = MAX_TAIL_DEV) -> Glow:
     """从原图的一个盒子里量出「距离 → RGBA」这条曲线。
 
     `ignore(x, y)` 给定时，那些像素**完全不参与**取底、判字芯与测环。用于盒里
@@ -179,6 +180,11 @@ def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
     `probe_d`：判「有没有发光」时探到多远。默认 5 是按 sysgim 各族的字号定的，
     而 `title_*` 小注的晕半径实测只有 4——在 d=5 处要求还剩 `GLOW_TAIL_MIN_A`
     的强度，等于要求晕比它自己的外沿还长，于是真发光被判成没发光、环被压平。
+
+    `tail_tol`：远端收敛容差。默认 `MAX_TAIL_DEV`；照片/渐变底（sys_12_a/b）的
+    底本身离名义色有几十的偏差，环的远端永远回不到容差 6 以内，由调用方按实测
+    底偏差放宽。底是名字义色的平底时不要放宽——那道检查是「众数取对了没有」
+    的验法。
     """
     l, t, r, b = box
     W, H = r - l, b - t
@@ -249,9 +255,9 @@ def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
     # 远端必须收敛回底色——这是环模型的前提，也是「众数取对了没有」的验法。
     ringdist = lambda q: sum(abs(q[i] - bg_pm[i]) for i in range(4))
     tail = ringdist(ring[-1])
-    if tail > MAX_TAIL_DEV:
+    if tail > tail_tol:
         raise ValueError(
-            f"盒 {box} 的环在 d={MAX_DIST} 处仍离底 {tail}（容差 {MAX_TAIL_DEV}）"
+            f"盒 {box} 的环在 d={MAX_DIST} 处仍离底 {tail}（容差 {tail_tol}）"
             f"——底色 {bg} 恐怕取错了，或发光半径超出了 MAX_DIST"
         )
 

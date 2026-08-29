@@ -45,7 +45,8 @@ from tools import bake_mask  # noqa: E402
 from tools.bake_out import out_dir as _out_dir  # noqa: E402
 from tools.ui_font import size_bias as _ui_size_bias  # noqa: E402
 from tools.bake_sysgim_glow import (  # noqa: E402
-    FONT_CASCADE, Glow, _core_mask, _merge_farther, _pm, measure_glow, render_glow,
+    FONT_CASCADE, Glow, MAX_TAIL_DEV, _core_mask, _merge_farther, _pm,
+    measure_glow, render_glow,
 )
 
 REPO = Path(_REPO)
@@ -82,6 +83,11 @@ class Spec:
     #: 的晕（外边界落在全透明处，故不会切出矩形亮边），同时逐像素避开必须保留的
     #: 那层字的发光足迹。**两步的框不是同一个**——译文盒仍只管字该多大、落在哪。
     #: 设了它就不要再设 `clip_to_box`：那是矩形夹，而这里的保留区不是矩形。
+    #:
+    #: `"geo_footprint"`＝E 类剩余 5 张（sys_2_a/3_a、sys_12_a/b/c）的变体：底
+    #: 不透明/是照片、晕色不同、保留层的晕长得多，title 的 alpha 上界表不适用。
+    #: 保护判据改成**几何足迹**（逐保留层一个实测半径，见 tools/bake_mask.py
+    #: `plan_geo`），geo 参数逐张放在数据行的 `geo` 字段里。
     mask_mode: str | None = None
 
 #: 分行阈值：相对该盒峰值墨距的比例。
@@ -300,6 +306,17 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
                 f"residual {name}: 旧墨有 {len(mp.residual)} 个像素压在保留层的发光里，"
                 f"擦不掉（最亮 alpha {mp.residual_max_alpha}）"
             )
+    elif spec.mask_mode == "geo_footprint":
+        geo = rows[0].get("geo")
+        if not geo:
+            raise ValueError(f"{name}: mask_mode=geo_footprint 但数据行没有 geo 字段")
+        mp = bake_mask.plan_geo(im, [tuple(r["box"]) for r in rows], geo)
+        if mp.protected_glow:
+            report.append(
+                f"protected-glow {name}: {len(mp.protected_glow)} 个旧墨晕像素落在"
+                f"保留层足迹内原样保留（最亮 dev "
+                f"{max(d for _, _, d in mp.protected_glow)}）"
+            )
     elif spec.mask_mode is not None:
         raise ValueError(f"未知的 mask_mode：{spec.mask_mode!r}")
     for meta in rows:
@@ -307,9 +324,12 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         boxes.append(box)
         # 保留层的地盘不参与量环——盒里混着它的晕，不排除就会把它当成本层的晕。
         # 字芯也由 mask 给：默认判据会漏掉纯青的细笔，漏掉的笔画会变成假的远场晕。
+        geo = (rows[0].get("geo", {})
+               if spec.mask_mode == "geo_footprint" else {})
         g = (measure_glow(im, box) if mp is None else
              measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
-                          bg=mp.bg, probe_d=bake_mask.GLOW_PROBE_D))
+                          bg=mp.bg, probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
+                          tail_tol=geo.get("tail_tol", MAX_TAIL_DEV)))
         jp_lines = meta["jp"].split("\n")
         para = measure_para(im, box, g, jp_lines)
         zh_lines = [s for s in meta["zh"].split("\n")]
@@ -382,7 +402,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
     for g, glyph, ox, oy, clip in plans:
         _merge_farther(out, glyph, ox, oy, g.bg, bounds=clip)
     if mp is not None:
-        hurt = bake_mask.check_keep_intact(im, out, mp)
+        hurt = bake_mask.check_keep_intact(im, out, mp,
+                                           skip_ink=spec.mask_mode == "geo_footprint")
         if hurt:
             report.append(f"PIXEL-VIOLATION {name}: 保留层被改动 {hurt} 个像素")
     return out

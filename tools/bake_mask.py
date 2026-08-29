@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import math
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from PIL import Image
@@ -73,10 +73,316 @@ GLOW_PROBE_D = 3
 ROI_PAD = 6
 
 
-def _pm_dist_bg(p, bg) -> int:
-    """预乘空间里离底的距离。与 `bake_sysgim_glow` 同一把尺子。"""
-    a, ba = p[3] / 255, bg[3] / 255
-    return sum(abs(p[i] * a - bg[i] * ba) for i in range(3)) + abs(p[3] - bg[3])
+def _pm(p):
+    a = p[3] / 255
+    return (p[0] * a, p[1] * a, p[2] * a, float(p[3]))
+
+
+def _unpm(q):
+    a = max(0.0, min(255.0, q[3]))
+    if a < 0.5:
+        return (0, 0, 0, 0)
+    return tuple(min(255, max(0, round(q[i] * 255 / a))) for i in range(3)) + (round(a),)
+
+
+def photo_fill(im: Image.Image, region: list[list[bool]],
+               roi: tuple[int, int, int, int], protect, bg) -> Image.Image:
+    """非平底重建：在 `region` 内解拉普斯拉方程，边界取足迹外的**原图**像素。
+
+    用于照片底（sys_12_b）与渐变底（sys_12_a 的底 alpha 实测 232–242 在缓变，
+    平底填充会留下台阶）。预乘空间**四个通道一起解**（含 alpha——12a 要重建的
+    正是 alpha）。
+
+    为什么不用线性插值：sys_12_b 的照片在对角亮带的边缘穿过足迹，逐行插值把
+    边缘抹平（实测照片像素误差 max 147）；拉普斯拉从四面八方取边界，实测足迹外
+    差分恰为 0、足迹内无字形残迹（放大看图定案）。
+
+    `protect` 里的像素（保留层）**不得当边界**：roi 网格常撞进保留层的行
+    （12a/12b 的 roi 底行就是英文），白芯作边界会把白色引进重建区。它们以
+    `bg` 的名义值固定成「墙」——既不参与也不污染。
+    """
+    out = im.copy()
+    op = out.load()
+    px = im.load()
+    l, t, r, b = roi
+    W, H = r - l + 2, b - t + 2
+    bgpm = _pm(bg)
+    wall = [[(l <= l - 1 + i < r and t <= t - 1 + j < b
+              and protect[t - 1 + j][l - 1 + i]
+              and not region[t - 1 + j][l - 1 + i])
+             for i in range(W)] for j in range(H)]
+    f = [[[0.0] * W for _ in range(H)] for _ in range(4)]
+    known = [[True] * W for _ in range(H)]
+    for j in range(H):
+        for i in range(W):
+            x, y = l - 1 + i, t - 1 + j
+            if not (0 <= x < im.width and 0 <= y < im.height):
+                continue                                  # 图外：不参与迭代
+            if wall[j][i]:
+                for c in range(4):
+                    f[c][j][i] = bgpm[c]                  # 名义底色成墙
+            elif not (l <= x < r and t <= y < b and region[y][x]):
+                known[j][i] = True
+                p = _pm(px[x, y])
+                for c in range(4):
+                    f[c][j][i] = p[c]
+            else:
+                known[j][i] = False
+    for c in range(4):
+        tot = n = 0
+        for j in range(H):
+            for i in range(W):
+                if known[j][i]:
+                    tot += f[c][j][i]; n += 1
+        v = tot / max(n, 1)
+        for j in range(H):
+            for i in range(W):
+                if not known[j][i]:
+                    f[c][j][i] = v
+    for _ in range(600):
+        for c in range(4):
+            for j in range(1, H - 1):
+                for i in range(1, W - 1):
+                    if not known[j][i]:
+                        f[c][j][i] = (f[c][j-1][i] + f[c][j+1][i]
+                                      + f[c][j][i-1] + f[c][j][i+1]) / 4
+    for y in range(t, b):
+        for x in range(l, r):
+            if region[y][x]:
+                i, j = x - l + 1, y - t + 1
+                op[x, y] = _unpm((f[0][j][i], f[1][j][i], f[2][j][i], f[3][j][i]))
+    return out
+
+
+def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
+    """几何足迹遮盖方案。`geo` 逐张给：
+
+        keep:   [{"box": (l,t,r,b), "r": 半径, "kind": "white"|"bright:N"}, …]
+        r_old:  旧墨（假名）晕的足迹半径（像素）
+        bg:     底色（照片底也给名义色，供量偏差/闭合用）
+        photo:  true＝足迹内拉普斯拉重建（sys_12_b）
+        glow_floor: 判「还有旧墨晕」的可见性地板（预乘 L1）
+        probe_d / tail_tol: 量环参数（转给 measure_glow）
+
+    数字全部出自 2026-08-29 的实测（docs/ops/bake-sysgim-inventory.md「E 类版面
+    测绘」节），逐张落在 data 的 geo 字段里，这里不做任何猜测。
+    """
+    px = im.load()
+    W, H = im.size
+    bgpm = _pm(geo["bg"])
+    dev = lambda p: sum(abs(_pm(p)[i] - bgpm[i]) for i in range(4))
+    floor = geo["glow_floor"]
+    r_old = geo["r_old"]
+
+    def is_white(x, y):
+        p = px[x, y]
+        return p[3] >= CORE_ALPHA and min(p[:3]) >= CORE_LUMA
+
+    # ── 旧墨字芯：白芯连通块按盒归属分（和 `plan` 同一判据）──────────────
+    core = [[is_white(x, y) for x in range(W)] for y in range(H)]
+    drop_core = set()
+    for pts in _components(core, W, H):
+        inside = sum(1 for x, y in pts
+                     if any(l <= x < r and t <= y < b for (l, t, r, b) in boxes))
+        if inside * 2 > len(pts):
+            drop_core.update(pts)
+    if not drop_core:
+        raise ValueError("量不到要换掉的那层墨")
+    d_old = _edt(sorted(drop_core), W, H)
+
+    # ── 未归属连通块自查 ───────────────────────────────────────────────
+    # 白芯块既不属于要换的层、也不在任何保留组盒里、又贴着旧墨（≤ r_old+6）：
+    # 多半是要换那层的漏字（sys_12_a 的尾「ー」芯是粉的、独立成块、盒没圈住，
+    # 结果只擦掉半截，产物上漂着一截短横）。有它就当场炸，别让产物背着它。
+    drop_bbox = (min(p[0] for p in drop_core), min(p[1] for p in drop_core),
+                 max(p[0] for p in drop_core), max(p[1] for p in drop_core))
+    near = r_old + 6
+    for pts in _components(core, W, H):
+        inside = sum(1 for x, y in pts
+                     if any(l <= x < r and t <= y < b for (l, t, r, b) in boxes))
+        if inside * 2 > len(pts):
+            continue
+        in_keep = sum(1 for x, y in pts
+                      if any(l <= x < r and t <= y < b
+                             for g in geo["keep"] for (l, t, r, b) in [g["box"]]))
+        if in_keep * 2 > len(pts):
+            continue
+        cx, cy = pts[len(pts) // 2]
+        dx = max(drop_bbox[0] - cx, 0, cx - drop_bbox[2])
+        dy = max(drop_bbox[1] - cy, 0, cy - drop_bbox[3])
+        # 只有「能活到足迹之外」的块才值得报：整块都在足迹内的碎芯反正会被
+        # 遮盖区一起擦掉（sys_12_a 的 (18,7) 2px 碎芯属于此类，无害）。
+        if math.hypot(dx, dy) > near:
+            continue
+        if all(d_old[y][x] < r_old for x, y in pts):
+            continue
+        raise ValueError(
+                f"白芯连通块 {pts[0]}…{pts[-1]}（{len(pts)}px）不属于要换的层、"
+                f"也不在任何保留组的盒里，却距旧墨 ≤{near}px——要么是漏圈的旧墨，"
+                f"要么是漏声明的保留元素，先查清楚"
+            )
+
+    # ── 保留层：逐组字芯 + 逐组足迹半径 ────────────────────────────────
+    protect = [[False] * W for _ in range(H)]
+    keep_core = set()
+    keep_edts = []
+    for g in geo["keep"]:
+        l, t, r, b = g["box"]
+        kind = g.get("kind", "white")
+        if kind == "white":
+            pts = [(x, y) for y in range(max(0, t), min(H, b))
+                   for x in range(max(0, l), min(W, r)) if is_white(x, y)]
+        else:  # "bright:N"
+            th = float(kind.split(":", 1)[1])
+            pts = [(x, y) for y in range(max(0, t), min(H, b))
+                   for x in range(max(0, l), min(W, r)) if dev(px[x, y]) > th]
+        if not pts:
+            raise ValueError(f"保留组 {g['box']} 量不到字芯")
+        keep_core.update(pts)
+        dg = _edt(pts, W, H)
+        keep_edts.append((dg, g["r"]))
+        for y in range(H):
+            row = protect[y]
+            drow = dg[y]
+            for x in range(W):
+                if drow[x] < g["r"]:
+                    row[x] = True
+    # 「一切保留层晕场之外」：旧墨自查只在这里跑。排除半径取该组的**实测死距**
+    # （geo 里 `death`，缺省 r+2）——保留层的晕会拖到足迹半径外好几像素
+    # （sys_2 绿晕 alpha=11 的尾巴在 d_sm≈12），重叠区里混色让逐像素判据必然
+    # 误报（这是前三轮同一堵墙），所以不在它的晕场里判旧墨。死距之外保留层
+    # 晕真为零，那里超地板的像素才必然是旧墨——这道自查的职责是抓 r_old 量错
+    # 的数据事故，不是裁决重叠区（那由 protected_glow 与看图负责）。
+    deaths = [g.get("death", g["r"] + 2) for g in geo["keep"]]
+    beyond_keep_glow = [[all(dg[y][x] >= death
+                             for (dg, _r), death in zip(keep_edts, deaths))
+                         for x in range(W)] for y in range(H)]
+
+    # ── 擦除区：旧墨足迹 − 保留层足迹 ＋ 字芯豁免 ──────────────────────
+    xs = [p[0] for p in drop_core]
+    ys = [p[1] for p in drop_core]
+    roi = (max(0, min(xs) - int(r_old) - 2), max(0, min(ys) - int(r_old) - 2),
+           min(W, max(xs) + 1 + int(r_old) + 2), min(H, max(ys) + 1 + int(r_old) + 2))
+    ink_core = [[(x, y) in drop_core for x in range(W)] for y in range(H)]
+    allowed = [[False] * W for _ in range(H)]
+    protected_glow = []
+    for y in range(roi[1], roi[3]):
+        for x in range(roi[0], roi[2]):
+            do = d_old[y][x]
+            if do >= r_old:
+                # 闭合自查：只扫 r_old..r_old+2 这条**晕尾带**——旧墨的晕到 r_old
+                # 应已衰减到地板以下。不扫整个 roi：更远处是保留层自己的地盘
+                # （框的填充与抗锯齿、渐变底），与旧墨无关，扫了必然误报。
+                if r_old <= do < r_old + 2 and beyond_keep_glow[y][x] \
+                        and not geo.get("photo") and dev(px[x, y]) > floor:
+                    raise ValueError(
+                        f"({x},{y}) 在足迹外 {do:.1f}px 处仍有旧墨色 "
+                        f"dev={dev(px[x, y]):.0f} > 地板 {floor}——r_old={r_old} 不够"
+                    )
+                continue
+            if protect[y][x]:
+                if ink_core[y][x]:
+                    allowed[y][x] = True      # 字芯豁免：同位替换
+                elif (x, y) not in keep_core and dev(px[x, y]) > floor:
+                    # 保留层自己的字芯不算「旧墨晕」——它只是恰好落在旧墨
+                    # 足迹半径内（两层只隔 4px 时必然发生）。
+                    protected_glow.append((x, y, round(dev(px[x, y]))))
+                continue
+            allowed[y][x] = True
+
+    rects = _rects_of(allowed, roi)
+    fill = (photo_fill(im, allowed, roi, protect, geo["bg"])
+            if geo.get("photo") else None)
+
+    # ── 幽灵晕减法（透明底重叠区）──────────────────────────────────────
+    # 保留层足迹罩住的旧墨黑晕擦不掉（r=5 时保留层彩晕被削平，r=10 时鬼影
+    # 可辨——sys_3_a 实测两难）。物理事实：这些像素是「彩晕在下、黑晕在上」
+    # 的两层叠加，out = blk + red·(1−aB)。黑晕的 α(d_old) 是实测环（合成图
+    # 已知答案自检：按此式还原红单层误差为 0），于是红层可从像素**自身**解出，
+    # 根本不需要彩晕模型：
+    #     red_rgb = out_rgb / (1−aB)      aR = (out_a − aB) / (1−aB)
+    # 黑晕独存的像素（aR→0）自然归零——纯晕无源，正合语义。
+    post_writes: dict[tuple[int, int], tuple[int, int, int, int]] = {}
+    if geo.get("ghost_subtract"):
+        # 黑晕环：**无彩且暗**（max−min≤6、max≤120）的像素，α 按 d_old 中位。
+        # 不需要「远离保留层」：红/绿晕与它的混合像素必然带彩色，色度过滤
+        # 自然把它们排除；框的灰填充亮（max≈150+）也进不来。白色抗锯齿边
+        # 同样被 max≤120 挡住——它是旧墨自己的边，不是黑晕。
+        bins = {}
+        for y in range(roi[1], roi[3]):
+            for x in range(roi[0], roi[2]):
+                do = d_old[y][x]
+                if not (0 < do <= 8):
+                    continue
+                p = px[x, y]
+                if (max(p[:3]) - min(p[:3]) <= 6 and max(p[:3]) <= 120
+                        and p[3] < 250):
+                    bins.setdefault(round(do, 1), []).append(p[3])
+        ringB = {k: sorted(v)[len(v) // 2] for k, v in bins.items() if len(v) >= 4}
+        if not ringB:
+            raise ValueError("ghost_subtract：量不到黑晕环（无干净的暗色像素）")
+
+        def a_black(do: float) -> float:
+            return ringB.get(round(do, 1), 0.0) / 255.0
+
+        for y in range(roi[1], roi[3]):
+            for x in range(roi[0], roi[2]):
+                if not (protect[y][x] and d_old[y][x] < r_old and not ink_core[y][x]):
+                    continue
+                if (x, y) in keep_core:
+                    continue       # 保留层自己的字芯：一个字都不能动
+                aB = a_black(d_old[y][x])
+                if aB <= 0.004:
+                    continue
+                p = px[x, y]
+                # 减量钳到实际 alpha：描边缘的暗像素常比环中位数低一截
+                # （实测 153 vs 158），硬减会留暗斑；钳制后 rgb 至多偏亮一成，
+                # 在晕上不可见。
+                aB = min(aB, p[3] / 255.0)
+                if aB <= 0.004:
+                    continue
+                # 全程预乘空间（PIL 的 alpha_composite 就在这算）：
+                #   pm_out = pm_blk + pm_red·(1−aB)，pm_blk 的 RGB 分量为 0
+                #   ⇒ pm_red = pm_out / (1−aB)，aR = (a_out − aB·255)/(1−aB)
+                # 非预乘 RGB 上直接除会在低 alpha 处出错（合成测试抓到的）。
+                q = _pm(p)
+                pm_red = tuple(q[i] / (1 - aB) for i in range(3))
+                a = round((q[3] - aB * 255) / (1 - aB))
+                post_writes[(x, y)] = _unpm((*pm_red, float(a)))
+        # 被减掉的像素不再是「原样保留」——两份账必须互斥，报告才不撒谎
+        protected_glow = [g for g in protected_glow if g[:2] not in post_writes]
+
+    return MaskPlan(rects=rects, roi=roi, bg=tuple(geo["bg"]), protect=protect,
+                    ink_core=ink_core, residual=[], residual_max_alpha=0,
+                    fill=fill, protected_glow=protected_glow, geo_exemption=True,
+                    writable=allowed, post_writes=post_writes)
+
+
+def check_apply_exact(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list:
+    """成品自检：**矩形之外**逐字节＝原图。
+
+    嵌字的写入被 `can_write`（＝擦除区）夹住，擦除只发生在矩形里——所以成品里
+    任何矩形外的差异都是越界写入。矩形**之内**是擦除与新字的地盘，不比
+    （新字必然不等于底色；擦除态对底色/重建像素的逐字节比对放进单元测试做）。
+    """
+    sp, dp = src.load(), dst.load()
+    inrect = [[False] * src.width for _ in range(src.height)]
+    for (l, t, r, b) in mp.rects:
+        for y in range(t, b):
+            row = inrect[y]
+            for x in range(l, r):
+                row[x] = True
+    bad = []
+    for y in range(src.height):
+        for x in range(src.width):
+            if inrect[y][x]:
+                continue
+            if (x, y) in mp.post_writes:
+                if dp[x, y] != mp.post_writes[(x, y)]:
+                    bad.append((x, y))
+            elif sp[x, y] != dp[x, y]:
+                bad.append((x, y))
+    return bad
 
 
 def protect_alpha(d: float) -> int:
@@ -144,6 +450,24 @@ class MaskPlan:
     ink_core: list[list[bool]]               #: 逐像素：True＝旧墨的**实心笔画**
     residual: list[tuple[int, int]]          #: 擦不掉的旧墨像素
     residual_max_alpha: int
+    #: `plan_geo` 专用：非 None 时 `apply` 在矩形内贴这张图的像素而不是纯底色
+    #: （照片底：足迹内是拉普斯拉重建值，足迹外与原图逐字节相同）。
+    fill: Image.Image | None = None
+    #: `plan_geo` 专用：被保留层足迹罩住、**没擦**的旧墨晕（强度 > 可见性地板）。
+    #: 不是缺陷清单——它们在保留层的地盘里原样活着（与原图同值），报出来供裁量。
+    protected_glow: list[tuple[int, int, int]] = field(default_factory=list)  # (x, y, dev)
+    #: `plan_geo` 专用：字芯豁免开着——`can_write` 允许写回落在保留层足迹内的
+    #: 本层字芯位（新字同位替换旧字）。
+    geo_exemption: bool = False
+    #: `plan_geo` 专用：逐像素的可写域（＝擦除允许区本身）。给了它 `can_write`
+    #: 就直接查它——旧墨足迹比 roi 小，若仍按「roi∧¬protect」判，晕圈外沿的
+    #: roi 边缘就成了法外之地（实测 sys_12_a 越界 93 像素）。
+    writable: list[list[bool]] | None = None
+    #: `plan_geo` 专用：**幽灵晕减法**的写入表 (x,y)→RGBA。保留层足迹内擦不掉的
+    #: 旧墨黑晕（与保留层彩晕叠在同一批像素上）按合成代数从像素里减掉——
+    #: 见 `plan_geo` 的 ghost_subtract。`apply` 在矩形之后落这些点。
+    post_writes: dict[tuple[int, int], tuple[int, int, int, int]] = field(
+        default_factory=dict)
 
     def protect_at(self, x: int, y: int) -> bool:
         """True＝保留层的发光足迹，一律不看、不写。"""
@@ -162,9 +486,18 @@ class MaskPlan:
 
         新字的晕于是只可能出现在旧墨原本的作用域内，且一个像素也碰不到保留层。
         作用域的外边界在全透明处（`ROI_PAD` 保证），所以那条边界不会显形。
+
+        `writable`（几何足迹方案）给定时直接查它——它就是擦除允许区，连
+        「roi 之内、足迹之外」的边角也一并排除。
         """
+        if self.writable is not None:
+            return self.writable[y][x]
         l, t, r, b = self.roi
-        return l <= x < r and t <= y < b and not self.protect[y][x]
+        if not (l <= x < r and t <= y < b):
+            return False
+        if not self.protect[y][x]:
+            return True
+        return self.geo_exemption and self.ink_core[y][x]
 
 
 def _erase_allowed(im: Image.Image, boxes, tau: int):
@@ -268,17 +601,41 @@ def plan(im: Image.Image, boxes, tau: int = PROTECT_TAU) -> MaskPlan:
 
 
 def apply(dst: Image.Image, mp: MaskPlan) -> None:
-    """按方案把矩形擦成底色。"""
+    """按方案把矩形擦成底色。`mp.fill` 给定时（照片底）贴重建图的像素。"""
     for r in mp.rects:
-        dst.paste(mp.bg, r)
+        if mp.fill is None:
+            dst.paste(mp.bg, r)
+        else:
+            dst.paste(mp.fill.crop(r), r[:2])
+    dp = dst.load()
+    for (x, y), c in mp.post_writes.items():
+        dp[x, y] = c
 
 
-def check_keep_intact(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> int:
-    """保留层的地盘必须逐字节不变。返回被改动的像素数（应为 0）。"""
+def check_keep_intact(src: Image.Image, dst: Image.Image, mp: MaskPlan,
+                      skip_ink: bool = False) -> int:
+    """保留层的地盘必须逐字节不变。返回被改动的像素数（应为 0）。
+
+    `skip_ink=True`（几何足迹方案）时，`ink_core` 里的旧墨字芯不算数：它们是
+    **被新字同位替换的旧字**，即使落在了保留层的足迹里也必须擦掉——不擦才会
+    留下鬼影。默认 False，标题轨的语义一个字节都不变。
+
+    `post_writes`（幽灵晕减法）的写入是**有意的**改动：黑晕从叠合像素里减掉，
+    保留层的彩晕按实测环恢复。它们同样豁免，改动是否成立由减法自身的代数与
+    看图把关。
+    """
     sp, dp = src.load(), dst.load()
     W, H = src.size
-    return sum(1 for y in range(H) for x in range(W)
-               if mp.protect[y][x] and sp[x, y] != dp[x, y])
+    bad = 0
+    for y in range(H):
+        for x in range(W):
+            if not mp.protect[y][x]:
+                continue
+            if (skip_ink and mp.ink_core[y][x]) or (x, y) in mp.post_writes:
+                continue
+            if sp[x, y] != dp[x, y]:
+                bad += 1
+    return bad
 
 
 def check_old_ink_gone(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list:
@@ -291,3 +648,5 @@ def check_old_ink_gone(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list
     resid = set(mp.residual)
     return [(x, y, dp[x, y]) for y in range(t, b) for x in range(l, r)
             if dp[x, y][3] > 0 and not mp.protect[y][x] and (x, y) not in resid]
+
+

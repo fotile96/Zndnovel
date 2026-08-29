@@ -1,0 +1,2 @@
+{"id": 74, "verdict": "adopt", "chosen_channel": "fable-wf", "chosen_alt": null, "edited_zh": null, "reason_code": "", "ts": "2026-08-29T03:42:35+00:00", "note": "用户口头裁定（本段队列仅 2 条，未开裁决 UI）。四通道一致提案：voices/ayano_real.md:30 定彩野的 ごめんね 为「对不起哦／对不起」，全库分布 66:4；本行是 2026-08-29 补译时用了不在定形内的「对不起呢」。"}
+{"id": 87, "verdict": "keep_opus", "chosen_channel": null, "chosen_alt": null, "edited_zh": null, "reason_code": "", "ts": "2026-08-29T03:42:35+00:00", "note": "用户口头裁定：不改。glm-5.3 提议去掉「可能，有点不对」的读点，理由是原文 ちょっと、 的读点在「有点」前、且「可能/有点」在汉语里连用不停顿——论证成立但用户裁定维持现译。"}

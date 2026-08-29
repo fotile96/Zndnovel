@@ -363,8 +363,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
             g.ring = [bgpm if k >= geo["r_old"] else ring
                       for k, ring in enumerate(g.ring, 1)]
         jp_lines = meta["jp"].split("\n")
-        para = measure_para(im, box, g, jp_lines,
-                            line_ratio=geo.get("line_ratio", LINE_RATIO))
+        para = measure_para(im, box, g, jp_lines, line_ratio=meta.get(
+            "line_ratio", geo.get("line_ratio", LINE_RATIO)))
         zh_lines = [s for s in meta["zh"].split("\n")]
         if len(zh_lines) > len(jp_lines):
             report.append(
@@ -431,6 +431,10 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
             glyph = render_glow(s, size, g, name, spec.face)
             # 纵向：按实测行距落位，行内以**该行自己**的原墨迹高居中
             top = para.tops[0] + round(para.pitch * i) if para.pitch else para.tops[0]
+            if meta.get("vcenter") and para.pitch and len(zh_lines) < len(jp_lines):
+                # 中文行数少于日文时整块垂直居中（sys_1_i 行2+3 合并为一行）：
+                # 不居中则单行贴在第一行原位，下方留出一整行空白。
+                top += round(para.pitch * (len(jp_lines) - len(zh_lines)) / 2)
             own_h = para.heights[min(i, len(para.heights) - 1)]
             gy = top + (own_h - core_h) // 2
             gx = left + indent

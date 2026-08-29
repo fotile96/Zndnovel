@@ -165,7 +165,8 @@ def test_synth_too_small_r_old_raises():
 
 def test_corpus_is_the_five_leftovers_all_translated():
     assert SIX == ["sys_12_a", "sys_12_b", "sys_12_c", "sys_1_i", "sys_2_a", "sys_3_a"]
-    assert len(ROWS["sys_1_i"]) == 3 and all(r["zh"].strip() for r in ROWS["sys_1_i"])
+    assert len(ROWS["sys_1_i"]) == 2 and all(r["zh"].strip() for r in ROWS["sys_1_i"])
+    assert ROWS["sys_1_i"][1]["zh"] == "缩短读故事所需的时间"  # 行2/3 合并，句号去掉
     assert ROWS["sys_1_i"][0]["geo"]["keep"][0]["hard"] is True
     for rs in ROWS.values():
         for r in rs:
@@ -264,6 +265,12 @@ def test_products_alignment_matches_reference():
                        if dp[x, y][3] >= 150 and dp[x, y][0] >= 100
                        and dp[x, y][1] - dp[x, y][2] >= 30)
             assert abs(newl - oldl) <= 1, f"{name}: 左缘 {oldl}→{newl}"
+            # 合并行垂直居中：新墨行带中心与原两行跨距中心差 ≤2px
+            mpts = [(x, y) for y in range(34, 66) for x in range(46, im.width)
+                    if dp[x, y][3] >= 217 and min(dp[x, y][:3]) >= 150]
+            mylo, myhi = min(y for _, y in mpts), max(y for _, y in mpts)
+            assert abs((mylo + myhi + 1) / 2 - 49) <= 2, \
+                f"{name}: 合并行中心 {(mylo + myhi + 1) / 2} 偏离 49"
             continue
         kb = r0["geo"]["keep"][0]["box"]
         kpts = [(x, y) for y in range(kb[1], kb[3]) for x in range(kb[0], kb[2])

@@ -8,7 +8,7 @@
 > **正确的 PNG + 版面规格**为止。产物落 `build/`（gitignore），由「工具 + 冻结骨架 +
 > 只读原图」一条命令确定性再生。
 
-最后更新：2026-08-28
+最后更新：2026-08-30
 
 ## 一览
 
@@ -18,8 +18,35 @@
 | `png/scene/` | 2 | **2** | — | — | `bake_scene.py` |
 | `png/card/` | 197 | **196** | 1（空白模板） | — | `bake_card.py` |
 | `png/select/` | 278 | **134 按钮 + 地图** | 22 孤儿 + 3 异形 | — | `bake_select.py` / `bake_select_map.py` |
-| `png/sysgim/` | 61（处理面） | **59** | 2 | — | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` / `bake_sysgim_note.py` |
-| `png/novel/` | 993 | — | — | 993 | 建议单独立项 |
+| `png/sysgim/` | 61（处理面） | **60** | 1（零引用孤儿 Y4） | — | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` / `bake_sysgim_note.py` |
+| `png/event/` | 121 | **6**（`op_*`） | 115 无字 | — | `bake_event_op.py` |
+| `png/music/` | 4 | **1** | 3（曲目表，用户裁定不译） | — | `bake_mode_frame.py` |
+| `png/graphic/` | 18 | **4** | 14（2 裁定不做 + 12 无字） | — | `bake_mode_frame.py` / `bake_memory_thumb.py` |
+| `png/cutin/` | 73 | **31** | 42 | — | `bake_cutin_title.py` / `bake_cutin_tut.py` |
+| `png/bg/` | 81 | — | 81（0 张含字，目录闭合） | — | — |
+| ~~`png/novel/`~~ | 993 | — | ❌ **已出范围**（用户 2026-08-30） | — | — |
+
+### ✅ 2026-08-30：**所划范围内的烤字已全部完工**
+
+跑工具看产物复核（不是读清单——见下面那条教训）：`build/sysgim/` 40 +
+`sysgim_panel_zh/` 2 + `sysgim_title_zh/` 12 + `sysgim_note_zh/` 6 ＝ 60；
+`cutin_zh/` 24 + `cutin_tut_zh/` 7 ＝ 31；`event_zh/` 6；
+`mode_zh/` 3（music_01_a + graphic_01_a + memory_01_a）；`memory_thumb_zh/` 2。
+
+`cutin/` 的 31 ＝ `cut_e_*` 10 + `cut_s_*` 14 + `tut_*` 7。tut 原定 16 张，
+用户 2026-08-30 收窄范围（裁决 T1）：途中的游戏界面截图保留原版日文，只做
+「对游戏系统的解释性文字」，故实做 7 张，其余 9 张属界面截图不做。
+
+**尚未了结的不是烤字工作，是两件别的事**：
+1. `.gim` 回转链路——本轮明示不做（用户 2026-08-08），所有面到「正确的 PNG +
+   版面规格」为止。
+2. `event/` 面的字体未单独裁（现随默认霞鹜）。它是**叙事文本**不是 UI 文本，
+   与其余各面的取舍未必相同。
+3. ⚠ **一处范围待用户复核**（`bake-misc-inventory.md` §graphic）：用户原话
+   「`graphic` 目录内其余剩余文件都不用处理」，字面读会把 `graphic_01_a` 与
+   `memory_01_a` 一并排除，但那两张是用户上一条亲自点名的、且与 `music_01_a`
+   同一套模板。当时按「不做的是新翻出来的 `graphic_02..07_a` 与 `thumbnail_*`」
+   理解并已烤。**若原意是字面意思，这两张要撤。**
 
 ### ✅ 那五个「从未清点过」的目录已清点（2026-08-28，详见 `bake-misc-inventory.md`）
 
@@ -35,8 +62,9 @@
 | `bg/` | 81 | **0** | — | 目录闭合 |
 | 合计 | 297 | ≈61 | **51** | |
 
-**要做的 51 张，比 sysgim 剩下的 19 张多两倍半。**（这句写于 2026-08-28；到
-**2026-08-30 这 51 张只剩 `cutin/tut_*` 16 张**，sysgim 那 19 张也已清零。）其中：
+**要做的 51 张，比 sysgim 剩下的 19 张多两倍半。**（这句写于 2026-08-28；
+到 2026-08-30 **51 张已全部了结**——sysgim 那 19 张清零，`cutin/tut_*` 16 张
+按裁决 T1 收窄为 7 张并完工。）其中：
 
 - `cutin/cut_e_*` 10 + `cut_s_*` 14 ＝ 章节起止字幕卡。**`cut_s_*` 带片假名人名**
   （アヤノ／ユウイチ／サクラ／ユカリ），是 glossary v19 C1 罗马音化的对象——

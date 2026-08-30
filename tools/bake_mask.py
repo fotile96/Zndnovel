@@ -192,8 +192,13 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
     r_old = geo["r_old"]
 
     def is_white(x, y):
+        # 无彩色约束（max−min≤60）：12c 亮绿晕的像素 (150,255,150) 族
+        # min≥150 也能过白芯判据——它们被当成字芯后，擦除区跟着吞掉整个
+        # 亮晕场，拉普斯拉从暗边界插值出黑填充（回归实测）。白字/其 AA/
+        # 暖白高光都是低色差，纯色晕一律排除。
         p = px[x, y]
-        return p[3] >= CORE_ALPHA and min(p[:3]) >= CORE_LUMA
+        return (p[3] >= CORE_ALPHA and min(p[:3]) >= CORE_LUMA
+                and max(p[:3]) - min(p[:3]) <= 60)
 
     def is_brown(x, y):
         # 暗棕/橙色墨（sys_1_i 行1：174,69,0 族）。黄晕（12b）也匹配此判据，
@@ -319,10 +324,15 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
         return p[3] >= 30 and p[0] - max(p[1], p[2]) >= 25 \
             and abs(p[1] - p[2]) <= 20
 
+    # keep_red_glow 的距离闸以第一个保留组（箭头）的芯为准
+    red_death = geo.get("red_death", 12)
+    arrow_d = keep_edts[0][0] if keep_edts else None
+
     for y in range(roi[1], roi[3]):
             for x in range(roi[0], roi[2]):
                 if geo.get("keep_red_glow") and is_red_glow(x, y) \
-                        and not ink_core[y][x]:
+                        and not ink_core[y][x] \
+                        and (arrow_d is None or arrow_d[y][x] < red_death):
                     continue
                 if d_old[y][x] >= r_old:
                     # 闭合自查：只扫 r_old..r_old+2 这条**晕尾带**——旧墨的晕到 r_old

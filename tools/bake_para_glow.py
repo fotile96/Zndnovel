@@ -335,7 +335,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         if not geo:
             raise ValueError(f"{name}: mask_mode=geo_footprint 但数据行没有 geo 字段")
         mp = bake_mask.plan_geo(im, [tuple(r["box"]) for r in rows], geo,
-                                fill_softs=[r.get("fill_soft") for r in rows])
+                                fill_softs=[r.get("fill_soft") for r in rows],
+                                bgs=[tuple(r.get("bg", geo["bg"])) for r in rows])
         if mp.protected_glow:
             report.append(
                 f"protected-glow {name}: {len(mp.protected_glow)} 个旧墨晕像素落在"
@@ -353,7 +354,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
                if spec.mask_mode == "geo_footprint" else {})
         g = (measure_glow(im, box) if mp is None else
              measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
-                          bg=mp.bg, probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
+                          bg=tuple(meta.get("bg", mp.bg)),
+                          probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
                           tail_tol=geo.get("tail_tol", MAX_TAIL_DEV),
                           core_ratio_hi=meta.get(
                               "core_ratio_hi", geo.get("core_ratio_hi"))))

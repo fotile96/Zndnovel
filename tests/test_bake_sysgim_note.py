@@ -265,12 +265,12 @@ def test_products_alignment_matches_reference():
                        if dp[x, y][3] >= 150 and dp[x, y][0] >= 100
                        and dp[x, y][1] - dp[x, y][2] >= 30)
             assert abs(newl - oldl) <= 1, f"{name}: 左缘 {oldl}→{newl}"
-            # 合并行垂直居中：新墨行带中心与原两行跨距中心差 ≤2px
+            # 合并行顶端=原第二行墨迹顶端（2026-08-30 二次反馈：与第一行距离
+            # 太远，改为从原第二行位置起排，不再垂直居中）
             mpts = [(x, y) for y in range(34, 66) for x in range(46, im.width)
                     if dp[x, y][3] >= 217 and min(dp[x, y][:3]) >= 150]
-            mylo, myhi = min(y for _, y in mpts), max(y for _, y in mpts)
-            assert abs((mylo + myhi + 1) / 2 - 49) <= 2, \
-                f"{name}: 合并行中心 {(mylo + myhi + 1) / 2} 偏离 49"
+            mylo = min(y for _, y in mpts)
+            assert abs(mylo - 37) <= 1, f"{name}: 合并行顶端 {mylo}，应为 37±1"
             continue
         kb = r0["geo"]["keep"][0]["box"]
         kpts = [(x, y) for y in range(kb[1], kb[3]) for x in range(kb[0], kb[2])

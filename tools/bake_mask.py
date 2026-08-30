@@ -170,7 +170,8 @@ def photo_fill(im: Image.Image, region: list[list[bool]],
 
 
 def plan_geo(im: Image.Image, boxes, geo: dict,
-             fill_softs: list | None = None) -> MaskPlan:
+             fill_softs: list | None = None,
+             bgs: list | None = None) -> MaskPlan:
     """几何足迹遮盖方案。`geo` 逐张给：
 
         keep:   [{"box": (l,t,r,b), "r": 半径, "kind": "white"|"bright:N"}, …]
@@ -318,7 +319,8 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
                     # （框的填充与抗锯齿、渐变底），与旧墨无关，扫了必然误报。
                     do = d_old[y][x]
                     if r_old <= do < r_old + 2 and beyond_keep_glow[y][x] \
-                            and not (geo.get("photo") or geo.get("fill_soft")) \
+                            and not (geo.get("photo") or geo.get("fill_soft")
+                                     or geo.get("flat_fill")) \
                             and dev(px[x, y]) > floor:
                         raise ValueError(
                             f"({x},{y}) 在足迹外 {do:.1f}px 处仍有旧墨色 "
@@ -370,7 +372,21 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
     #             拉普斯拉——新行1 原位替换，红晕硬边必须保真）。
     fill_softs = fill_softs or [None] * len(boxes)
     fill = None
-    if geo.get("photo") or any(fs is not None for fs in fill_softs):
+    # 按行采样的背景 ARGB（平填）：文字各踩各的底（sys_1_i 行1=透明、
+    # 行2/3=面板黑带 α127），平铺一种会凿洞或染色。
+    if bgs is None:
+        bgs = [geo.get("bg")] * len(boxes)
+    if not geo.get("photo") and not any(fs is not None for fs in fill_softs) \
+            and any(bgs):
+        fill = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        fp = fill.load()
+        for (bl, bt, br, bb), bgc in zip(boxes, bgs):
+            if not bgc:
+                continue
+            for y in range(max(0, bt - 2), min(H, bb + 2)):
+                for x in range(max(0, bl - 2), min(W, br + 2)):
+                    fp[x, y] = tuple(bgc)
+    elif geo.get("photo") or any(fs is not None for fs in fill_softs):
         fill = photo_fill(im, allowed, roi, protect, geo["bg"])
     for (bl, bt, br, bb), fs in zip(boxes, fill_softs):
         if fs is None:
@@ -434,7 +450,8 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
     return MaskPlan(rects=rects, roi=roi, bg=tuple(geo["bg"]), protect=protect,
                     ink_core=ink_core, residual=[], residual_max_alpha=0,
                     fill=fill, protected_glow=protected_glow, geo_exemption=True,
-                    writable=allowed, post_writes=post_writes, write_band=band)
+                    writable=allowed, post_writes=post_writes, write_band=band,
+                    row_bgs=[tuple(b) for b in bgs])
 
 
 def check_apply_exact(src: Image.Image, dst: Image.Image, mp: MaskPlan) -> list:
@@ -549,6 +566,8 @@ class MaskPlan:
     #: 就直接查它——旧墨足迹比 roi 小，若仍按「roi∧¬protect」判，晕圈外沿的
     #: roi 边缘就成了法外之地（实测 sys_12_a 越界 93 像素）。
     writable: list[list[bool]] | None = None
+    #: `plan_geo` 专用：逐行采样的背景 ARGB（measure_glow/渲染按行取用）。
+    row_bgs: list[tuple[int, int, int, int]] = field(default_factory=list)
     #: `plan_geo` 专用：**幽灵晕减法**的写入表 (x,y)→RGBA。保留层足迹内擦不掉的
     #: 旧墨黑晕（与保留层彩晕叠在同一批像素上）按合成代数从像素里减掉——
     #: 见 `plan_geo` 的 ghost_subtract。`apply` 在矩形之后落这些点。

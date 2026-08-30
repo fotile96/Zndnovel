@@ -311,8 +311,19 @@ def plan_geo(im: Image.Image, boxes, geo: dict,
     ink_core = [[(x, y) in drop_core for x in range(W)] for y in range(H)]
     allowed = [[False] * W for _ in range(H)]
     protected_glow = []
+    # 箭头红晕场的像素类别：R−max(G,B)≥25 且 G≈B（行1 的橙棕墨与白热高光
+    # 自然排除）。keep_red_glow 时这些像素不擦——红晕是无结构的径向场，
+    # 原地保留即无缝；字形洞由拉普斯拉从周边红晕重建。
+    def is_red_glow(x, y):
+        p = px[x, y]
+        return p[3] >= 30 and p[0] - max(p[1], p[2]) >= 25 \
+            and abs(p[1] - p[2]) <= 20
+
     for y in range(roi[1], roi[3]):
             for x in range(roi[0], roi[2]):
+                if geo.get("keep_red_glow") and is_red_glow(x, y) \
+                        and not ink_core[y][x]:
+                    continue
                 if d_old[y][x] >= r_old:
                     # 闭合自查：只扫 r_old..r_old+2 这条**晕尾带**——旧墨的晕到 r_old
                     # 应已衰减到地板以下。不扫整个 roi：更远处是保留层自己的地盘

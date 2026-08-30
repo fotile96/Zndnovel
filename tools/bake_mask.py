@@ -36,7 +36,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 _REPO = str(Path(__file__).resolve().parent.parent)
 if _REPO not in sys.path:
@@ -169,7 +169,8 @@ def photo_fill(im: Image.Image, region: list[list[bool]],
     return out
 
 
-def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
+def plan_geo(im: Image.Image, boxes, geo: dict,
+             fill_softs: list | None = None) -> MaskPlan:
     """几何足迹遮盖方案。`geo` 逐张给：
 
         keep:   [{"box": (l,t,r,b), "r": 半径, "kind": "white"|"bright:N"}, …]
@@ -295,7 +296,13 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
                              for (dg, _r), death in zip(keep_edts, deaths))
                          for x in range(W)] for y in range(H)]
 
-    # ── 擦除区：旧墨足迹 − 保留层足迹 ＋ 字芯豁免 ──────────────────────
+    # ── 擦除区 ─────────────────────────────────────────────────────────
+    # `region="ink"`（文字压在晕场上的版面，sys_1_i）：擦除区＝**旧墨字芯＋2px
+    # 抗锯齿环**，晕场原地不动。理由（2026-08-30 用户反馈）：行2/3 与红晕/灰晕
+    # 的晕场重叠，footprint 擦除把合并行上下各一行宽的晕场一起归零（原 pm
+    # 79–292 → 成品 10–24）——文字换了，光应该留下。填充按拉普斯拉从墨洞
+    # 四周的晕取值，**填充的 alpha 自然是晕的梯度**而不是固定的 0/100。
+    # 默认（footprint）＝墨+晕一起擦，标题轨/面板的语义不变。
     xs = [p[0] for p in drop_core]
     ys = [p[1] for p in drop_core]
     roi = (max(0, min(xs) - int(r_old) - 2), max(0, min(ys) - int(r_old) - 2),
@@ -304,28 +311,29 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
     allowed = [[False] * W for _ in range(H)]
     protected_glow = []
     for y in range(roi[1], roi[3]):
-        for x in range(roi[0], roi[2]):
-            do = d_old[y][x]
-            if do >= r_old:
-                # 闭合自查：只扫 r_old..r_old+2 这条**晕尾带**——旧墨的晕到 r_old
-                # 应已衰减到地板以下。不扫整个 roi：更远处是保留层自己的地盘
-                # （框的填充与抗锯齿、渐变底），与旧墨无关，扫了必然误报。
-                if r_old <= do < r_old + 2 and beyond_keep_glow[y][x] \
-                        and not geo.get("photo") and dev(px[x, y]) > floor:
-                    raise ValueError(
-                        f"({x},{y}) 在足迹外 {do:.1f}px 处仍有旧墨色 "
-                        f"dev={dev(px[x, y]):.0f} > 地板 {floor}——r_old={r_old} 不够"
-                    )
-                continue
-            if protect[y][x]:
-                if ink_core[y][x]:
-                    allowed[y][x] = True      # 字芯豁免：同位替换
-                elif (x, y) not in keep_core and dev(px[x, y]) > floor:
-                    # 保留层自己的字芯不算「旧墨晕」——它只是恰好落在旧墨
-                    # 足迹半径内（两层只隔 4px 时必然发生）。
-                    protected_glow.append((x, y, round(dev(px[x, y]))))
-                continue
-            allowed[y][x] = True
+            for x in range(roi[0], roi[2]):
+                if d_old[y][x] >= r_old:
+                    # 闭合自查：只扫 r_old..r_old+2 这条**晕尾带**——旧墨的晕到 r_old
+                    # 应已衰减到地板以下。不扫整个 roi：更远处是保留层自己的地盘
+                    # （框的填充与抗锯齿、渐变底），与旧墨无关，扫了必然误报。
+                    do = d_old[y][x]
+                    if r_old <= do < r_old + 2 and beyond_keep_glow[y][x] \
+                            and not (geo.get("photo") or geo.get("fill_soft")) \
+                            and dev(px[x, y]) > floor:
+                        raise ValueError(
+                            f"({x},{y}) 在足迹外 {do:.1f}px 处仍有旧墨色 "
+                            f"dev={dev(px[x, y]):.0f} > 地板 {floor}——r_old={r_old} 不够"
+                        )
+                    continue
+                if protect[y][x]:
+                    if ink_core[y][x]:
+                        allowed[y][x] = True      # 字芯豁免：同位替换
+                    elif (x, y) not in keep_core and dev(px[x, y]) > floor:
+                        # 保留层自己的字芯不算「旧墨晕」——它只是恰好落在旧墨
+                        # 足迹半径内（两层只隔 4px 时必然发生）。
+                        protected_glow.append((x, y, round(dev(px[x, y]))))
+                    continue
+                allowed[y][x] = True
 
     # ── 写带：新字墨迹的合法领土（替换语义）────────────────────────────
     # 旧墨 bbox ±2px。汉字比假名高约 1px 且笔画位置不同，新字顶行必然撞进
@@ -353,8 +361,27 @@ def plan_geo(im: Image.Image, boxes, geo: dict) -> MaskPlan:
                 band[y][x] = True
 
     rects = _rects_of(allowed, roi)
-    fill = (photo_fill(im, allowed, roi, protect, geo["bg"])
-            if geo.get("photo") else None)
+    # 填充可**逐行**指定（fill_softs 与 boxes 等长）：
+    #   None    → 拉普斯拉重建整个擦除区（照片/渐变底，photo=true 时）；
+    #   数值 r  → 先只修**字芯**（从紧邻 1px 晕环取值，字心亮度不掉），再按 r
+    #             高斯模糊把字形结构平均成一片环境晕——填充的 alpha 与 RGB 都是
+    #             晕的梯度，而不是透明洞或灰雾板（2026-08-30 用户建议的落地：
+    #             「填充 alpha 不要固定 0%/100%」；sys_1_i 合并行 r=20、行1 用
+    #             拉普斯拉——新行1 原位替换，红晕硬边必须保真）。
+    fill_softs = fill_softs or [None] * len(boxes)
+    fill = None
+    if geo.get("photo") or any(fs is not None for fs in fill_softs):
+        fill = photo_fill(im, allowed, roi, protect, geo["bg"])
+    for (bl, bt, br, bb), fs in zip(boxes, fill_softs):
+        if fs is None:
+            continue
+        repaired = photo_fill(im, ink_core, roi, protect, geo["bg"])
+        blurred = repaired.filter(ImageFilter.GaussianBlur(float(fs)))
+        fp = fill.load()
+        bp = blurred.load()
+        for y in range(max(0, bt - 2), min(H, bb + 2)):
+            for x in range(max(0, bl - 2), min(W, br + 2)):
+                fp[x, y] = bp[x, y]
 
     # ── 幽灵晕清理（透明底重叠区）────────────────────────────────────
     # 旧墨黑晕与保留层彩晕叠在同一批像素上。黑加进混合只改变**幅值**、不改变

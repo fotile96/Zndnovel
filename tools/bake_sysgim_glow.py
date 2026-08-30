@@ -149,7 +149,8 @@ def _dist_field(core: list[list[bool]], W: int, H: int) -> list[list[int]]:
 
 def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
                  bg=None, probe_d: int = GLOW_PROBE_D,
-                 tail_tol: int = MAX_TAIL_DEV) -> Glow:
+                 tail_tol: int = MAX_TAIL_DEV,
+                 core_ratio_hi: float | None = None) -> Glow:
     """从原图的一个盒子里量出「距离 → RGBA」这条曲线。
 
     `ignore(x, y)` 给定时，那些像素**完全不参与**取底、判字芯与测环。用于盒里
@@ -232,6 +233,16 @@ def measure_glow(im: Image.Image, box, ignore=None, core_of=None,
         raise ValueError(f"盒 {box} 量不到字芯")
 
     core_px = [_pm(px[l + x, t + y]) for y in range(H) for x in range(W) if core[y][x]]
+    if core_ratio_hi is not None:
+        # 字内**实心色**：核的均值混入了 0.85 阈值下沿的 AA 带核，渲出的
+        # 字心比原文亮部暗一截（sys_1_i 实测：原字心 233,232,232,245 有
+        # 339 px，成品一个都没有）。取高段核的均值＝字的 plateau 色。
+        hi_thr = peak * core_ratio_hi
+        hi = [q for p, q in ((dist(px[l + x, t + y]), _pm(px[l + x, t + y]))
+                             for y in range(H) for x in range(W) if core[y][x])
+              if p >= hi_thr]
+        if hi:
+            core_px = hi
     core_pm = tuple(sum(p[i] for p in core_px) / len(core_px) for i in range(4))
 
     d = _dist_field(core, W, H)

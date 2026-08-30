@@ -334,7 +334,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         geo = rows[0].get("geo")
         if not geo:
             raise ValueError(f"{name}: mask_mode=geo_footprint 但数据行没有 geo 字段")
-        mp = bake_mask.plan_geo(im, [tuple(r["box"]) for r in rows], geo)
+        mp = bake_mask.plan_geo(im, [tuple(r["box"]) for r in rows], geo,
+                                fill_softs=[r.get("fill_soft") for r in rows])
         if mp.protected_glow:
             report.append(
                 f"protected-glow {name}: {len(mp.protected_glow)} 个旧墨晕像素落在"
@@ -353,12 +354,15 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
         g = (measure_glow(im, box) if mp is None else
              measure_glow(im, box, ignore=mp.protect_at, core_of=mp.is_ink_core,
                           bg=mp.bg, probe_d=geo.get("probe_d", bake_mask.GLOW_PROBE_D),
-                          tail_tol=geo.get("tail_tol", MAX_TAIL_DEV)))
-        if geo.get("r_old") is not None:
+                          tail_tol=geo.get("tail_tol", MAX_TAIL_DEV),
+                          core_ratio_hi=meta.get(
+                              "core_ratio_hi", geo.get("core_ratio_hi"))))
+        if geo.get("taper"):
             # 晕的物理死距已实测（r_old）：ring 在此之外是底/照片的残渣，不是晕。
             # 12b 的量环盒只有 11 行高、tail_tol 又为照片放宽，远端环灌满了照片
-            # 纹理；照写进新字远场就是一圈浑浊（实测 d∈[9,16) pm 亮度 211，
-            # 底只该 10–40）。
+            # 纹理；照写进新字远场就是一圈浑浊。**只该用于晕场会被重建/清掉的
+            # 版面**；长行整行保留晕场的版面（sys_1_i）不能开——沿行方向的
+            # 远端环是真实晕，taper 掉会让新字的晕铺不满原晕的范围。
             bgpm = _pm(g.bg)
             g.ring = [bgpm if k >= geo["r_old"] else ring
                       for k, ring in enumerate(g.ring, 1)]

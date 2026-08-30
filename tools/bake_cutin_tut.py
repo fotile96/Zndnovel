@@ -9,9 +9,10 @@ render new Chinese text with warm orange glow, save as RGBA PNG.
 """
 
 import json
+import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 from ui_font import truetype
 
@@ -20,23 +21,42 @@ DATA = Path("data/cutin_tut_text.jsonl")
 OUT_DIR = Path("build/cutin_tut_zh")
 FONT_FACE = "CARD"
 
-# Warm orange glow ramp (from measurement of original tut_2_a text).
-# Core is warm cream (not pure white), fading through salmon → orange → black.
-GLOW_RAMP = [
-    (0, (250, 235, 210, 255)),   # warm cream core
-    (1, (230, 180, 130, 254)),   # salmon
-    (2, (210, 130, 60, 252)),    # deep salmon
-    (3, (180, 80, 10, 250)),     # orange
-    (4, (140, 56, 0, 245)),      # dark orange
-    (5, (100, 40, 1, 242)),
-    (6, (66, 26, 0, 238)),
-    (7, (40, 15, 0, 234)),
-    (8, (20, 8, 0, 230)),
-    (9, (9, 3, 0, 226)),
-]
+# ── glow ramps: colour as a function of distance from the glyph core ──
+#
+# Measured, not invented. For each block the original's ink core was taken as
+# the pixels at >=80% of peak luminance, an exact Euclidean distance field was
+# built from it, and the median RGBA recorded per distance bin.
+#
+# Two things the first (guessed) ramp got wrong, both visible:
+#   * The scene titles in tut_4_b are RED (d=1 is 187,47,43 — G≈B), not the
+#     orange the other blocks use. They were being rendered orange.
+#   * Real glow dies by d≈5-6. The guessed ramp ran to d=9 and was applied as
+#     a stack of Gaussian blurs, which spread it much wider and washed the
+#     colour out. The falloff is also far steeper than a Gaussian: the very
+#     first ring already drops from ~250 to ~180.
+#
+# Entry = (R, G, B, dA) at that integer distance; the last entry is the dead
+# end of the glow. dA is the alpha *above the local panel background*, so the
+# same ramp is safe on rows whose background alpha differs (these panels are
+# a vertical gradient). Final alpha = row background + dA.
+GLOW_RAMPS = {
+    # tut_2_* body text, 18px
+    "orange_lg": [(250, 239, 225, 18), (200, 90, 24, 14), (127, 50, 0, 9),
+                  (93, 37, 0, 7), (46, 18, 0, 4), (21, 8, 0, 3), (0, 0, 0, 0)],
+    # tut_1_a body, 14px
+    "orange_md": [(247, 235, 223, 29), (176, 85, 27, 20), (113, 45, 0, 12),
+                  (67, 27, 0, 6), (30, 11, 0, 3), (11, 4, 0, 1), (0, 0, 0, 0)],
+    # tut_4_b subtitle and explanation lines, 11-13px
+    "orange_sm": [(240, 219, 208, 18), (158, 78, 27, 11), (81, 32, 0, 4),
+                  (40, 15, 0, 2), (12, 4, 0, 0), (0, 0, 0, 0)],
+    # tut_4_b scene titles — a different hue entirely
+    "red": [(249, 235, 231, 22), (187, 47, 43, 15), (82, 0, 0, 8),
+            (45, 0, 0, 5), (10, 0, 0, 3), (0, 0, 0, 0)],
+}
 
 
-def _layout(text_lines, font, box_w, box_h, align, pad_left, pad_top):
+def _layout(text_lines, font, box_w, box_h, align, pad_left, pad_top,
+            line_pitch=None):
     """Draw origins that place the **real ink** where we want it.
 
     `draw.text()` origins are ascender-left, so a glyph's ink sits at an
@@ -45,7 +65,7 @@ def _layout(text_lines, font, box_w, box_h, align, pad_left, pad_top):
     design metrics, which drift per face and per string. Subtract the
     bearing so the *ink* lands centred.
     """
-    line_height = font.size + 4
+    line_height = line_pitch or font.size + 4
     boxes = [font.getbbox(ln) for ln in text_lines]
 
     # vertical: centre the whole block's ink span
@@ -67,44 +87,122 @@ def _layout(text_lines, font, box_w, box_h, align, pad_left, pad_top):
     return origins
 
 
-def _render_glow_text(text_lines, font, box_w, box_h, align="center",
-                      pad_left=16, pad_top=None):
-    """Render multi-line text with warm orange glow on transparent canvas."""
-    canvas = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
-    origins = _layout(text_lines, font, box_w, box_h, align, pad_left, pad_top)
-
-    for layer_d in range(len(GLOW_RAMP) - 1, -1, -1):
-        d, (cr, cg, cb, ca) = GLOW_RAMP[layer_d]
-        layer = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-
-        for (x, y), line in zip(origins, text_lines):
-            draw.text((x, y), line, font=font, fill=(cr, cg, cb, ca))
-
-        if d > 0:
-            layer = layer.filter(ImageFilter.GaussianBlur(radius=d * 0.7))
-
-        canvas = Image.alpha_composite(canvas, layer)
-
-    return canvas
+def _offsets(radius):
+    """Disc offsets sorted by exact Euclidean distance."""
+    out = []
+    r = int(math.ceil(radius))
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            d = math.hypot(dx, dy)
+            if d <= radius:
+                out.append((dx, dy, d))
+    return out
 
 
-def _find_bg_alpha_by_row(img, box):
-    """Per-row background alpha = modal alpha among that row's dark pixels.
+def _ramp_at(ramp, d):
+    """Linear interpolation into a ramp at fractional distance."""
+    i = int(d)
+    if i >= len(ramp) - 1:
+        return ramp[-1]
+    f = d - i
+    a, b = ramp[i], ramp[i + 1]
+    return tuple(round(a[k] + (b[k] - a[k]) * f) for k in range(4))
 
-    Robust to where the old text sits: it reads the panel, not a hand-picked
-    column. A single `sample_x` was the earlier approach and it was fragile —
-    any column can be crossed by a glyph stroke.
+
+def _draw_glow(img, box, text_lines, font, ramp, align="center",
+               pad_left=16, pad_top=None, line_pitch=None):
+    """Paint text into `box` colouring each pixel by its distance to the ink.
+
+    The glow is not a blur: it is the measured ring profile in `ramp`, applied
+    over an exact Euclidean distance field. `box` must already be erased to the
+    panel background — the row background alpha is read back from it so the
+    ramp's dA can sit on top of the panel's own vertical gradient.
+
+    Nothing outside `box` is written, so the surrounding frames stay untouched.
+    """
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    radius = len(ramp) - 1
+
+    # glyph mask, padded so glyphs near the edge still get a correct field
+    pad = radius + 2
+    mask_img = Image.new("L", (w + 2 * pad, h + 2 * pad), 0)
+    md = ImageDraw.Draw(mask_img)
+    for (ox, oy), line in zip(
+            _layout(text_lines, font, w, h, align, pad_left, pad_top,
+                    line_pitch),
+            text_lines):
+        md.text((ox + pad, oy + pad), line, font=font, fill=255)
+    mask = mask_img.load()
+    mw, mh = mask_img.size
+
+    # distance field, splatted from the solid core outwards
+    INF = float("inf")
+    dist = [[INF] * mw for _ in range(mh)]
+    offs = _offsets(radius)
+    for my in range(mh):
+        for mx in range(mw):
+            if mask[mx, my] >= 128:
+                for dx, dy, d in offs:
+                    nx, ny = mx + dx, my + dy
+                    if 0 <= nx < mw and 0 <= ny < mh and d < dist[ny][nx]:
+                        dist[ny][nx] = d
+
+    px = img.load()
+    for y in range(y0, y1):
+        # panel background alpha for this row (box is already erased to it)
+        bg_a = px[x0, y][3]
+        for x in range(x0, x1):
+            mx, my = x - x0 + pad, y - y0 + pad
+            m = mask[mx, my]
+            if m >= 128:
+                d = 0.0
+            else:
+                d = dist[my][mx]
+                if d is INF or d > radius:
+                    continue
+                # anti-aliased edge: partial coverage pulls toward the core
+                d = max(0.0, d - m / 255.0)
+            r, g, b, da = _ramp_at(ramp, d)
+            px[x, y] = (r, g, b, min(255, bg_a + da))
+
+
+def _find_bg_alpha_by_row(img, box, margin=None):
+    """Per-row panel alpha = modal alpha of dark pixels in the box's margins.
+
+    Two earlier versions of this were wrong in instructive ways:
+
+    * A single hand-picked `sample_x` — fragile, any column can be crossed by
+      a glyph stroke.
+    * The mode over the *whole* row — which assumes the only thing inside the
+      box is panel plus text. It is not: tut_1_a's box also holds a dark
+      rectangle (alpha ~175 against the panel's ~229). On text rows that
+      rectangle outnumbers the visible panel, so the mode returned the
+      rectangle, and because it won on some rows and lost on others the fill
+      alternated between the two populations — visible as horizontal banding.
+
+    The margins are the one part of the box that is reliably panel: every
+    block here has horizontal padding between the frame and the text.
     """
     px = img.load()
     x0, y0, x1, y1 = box
+    if margin is None:
+        margin = max(3, min(8, (x1 - x0) // 8))
+    cols = (list(range(x0, min(x0 + margin, x1)))
+            + list(range(max(x0, x1 - margin), x1)))
+
     result = {}
     for y in range(y0, y1):
         counts = {}
-        for x in range(x0, x1):
+        for x in cols:
             r, g, b, a = px[x, y]
             if r < 20 and g < 20 and b < 20:
                 counts[a] = counts.get(a, 0) + 1
+        if not counts:  # margins fully covered by ink — fall back to the row
+            for x in range(x0, x1):
+                r, g, b, a = px[x, y]
+                if r < 20 and g < 20 and b < 20:
+                    counts[a] = counts.get(a, 0) + 1
         result[y] = max(counts, key=counts.get) if counts else None
     # rows that were entirely covered by ink inherit from a neighbour
     known = [y for y in range(y0, y1) if result[y] is not None]
@@ -125,34 +223,23 @@ def _erase_box(img, box):
             px[x, y] = (0, 0, 0, a)
 
 
-def _paste_glow(img, glow, x0, y0):
-    """Composite glow onto image at given offset."""
-    sub = img.crop((x0, y0, x0 + glow.width, y0 + glow.height))
-    merged = Image.alpha_composite(sub, glow)
-    img.paste(merged, (x0, y0))
-
-
 # ──────────────────────────── tut_2 ────────────────────────────
 # All five share the same rounded-rect text box.
 # Border: top y=37-38, bottom y=131-132, left x=130, right x=465.
 # Interior: (132, 39) to (464, 130).
-# Original text: left-aligned, ~16px left padding from border, core ~17px tall.
+# Original text: left-aligned, core starts 15px in and 9px down from the
+# interior origin, line pitch 19 (all five sheets measured identical). It is
+# TOP-aligned, not centred — centring put tut_2_a 26px too low.
 
 TUT2_INTERIOR = (132, 39, 464, 130)
 
 
 def process_tut_2(name, zh_text, font_size=18):
     img = Image.open(SRC_DIR / f"{name}.png").convert("RGBA")
-    x0, y0, x1, y1 = TUT2_INTERIOR
-
     _erase_box(img, TUT2_INTERIOR)
-
-    font = truetype(FONT_FACE, font_size)
-    lines = zh_text.split("\n")
-    bw, bh = x1 - x0, y1 - y0
-    glow = _render_glow_text(lines, font, bw, bh, align="left", pad_left=16)
-    _paste_glow(img, glow, x0, y0)
-
+    _draw_glow(img, TUT2_INTERIOR, zh_text.split("\n"),
+               truetype(FONT_FACE, font_size), GLOW_RAMPS["orange_lg"],
+               align="left", pad_left=15, pad_top=9, line_pitch=19)
     return img
 
 
@@ -165,16 +252,10 @@ TUT1_INTERIOR = (98, 99, 266, 144)
 
 def process_tut_1_a(zh_text, font_size=14):
     img = Image.open(SRC_DIR / "tut_1_a.png").convert("RGBA")
-    x0, y0, x1, y1 = TUT1_INTERIOR
-
     _erase_box(img, TUT1_INTERIOR)
-
-    font = truetype(FONT_FACE, font_size)
-    lines = zh_text.split("\n")
-    bw, bh = x1 - x0, y1 - y0
-    glow = _render_glow_text(lines, font, bw, bh, align="center")
-    _paste_glow(img, glow, x0, y0)
-
+    _draw_glow(img, TUT1_INTERIOR, zh_text.split("\n"),
+               truetype(FONT_FACE, font_size), GLOW_RAMPS["orange_md"],
+               align="center", pad_top=5, line_pitch=20)
     return img
 
 
@@ -207,14 +288,14 @@ def process_tut_1_a(zh_text, font_size=14):
 # 「通学路」 is 54 too). The subtitle (row0) and the two explanation lines
 # (rows 4/6) keep the sizes the user signed off on; only their centring moved.
 TUT4B_BLOCKS = {
-    0: {"box": (113, 32, 398, 53), "font_size": 13, "align": "center"},
-    1: {"box": (87, 66, 152, 87), "font_size": 18, "align": "center"},
-    2: {"box": (165, 66, 281, 86), "font_size": 18, "align": "center"},
-    3: {"box": (293, 66, 420, 86), "font_size": 18, "align": "center"},
-    4: {"box": (216, 95, 456, 116), "font_size": 11, "align": "left",
+    0: {"box": (113, 32, 398, 53), "font_size": 13, "ramp": "orange_sm", "align": "center"},
+    1: {"box": (87, 66, 152, 87), "font_size": 18, "ramp": "red", "align": "center"},
+    2: {"box": (165, 66, 281, 86), "font_size": 18, "ramp": "red", "align": "center"},
+    3: {"box": (293, 66, 420, 86), "font_size": 18, "ramp": "red", "align": "center"},
+    4: {"box": (216, 95, 456, 116), "font_size": 11, "ramp": "orange_sm", "align": "left",
         "pad_left": 4},
-    5: {"box": (87, 133, 152, 154), "font_size": 18, "align": "center"},
-    6: {"box": (216, 133, 456, 154), "font_size": 11, "align": "left",
+    5: {"box": (87, 133, 152, 154), "font_size": 18, "ramp": "red", "align": "center"},
+    6: {"box": (216, 133, 456, 154), "font_size": 11, "ramp": "orange_sm", "align": "left",
         "pad_left": 4},
 }
 
@@ -227,17 +308,13 @@ def process_tut_4_b(entries):
         if row not in TUT4B_BLOCKS:
             continue
         blk = TUT4B_BLOCKS[row]
-        x0, y0, x1, y1 = blk["box"]
-
         _erase_box(img, blk["box"])
-
-        font = truetype(FONT_FACE, blk["font_size"])
-        glow = _render_glow_text(
-            entry["zh"].split("\n"), font, x1 - x0, y1 - y0,
+        _draw_glow(
+            img, blk["box"], entry["zh"].split("\n"),
+            truetype(FONT_FACE, blk["font_size"]), GLOW_RAMPS[blk["ramp"]],
             align=blk.get("align", "center"),
             pad_left=blk.get("pad_left", 8),
         )
-        _paste_glow(img, glow, x0, y0)
 
     return img
 

@@ -52,9 +52,14 @@ GIM_SOURCES = [
     ("mode_zh", ""), ("memory_thumb_zh", ""),
 ]
 
-FONT_SRC = REPO / "build" / "font" / "lxgw17.pgf"       # tools/build_font.py 裁剪产物
-FONT_SRC_FALLBACK = REPO / "build" / "_font_trial" / "lxgw17.pgf"
-FONT_MEMBER = "pgf/LXGWWenKai-Regular.pgf"   # snr_common.lua:5007 fontLoad(0, …)
+# 两个字体槽（tools/build_font.py 裁剪产物 → 封包成员名）。
+# 槽 0 = 正文 17px（snr_common.lua:5007 已写死该名）；
+# 槽 1 = ruby/小字 9px（inject_lua.py 在注入期把 fontLoad(1,…) 改到该名）——
+# 实测 ruby 走槽 1，不换就没有中文拼音注音。
+FONTS = [
+    (REPO / "build" / "font" / "lxgw17.pgf", "pgf/LXGWWenKai-Regular.pgf"),
+    (REPO / "build" / "font" / "lxgw09.pgf", "pgf/LXGWWenKai-Regular-09.pgf"),
+]
 
 FONT_SIZE_WARN = 1_195_092   # 原 tsukuminpro_e_17.pgf 大小，经验上限
 
@@ -150,17 +155,17 @@ def stage_gim(force: bool) -> None:
 # ---------- C 字体 ----------
 
 def stage_font() -> None:
-    src = FONT_SRC if FONT_SRC.exists() else FONT_SRC_FALLBACK
-    if not src.exists():
-        die(f"字体缺失: {FONT_SRC}（先跑 uv run python tools/build_font.py）")
-    out = INJECT / FONT_MEMBER
-    out.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, out)
-    size = out.stat().st_size
-    log(f"font: {FONT_MEMBER} <- {src} ({size:,} B)")
-    if size > FONT_SIZE_WARN:
-        log(f"font: ⚠ 体积超过原正文字体 {FONT_SIZE_WARN:,} B——引擎字体缓冲可能装不下"
-            f"（症状：sceFontOpenUserMemory addr=0）。建议裁剪字集。")
+    for src, member in FONTS:
+        if not src.exists():
+            die(f"字体缺失: {src}（先跑 uv run python tools/build_font.py）")
+        out = INJECT / member
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, out)
+        size = out.stat().st_size
+        log(f"font: {member} <- {src.name} ({size:,} B)")
+        if size > FONT_SIZE_WARN:
+            log(f"font: ⚠ 体积超过原正文字体 {FONT_SIZE_WARN:,} B——引擎字体缓冲可能"
+                f"装不下（症状：sceFontOpenUserMemory addr=0）。建议裁剪字集。")
 
 
 # ---------- D 组装封包树 ----------

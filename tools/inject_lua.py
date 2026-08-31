@@ -34,6 +34,14 @@ from tools.pipelib import read_jsonl  # noqa: E402
 from tools.resolve import resolve_map  # noqa: E402
 
 SRC = REPO / "lua_scripts"
+
+# 字体槽改写（源件只读，故在注入期做）。
+# 槽 0 的中文字体行早已写死在 lua_scripts/snr_common.lua:5007，这里只管槽 1：
+# 2026-08-31 游戏内探针实测——**ruby 注音走槽 1**，而槽 1 原配是日文
+# tsukuminpro_e_09.pgf，简体字与带声调拉丁元音（āáǎà）全部缺字，拼音 ruby 显示为
+# 空白。要让 `<汉字,pīn yīn>` 成立，槽 1 必须换成中文 9px 字体。
+FONT_SLOT1_FROM = 'fontLoad(1, "pgf/tsukuminpro_e_09.pgf")'
+FONT_SLOT1_TO = 'fontLoad(1, "pgf/LXGWWenKai-Regular-09.pgf")'
 OUT_SRC = REPO / "build" / "inject_src"
 OUT_BC = REPO / "build" / "inject" / "script"
 LANE = REPO / "pilot" / "lanes" / "opus" / "data"
@@ -162,12 +170,16 @@ def main() -> None:
     if OUT_SRC.exists():
         shutil.rmtree(OUT_SRC)
     OUT_SRC.mkdir(parents=True)
-    stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0)
+    stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
+                 font_slot1=0)
     for f in sorted(SRC.glob("*.lua")):
         stem = f.stem
         text = f.read_text(encoding="utf-8")
         if only is None or stem in only:
             text = inject_text(stem, text, by_file.get(stem, {}), zh, extra, stats)
+        if stem == "snr_common" and FONT_SLOT1_FROM in text:
+            text = text.replace(FONT_SLOT1_FROM, FONT_SLOT1_TO)
+            stats["font_slot1"] = 1
         (OUT_SRC / f.name).write_text(text, encoding="utf-8")
     print(f"[inject] vms 替换 {stats['vms']}（缺译 {stats['vms_missing']}，"
           f"账本外 {stats['vms_unledgered']}）；extra 替换 {stats['extra']}"

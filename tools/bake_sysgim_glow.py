@@ -415,6 +415,40 @@ def group_align(im: Image.Image, rows: list[dict], glows: list["Glow"]) -> dict[
     return out
 
 
+#: 段内行高差 ≤ 此值就当作「同一档，差异是噪声」，全段统一字号。
+#: 与 bake_para_glow.UNIFORM_HEIGHT_TOL 同值同义——那边的裁决 Y7 已经论证过：
+#: 锚在原行墨迹高，但「同一段里一行 15px 一行 16px 会显得坏掉」。
+UNIFORM_HEIGHT_TOL = 2
+
+
+def unify_group_sizes(picks: list[list], report: list[str]) -> None:
+    """同列多行（＝同一段）且原字芯高差在噪声范围内时，全段取同一字号。
+
+    **为什么需要**：逐行按自己的原行高选号，会让同一段渲出参差的字号。
+    `autosave` 四行原字芯高 14/14/16/16（差 2，就是噪声），逐行选号却渲成
+    11/16/17/15——用户看图指出「参差不齐」。行高差**真的**成簇时（如大字 +
+    小字注）不统一，这与 bake_para_glow.choose_size 的判据完全一致。
+
+    取该段各行自选字号的**最小值**：各行盒高不同，取最大值会让矮盒那行溢出。
+    """
+    groups: dict[tuple, list[int]] = {}
+    for i, (_meta, box, _g, _bb, _size) in enumerate(picks):
+        groups.setdefault((box[0], box[2]), []).append(i)
+    for col, idxs in groups.items():
+        if len(idxs) < 2:
+            continue
+        heights = [picks[i][3][3] - picks[i][3][1] + 1 for i in idxs]
+        if max(heights) - min(heights) > UNIFORM_HEIGHT_TOL:
+            continue
+        sizes = [picks[i][4] for i in idxs]
+        if len(set(sizes)) == 1:
+            continue
+        uni = min(sizes)
+        for i in idxs:
+            picks[i][4] = uni
+        report.append(f"uniform 列{col} 原行高{heights} 字号{sizes}→{uni}px")
+
+
 def bake_file(name: str, rows: list[dict], report: list[str]):
     im = Image.open(SYSGIM / f"{name}.png").convert("RGBA")
     out = im.copy()
@@ -426,7 +460,8 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
     _glows = [measure_glow(im, b) for b in boxes]
     galign = group_align(im, rows, _glows)
 
-    plans = []
+    # 第一遍只选字号（段内统一要看齐全段），第二遍才渲染落位。
+    picks: list[list] = []
     for meta, box, g in zip(rows, boxes, _glows):
         bb = _core_bbox(im, box, g)
         if bb is None:
@@ -435,26 +470,47 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
         target_h = y1 - y0 + 1
         avail_w, avail_h = box[2] - box[0], box[3] - box[1]
 
-        size = FONT_CASCADE[-1]
-        for cand in FONT_CASCADE:
+        # 数据行可显式指定字号（同 bake_para_glow 的 force_size 语义）：
+        # 用于原行高差**超出**噪声容差、但人工裁定该段就该统一的张。
+        # 仍走下面的溢出检查，指定得放不下会照常报 OVERFLOW。
+        forced = meta.get("force_size")
+        size = forced if forced else FONT_CASCADE[-1]
+        for cand in ([] if forced else FONT_CASCADE):
             cbb = _core_mask(meta["zh"], cand, name).getbbox()
             if cbb and (cbb[3] - cbb[1]) <= target_h:
                 size = cand
                 break
         # 判「放不放得下」只看**字芯**。发光晕本来就会溢出行盒——原图也溢出，
         # 正因如此 sys_2_b 的八行在自动分段里才粘成一段。
-        for cand in [c for c in FONT_CASCADE if c <= size]:
-            cbb = _core_mask(meta["zh"], cand, name).getbbox()
-            if cbb and (cbb[2] - cbb[0]) <= avail_w and (cbb[3] - cbb[1]) <= avail_h:
-                if cand != size:
-                    report.append(f"cascade {name} 行{meta['row']} {size}→{cand}px（字芯宽度）")
-                size = cand
-                break
+        if forced:
+            # 强制字号**不自动降级**：降一行就毁掉「全段同号」这个指定的本意。
+            # 放不下就报出来，由人改小 force_size 或改盒。
+            cbb = _core_mask(meta["zh"], size, name).getbbox()
+            if not cbb or (cbb[2] - cbb[0]) > avail_w or (cbb[3] - cbb[1]) > avail_h:
+                report.append(
+                    f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」"
+                    f"force_size={size} 放不下 {avail_w}x{avail_h}"
+                )
         else:
-            report.append(
-                f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」字芯放不下 {avail_w}x{avail_h}"
-            )
+            for cand in [c for c in FONT_CASCADE if c <= size]:
+                cbb = _core_mask(meta["zh"], cand, name).getbbox()
+                if cbb and (cbb[2] - cbb[0]) <= avail_w and (cbb[3] - cbb[1]) <= avail_h:
+                    if cand != size:
+                        report.append(f"cascade {name} 行{meta['row']} {size}→{cand}px（字芯宽度）")
+                    size = cand
+                    break
+            else:
+                report.append(
+                    f"OVERFLOW {name} 行{meta['row']}「{meta['zh']}」"
+                    f"字芯放不下 {avail_w}x{avail_h}"
+                )
+        picks.append([meta, box, g, bb, size])
 
+    unify_group_sizes(picks, report)
+
+    plans = []
+    for meta, box, g, bb, size in picks:
+        x0, y0, x1, y1 = bb
         glyph = render_glow(meta["zh"], size, g, name)
         cbb = _core_mask(meta["zh"], size, name).getbbox()
         core_w, core_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
@@ -476,9 +532,11 @@ def bake_file(name: str, rows: list[dict], report: list[str]):
         else:
             gx = (x0 + x1) // 2 - core_w // 2
         gy = (y0 + y1) // 2 - core_h // 2
-        halo = (glyph.width - core_w) // 2
-        vhalo = (glyph.height - core_h) // 2
-        plans.append((g, glyph, gx - halo, gy - vhalo))
+        # 落位按**字芯在发光图里的真实偏移** cbb[:2]，不是「字芯居中于发光图」的近似。
+        # 旧写法 halo=(glyph.width-core_w)//2 假设左右承距相等，实际逐串不同——
+        # autosave 四行本该齐边却渲成左缘 43/42/48/41（跨度 7px，用户看图指出）。
+        # 两图同源（render_glow 内部就是拿 _core_mask 算的），故这个偏移是精确的。
+        plans.append((g, glyph, gx - cbb[0], gy - cbb[1]))
 
     for (g, _, _, _), box in zip(plans, boxes):
         out.paste(g.bg, box)

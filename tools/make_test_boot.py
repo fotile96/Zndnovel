@@ -187,11 +187,17 @@ def main() -> None:
 
     emit("snr_mainmenu.lua", src)
 
-    if not args.no_fast_boot:
-        common = REPO / "build" / "inject_src" / "snr_common.lua"
-        if not common.exists():
-            sys.exit(f"缺 {common}（先跑 tools/inject_lua.py）")
-        text, ok = strip_ipl(common.read_text(encoding="utf-8"))
+    # ⚠ 两个分支都必须重写 snr_common：--no-fast-boot 若只是「不写」，上一轮剥过 IPL 的
+    # 字节码会留在 build/inject/script 里，开场并不会恢复（2026-08-31 实测踩到）。
+    common = REPO / "build" / "inject_src" / "snr_common.lua"
+    if not common.exists():
+        sys.exit(f"缺 {common}（先跑 tools/inject_lua.py）")
+    text = common.read_text(encoding="utf-8")
+    if args.no_fast_boot:
+        emit("snr_common.lua", text)
+        print("[testboot] 保留 IPL 开场（如需看开场几屏 logo 就用这个）")
+    else:
+        text, ok = strip_ipl(text)
         if not ok:
             sys.exit("未能定位 IPL 开场块——snr_common 结构变了，检查 IPL_BLOCK_* 锚点")
         emit("snr_common.lua", text)

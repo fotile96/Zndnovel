@@ -67,7 +67,11 @@ REQUIRED = ("file", "row", "jp", "zh")
 # `align` / `left`：D 族（面板）逐行的横向对齐。**同一张图里两种对齐**——
 # sys_5_d 第 1 行居中、第 2/3 行齐左于 x=51，实测两行左缘同为 51 而块心差 25px，
 # 不是同一种版式。故对齐必须逐行可写，不能按面定死。
-KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left")
+# `force_size`：逐行强制字号，跳过自动选号（bake_sysgim_glow / bake_para_glow 同名同义）。
+# 用于原行高差**超出**自动统一的噪声容差、但人工裁定该段就该同号的张——
+# autosave 四行原行高 13/14/16/16 差 3，逐行选号渲成 12/15/16/17，用户看图判为参差。
+# 强制号不自动降级：放不下就报 OVERFLOW，由人改小或改盒，否则「全段同号」名存实亡。
+KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left", "force_size")
 
 
 @dataclass(frozen=True)

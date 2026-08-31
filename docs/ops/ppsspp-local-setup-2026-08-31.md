@@ -9,7 +9,7 @@
    - 依赖：brew `sdl3` + `sdl3_ttf`（**master 已从 SDL2 迁到 SDL3**，装 sdl2 无用）；cmake；Xcode CLT。
    - 配方：`cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j10`；headless 加 `-DHEADLESS=ON` 用独立 build 目录。
 2. **WebSocket 调试通道全链路验证**（App 构建，`--debugger=45678` 启动，无游戏亦可）：
-   - `tools/e2e/probe.py`（`uv run --with websockets python tools/e2e/probe.py`）连接 `ws://127.0.0.1:45678/debugger`（子协议 `debugger.ppsspp.org`）成功；
+   - `tools/emu/probe.py`（`uv run --with websockets python tools/emu/probe.py`）连接 `ws://127.0.0.1:45678/debugger`（子协议 `debugger.ppsspp.org`）成功；
    - `version` 握手回报 `{name: PPSSPP, version: 1ee9168, pid, path}`（pid/path 可校验附着对象）；`game.status` → `game: null`；`cpu.status` → `paused: true`；`input.analog` 广播正常流动。
 3. **Headless golden 比对链路验证**：pspautotests 样例 `cpu_alu.prx`（curl 自官方 repo）
    `PPSSPPHeadless /abs/path/cpu_alu.prx --compare --timeout=60 --graphics=software` → **1 tests passed**。
@@ -29,10 +29,19 @@
 2. **ISO 须补清单**（引擎壳）：`PSP_GAME/SYSDIR/EBOOT.BIN`（引擎 ELF，msg 断点 oracle 的宿主）、`PSP_GAME/USRDIR/module/libfont.prx`（lua_scripts 全库唯一 disc0: 引用）、`movie/op.mp4` + `movie/ed.mp4`（playMovie 引用，不在 DATA.BIN）、PARAM.SFO/ICON 等盘面元数据。PPSSPP 支持解包目录直接引导（`PSP_DISC_DIRECTORY` → VirtualDiscFileSystem），**无需重封 ISO**。
 3. **测试引导脚本配方确认**（读 `snr_lib.lua` 全文）：伪造任意进度 = `cInitGame()` 后置 `gameSave.myCard[1..195].hold`、`startMenuState=2`、`tutorial.*=1`、`ayanoTime`、`storyRoute[..]`，再 `run(cGetFileName("script", 目标脚本)); quit()`。章节内跳场景：`doScriptScene` 是裸全局，赋值后 `run` 章节脚本即从该场景续跑。`config.lua` 的 `config.bootScript` 决定引导入口（现指 snr_common.lua）。
 
+## 补记（同日晚）：测试管线已提前立起
+
+用户暂无法提供 ISO，管线先行：`tools/emu/`（client/launcher/imgdiff/fetch_testdata）
++ `tests/emu/` 活体套件，用 pspautotests 替身二进制把传输、日志断点跟踪
+（msg-oracle 同款机制）、输入注入、像素通路全部实测跑绿（9 passed / 4.3s），
+`test_game_boot.py` 留作 ISO 到位后的启用入口（`SNDL_GAME_DIR` 环境变量门控）。
+详见 `tools/emu/README.md`。下节清单第 3–4 步已被该套件机器化，届时只需第 1–2 步
+人工组装基底目录 + 设环境变量。
+
 ## ISO 到位后的 M0 剩余项
 
 1. 解包 ISO → `assets/game/`（含 PSP_GAME/），把 `assets/DATA.BIN` 覆入对应位置；
 2. `PPSSPPSDL --debugger=45678 assets/game` 引导 → probe 确认 `game.start` 广播与 `path` 字段；
 3. `memory.searchDisasm`/字符串引用定位 msg 原生函数地址（EBOOT 固定，一次性）→ 挂 `{log:true, logFormat:"MSG {a0}"}` 断点，翻两页对白验证 vms ID 流；
 4. `gpu.buffer.screenshot` 存图（480×272）；`input.buttons.press` 翻页；
-5. 全绿 → 按调研报告 L0/L1/L2 分层立 `tools/e2e/` 正式客户端库 + pytest。
+5. 全绿 → 按调研报告 L0/L1/L2 分层立 `tools/emu/` 正式客户端库 + pytest。

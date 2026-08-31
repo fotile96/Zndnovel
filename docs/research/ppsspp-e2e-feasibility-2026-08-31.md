@@ -66,7 +66,7 @@
 
 ## 四、建议架构与落地路线
 
-**形态**：`tools/e2e/` 下一个 ~200 行 python WebSocket 客户端（`websockets` 库，uv 管理）+ pytest 用例层 + golden 图目录（`build/e2e-golden/`，gitignore 视情况）。MCP 不做地基：CI 型回归用 CLI/pytest 最顺；等交互式调试需求出现，`uv run fastmcp` 把同一客户端库包一层即可（或直接用现成 mcp-ppsspp 做临场探索）。
+**形态**：`tools/emu/` 下一个 ~200 行 python WebSocket 客户端（`websockets` 库，uv 管理）+ pytest 用例层 + golden 图目录（`build/e2e-golden/`，gitignore 视情况）。MCP 不做地基：CI 型回归用 CLI/pytest 最顺；等交互式调试需求出现，`uv run fastmcp` 把同一客户端库包一层即可（或直接用现成 mcp-ppsspp 做临场探索）。
 
 分层用例：
 - **L0 冒烟**（每次重打包后）：headless 或 app 启动解包目录 → 等 `game.start` → 播到标题画面截图比对 → log 流无 ERROR。验证 DATA.BIN 回封完整性、字体加载。

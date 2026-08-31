@@ -6,6 +6,7 @@ dependencies = [
     "jieba>=0.42.1",
     "pillow>=12.3.0",
     "pyyaml>=6.0.3",
+    "websockets>=17.1",
 ]
 
 [dependency-groups]
@@ -15,3 +16,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "emu: PPSSPP 活体模拟器测试（需本机构建与 tools/emu/fetch_testdata.sh 素材，缺则自动 skip）",
+]

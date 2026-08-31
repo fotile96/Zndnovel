@@ -15,6 +15,7 @@ snr_common，回滚只需重新注入原成员。
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -98,6 +99,30 @@ main = function()
     advPart(false)
     quit()
 end
+'''
+
+CUTIN_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：章节首尾 cutin 一次过目
+-- 每张按其**真实调用点的几何**摆放（位置/旋转取动画结束后的静止态），
+-- 故能看出中文文案在原位置下会不会被屏幕边缘切掉。
+main = function()
+    layerLoad(layerName.bg1, "")
+    fontClear()
+{pages}
+    quit()
+end
+'''
+
+CUTIN_PAGE = '''    layerLoad(layerName.bg1, {bg1})
+    layerLoad(layerName.event, {ev})
+    layerLoad(layerName.pose1, cGetFileName("cutin", "{name}"))
+    layerPosition(layerName.pose1, {x}, {y})
+    layerRotate(layerName.pose1, {r}, {r}, {r})
+    layerAlpha(layerName.pose1, 100)
+    cfontPrint(0, 8, 8, 16777215, 255, "{name}  @{x},{y}")
+    switchScreen(0, "", 0)
+    wait({hold})
+    fontClear()
+    layerLoad(layerName.pose1, "")
 '''
 
 CARD_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：直入卡片谜题 crd_{card}
@@ -190,6 +215,53 @@ def short_circuit_card(card: int) -> tuple[str, int]:
     return src.replace(SELECT_CALL, str(card_answer(card))), src.count(SELECT_CALL)
 
 
+# 章节首尾 cutin 的真实几何：从 lua 调用点现场提取，不写死——脚本改了这里自动跟上。
+CUTIN_CALL = re.compile(r'cGetFileName\("cutin", "(cut_[se]_\w+)"\)')
+CUTIN_POS = re.compile(r'layerPosition\(layerName\.pose1,\s*(-?\d+),\s*(-?\d+)')
+CUTIN_MPOS = re.compile(r'layerMovePosition\(layerName\.pose1,\s*(-?\d+),\s*(-?\d+)')
+CUTIN_ROT = re.compile(r'layerRotate\(layerName\.pose1,\s*(-?\d+)')
+CUTIN_BG = re.compile(r'layerLoad\(layerName\.(?:event|bg1|bg2|bg3),\s*'
+                      r'cGetFileName\("(event|bg|sysgim)", "(\w+)"\)\)')
+CUTIN_FADE = re.compile(r'comEffect(?:FadeOut|WhiteOut|YellowIn|BlackOut)\(')
+
+
+def scan_cutins() -> list[tuple]:
+    """扫全部章节脚本，返回 [(图名, x, y, rot, 底)]，取**动画结束后的静止态**。
+
+    章首 cut_s_*：从 (x, 242) 滑到 (x, 232) 并淡入 → 取 movePosition 的终点。
+    章末 cut_e_*：在 (x, 10) 带 rot=10 淡入、再转回 0 → 取 rot=0。
+    x 逐图不同（实测 150/190/250/255/270/350），中文文案宽度变了就可能被屏幕边缘
+    切掉——这正是要一次过目的原因。同一张图多处调用时取首个（实测各处几何一致）。
+    """
+    seen: dict[str, tuple] = {}
+    for f in sorted((REPO / "lua_scripts").glob("*.lua")):
+        lines = f.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            m = CUTIN_CALL.search(line)
+            if not m or m.group(1) in seen:
+                continue
+            win = "\n".join(lines[i:i + 14])
+            mp, p, r = (CUTIN_MPOS.search(win), CUTIN_POS.search(win),
+                        CUTIN_ROT.search(win))
+            src = mp or p
+            if not src:
+                continue
+            # 往回找当时铺的底：**先遇到淡出就说明画面已清空，底是黑的**。
+            # 少这一条会把已被淡黑的 CG 误当成背景——实测 10 张章末 cutin 全在
+            # 黑底上（前一场景先 comEffectFadeOut），13 张章首才真叠在 CG 上。
+            bg = None
+            for j in range(i - 1, max(0, i - 40), -1):
+                if CUTIN_FADE.search(lines[j]):
+                    break
+                b = CUTIN_BG.search(lines[j])
+                if b:
+                    bg = (b.group(1), b.group(2))
+                    break
+            seen[m.group(1)] = (m.group(1), int(src.group(1)), int(src.group(2)),
+                                0 if r else 0, bg)
+    return [seen[k] for k in sorted(seen)]
+
+
 def scene_to_script(scene: str) -> str:
     """场景 ID → 章节脚本名（comSectionUID2ScriptFileName 的规则）。"""
     chap, mode = scene[:2], scene[2]
@@ -202,7 +274,8 @@ def scene_to_script(scene: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("font", "scene", "ruby", "card"), default="font")
+    ap.add_argument("--mode", choices=("font", "scene", "ruby", "card", "cutin"),
+                    default="font")
     ap.add_argument("--card", type=int, help="card 模式的卡号（答案自 data/dag.json 取）")
     ap.add_argument("--scene", default="s1s_20", help="scene 模式的目标场景 ID")
     ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
@@ -211,7 +284,24 @@ def main() -> None:
                     help="保留 IPL 开场演出（默认剥掉，省约 28 秒/轮）")
     args = ap.parse_args()
 
-    if args.mode == "card":
+    if args.mode == "cutin":
+        cuts = scan_cutins()
+        def _bg_args(bg):
+            if not bg:
+                return '""', '""'
+            kind, nm = bg
+            call = f'cGetFileName("{kind}", "{nm}")'
+            return (call, '""') if kind == "bg" else ('""', call)
+
+        pages = "".join(
+            CUTIN_PAGE.format(name=n, x=x, y=y, r=r, hold=args.hold,
+                              bg1=_bg_args(bg)[0], ev=_bg_args(bg)[1])
+            for n, x, y, r, bg in cuts)
+        src = CUTIN_TEMPLATE.format(pages=pages)
+        n_cg = sum(1 for c in cuts if c[4])
+        print(f"[testboot] 扫到 {len(cuts)} 张章节 cutin（{n_cg} 张叠在 CG 上，"
+              f"{len(cuts) - n_cg} 张在黑底上）")
+    elif args.mode == "card":
         if not args.card:
             sys.exit("--mode card 需要 --card N")
         src = CARD_TEMPLATE.format(card=args.card, scene=card_scene(args.card))

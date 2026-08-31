@@ -250,11 +250,11 @@
     ?noCardOf(s1s_35_sel)
     CHOICE sel_s1s_35_sel_a=>1
     CHOICE sel_s1s_35_sel_a=>1 sel_s1s_35_sel_b=>2 sel_s1s_35_sel_c=>3
-    on v49==1:
+    on l1_2==1:
     -> s1s_37
-    on v49==2:
+    on l1_2==2:
     -> s1s_36
-    on v49==3:
+    on l1_2==3:
     -> s1s_38
 [s1s_36]
     play scene_s1s_36 「約束をしている」  // cost=25 showsCard=130 GET_CARD=130
@@ -287,9 +287,9 @@
     ?noCardOf(s1s_100_sel)
     CHOICE sel_s1s_100_sel_b=>2
     CHOICE sel_s1s_100_sel_a=>1 sel_s1s_100_sel_b=>2
-    on v49==1:
+    on l1_2==1:
     -> s1s_110
-    on v49==2:
+    on l1_2==2:
     -> s1s_120
 [s1s_110]
     play scene_s1s_110 「答案を羨ましがる」  // cost=25
@@ -315,9 +315,9 @@
     ?noCardOf(s1s_170_sel)
     CHOICE sel_s1s_170_sel_a=>1
     CHOICE sel_s1s_170_sel_a=>1 sel_s1s_170_sel_b=>2
-    on v49==1:
+    on l1_2==1:
     -> s1s_210
-    on v49==2:
+    on l1_2==2:
     -> s1s_180
 [s1s_180]
     play scene_s1s_180 「いつもの生活」  // cost=25
@@ -329,23 +329,24 @@
     play scene_s1s_200_sel 「探索：放課後の学校」  // showsCard=121
     END(cost=25)
     -> s1s_210
-    on v53==2:
+    MAP(AYA) class=>3 corridor=>4 roof=>7 court=>2 ground=>9
+    on l1_5==2:
     call scene_s1s_dispatch_v29()
     call scene_s1s_dispatch_v30()
     call scene_s1s_dispatch_v31()
-    on v53==3:
+    on l1_5==3:
     call scene_s1s_dispatch_v20()
     call scene_s1s_dispatch_v21()
     call scene_s1s_dispatch_v22()
-    on v53==4:
+    on l1_5==4:
     call scene_s1s_dispatch_v23()
     call scene_s1s_dispatch_v24()
     call scene_s1s_dispatch_v25()
-    on v53==7:
+    on l1_5==7:
     call scene_s1s_dispatch_v26()
     call scene_s1s_dispatch_v27()
     call scene_s1s_dispatch_v28()
-    on v53==9:
+    on l1_5==9:
     call scene_s1s_dispatch_v32()
     call scene_s1s_dispatch_v33()
     call scene_s1s_dispatch_v34()
@@ -369,9 +370,9 @@
     ?noCardOf(s1s_260_sel)
     CHOICE sel_s1s_260_sel_b=>2
     CHOICE sel_s1s_260_sel_a=>1 sel_s1s_260_sel_b=>2
-    on v49==1:
+    on l1_2==1:
     -> s1s_270
-    on v49==2:
+    on l1_2==2:
     -> s1s_280
 [s1s_270]
     -> s5s_10
@@ -452,12 +453,12 @@
     ?noCardOf(s2s_80_sel)
     CHOICE sel_s2s_80_sel_b=>2
     CHOICE sel_s2s_80_sel_a=>1 sel_s2s_80_sel_b=>2 sel_s2s_160_sel_b=>3
-    on v50==1:
+    on l1_2==1:
     -> s2s_90
-    on v50==2:
+    on l1_2==2:
     play scene_s2s_80_sel_2 「行かない」
     -> s2s_20
-    on v50==3:
+    on l1_2==3:
     play scene_s2s_80_sel_3 「濁す」
     -> s2s_40
 [s2s_90]
@@ -468,16 +469,16 @@
     ?noCardOf(s2s_120_sel)
     CHOICE sel_s2s_120_sel_a=>1 sel_s2s_120_sel_b=>2 sel_s2s_120_sel_c=>3
     CHOICE sel_s2s_120_sel_a=>1 sel_s2s_120_sel_b=>2 sel_s2s_120_sel_c=>3 sel_s2s_120_sel_d=>4
-    on v50==1:
+    on l1_2==1:
     play scene_s2s_120_sel_3 「特にない」
     -> s2s_124
-    on v50==2:
+    on l1_2==2:
     play scene_s2s_120_sel_4 「テストで満点取る」
     -> s2s_124
-    on v50==3:
+    on l1_2==3:
     play scene_s2s_120_sel 「歌が上手くなる」
     -> s2s_124
-    on v50==4:
+    on l1_2==4:
     -> s2s_140
 [s2s_124]
     play scene_s2s_124 「サクラのため息」  // cost=20
@@ -493,9 +494,9 @@
     ?noCardOf(s2s_160_sel)
     CHOICE sel_s2s_160_sel_a=>1
     CHOICE sel_s2s_160_sel_a=>1 sel_s2s_160_sel_b=>2
-    on v50==1:
+    on l1_2==1:
     -> s2s_170
-    on v50==2:
+    on l1_2==2:
     -> s2s_180
 [s2s_170]
     play scene_s2s_170 「ユウイチのことが好き」  // cost=20
@@ -505,11 +506,12 @@
     -> s2s_190_sel
 [s2s_190_sel]
     play scene_s2s_190_sel 「選択：ナゾトキ」
+    ?cardOf(s2s_190_sel).hold==1
     CHOICE sel_s2s_190_sel_a=>1 sel_s2s_190_sel_b=>2 sel_s2s_190_sel_c=>3
-    on v50==1:
+    on l1_2==1:
     END(cost=20)
     -> s2s_208
-    on v50==2:
+    on l1_2==2:
     END(cost=20)
     -> s2s_209
     play scene_s2s_190_sel_2 「ナゾトキ１」
@@ -517,10 +519,11 @@
     CHOICE sel_s2s_192a_sel_a=>1 sel_s2s_192a_sel_b=>2 sel_s2s_192a_sel_c=>3
     play scene_s2s_190_sel_4 「ナゾトキ１」
     CHOICE sel_s2s_192b_sel_a=>1 sel_s2s_192b_sel_b=>2 sel_s2s_192b_sel_c=>3
+    on l1_5==1:
+    on l1_6==1:
     play scene_s2s_190_sel_6 「ナゾトキ１」
     CHOICE sel_s2s_192c_sel_a=>1 sel_s2s_192c_sel_b=>2 sel_s2s_192c_sel_c=>3
-    on v62==2:
-    play scene_s2s_190_sel_5 「ナゾトキ１」
+    on l1_7==2:
     play scene_s2s_190_sel_5 「ナゾトキ１」
     play scene_s2s_190_sel_7 「ナゾトキ１」
     play scene_s2s_190_sel_8 「ナゾトキ２」
@@ -528,13 +531,15 @@
     CHOICE sel_s2s_193a_sel_a=>1 sel_s2s_193a_sel_b=>2 sel_s2s_193a_sel_c=>3 sel_s2s_193a_sel_d=>4
     play scene_s2s_190_sel_10 「ナゾトキ２」
     CHOICE sel_s2s_193b_sel_a=>1 sel_s2s_193b_sel_b=>2 sel_s2s_193b_sel_c=>3 sel_s2s_193b_sel_d=>4
+    on l1_5==4:
+    on l1_6==4:
     play scene_s2s_190_sel_12 「ナゾトキ２」
     CHOICE sel_s2s_193c_sel_a=>1 sel_s2s_193c_sel_b=>2 sel_s2s_193c_sel_c=>3
-    play scene_s2s_190_sel_11 「ナゾトキ２」
+    on l1_7==2:
     play scene_s2s_190_sel_11 「ナゾトキ２」
     play scene_s2s_190_sel_13 「ナゾトキ２」
     END(cost=20)
-    on v51==0:
+    on l1_3==0:
     -> s2s_208
     -> s2s_209
 [s2s_208]
@@ -551,9 +556,9 @@
     ?noCardOf(s2s_220_sel)
     CHOICE sel_s2s_220_sel_a=>1
     CHOICE sel_s2s_220_sel_a=>1 sel_s2s_220_sel_b=>2
-    on v50==1:
+    on l1_2==1:
     -> s2s_230
-    on v50==2:
+    on l1_2==2:
     -> s2s_240
 [s2s_230]
     play scene_s2s_230 「プールの約束」  // cost=20
@@ -569,13 +574,13 @@
     ?routeHas(s2s_209)
     CHOICE sel_s2s_260_sel_a=>1 sel_s2s_260_sel_b=>2
     CHOICE sel_s2s_260_sel_a=>1 sel_s2s_260_sel_b=>2 sel_s2s_260_sel_c=>3
-    on v50==1:
+    on l1_1==1:
     play scene_s2s_260_sel_2 「夕日を見ながら歌を聞く」
     -> s2s_293
-    on v50==2:
+    on l1_1==2:
     play scene_s2s_260_sel_3 「教科書の裏に名前」
     -> s2s_293
-    on v50==3:
+    on l1_1==3:
     -> s2s_300
 [s2s_293]
     play scene_s2s_293 「オマジナイ、成功……？」  // cost=20
@@ -590,11 +595,11 @@
     ?noCardOf(s2s_340_sel)
     CHOICE sel_s2s_340_sel_b=>2 sel_s2s_340_sel_c=>3
     CHOICE sel_s2s_340_sel_a=>1 sel_s2s_340_sel_b=>2 sel_s2s_340_sel_c=>3
-    on v50==1:
+    on l1_2==1:
     -> s2s_350
-    on v50==2:
+    on l1_2==2:
     -> s2s_360
-    on v50==3:
+    on l1_2==3:
     -> s2s_370
 [s2s_350]
     play scene_s2s_350 「絶対に効くと思う」  // cost=20
@@ -617,7 +622,7 @@
     -> s2s_420
     -> s2s_450
 [s2s_420]
-    play scene_s2s_420 「廊下に響く声」  // showsCard=95 GET_CARD=95
+    play scene_s2s_420 「廊下に響く声」  // cost=20 showsCard=95 GET_CARD=95
     -> s2s_440
 [s2s_440]
     play scene_s2s_440 「ゲームオーバー」  // GAMEOVER
@@ -739,9 +744,9 @@
     ?noCardOf(s3s_20_sel)
     CHOICE sel_s3s_20_sel_b=>2
     CHOICE sel_s3s_20_sel_a=>1 sel_s3s_20_sel_b=>2
-    on v59==1:
+    on l1_2==1:
     -> s3s_65
-    on v59==2:
+    on l1_2==2:
     -> s3s_30
 [s3s_30]
     -> s3s_50_sel
@@ -750,9 +755,9 @@
     ?noCardOf(s3s_50_sel)
     CHOICE sel_s3s_50_sel_a=>1
     CHOICE sel_s3s_50_sel_a=>1 sel_s3s_50_sel_b=>2
-    on v59==1:
+    on l1_2==1:
     -> s3s_65
-    on v59==2:
+    on l1_2==2:
     -> s3s_60
 [s3s_60]
     -> s6s_10
@@ -764,11 +769,11 @@
     ?noCardOf(s3s_90_sel)
     CHOICE sel_s3s_90_sel_b=>2 sel_s3s_90_sel_c=>3
     CHOICE sel_s3s_90_sel_a=>1 sel_s3s_90_sel_b=>2 sel_s3s_90_sel_c=>3
-    on v59==1:
+    on l1_2==1:
     -> s3s_120
-    on v59==2:
+    on l1_2==2:
     -> s3s_100
-    on v59==3:
+    on l1_2==3:
     -> s3s_100
 [s3s_100]
     play scene_s3s_100 「ウワサに興味がない」  // cost=25
@@ -786,11 +791,11 @@
     ?noCardOf(s3s_170_sel)
     CHOICE sel_s3s_170_sel_b=>2 sel_s3s_170_sel_c=>3
     CHOICE sel_s3s_170_sel_a=>1 sel_s3s_170_sel_b=>2 sel_s3s_170_sel_c=>3
-    on v61==1:
+    on l1_2==1:
     -> s3s_190
-    on v61==2:
+    on l1_2==2:
     -> s3s_171
-    on v61==3:
+    on l1_2==3:
     -> s3s_172
 [s3s_171]
     play scene_s3s_171 「適当に聞く」
@@ -809,22 +814,24 @@
     play scene_s3s_230_sel 「探索：放課後の学校」
     END(cost=25)
     -> s3s_300_sel
-    on v64==1:
+    MAP(AYA) class=>1 roof=>5 library=>3 health=>2 ground=>4
+    MAP(AYA) class=>1 roof=>5 health=>2 ground=>4
+    on l1_6==1:
     call scene_s3s_dispatch_v12()
     call scene_s3s_dispatch_v13()
-    on v64==2:
+    on l1_6==2:
     call scene_s3s_dispatch_v14()
     call scene_s3s_dispatch_v15()
     CHOICE sel_s3s_230h_sel_a=>1 sel_s3s_230h_sel_b=>2 sel_s3s_230h_sel_c=>3
-    on v67==1:
+    on l1_8==1:
     call scene_s3s_dispatch_v18()
-    on v67==2:
+    on l1_8==2:
     call scene_s3s_dispatch_v16()
-    on v67==3:
+    on l1_8==3:
     call scene_s3s_dispatch_v17()
     call scene_s3s_dispatch_v19()
-    on v64==3:
-    on v62==2:
+    on l1_6==3:
+    on l1_4==2:
     call scene_s3s_dispatch_v22()
     call scene_s3s_dispatch_v23()
     CHOICE sel_s3s_230l_sel_a=>1 sel_s3s_230l_sel_b=>2
@@ -833,14 +840,14 @@
     call scene_s3s_dispatch_v20()
     call scene_s3s_dispatch_v21()
     call scene_s3s_dispatch_v26()
-    on v64==4:
-    on v62==3:
+    on l1_6==4:
+    on l1_4==3:
     call scene_s3s_dispatch_v29()
     call scene_s3s_dispatch_v27()
     call scene_s3s_dispatch_v28()
     call scene_s3s_dispatch_v30()
-    on v64==5:
-    on v62==4:
+    on l1_6==5:
+    on l1_4==4:
     call scene_s3s_dispatch_v32()
     call scene_s3s_dispatch_v31()
     call scene_s3s_dispatch_v33()
@@ -853,11 +860,11 @@
     CHOICE sel_s3s_300_sel_a=>1
     CHOICE sel_s3s_300_sel_a=>1 sel_s3s_300_sel_b=>2
     CHOICE sel_s3s_300_sel_a=>1 sel_s3s_300_sel_b=>2 sel_s3s_300_sel_c=>3
-    on v59==1:
+    on l1_1==1:
     -> s3s_360
-    on v59==2:
+    on l1_1==2:
     -> s3s_301
-    on v59==3:
+    on l1_1==3:
     -> s3s_330
 [s3s_301]
     play scene_s3s_301 「ほうっておく」  // cost=25
@@ -870,10 +877,10 @@
     ?noCardOf(s3s_350_sel)
     CHOICE sel_s3s_350_sel_a=>1
     CHOICE sel_s3s_350_sel_a=>1 sel_s3s_350_sel_b=>2
-    on v59==1:
+    on l1_2==1:
     play scene_s3s_350_sel_2 「図書室へ」
     -> s3s_360
-    on v59==2:
+    on l1_2==2:
     play scene_s3s_350_sel_3 「階段へ」
     -> s3s_375
 [s3s_330]
@@ -883,7 +890,7 @@
     play scene_s3s_360 「後をつける」  // cost=25
     -> s3s_370
 [s3s_370]
-    play scene_s3s_370 「口づけ」  // showsCard=107 GET_CARD=107
+    play scene_s3s_370 「口づけ」  // cost=25 showsCard=107 GET_CARD=107
     -> s3s_375
 [s3s_375]
     ?routeHas(s3s_375)
@@ -920,9 +927,9 @@
     ?noCardOf(s3s_580_sel)
     CHOICE sel_s3s_580_sel_b=>2
     CHOICE sel_s3s_580_sel_a=>1 sel_s3s_580_sel_b=>2
-    on v59==1:
+    on l1_2==1:
     -> s3s_600
-    on v59==2:
+    on l1_2==2:
     -> s3s_590
 [s3s_590]
     play scene_s3s_590 「でも、いつかは別れが」  // cost=25
@@ -949,9 +956,9 @@
     ?routeHas(s4s_40)
     CHOICE sel_s3s_641_sel_a=>1 sel_s3s_641_sel_b=>2
     CHOICE sel_s3s_641_sel_a=>1
-    on v59==1:
+    on l1_2==1:
     -> s3s_650
-    on v59==2:
+    on l1_2==2:
     -> s3s_670
 [s3s_670]
     play scene_s3s_670 「ユウイチとキスしない」  // cost=25
@@ -1082,9 +1089,9 @@
     ?noCardOf(s4s_30_sel)
     CHOICE sel_s4s_30_sel_b=>2
     CHOICE sel_s4s_30_sel_a=>1 sel_s4s_30_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_51
-    on v11==2:
+    on l1_2==2:
     -> s4s_40
 [s4s_40]
     play scene_s4s_40 「私じゃない」  // cost=25
@@ -1108,10 +1115,10 @@
     ?noCardOf(s4s_100_sel)
     CHOICE sel_s4s_100_sel_b=>2
     CHOICE sel_s4s_100_sel_a=>1 sel_s4s_100_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     play scene_s4s_100_sel_2 「先生を受け入れる」
     -> s4s_110
-    on v11==2:
+    on l1_2==2:
     -> s4s_130
 [s4s_110]
     -> e1s_10
@@ -1124,9 +1131,9 @@
     ?noCardOf(s4s_160_sel)
     CHOICE sel_s4s_170_sel_b=>2
     CHOICE sel_s4s_170_sel_a=>1 sel_s4s_170_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_280
-    on v11==2:
+    on l1_2==2:
     -> s4s_180
 [s4s_180]
     play scene_s4s_180 「興味はない」  // cost=25
@@ -1135,27 +1142,27 @@
     play scene_s4s_210_sel 「探索：アヤノに何が？」
     END(cost=25)
     -> s4s_215
-    on v61==1:
+    MAP(YUI) class=>1 corridor=>2 music=>4 roof=>3 court=>6 ground=>7 art=>5
+    on l1_5==1:
     call scene_s4s_dispatch_v14()
     call scene_s4s_dispatch_v15()
-    on v61==2:
+    on l1_5==2:
     call scene_s4s_dispatch_v16()
     call scene_s4s_dispatch_v17()
     call scene_s4s_dispatch_v17()
-    call scene_s4s_dispatch_v17()
-    on v61==3:
+    on l1_5==3:
     call scene_s4s_dispatch_v18()
     call scene_s4s_dispatch_v19()
-    on v61==4:
+    on l1_5==4:
     call scene_s4s_dispatch_v20()
     call scene_s4s_dispatch_v21()
-    on v61==5:
+    on l1_5==5:
     call scene_s4s_dispatch_v22()
     call scene_s4s_dispatch_v23()
-    on v61==6:
+    on l1_5==6:
     call scene_s4s_dispatch_v24()
     call scene_s4s_dispatch_v25()
-    on v61==7:
+    on l1_5==7:
     call scene_s4s_dispatch_v26()
     call scene_s4s_dispatch_v27()
     call scene_s4s_dispatch_v28()
@@ -1174,9 +1181,9 @@
     ?noCardOf(s4s_290_sel)
     CHOICE sel_s4s_290_sel_a=>1
     CHOICE sel_s4s_290_sel_a=>1 sel_s4s_290_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_300
-    on v11==2:
+    on l1_2==2:
     -> s4s_310
 [s4s_300]
     play scene_s4s_300 「下らない、と思った」  // cost=25
@@ -1198,9 +1205,9 @@
     ?noCardOf(s4s_360_sel)
     CHOICE sel_s4s_360_sel_b=>2
     CHOICE sel_s4s_360_sel_a=>1 sel_s4s_360_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_390
-    on v11==2:
+    on l1_2==2:
     -> s4s_370
 [s4s_370]
     play scene_s4s_370 「屋上の人影」  // cost=25
@@ -1216,9 +1223,9 @@
     ?noCardOf(s4s_420_sel)
     CHOICE sel_s4s_420_sel_b=>2
     CHOICE sel_s4s_420_sel_a=>1 sel_s4s_420_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_430
-    on v11==2:
+    on l1_2==2:
     play scene_s4s_420_sel_2 「アヤノを捜す」
     -> s4s_370
 [s4s_430]
@@ -1228,30 +1235,30 @@
     play scene_s4s_450_sel 「探索：アヤノの居場所」
     END(cost=25)
     -> s4s_455
-    on v61==1:
+    MAP(YUI) class=>1 corridor=>2 music=>4 roof=>3 library=>8 court=>6 ground=>7 art=>5
+    on l1_5==1:
     call scene_s4s_dispatch_v14()
     call scene_s4s_dispatch_v15()
-    on v61==2:
+    on l1_5==2:
     call scene_s4s_dispatch_v16()
     call scene_s4s_dispatch_v17()
-    on v61==3:
+    on l1_5==3:
     call scene_s4s_dispatch_v18()
     call scene_s4s_dispatch_v19()
     call scene_s4s_dispatch_v19()
-    call scene_s4s_dispatch_v19()
-    on v61==4:
+    on l1_5==4:
     call scene_s4s_dispatch_v20()
     call scene_s4s_dispatch_v21()
-    on v61==5:
+    on l1_5==5:
     call scene_s4s_dispatch_v22()
     call scene_s4s_dispatch_v23()
-    on v61==6:
+    on l1_5==6:
     call scene_s4s_dispatch_v24()
     call scene_s4s_dispatch_v25()
-    on v61==7:
+    on l1_5==7:
     call scene_s4s_dispatch_v26()
     call scene_s4s_dispatch_v27()
-    on v61==8:
+    on l1_5==8:
     call scene_s4s_dispatch_v44()
     call scene_s4s_dispatch_v45()
     call scene_s4s_dispatch_v46()
@@ -1266,11 +1273,11 @@
     CHOICE sel_s4s_490_sel_a=>1
     CHOICE sel_s4s_490_sel_a=>1 sel_s4s_490_sel_b=>2
     CHOICE sel_s4s_490_sel_a=>1 sel_s4s_490_sel_b=>2 sel_s4s_490_sel_c=>3
-    on v11==1:
+    on l1_1==1:
     -> s4s_560
-    on v11==2:
+    on l1_1==2:
     -> s4s_620
-    on v11==3:
+    on l1_1==3:
     play scene_s4s_490_sel_2 「彩野を元の姿に戻す」
     -> s4s_580
 [s4s_560]
@@ -1290,9 +1297,9 @@
     ?noCardOf(s4s_670_sel)
     CHOICE sel_s4s_670_sel_b=>2
     CHOICE sel_s4s_670_sel_a=>1 sel_s4s_670_sel_b=>2
-    on v11==1:
+    on l1_2==1:
     -> s4s_710
-    on v11==2:
+    on l1_2==2:
     -> s4s_680
 [s4s_710]
     play scene_s4s_710 「セクション４：アヤノ」  // cost=100
@@ -1351,31 +1358,36 @@
     play scene_s5s_40_2 「サクラの日記：９月１３日」
     play scene_s5s_40_3 「選択：ウワサとは？」
     CHOICE sel_s5s_80_sel_a=>1 sel_s5s_80_sel_b=>2 sel_s5s_80_sel_c=>3
-    on v46==1:
+    on l1_2==1:
     play scene_s5s_40_4 「花が咲き乱れる」
     play scene_s5s_40_6 「違うウワサ」
-    on v46==2:
+    on l1_2==2:
     play scene_s5s_40_5 「人が落ちてくる」
     play scene_s5s_40_7 「違うウワサ」
-    on v46==3:
+    on l1_2==3:
     play scene_s5s_40 「雪が降るって言うウワサ」
+    END(cost=dyn)
     -> s5s_140
 [s5s_140]
     play scene_s5s_140 「サクラの日記：７月（書きかけ）」
+    END(cost=dyn)
     -> s5s_260
     play scene_s5s_140_2 「選択：どこに行く？」
     CHOICE sel_s5s_190_sel_a=>1 sel_s5s_190_sel_b=>2
     END(cost=0)
     -> s5s_200
     play scene_s5s_140_3 「もしかしたらアヤノさんが」
+    END(cost=dyn)
     -> s5s_260
 [s5s_200]
     play scene_s5s_200 「中庭のアヤノさん」
     ?card194.hold==-1
     END(cost=100)
+    END(cost=dyn)
     -> s5s_260
 [s5s_260]
     play scene_s5s_260 「サクラの日記：９月１６日」
+    END(cost=dyn)
     -> s5s_320
 [s5s_320]
     play scene_s5s_320 「サクラの日記：９月１６日（夜）」
@@ -1385,10 +1397,11 @@
     ?routeHas(s5s_200)
     CHOICE sel_s5s_350_sel_a=>1 sel_s5s_350_sel_b=>2
     CHOICE sel_s5s_350_sel_b=>2
-    on v1==1:
+    on l1_1==1:
     play scene_s5s_320_4 「ナースコールのボタン」
+    END(cost=dyn)
     -> s5s_410
-    on v1==2:
+    on l1_1==2:
     play scene_s5s_320_3 「がんばってみる」
     END(cost=0)
     -> s5s_380
@@ -1397,6 +1410,7 @@
     -> end
 [s5s_410]
     play scene_s5s_410 「サクラの日記：９月２０日」
+    END(cost=dyn)
     -> s5s_430
 [s5s_430]
     play scene_s5s_430 「サクラの日記：９月２２日」
@@ -1412,26 +1426,32 @@
     -> end
 [s5s_520]
     play scene_s5s_520 「サクラの日記：９月２３日」
+    END(cost=dyn)
     -> s5s_550
 [s5s_550]
     play scene_s5s_550 「サクラの日記：９月２９日」
+    END(cost=dyn)
     -> s5s_580
 [s5s_580]
     play scene_s5s_580 「サクラの日記：断片」  // showsCard=105,106,109
+    END(cost=dyn)
     -> s5s_660
 [s5s_660]
     play scene_s5s_660 「サクラの日記：１０月３日」
+    END(cost=dyn)
     -> s5s_680
 [s5s_680]
     play scene_s5s_680 「サクラの日記：１１月１２日」
+    END(cost=dyn)
     -> s5s_740
     ?card143.hold==-1
     play scene_s5s_680_2 「選択：彼の姿」
     CHOICE sel_s5s_710_sel_a=>1 sel_s5s_710_sel_b=>2
-    on v1==1:
+    on l1_1==1:
     play scene_s5s_680_3 「帰る」
+    END(cost=dyn)
     -> s5s_740
-    on v1==2:
+    on l1_1==2:
     play scene_s5s_680_4 「もうしばらく待つ」
     END(cost=0)
     -> s5s_720
@@ -1502,10 +1522,10 @@
     ?noCardOf(s6s_60_sel)
     CHOICE sel_s6s_60_sel_a=>1
     CHOICE sel_s6s_60_sel_a=>1 sel_s6s_60_sel_b=>2
-    on v5==1:
+    on l1_2==1:
     play scene_s6s_60_sel_2 「家で読む」
     -> s6s_70
-    on v5==2:
+    on l1_2==2:
     -> s6s_110
 [s6s_70]
     play scene_s6s_70 「サクラからの手紙」  // cost=25
@@ -1524,9 +1544,9 @@
     ?noCardOf(s6s_150_sel)
     CHOICE sel_s6s_150_sel_a=>1
     CHOICE sel_s6s_150_sel_a=>1 sel_s6s_150_sel_b=>2
-    on v5==1:
+    on l1_2==1:
     -> s6s_151
-    on v5==2:
+    on l1_2==2:
     -> s6s_160
 [s6s_151]
     play scene_s6s_151 「失われた夢の物語」  // cost=25
@@ -1542,10 +1562,10 @@
     ?noCardOf(s6s_280_sel)
     CHOICE sel_s6s_280_sel_a=>1
     CHOICE sel_s6s_280_sel_a=>1 sel_s6s_280_sel_b=>2
-    on v5==1:
+    on l1_2==1:
     play scene_s6s_280_sel_2 「まだここにいる」
     -> s6s_282
-    on v5==2:
+    on l1_2==2:
     -> s6s_290
 [s6s_282]
     play scene_s6s_282 「ゲームオーバー」  // GAMEOVER

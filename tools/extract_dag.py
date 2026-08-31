@@ -20,16 +20,56 @@ def extract_main(text):
     idx = text.rfind("\nmain = function()")
     return text[idx:] if idx >= 0 else ""
 
+# --- local-constant folding -------------------------------------------------
+# The decompiler base materialises literals as single-use locals, e.g.
+#     local l2_0 = 25
+#     comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
+#     local l1_1 = sceneId2aCard.s1s_35_sel
+#     if gameSave.myCard[l1_1].hold == -1 then
+# so every numeric/table-key operand has to be resolved through a tiny
+# straight-line environment instead of being read off the call site.
+LOCAL_NAME = r'(?:l\d+_\d+|u\d+|v\d+|p\d+|i\d+|g\d+)'
+CONST_ASSIGN = re.compile(
+    r'^(?:local\s+)?(' + LOCAL_NAME + r')\s*=\s*'
+    r'(-?\d+|sceneId2aCard\.[A-Za-z0-9_]+)\s*(?:--.*)?$')
+ANY_ASSIGN = re.compile(r'^(?:local\s+)?(' + LOCAL_NAME + r')\s*=[^=]')
+FOR_BIND = re.compile(r'^for\s+(' + LOCAL_NAME + r')\b')
+
+def track_const(env, s):
+    """Update `env` from one source line (last write wins; non-const kills)."""
+    m = CONST_ASSIGN.match(s)
+    if m:
+        env[m.group(1)] = m.group(2)
+        return
+    for pat in (ANY_ASSIGN, FOR_BIND):
+        m = pat.match(s)
+        if m:
+            env.pop(m.group(1), None)
+            return
+
+def fold(env, tok, dynamic="dyn"):
+    """Resolve an operand to its literal; `dynamic` if it is runtime-computed."""
+    tok = tok.strip()
+    if re.fullmatch(r'-?\d+', tok):
+        return tok
+    if tok in env:
+        return env[tok]
+    if re.fullmatch(LOCAL_NAME, tok):
+        return dynamic
+    return tok
+
 def analyze(path):
     name = os.path.basename(path)
     text = open(path, encoding="utf-8").read()
     main = extract_main(text)
     lines = main.splitlines()
     out = []
+    env = {}
     def emit(s):
         out.append(s)
     for ln in lines:
         s = ln.strip()
+        track_const(env, s)
         m = re.match(r'(?:else)?if doScriptScene == "([^"]+)"', s)
         if m:
             emit(f"[{m.group(1)}]")
@@ -50,13 +90,21 @@ def analyze(path):
         if m:
             emit(f"    ?routeHas({m.group(1)})")
             continue
-        m = re.search(r'gameSave\.myCard\[(\d+)\]\.hold == (-?1)', s)
+        m = re.search(r'gameSave\.myCard\[([A-Za-z0-9_.]+)\]\.hold == (-?1)', s)
         if m:
-            emit(f"    ?card{m.group(1)}.hold=={m.group(2)}")
-            continue
-        m = re.search(r'gameSave\.myCard\[sceneId2aCard\.([A-Za-z0-9_]+)\]\.hold == -1', s)
-        if m:
-            emit(f"    ?noCardOf({m.group(1)})")
+            raw = m.group(1)
+            idx, want = fold(env, raw, dynamic=raw), m.group(2)
+            if re.fullmatch(r'\d+', idx):
+                emit(f"    ?card{idx}.hold=={want}")
+                continue
+            if idx.startswith("sceneId2aCard.") and want == "-1":
+                emit(f"    ?noCardOf({idx.split('.', 1)[1]})")
+                continue
+            if idx.startswith("sceneId2aCard."):
+                emit(f"    ?cardOf({idx.split('.', 1)[1]}).hold=={want}")
+                continue
+            # unresolved operand: surface it rather than silently dropping the edge
+            emit(f"    ?card[{idx}].hold=={want}")
             continue
         m = re.search(r'comDlgSelectItem\((.*)\)', s)
         if m:
@@ -64,18 +112,21 @@ def analyze(path):
             if sels:
                 emit(f"    CHOICE {' '.join(f'{a}=>{b}' for a,b in sels)}")
             continue
-        m = re.search(r'(?:else)?if (v\d+) == (\d+) then', s)
+        m = re.search(r'(?:else)?if (' + LOCAL_NAME + r') == (\d+) then', s)
         if m:
             emit(f"    on {m.group(1)}=={m.group(2)}:")
             continue
-        m = re.search(r'comSelectMap\([^,]+, "([A-Z]+)", (\d+), [^,]*, (.*)\)', s)
+        # 1st arg is cGetFileName("bg", "..."), which itself contains a comma —
+        # a `[^,]+` first field never matched, so this rule was dead in every
+        # base. Lazy-scan up to the speaker tag instead.
+        m = re.search(r'comSelectMap\(.*?, "([A-Z]+)", (\d+), [^,]*, (.*)\)', s)
         if m:
             spots = re.findall(r'"([a-zA-Z]+)", \d+, \d+, (\d+)', m.group(3))
             emit(f"    MAP({m.group(1)}) {' '.join(f'{a}=>{b}' for a,b in spots)}")
             continue
-        m = re.search(r'comSectionStoryEnd(?:Force)?\(gameSave\.sceneId, gameSave\.sceneName, (\d+)\)', s)
+        m = re.search(r'comSectionStoryEnd(?:Force)?\(gameSave\.sceneId, gameSave\.sceneName, ([^)]+)\)', s)
         if m:
-            emit(f"    END(cost={m.group(1)})")
+            emit(f"    END(cost={fold(env, m.group(1))})")
             continue
         m = re.search(r'scene_([A-Za-z0-9_]+)\(\)', s)
         if m:
@@ -91,11 +142,22 @@ def scene_costs(path):
     """Extract per-scene metadata from scene function bodies."""
     text = open(path, encoding="utf-8").read()
     res = {}
-    parts = re.split(r'\n(scene_[A-Za-z0-9_]+) = function', text)
+    # `^` + MULTILINE, not `\n...`: in the current base the first scene function
+    # sits on line 1 (there is no leading declaration block any more), so a
+    # newline-anchored split silently swallowed it.
+    parts = re.split(r'^(?:local )?(scene_[A-Za-z0-9_]+) = function', text, flags=re.M)
     for i in range(1, len(parts), 2):
         fname = parts[i]
         body = parts[i+1]
-        costs = re.findall(r'comSectionStoryEnd(?:Force)?\(gameSave\.sceneId, gameSave\.sceneName, (\d+)\)', body)
+        costs = []
+        env = {}
+        for ln in body.splitlines():
+            s = ln.strip()
+            track_const(env, s)
+            m = re.search(r'comSectionStoryEnd(?:Force)?\('
+                          r'gameSave\.sceneId, gameSave\.sceneName, ([^)]+)\)', s)
+            if m:
+                costs.append(fold(env, m.group(1)))
         gover = 'comSectionGameOver' in body
         comp = 'comSectionComplete' in body
         cards_in = re.findall(r"comSectionCardFlagIn\((\d+)", body)

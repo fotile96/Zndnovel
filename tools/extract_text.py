@@ -24,7 +24,9 @@ def digest(path):
     out = []
     for ln in open(path, encoding="utf-8"):
         s = ln.strip()
-        m = re.match(r'(scene_[A-Za-z0-9_]+|card_[A-Za-z0-9_]+|main) = function', s)
+        # Function headers: the decompiler base emits `local NAME = function` for
+        # 890 of them and bare `NAME = function` for the rest; accept both.
+        m = re.match(r'(?:local\s+)?(scene_[A-Za-z0-9_]+|card_[A-Za-z0-9_]+|main) = function', s)
         if m:
             out.append(f"\n### {m.group(1)}")
             continue

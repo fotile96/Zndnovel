@@ -100,6 +100,27 @@ main = function()
 end
 '''
 
+CARD_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：直入卡片谜题 crd_{card}
+-- 预置全卡持有 + 目标卡号，绕过 fragment 时间轴直接跑卡脚本。
+main = function()
+    local i0
+    cardIDFlag = true
+    for i0 = 1, 195 do
+        gameSave.myCard[i0].hold = 1
+    end
+    gameSave.startMenuState = 2
+    gameSave.tutorial.firstStory = 1
+    gameSave.tutorial.firstFragmentBegin = 1
+    gameSave.tutorial.firstFragment = 1
+    gameSave.ayanoTime = 0
+    cInitStoryRoute()
+    gameSave.fragmentDoCardId = {card}
+    gameSave.fragmentDoSceneId = "{scene}"
+    run(cGetFileName("script", "snr_crd_{card}"))
+    quit()
+end
+'''
+
 SCENE_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：跳场景 {scene}
 -- 替换 script/snr_mainmenu.lua；预置进度后直入目标章节脚本。
 main = function()
@@ -136,6 +157,39 @@ def strip_ipl(text: str) -> tuple[str, bool]:
     return text[:i] + text[j + len(IPL_BLOCK_TAIL):], True
 
 
+# 递卡短路：卡片谜题要玩家从持有卡里挑出正确卡才推进剧情。QA 时不想用按键在卡表里
+# 翻页，就把 `oCard.selectCardObj()` 直接换成 data/dag.json 里记录的正确答案——
+# 那份答案是 build_dag 从 `oCard.selectCardObj()` 接收变量的卡号比较里抽出来的，
+# 与脚本自身同源。仅测试盘用。
+SELECT_CALL = "oCard.selectCardObj()"
+
+
+def card_answer(card: int) -> int:
+    import json
+    dag = json.loads((REPO / "data" / "dag.json").read_text(encoding="utf-8"))
+    info = dag["crds"].get(str(card)) or {}
+    ans = info.get("answers") or []
+    if not ans:
+        sys.exit(f"crd_{card} 在 dag.json 里没有 answers（可能是关键词卡 stub）")
+    return ans[0]
+
+
+def card_scene(card: int) -> str:
+    """卡号 → 它所属的场景 ID（snr_common 的 sceneId2aCard 反查）。"""
+    import re as _re
+    txt = (REPO / "lua_scripts" / "snr_common.lua").read_text(encoding="utf-8")
+    for m in _re.finditer(r'sceneId2aCard\.(\w+) = (\d+)', txt):
+        if int(m.group(2)) == card and m.group(1) != "keyword":
+            return m.group(1)
+    return ""
+
+
+def short_circuit_card(card: int) -> tuple[str, int]:
+    """把卡脚本里的递卡调用换成正确答案，返回 (改后源码, 替换次数)。"""
+    src = (REPO / "build" / "inject_src" / f"snr_crd_{card}.lua").read_text(encoding="utf-8")
+    return src.replace(SELECT_CALL, str(card_answer(card))), src.count(SELECT_CALL)
+
+
 def scene_to_script(scene: str) -> str:
     """场景 ID → 章节脚本名（comSectionUID2ScriptFileName 的规则）。"""
     chap, mode = scene[:2], scene[2]
@@ -148,7 +202,8 @@ def scene_to_script(scene: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("font", "scene", "ruby"), default="font")
+    ap.add_argument("--mode", choices=("font", "scene", "ruby", "card"), default="font")
+    ap.add_argument("--card", type=int, help="card 模式的卡号（答案自 data/dag.json 取）")
     ap.add_argument("--scene", default="s1s_20", help="scene 模式的目标场景 ID")
     ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
     ap.add_argument("--hold", type=int, default=180, help="font 模式每页停留帧数")
@@ -156,7 +211,11 @@ def main() -> None:
                     help="保留 IPL 开场演出（默认剥掉，省约 28 秒/轮）")
     args = ap.parse_args()
 
-    if args.mode == "ruby":
+    if args.mode == "card":
+        if not args.card:
+            sys.exit("--mode card 需要 --card N")
+        src = CARD_TEMPLATE.format(card=args.card, scene=card_scene(args.card))
+    elif args.mode == "ruby":
         pages = []
         for i, (label, ruby) in enumerate(RUBY_VARIANTS):
             # 底字前不加任何前缀，保证每页底字起点一致（可跨页比较注音偏移）
@@ -186,6 +245,14 @@ def main() -> None:
         print(f"[testboot] {name} -> {dst}")
 
     emit("snr_mainmenu.lua", src)
+
+    if args.mode == "card":
+        patched, n = short_circuit_card(args.card)
+        if not n:
+            sys.exit(f"snr_crd_{args.card} 里找不到 {SELECT_CALL}，无法短路递卡")
+        emit(f"snr_crd_{args.card}.lua", patched)
+        print(f"[testboot] 递卡短路 {n} 处 → 答案卡 {card_answer(args.card)}"
+              f"，场景 {card_scene(args.card) or '(未知)'}")
 
     # ⚠ 两个分支都必须重写 snr_common：--no-fast-boot 若只是「不写」，上一轮剥过 IPL 的
     # 字节码会留在 build/inject/script 里，开场并不会恢复（2026-08-31 实测踩到）。

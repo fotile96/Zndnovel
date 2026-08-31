@@ -48,16 +48,13 @@ FONT_PAGES = [
 # ruby 居中对齐测量：一页一个变体，底字固定「记忆」且行首位置固定，
 # 故各页注音簇可直接比较。native stub 的居中算法在 C 侧不可见，只能实测反推。
 RUBY_VARIANTS = [
-    ("halfwidth-4", "jiyi"),
-    ("halfwidth-4-tone", "jìyì"),
-    ("halfwidth-5-space", "jì yì"),
-    ("fullwidth-kana-3", "きおく"),
-    ("fullwidth-latin-4", "ｊｉｙｉ"),
-    ("sp1+half4", " jìyì"),
-    ("sp2+half4", "  jìyì"),
-    ("sp3+half4", "   jìyì"),
-    ("sp4+half4", "    jìyì"),
-    ("fwsp1+half4", "　jìyì"),
+    ("四声-a", "āáǎà"),
+    ("四声-i", "īíǐì"),
+    ("四声-u", "ūúǔù"),
+    ("实用样例", "jìyì"),
+    ("数字调号", "ji4yi4"),
+    ("无声调", "jiyi"),
+    ("全角假名基准", "きおく"),
 ]
 
 RUBY_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：ruby 居中对齐测量（一页一变体）

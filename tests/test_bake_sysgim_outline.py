@@ -124,14 +124,40 @@ def test_partial_replace_preserves_the_volume_boxes(baked):
             assert sp[x, y] == dp[x, y], f"({x},{y}) 音量格被改动"
 
 
-def test_partial_replace_preserves_untouched_names(baked):
-    """`sys_22_e` 里六个中日同形的名字不该被重绘——重绘会让字形变样。"""
+def test_sys_22_e_boxes_never_cross_the_state_boundary():
+    """`sys_22_e` 的盒**绝不可跨过 y=41**。
+
+    上半 y0–40 是启用态、下半 y41–81 是禁用态，`snr_common.lua:3167` 的
+    `layerClip(0, 41, 260, 82)` 取的正是下半作底。盒跨界就会擦掉相邻那一行的顶部
+    ——2026-09-01 用户在产物里看出「由加里/千秋 的盒遮住了第三行」，就是这个。
+    这条钉的是**数据**而非像素：跨界与否在盒里一眼可判，比事后比像素稳。
+    """
+    import json
+    from tools.bake_sysgim_outline import DATA
+    rows = [json.loads(l) for l in DATA.read_text(encoding="utf-8").splitlines()
+            if l.strip()]
+    boxes = [r["box"] for r in rows if r["file"] == "sys_22_e"]
+    assert len(boxes) == 14, f"sys_22_e 应为 7 名 × 2 态 = 14 行，现有 {len(boxes)}"
+    bad = [b for b in boxes if b[1] < 41 < b[3]]
+    assert bad == [], f"这些盒跨过了启用/禁用分界 y=41：{bad}"
+
+
+def test_sys_22_e_redraws_all_seven_names(baked):
+    """七个名字**全部**重绘。
+
+    先前只重烤片假名两处（其余「中日同形」跳过），结果晕的粗细对不齐——原图墨迹与
+    我们渲的描边不同源，混排看得出来（用户 2026-09-01 指出）。故改为整张重绘；
+    这条钉住它，免得日后有人为了省事又退回部分重绘。
+    """
     src = Image.open(M.SYSGIM / "sys_22_e.png").convert("RGBA")
     dst = baked["sys_22_e"][0]
     sp, dp = src.load(), dst.load()
-    for y in range(82):
-        for x in range(0, 212):
-            assert sp[x, y] == dp[x, y], f"({x},{y}) 其他名字被动了"
+    for name, (x0, x1) in (("直哉", (0, 36)), ("彩野", (58, 100)), ("Yuichi", (120, 186)),
+                           ("由加里", (0, 52)), ("千秋", (73, 112)),
+                           ("Sakura", (135, 186)), ("其他", (210, 260))):
+        changed = sum(1 for y in range(82) for x in range(x0, min(x1, 260))
+                      if sp[x, y] != dp[x, y])
+        assert changed > 0, f"{name} 区域未被重绘（{x0}..{x1}）"
 
 
 def test_disabled_rows_stay_disabled_in_output(baked):

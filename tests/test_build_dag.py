@@ -1,5 +1,7 @@
-from tools.build_dag import parse_states, parse_scene_meta, parse_crds
+from tools.build_dag import (parse_states, parse_scene_meta, parse_crds,
+                             inline_cost_consts)
 import json
+import re
 
 FIX = '''\
 scene_x_20 = function(scene_id, scene_title)
@@ -178,3 +180,163 @@ def test_cli_double_run_is_byte_identical(tmp_path):
         subprocess.run([sys.executable, "tools/build_dag.py", "--out-dir", str(d)],
                        cwd=REPO, check=True, capture_output=True)
     assert (a / "dag.json").read_bytes() == (b / "dag.json").read_bytes()
+
+
+# ---------------------------------------------------------------------------
+# 现基座（pyluadec-refactor corpus/final，2026-08-31 换入）的文本形状回归
+# ---------------------------------------------------------------------------
+# 局部名 l<depth>_<reg>、`local NAME = function`、elseif 合并、cost 走局部常量。
+# 这些形状一旦重新失配，build_dag 不会报错——它会**静默降级**（scene_meta 归零、
+# choice/cost 全丢），而 check_timeline 只打告警 exit 0 拦不住。故此处全部以
+# 「实测计数」立闸。
+NEWBASE_FIX = '''\
+local scene_x_20 = function(scene_id, scene_title)
+    local l1_2 = function()
+        gameSave.myCard[128].hold = 1
+        local l2_0 = 25
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
+    end
+    l1_2()
+end
+main = function()
+    local l1_0 = 0
+    while l1_0 == 0 do
+        if doScriptScene == "end" then
+            l1_0 = 1
+        elseif doScriptScene == "x_20" then
+            scene_x_20(doScriptScene, "夏の朝")
+            doScriptScene = "x_30_sel"
+        elseif doScriptScene == "x_30_sel" then
+            local l1_1 = sceneId2aCard.x_30_sel
+            local l1_2 = 0
+            if gameSave.myCard[133].hold == 1 then
+                l1_2 = comDlgSelectItem(false, true, false, true, 1, "none", 0, 0, "sel_a", 115, 80, 1)
+            end
+            if l1_2 == 1 then
+                doScriptScene = "x_40"
+            elseif l1_2 == 2 then
+                doScriptScene = "x_50"
+            else
+                local l1_4 = 0
+                while l1_4 == 0 do
+                    local l1_5 = 0
+                    l1_5 = comDlgSelectItem(false, true, false, true, 1, "none", 0, 0, "sel_p", 115, 80, 1)
+                    if l1_5 == 1 then
+                        l1_4 = 1
+                        break
+                    end
+                    scene_x_puzzle()
+                end
+                if l1_5 == 1 then
+                    doScriptScene = "x_60"
+                end
+            end
+        end
+    end
+end
+'''
+
+
+def test_newbase_scene_meta_reads_local_decl_and_const_cost():
+    m = parse_scene_meta("snr_x_10_s", NEWBASE_FIX)
+    assert "scene_x_20" in m, "`local NAME = function` 声明没被 scene_meta 认出来"
+    assert m["scene_x_20"]["cost"] == [25], "cost 的局部常量没回溯出来"
+    assert m["scene_x_20"]["gets"] == [128]
+
+
+def test_newbase_choice_topology():
+    st = parse_states("snr_x_10_s", NEWBASE_FIX)
+    ev = st["x_30_sel"]["seq"]
+    assert {"card_gate": 133, "held": True} in ev
+    assert {"choice": 1, "goto": "x_40"} in ev
+    assert {"choice": 2, "goto": "x_50"} in ev
+    # while 内的 comDlgSelectItem 是谜题循环，不是场景级选项：其后的 goto 不得被标 choice。
+    # 且 l1_5 在新基座是**寄存器复用名**，绝不能因为循环内出现过就把循环外的比较也算上。
+    assert {"goto": "x_60"} in ev
+    assert not any(ev_.get("goto") == "x_60" and "choice" in ev_ for ev_ in ev)
+
+
+def test_inline_cost_consts_refuses_to_invent_dynamic_cost():
+    """首个赋值不是整数字面量（s5 的 dispatch 累加器）时必须放弃解析，
+    不能顺着往上抓 `local l1_1 = 0` 编出一个假的 cost=0。"""
+    src = ('    local l1_1 = 0\n'
+           '    l1_1 = scene_s5s_dispatch_v42("...", 180, l1_1, 30, true)\n'
+           '    comSectionStoryEndForce(gameSave.sceneId, gameSave.sceneName, l1_1)\n')
+    assert inline_cost_consts(src) == src
+
+
+def _real_lua_end_calls():
+    from tools.pipelib import REPO
+    call = re.compile(r'comSectionStoryEnd(?:Force)?\(gameSave\.sceneId, '
+                      r'gameSave\.sceneName, ([A-Za-z_]\w*|\d+)\)')
+    tot = lit = 0
+    for p in sorted((REPO / "lua_scripts").glob("*.lua")):
+        text = p.read_text(encoding="utf-8")
+        tot += len(call.findall(text))
+        lit += len([x for x in call.findall(inline_cost_consts(text)) if x.isdigit()])
+    return tot, lit
+
+
+def test_real_data_cost_resolution_rate():
+    """175 个 comSectionStoryEnd 里 162 个能回溯到整数字面量；余 13 个是 s5 的
+    运行期累加器（旧基座同样取不到）。掉到 0 就是换基座后的静默降级。"""
+    tot, lit = _real_lua_end_calls()
+    assert (tot, lit) == (175, 162), f"comSectionStoryEnd 解析率变了：{lit}/{tot}"
+
+
+def test_real_data_counts_no_silent_degradation():
+    """dag.json 四个易静默归零的计数（数字取自与换基座前产物的逐项对账）。"""
+    dag = json.load(open("data/dag.json", encoding="utf-8"))
+    assert len(dag["states"]) == 405
+    assert len(dag["scene_meta"]) == 527
+    assert len(dag["crds"]) == 196
+
+    choice = [e for s in dag["states"].values() for e in s["seq"] if "choice" in e]
+    n_choice_states = len({sid for sid, s in dag["states"].items()
+                           if any("choice" in e for e in s["seq"])})
+    assert (len(choice), n_choice_states) == (76, 33)
+
+    with_ans = [c for c in dag["crds"].values() if c["answers"]]
+    assert (len(with_ans), sum(len(c["answers"]) for c in with_ans)) == (101, 168)
+
+    meta_cost = sum(len(m["cost"]) for m in dag["scene_meta"].values())
+    state_cost = sum(1 for s in dag["states"].values()
+                     for e in s["seq"] if "end_cost" in e)
+    assert (meta_cost, state_cost) == (162, 29)
+
+
+def test_real_data_choice_numbers_are_declared_options():
+    """每个 choice 序号都必须是该 state 的 comDlgSelectItem 真的声明过的选项号——
+    这是防「正则串号把无关的 if 当成分支」的拓扑闸，与计数闸互为独立证据。"""
+    from tools.build_dag import STATE_RE, SEL_ASSIGN_RE, WHILE_RE
+    from tools.pipelib import REPO
+    opt = re.compile(r'"(sel_[\w]+)", *(-?\d+), *(-?\d+), *(\d+)')
+    declared = {}
+    for p in sorted((REPO / "lua_scripts").glob("snr_[se]*_10_*.lua")):
+        text = p.read_text(encoding="utf-8")
+        main = text[text.rfind("\nmain = function()"):]
+        cur, whiles = None, []
+        for line in main.splitlines():
+            s = line.strip()
+            if m := STATE_RE.match(s):
+                cur, whiles = m.group(1), []
+                declared.setdefault(cur, set())
+                continue
+            if cur is None:
+                continue
+            ind = len(line) - len(line.lstrip())
+            if s == "end":
+                while whiles and ind <= whiles[-1]:
+                    whiles.pop()
+            elif WHILE_RE.match(s):
+                whiles.append(ind)
+                continue
+            if not whiles and SEL_ASSIGN_RE.search(s):
+                declared[cur].update(int(m.group(4)) for m in opt.finditer(s))
+
+    dag = json.load(open("data/dag.json", encoding="utf-8"))
+    for sid, st in dag["states"].items():
+        picks = {e["choice"] for e in st["seq"] if "choice" in e}
+        if picks:
+            assert picks <= declared.get(sid, set()), \
+                f"{sid} 的 choice {sorted(picks)} 不在声明的选项号 {sorted(declared.get(sid, ()))} 里"

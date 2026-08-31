@@ -3432,7 +3432,9 @@
   },
   "scene_s2s_420": {
    "complete": false,
-   "cost": [],
+   "cost": [
+    20
+   ],
    "gameover": false,
    "gets": [
     95
@@ -3883,7 +3885,9 @@
   },
   "scene_s3s_370": {
    "complete": false,
-   "cost": [],
+   "cost": [
+    25
+   ],
    "gameover": false,
    "gets": [
     107
@@ -7851,10 +7855,6 @@
      "title": "ナゾトキ１"
     },
     {
-     "play": "scene_s2s_190_sel_5",
-     "title": "ナゾトキ１"
-    },
-    {
      "play": "scene_s2s_190_sel_7",
      "title": "ナゾトキ１"
     },
@@ -7872,10 +7872,6 @@
     },
     {
      "play": "scene_s2s_190_sel_12",
-     "title": "ナゾトキ２"
-    },
-    {
-     "play": "scene_s2s_190_sel_11",
      "title": "ナゾトキ２"
     },
     {
@@ -10085,9 +10081,6 @@
      "subcall": "scene_s4s_dispatch_v17"
     },
     {
-     "subcall": "scene_s4s_dispatch_v17"
-    },
-    {
      "subcall": "scene_s4s_dispatch_v18"
     },
     {
@@ -10420,9 +10413,6 @@
     },
     {
      "subcall": "scene_s4s_dispatch_v18"
-    },
-    {
-     "subcall": "scene_s4s_dispatch_v19"
     },
     {
      "subcall": "scene_s4s_dispatch_v19"
@@ -10842,6 +10832,7 @@
      "end_cost": 0
     },
     {
+     "choice": 1,
      "goto": "s5s_200"
     },
     {
@@ -10849,6 +10840,7 @@
      "title": "もしかしたらアヤノさんが"
     },
     {
+     "choice": 2,
      "goto": "s5s_260"
     }
    ],

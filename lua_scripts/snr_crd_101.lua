@@ -1,6 +1,4 @@
-local card_101_s6s_70_main, v1
-card_101_s6s_70_main = function()
-    local card_101_s6s_70_main, v1, v2
+local card_101_s6s_70_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_c")
     vms(320, "NONVOICE", "【直哉】「サクラさんから受け取った手紙を、家で読む場面」")
@@ -8,7 +6,7 @@ card_101_s6s_70_main = function()
     comPoseLoad("po2_aya_f_2_e")
     vms(322, "NONVOICE", "【彩野】「……うん。現実にやりとりしていた手紙……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『サクラからの手紙』のあらすじを作成しました。") -- tr_line:11
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『サクラからの手紙』のあらすじを作成しました。") -- tr_line:9
     comPoseLoad("po2_aya_f_1_c")
     vms(323, "NONVOICE", "【彩野】「……サクラさんからの手紙は……家の他にも、違う場所でもよく、読んでた……」")
     vms(324, "NONVOICE", "【彩野】「その展開の事も、ちょっと、考えてみた方がいいかも……しれないね……」")
@@ -26,7 +24,6 @@ card_101_s6s_70_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_101_s6s_70_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

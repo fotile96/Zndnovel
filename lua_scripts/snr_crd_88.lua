@@ -1,6 +1,4 @@
-local card_88_s3s_600_main, v1
-card_88_s3s_600_main = function()
-    local card_88_s3s_600_main, v1, v2
+local card_88_s3s_600_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3693, "NONVOICE", "【彩野】「ユウイチと、アヤノが一緒に屋上にのぼって、花火を見た場面……だね」")
@@ -15,7 +13,7 @@ card_88_s3s_600_main = function()
     comPoseLoad("po2_aya_f_1_a")
     vms(3699, "NONVOICE", "【彩野】「とにかく、ここはあらすじはこうなるから、カードを作ってもらっていい？」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ずっと一緒にいたい』のあらすじを作成しました。") -- tr_line:18
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ずっと一緒にいたい』のあらすじを作成しました。") -- tr_line:16
     vms(3700, "NONVOICE", "【直哉】「作ったよ、カード」")
     comPoseLoad("po2_aya_f_2_e")
     vms(3701, "NONVOICE", "【彩野】「……直哉くん……」")
@@ -26,7 +24,6 @@ card_88_s3s_600_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_88_s3s_600_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

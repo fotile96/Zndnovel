@@ -1,12 +1,10 @@
-local card_99_s6s_20_main, v1
-card_99_s6s_20_main = function()
-    local card_99_s6s_20_main, v1, v2
+local card_99_s6s_20_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3879, "NONVOICE", "【直哉】「今度の『物語』は――セクション６、だね」")
     vms(3880, "NONVOICE", "【彩野】「うん……アヤノの物語」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション６：アヤノ』のあらすじを作成しました。") -- tr_line:9
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション６：アヤノ』のあらすじを作成しました。") -- tr_line:7
     comPoseLoad("po2_aya_f_1_c")
     vms(3881, "NONVOICE", "【彩野】「でも、直哉くん、このセクションは――」")
     vms(3882, "NONVOICE", "【彩野】「……」")
@@ -26,7 +24,6 @@ card_99_s6s_20_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[98].hold == -1 then
         oCard.mesNot()

@@ -1,7 +1,5 @@
-local scene_sof_10, scene_sof_20, scene_sof_30, scene_sof_40, scene_sof_50, scene_sof_60, scene_sof_complete, v7
-scene_sof_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_sof_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comEffectFadeOut(60)
@@ -74,11 +72,10 @@ scene_sof_10 = function(scene_id, scene_title)
     vms(6067, "YUK05070", "【私】「どうぞ。……遅かったわね。道、混んでた？」")
     vms(6068, "NONVOICE", "だから、_nと私は思う。")
     vms(6069, "NONVOICE", "だから、_n今、_n『物語』を。")
-    v0()
+    l1_2()
 end
-scene_sof_20 = function(scene_id, scene_title)
-    local v0, v1, v2, v3
-    v0 = function()
+local scene_sof_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_6"))
@@ -142,19 +139,20 @@ scene_sof_20 = function(scene_id, scene_title)
     layerLoad(layerName.event, cGetFileName("event", "eve_0_h"))
     switchScreen(0, "", 60)
     wait(60)
-    v1 = comDlgSelectItem(false, false, false, false, 1, "none", 0, 0, "sel_voice1_sel_a", 0, 38, 1, "sel_voice2_sel_a", 0, 132, 2)
+    local l1_3 = 1
+    l1_3 = comDlgSelectItem(false, false, false, false, 1, "none", 0, 0, "sel_voice1_sel_a", 0, 38, 1, "sel_voice2_sel_a", 0, 132, 2)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_6"))
     wait(1)
     layerLoad(layerName.event, cGetFileName("event", "eve_2_x"))
     switchScreen(0, "", 60)
     wait(60)
-    if v1 == 1 then
+    if l1_3 == 1 then
         systemSave.voiceNaoya = 0
         autoSystemSave(0)
         vms(6105, "NONVOICE", "【直哉】「（忘れないよ）」")
         vms(6106, "NONVOICE", "僕は思った。")
     end
-    if v1 == 2 then
+    if l1_3 == 2 then
         systemSave.voiceNaoya = 1
         autoSystemSave(0)
         vms(6107, "NAO05930", "【直哉】「忘れないよ」")
@@ -174,11 +172,10 @@ scene_sof_20 = function(scene_id, scene_title)
     vms(6120, "NONVOICE", "僕は一度息を止め、吐き出し、もう一度ゆっくりと空気を肺に入れる。")
     vms(6121, "NONVOICE", "夏だ。")
     vms(6122, "NONVOICE", "また夏が訪れたのだ。")
-    v0()
+    l1_2()
 end
-scene_sof_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_sof_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     layerLoad(layerName.bg1, cGetFileName("bg", "bg_19_a_0"))
@@ -338,11 +335,10 @@ scene_sof_30 = function(scene_id, scene_title)
     switchScreen(2, cGetFileName("effect", "eff_33_b"), 100)
     wait(100)
     vms(6219, "NONVOICE", "彩野さんは何も言わず、ただにっこりと微笑み、お辞儀をした。")
-    v0()
+    l1_2()
 end
-scene_sof_40 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_sof_40 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_45"), false)
@@ -467,11 +463,10 @@ scene_sof_40 = function(scene_id, scene_title)
     vms(6287, "NONVOICE", "彩野さんは答えた。_n_r十数分前と同じように。")
     vms(6288, "NAO06190", "【直哉】「彩野さん、手帳を見てみて」")
     vms(6289, "NONVOICE", "僕は答えた。_n_r十数分前と同じように。")
-    v0()
+    l1_2()
 end
-scene_sof_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_sof_50 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comEffectFadeOut(200)
@@ -756,17 +751,14 @@ scene_sof_50 = function(scene_id, scene_title)
     vms(6487, "NONVOICE", "彩野さんの中では５年前の事故にあう前の『過去』と、『現在』がシームレスにつながっている。")
     vms(6488, "NONVOICE", "１７歳。")
     vms(6489, "NONVOICE", "ずっと１７歳のままの時間が、彼女にとっての『現在』だ。")
-    v1 = ceroFlag
-    v2 = true
-    if v1 == v2 then
+    if ceroFlag == true then
         run(cGetFileName("script", "snr_lib"))
         quit()
     end
-    v0()
+    l1_2()
 end
-scene_sof_60 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_sof_60 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopBGMWrap()
@@ -1050,42 +1042,40 @@ scene_sof_60 = function(scene_id, scene_title)
     vms(6628, "NONVOICE", "アイツはあの夏の事故で死んでしまったのだから。")
     cStopLoopSeWrap()
     comEffectFadeOut(300)
-    v0()
+    l1_2()
 end
-scene_sof_complete = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_sof_complete = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
-    oCard.show(cGetFileName("card", "crd_1_a"), "書きとめました：『ある子が学校にくる物語』") -- tr_line:1060
+    oCard.show(cGetFileName("card", "crd_1_a"), "書きとめました：『ある子が学校にくる物語』") -- tr_line:1051
     vms(6629, "NONVOICE", "オープニングが終了しました。")
     vms(6630, "NONVOICE", "【■おしらせ】ゲームメニューに、『Ｓｔｏｒｙ』が追加されました。")
     vms(6631, "NONVOICE", "【■おしらせ】続いてこのメニューを選択し、物語の続きをご参照ください。")
-    v0()
+    l1_2()
 end
 main = function()
-    local v7 = 0
-    local v8
-    while v7 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v7 = 1
+            l1_0 = 1
         elseif doScriptScene == "sof_10" then
-            scene_sof_10(doScriptScene, "オープニング") -- tr_line:1073
+            scene_sof_10(doScriptScene, "オープニング") -- tr_line:1063
             doScriptScene = "sof_20"
         elseif doScriptScene == "sof_20" then
-            scene_sof_20(doScriptScene, "忘れたい記憶") -- tr_line:1076
+            scene_sof_20(doScriptScene, "忘れたい記憶") -- tr_line:1066
             doScriptScene = "sof_30"
         elseif doScriptScene == "sof_30" then
-            scene_sof_30(doScriptScene, "校内へ") -- tr_line:1079
+            scene_sof_30(doScriptScene, "校内へ") -- tr_line:1069
             doScriptScene = "sof_40"
         elseif doScriptScene == "sof_40" then
-            scene_sof_40(doScriptScene, "廊下を歩く") -- tr_line:1082
+            scene_sof_40(doScriptScene, "廊下を歩く") -- tr_line:1072
             doScriptScene = "sof_50"
         elseif doScriptScene == "sof_50" then
-            scene_sof_50(doScriptScene, "彩野さんの記憶") -- tr_line:1085
+            scene_sof_50(doScriptScene, "彩野さんの記憶") -- tr_line:1075
             doScriptScene = "sof_60"
         elseif doScriptScene == "sof_60" then
-            scene_sof_60(doScriptScene, "僕たちの教室") -- tr_line:1088
+            scene_sof_60(doScriptScene, "僕たちの教室") -- tr_line:1078
             doScriptScene = "sof_complete"
         elseif doScriptScene == "sof_complete" then
             if memoryFlag == true then
@@ -1093,7 +1083,7 @@ main = function()
                 quit()
             end
             if gameSave.startMenuState == 0 then
-                scene_sof_complete(doScriptScene, "オープニング読了") -- tr_line:1096
+                scene_sof_complete(doScriptScene, "オープニング読了") -- tr_line:1086
                 gameSave.startMenuState = 1
                 gameSave.myCard[1].hold = 1
             end

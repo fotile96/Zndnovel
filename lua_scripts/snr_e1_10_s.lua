@@ -1,15 +1,13 @@
-local v0, v1, scene_e1s_10_11, scene_e1s_10_20, scene_e1s_10_21, scene_e1s_10_22, scene_e1s_10_23, scene_e1s_10_24, scene_e1s_10_25, scene_e1s_10_26, scene_e1s_10, scene_e1s_10_2, scene_e1s_10_3, scene_e1s_10_4, scene_e1s_10_5, scene_e1s_10_6, scene_e1s_10_7, scene_e1s_10_8, scene_e1s_10_9, scene_e1s_10_10, scene_e1s_10_12, scene_e1s_10_13, scene_e1s_10_14, scene_e1s_10_15, scene_e1s_10_16, scene_e1s_10_17, scene_e1s_10_18, scene_e1s_10_19, scene_e1s_comp, v29
-v0 = function()
+local l0_0 = function()
     layerMoveAlpha(layerName.hour1, 0, 30)
     wait(30)
 end
-v1 = function()
+local l0_1 = function()
     layerMoveAlpha(layerName.hour1, 100, 30)
     wait(30)
 end
-scene_e1s_10_11 = function(scene_id, scene_title)
-    local v1, v2, v3
-    v1 = function()
+local scene_e1s_10_11 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cStopBGMWrap()
     layerLoad(layerName.event, cGetFileName("event", "eve_0_b"))
@@ -18,22 +16,18 @@ scene_e1s_10_11 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v0()
-    v2 = comDlgStorylineSkip(scene_id)
-    if v2 == true then
-        v1()
-        v2 = true
-        return v2
+    l0_0()
+    if comDlgStorylineSkip(scene_id) == true then
+        l1_2()
+        return true
     end
     vms(3916, "YUI00080", "【ユウイチ】「……」")
     vms(3917, "YUK01950", "【ユカリ】「続きは、ユウイチ君が戻ってきてからにしましょう」")
     vms(3918, "YUI00090", "【ユウイチ】「……。わかった」")
-    v2 = false
-    return v2
+    return false
 end
-scene_e1s_10_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayOneshotMusic(cGetFileName("mus", "mus_5"))
@@ -54,11 +48,10 @@ scene_e1s_10_20 = function(scene_id, scene_title)
     layerMoveAlpha(layerName.pose1, 0, 60)
     wait(60)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_21 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_21 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -68,11 +61,10 @@ scene_e1s_10_21 = function(scene_id, scene_title)
     vms(3920, "NONVOICE", "春。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_22 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_22 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_44"), false)
@@ -151,11 +143,10 @@ scene_e1s_10_22 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_23 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_23 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -231,11 +222,10 @@ scene_e1s_10_23 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_24 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_24 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -250,11 +240,10 @@ scene_e1s_10_24 = function(scene_id, scene_title)
     wait(1)
     comEffectFadeOut(120)
     vms(4001, "NONVOICE", "こうして私と彼の奇妙な交流が始まった。")
-    v0()
+    l1_2()
 end
-scene_e1s_10_25 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_25 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_5"))
@@ -341,11 +330,10 @@ scene_e1s_10_25 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_26 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_26 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -373,11 +361,10 @@ scene_e1s_10_26 = function(scene_id, scene_title)
     vms(4052, "NONVOICE", "今にして思えば、あの出来事が大きなきっかけだったのかもしれない――")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_1"))
@@ -516,11 +503,10 @@ scene_e1s_10 = function(scene_id, scene_title)
     cStopLoopSeWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_2 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_2 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_7"))
@@ -592,11 +578,10 @@ scene_e1s_10_2 = function(scene_id, scene_title)
     comPoseLoad("po2_yui_s_3_b")
     vms(4173, "YUI00930", "【ユウイチ】「俺のためでしょ、もちろん。いい心がけだね」")
     vms(4174, "YUK02850", "【ユカリ】「ば、バカ！ そんなわけないでしょ！」")
-    v0()
+    l1_2()
 end
-scene_e1s_10_3 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_e1s_10_3 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(4175, "NONVOICE", "うそうそ、と彼は笑うと、急に真顔になって、言った。")
@@ -636,11 +621,10 @@ scene_e1s_10_3 = function(scene_id, scene_title)
     comPoseLoad("po2_yui_s_1_b")
     vms(4198, "YUI01080", "【ユウイチ】「で、先生と出会ったんだ。ボーイミーツガールだね、これは」")
     vms(4199, "YUK02910", "【ユカリ】「ボーイもガールも苦しい年じゃない？ でもまあ……ありがと」")
-    v0()
+    l1_2()
 end
-scene_e1s_10_4 = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_e1s_10_4 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(4202, "NONVOICE", "私は立ち上がり大きく伸びをすると、ユウイチ君に尋ねた。")
@@ -661,11 +645,10 @@ scene_e1s_10_4 = function(scene_id, scene_title)
     cStopLoopSeWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_5 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_5 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -679,11 +662,10 @@ scene_e1s_10_5 = function(scene_id, scene_title)
     vms(4217, "NONVOICE", "だから。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_6 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_6 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_6"))
@@ -766,11 +748,10 @@ scene_e1s_10_6 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_7 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_7 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_110"), false)
@@ -971,11 +952,10 @@ scene_e1s_10_7 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_8 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_8 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_50"), false)
@@ -1035,11 +1015,10 @@ scene_e1s_10_8 = function(scene_id, scene_title)
     vms(4446, "YUI02210", "【ユウイチ】「うちらの通ってた小学校だったら、『近くの学校』なんて言い方しないはずだからね。『通ってる学校』でいい」")
     vms(4447, "YUK03910", "【ユカリ】「まあ、そうかもね」")
     vms(4448, "YUI02220", "【ユウイチ】「でもね、アヤノが家出してすぐにアヤノの家のお父さんが事故で亡くなっちゃって。アヤノは部屋からでなくなっちゃったんだ」")
-    v0()
+    l1_2()
 end
-scene_e1s_10_9 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_9 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -1064,11 +1043,10 @@ scene_e1s_10_9 = function(scene_id, scene_title)
     vms(4460, "YUK03960", "【ユカリ】「……アヤノさんの方から」")
     vms(4461, "YUI02300", "【ユウイチ】「そう。アイツの方から、動くか判断する事、だと俺は思ってる。……冷たいかもしんないけど」")
     vms(4462, "YUK03970", "【ユカリ】「……ユウイチ君」")
-    v0()
+    l1_2()
 end
-scene_e1s_10_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -1210,11 +1188,10 @@ scene_e1s_10_10 = function(scene_id, scene_title)
     comEffectFadeOut(120)
     vms(4525, "NONVOICE", "心臓の鼓動は暫く止まなかった。")
     wait(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_12 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_12 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_5"))
@@ -1226,11 +1203,10 @@ scene_e1s_10_12 = function(scene_id, scene_title)
     vms(4527, "NONVOICE", "図書室。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_13 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_13 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(4528, "NONVOICE", "前に図書室でユウイチ君と話してから、数ヶ月が経っていた。")
@@ -1314,11 +1290,10 @@ scene_e1s_10_13 = function(scene_id, scene_title)
     vms(4581, "NONVOICE", "ふう、とユウイチ君は息をついた。")
     comPoseLoad("po2_yui_s_1_a")
     vms(4582, "YUI02910", "【ユウイチ】「……頼りすぎていたんだ、アイツに。今更、なんだけれどね」")
-    v0()
+    l1_2()
 end
-scene_e1s_10_14 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_e1s_10_14 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(4583, "YUK04240", "【ユカリ】「じゃあ。――三つ目は？」")
@@ -1364,11 +1339,10 @@ scene_e1s_10_14 = function(scene_id, scene_title)
     vms(4616, "NONVOICE", "私の頭の中が真っ白になる。言葉を出そうと思うけれど、うまい言葉が全然浮かばない。")
     vms(4617, "NONVOICE", "唇だけが動く。どうする、何を言えばいい？ なんと声を掛けたらいい？ どう動けばいい？")
     vms(4618, "NONVOICE", "わからない。")
-    v0()
+    l1_2()
 end
-scene_e1s_10_15 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_15 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comPoseLoad("po2_yui_s_1_b")
@@ -1427,11 +1401,10 @@ scene_e1s_10_15 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_16 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_16 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -1468,11 +1441,10 @@ scene_e1s_10_16 = function(scene_id, scene_title)
     vms(4660, "NONVOICE", "こうして、何度かの夏が私の前を通り過ぎていった。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_17 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_17 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_44"), false)
@@ -1536,11 +1508,10 @@ scene_e1s_10_17 = function(scene_id, scene_title)
     vms(4698, "NONVOICE", "階段を降りる途中、少しだけ泣いた。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_10_18 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_18 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopLoopSeWrap()
@@ -1551,11 +1522,10 @@ scene_e1s_10_18 = function(scene_id, scene_title)
     vms(4699, "NONVOICE", "そして、長い長い夏は終わり――")
     vms(4700, "NONVOICE", "物語はエンドロールを迎えた。")
     vms(4701, "NONVOICE", "私が語るべき『物語』も、もう少しで終わろうとしている。")
-    v0()
+    l1_2()
 end
-scene_e1s_10_19 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_10_19 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -1658,11 +1628,10 @@ scene_e1s_10_19 = function(scene_id, scene_title)
     vms(4779, "NONVOICE", "みたび空を見上げると、屋上に教え子たちの姿が見えた。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e1s_comp = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1s_comp = function(scene_id, scene_title)
+    local l1_2 = function()
         comSectionComplete()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
@@ -1684,50 +1653,51 @@ scene_e1s_comp = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 100, 60)
     wait(60)
     comEffectFadeOut(60)
-    v0()
+    l1_2()
 end
 main = function()
-    local v0, v1, v29
-    gameSave.sectionName = "ＥＸ１：Ｓｔｏｒｙ" -- tr_line:1691
-    v0 = 0
-    while v0 == 0 do
+    gameSave.sectionName = "ＥＸ１：Ｓｔｏｒｙ" -- tr_line:1659
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v0 = 1
+            l1_0 = 1
         elseif doScriptScene == "e1s_10" then
-            if scene_e1s_10_11(doScriptScene, "春") == true then -- tr_line:1697
-                comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+            if scene_e1s_10_11(doScriptScene, "春") == true then -- tr_line:1665
+                local l1_1 = 0
+                comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l1_1)
                 doScriptScene = "e1s_comp"
             else
-                scene_e1s_10_20(doScriptScene, "セクションＥＸ１：ユカリ") -- tr_line:1701
-                scene_e1s_10_21(doScriptScene, "春") -- tr_line:1702
-                scene_e1s_10_22(doScriptScene, "屋上の男子生徒") -- tr_line:1703
-                scene_e1s_10_23(doScriptScene, "屋上の男子生徒、再び") -- tr_line:1704
-                scene_e1s_10_24(doScriptScene, "奇妙な交流") -- tr_line:1705
-                scene_e1s_10_25(doScriptScene, "学校のカイダン") -- tr_line:1706
-                scene_e1s_10_26(doScriptScene, "共犯者") -- tr_line:1707
-                scene_e1s_10(doScriptScene, "花火大会") -- tr_line:1708
-                scene_e1s_10_2(doScriptScene, "教師を続ける理由") -- tr_line:1709
-                scene_e1s_10_3(doScriptScene, "ユウイチの事情") -- tr_line:1710
-                scene_e1s_10_4(doScriptScene, "気分転換") -- tr_line:1711
-                scene_e1s_10_5(doScriptScene, "私にできること") -- tr_line:1712
-                scene_e1s_10_6(doScriptScene, "プール") -- tr_line:1713
-                scene_e1s_10_7(doScriptScene, "君につく嘘") -- tr_line:1714
-                scene_e1s_10_8(doScriptScene, "アヤノの家出") -- tr_line:1715
-                scene_e1s_10_9(doScriptScene, "両親") -- tr_line:1716
-                scene_e1s_10_10(doScriptScene, "あるいは埋め合わせ") -- tr_line:1717
-                scene_e1s_10_12(doScriptScene, "そして、夏のあの日の図書室") -- tr_line:1718
-                scene_e1s_10_13(doScriptScene, "三つの気になること") -- tr_line:1719
-                scene_e1s_10_14(doScriptScene, "告白") -- tr_line:1720
-                scene_e1s_10_15(doScriptScene, "二人の姿") -- tr_line:1721
-                scene_e1s_10_16(doScriptScene, "幾度目の夏") -- tr_line:1722
-                scene_e1s_10_17(doScriptScene, "再会の物語") -- tr_line:1723
-                scene_e1s_10_18(doScriptScene, "そして、物語はエンドロールを迎えた") -- tr_line:1724
-                scene_e1s_10_19(doScriptScene, "中庭の男子生徒") -- tr_line:1725
-                comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+                scene_e1s_10_20(doScriptScene, "セクションＥＸ１：ユカリ") -- tr_line:1670
+                scene_e1s_10_21(doScriptScene, "春") -- tr_line:1671
+                scene_e1s_10_22(doScriptScene, "屋上の男子生徒") -- tr_line:1672
+                scene_e1s_10_23(doScriptScene, "屋上の男子生徒、再び") -- tr_line:1673
+                scene_e1s_10_24(doScriptScene, "奇妙な交流") -- tr_line:1674
+                scene_e1s_10_25(doScriptScene, "学校のカイダン") -- tr_line:1675
+                scene_e1s_10_26(doScriptScene, "共犯者") -- tr_line:1676
+                scene_e1s_10(doScriptScene, "花火大会") -- tr_line:1677
+                scene_e1s_10_2(doScriptScene, "教師を続ける理由") -- tr_line:1678
+                scene_e1s_10_3(doScriptScene, "ユウイチの事情") -- tr_line:1679
+                scene_e1s_10_4(doScriptScene, "気分転換") -- tr_line:1680
+                scene_e1s_10_5(doScriptScene, "私にできること") -- tr_line:1681
+                scene_e1s_10_6(doScriptScene, "プール") -- tr_line:1682
+                scene_e1s_10_7(doScriptScene, "君につく嘘") -- tr_line:1683
+                scene_e1s_10_8(doScriptScene, "アヤノの家出") -- tr_line:1684
+                scene_e1s_10_9(doScriptScene, "両親") -- tr_line:1685
+                scene_e1s_10_10(doScriptScene, "あるいは埋め合わせ") -- tr_line:1686
+                scene_e1s_10_12(doScriptScene, "そして、夏のあの日の図書室") -- tr_line:1687
+                scene_e1s_10_13(doScriptScene, "三つの気になること") -- tr_line:1688
+                scene_e1s_10_14(doScriptScene, "告白") -- tr_line:1689
+                scene_e1s_10_15(doScriptScene, "二人の姿") -- tr_line:1690
+                scene_e1s_10_16(doScriptScene, "幾度目の夏") -- tr_line:1691
+                scene_e1s_10_17(doScriptScene, "再会の物語") -- tr_line:1692
+                scene_e1s_10_18(doScriptScene, "そして、物語はエンドロールを迎えた") -- tr_line:1693
+                scene_e1s_10_19(doScriptScene, "中庭の男子生徒") -- tr_line:1694
+                local l1_1 = 0
+                comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l1_1)
                 doScriptScene = "e1s_comp"
             end
         elseif doScriptScene == "e1s_comp" then
-            scene_e1s_comp(doScriptScene, "セクションＥＸ１完了") -- tr_line:1730
+            scene_e1s_comp(doScriptScene, "セクションＥＸ１完了") -- tr_line:1700
             doScriptScene = "end"
         end
         wait(5)

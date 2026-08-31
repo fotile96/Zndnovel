@@ -1,7 +1,5 @@
-local card_0_main, v1, v2
-card_0_main = function()
-    local card_0_main, v1
-    savedataTitle("オープニング", "フラグメント") -- tr_line:4
+local card_0_main = function()
+    savedataTitle("オープニング", "フラグメント") -- tr_line:2
     advPart(true)
     logEnable(true)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_1_x"))
@@ -266,7 +264,6 @@ card_0_main = function()
     logEnable(false)
 end
 main = function()
-    local v1, v2
     cInitBgm()
     cInitSe()
     wait(1)

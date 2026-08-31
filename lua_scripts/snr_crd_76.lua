@@ -1,6 +1,4 @@
-local card_76_s3s_301_intro, card_76_s3s_301_resolve, v2, v3, v4, v5
-card_76_s3s_301_intro = function()
-    local card_76_s3s_301_intro
+local card_76_s3s_301_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3432, "NONVOICE", "【直哉】「廊下で見かけたユウイチを放っておく場面、だね」")
@@ -19,8 +17,7 @@ card_76_s3s_301_intro = function()
     vms(3443, "NONVOICE", "【直哉】「あ、うん……。一応……」")
     comPoseDelete()
 end
-card_76_s3s_301_resolve = function()
-    local card_76_s3s_301_intro, card_76_s3s_301_resolve
+local card_76_s3s_301_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(3444, "NONVOICE", "【彩野】「……」")
@@ -34,7 +31,7 @@ card_76_s3s_301_resolve = function()
     vms(3450, "NONVOICE", "【彩野】「ここは、ほうっておく展開がいいのかもしれないね。次の物語に進んでいい？」")
     vms(3451, "NONVOICE", "【直哉】「あ、うん……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ほうっておく』のあらすじを作成しました。") -- tr_line:37
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ほうっておく』のあらすじを作成しました。") -- tr_line:34
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -42,7 +39,6 @@ card_76_s3s_301_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[57].hold == -1 then
         oCard.mesNot()
@@ -51,29 +47,29 @@ main = function()
         quit()
     end
     card_76_s3s_301_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 57 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 57 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(3452, "NONVOICE", "セクション２、廊下でユウイチを見かけた場面のあらすじは『ユウイチの後ろ姿』『夜の廊下』")
             vms(3453, "NONVOICE", "良い結末だったのは『夜の廊下』だから……。")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

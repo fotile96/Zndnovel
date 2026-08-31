@@ -1,7 +1,5 @@
-local scene_e1f_10, scene_e1f_complete, v2
-scene_e1f_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1f_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayOneshotMusic(cGetFileName("mus", "mus_26"))
@@ -40,11 +38,10 @@ scene_e1f_10 = function(scene_id, scene_title)
     vms(3912, "NONVOICE", "教師は微笑んで言う。")
     vms(3913, "NONVOICE", "『≪セクション５、冬の始まり――彼を待つところから始めたいと思います≫』")
     vms(3914, "NONVOICE", "女生徒は窓から校庭を眺めながら答えた。")
-    v0()
+    l1_2()
 end
-scene_e1f_complete = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e1f_complete = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_8"))
     layerLoad(layerName.pose1, cGetFileName("cutin", "cut_e_ex1"))
@@ -57,7 +54,7 @@ scene_e1f_complete = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 0, 30)
     wait(120)
     wait(120)
-    oCard.show(cGetFileName("card", "crd_143_a"), "『セクションＥＸ１』のあらすじを作成しました。") -- tr_line:60
+    oCard.show(cGetFileName("card", "crd_143_a"), "『セクションＥＸ１』のあらすじを作成しました。") -- tr_line:57
     vms(17000, "NONVOICE", "フラグメントモード：セクションＥＸ１が終了しました。")
     cLoadPlaySE(cGetFileName("se", "se_28"), false)
     layerMoveScale(layerName.pose1, 100, 0, 60)
@@ -65,23 +62,22 @@ scene_e1f_complete = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 100, 60)
     wait(60)
     comEffectFadeOut(60)
-    v0()
+    l1_2()
 end
 main = function()
-    local v2 = 0
-    local v3
-    while v2 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v2 = 1
+            l1_0 = 1
         elseif doScriptScene == "e1f-10" then
-            scene_e1f_10(doScriptScene, "由加里先生") -- tr_line:77
+            scene_e1f_10(doScriptScene, "由加里先生") -- tr_line:73
             doScriptScene = "e1f-complete"
         elseif doScriptScene == "e1f-complete" then
             if memoryFlag == true then
                 run(cGetFileName("script", "snr_memory"))
                 quit()
             end
-            scene_e1f_complete(doScriptScene, "セクションＥＸ１読了") -- tr_line:84
+            scene_e1f_complete(doScriptScene, "セクションＥＸ１読了") -- tr_line:80
             gameSave.myCard[118].hold = 1
             gameSave.myCard[143].hold = 1
             doScriptScene = "end"

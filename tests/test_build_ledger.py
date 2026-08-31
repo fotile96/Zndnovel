@@ -205,11 +205,15 @@ def test_real_repo_no_bare_vn_func_residue(tmp_path):
         [sys.executable, "tools/build_ledger.py", "--out-dir", str(tmp_path)],
         cwd=REPO, capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
+    # 2026-08-31 换反编译基座后，裸名的**形态**从 v\d+ 变成 l<depth>_<reg>，
+    # 但残留的**位置与数量完全不变**：同样是 snr_crd_102 的三个函数、同样 24 行。
+    # 这正说明上面那段根因分析（调用而非词法嵌套）与基座无关，是语料本身的形状。
     rows = read_jsonl(tmp_path / "ledger.jsonl")
-    bare = [(r["file"], r["id"], r["func"]) for r in rows if re.match(r'^v\d+$', r["func"])]
-    known = {("snr_crd_102", "v0"), ("snr_crd_102", "v1"), ("snr_crd_102", "v2")}
+    bare = [(r["file"], r["id"], r["func"]) for r in rows
+            if re.match(r'^(?:v\d+|p\d+|l\d+_\d+|u\d+)$', r["func"])]
+    known = {("snr_crd_102", "l0_0"), ("snr_crd_102", "l0_1"), ("snr_crd_102", "l0_2")}
     unexpected = [b for b in bare if (b[0], b[2]) not in known]
-    assert unexpected == [], f"出现未知裸 vN 残留，需要按同样方法调查根因：{unexpected[:5]}"
+    assert unexpected == [], f"出现未知裸名残留，需要按同样方法调查根因：{unexpected[:5]}"
     assert len(bare) == 24, f"已知的 snr_crd_102 残留数量变化（现为 {len(bare)}），该文件是否被改动？"
 
 def test_double_run_is_byte_identical(tmp_path):

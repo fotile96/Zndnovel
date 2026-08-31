@@ -1,6 +1,4 @@
-local card_162_e2s_155_main, v1, v2, v3, v4
-card_162_e2s_155_main = function()
-    local card_162_e2s_155_main, v1, v2, v3, v4
+local card_162_e2s_155_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_19_x"))
     cPlayLoopSeWrap(cGetFileName("loop", "loop_3"))
     wait(1)
@@ -11,7 +9,7 @@ card_162_e2s_155_main = function()
     switchScreen(0, "", 120)
     wait(120)
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セカンドノベル』のあらすじを作成します。") -- tr_line:14
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セカンドノベル』のあらすじを作成します。") -- tr_line:12
     cStopLoopSeWrap()
     comSectionCardEndSection()
     doScriptScene = "e2f-10"
@@ -19,7 +17,6 @@ card_162_e2s_155_main = function()
     quit()
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_162_e2s_155_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

@@ -1,6 +1,4 @@
-local card_192_s6s_151_main, v1
-card_192_s6s_151_main = function()
-    local card_192_s6s_151_main, v1, v2
+local card_192_s6s_151_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1674, "NONVOICE", "【直哉】「失われた夢の物語……ノートのタイトル、だね」")
@@ -17,7 +15,7 @@ card_192_s6s_151_main = function()
     comPoseLoad("po2_aya_f_1_a")
     vms(1682, "NONVOICE", "【彩野】「うん……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『失われた夢の物語』のあらすじを作成しました。") -- tr_line:20
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『失われた夢の物語』のあらすじを作成しました。") -- tr_line:18
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -25,7 +23,6 @@ card_192_s6s_151_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_192_s6s_151_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

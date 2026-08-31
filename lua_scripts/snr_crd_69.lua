@@ -1,6 +1,4 @@
-local card_69_s3s_120_main, v1
-card_69_s3s_120_main = function()
-    local card_69_s3s_120_main, v1, v2
+local card_69_s3s_120_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3266, "NONVOICE", "【彩野】「『お化け階段』……階段から聞こえる『声』……」")
@@ -30,7 +28,7 @@ card_69_s3s_120_main = function()
     vms(3286, "NONVOICE", "【彩野】「あ……ごめんね。考え事しちゃってた。お願いしていい？」")
     vms(3287, "NONVOICE", "【直哉】「うん、了解」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『お化け階段』のあらすじを作成しました。") -- tr_line:33
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『お化け階段』のあらすじを作成しました。") -- tr_line:31
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -38,7 +36,6 @@ card_69_s3s_120_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[67].hold == -1 then
         oCard.mesNot()

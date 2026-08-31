@@ -1,6 +1,4 @@
-local card_5_s1s_36_intro, card_5_s1s_36_resolve, v2, v3, v4, v5
-card_5_s1s_36_intro = function()
-    local card_5_s1s_36_intro
+local card_5_s1s_36_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2828, "NONVOICE", "【直哉】「消しゴムを落として、拾った時に『放課後の約束』を思い出す、か」")
@@ -11,8 +9,7 @@ card_5_s1s_36_intro = function()
     vms(2833, "NONVOICE", "クラスメイトの、名前――")
     comPoseDelete()
 end
-card_5_s1s_36_resolve = function()
-    local card_5_s1s_36_intro, card_5_s1s_36_resolve
+local card_5_s1s_36_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(2834, "NONVOICE", "【直哉】「『きくちゃん』さんについて、なにかわかる？」")
@@ -36,7 +33,7 @@ card_5_s1s_36_resolve = function()
     vms(2852, "NONVOICE", "彩野さんは小さく頷く。")
     vms(2853, "NONVOICE", "僕はカードに『あらすじ』を書いた。")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『約束をしている』のあらすじを作成しました。") -- tr_line:39
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『約束をしている』のあらすじを作成しました。") -- tr_line:36
     vms(2854, "NONVOICE", "【直哉】「この場面のあらすじができたよ」")
     vms(2855, "NONVOICE", "【彩野】「……直哉くん」")
     vms(2856, "NONVOICE", "【直哉】「さ、次の場面について、考えてみよう。まだまだ、物語は続きそうだから」")
@@ -48,7 +45,6 @@ card_5_s1s_36_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[129].hold == -1 then
         oCard.mesNot()
@@ -57,29 +53,29 @@ main = function()
         quit()
     end
     card_5_s1s_36_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 129 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 129 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(2858, "NONVOICE", "【彩野】「……この場面以外のところで、誰かの名前を呼んでいたと思う」")
             vms(2859, "NONVOICE", "【彩野】「その子の『愛称』って――」")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

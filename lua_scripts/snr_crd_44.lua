@@ -1,6 +1,4 @@
-local card_44_s2s_220_sel_intro, card_44_s2s_220_sel_resolve, card_44_s2s_220_sel_step3, v3, v4, v5, v6, v7, v8, v9
-card_44_s2s_220_sel_intro = function()
-    local card_44_s2s_220_sel_intro
+local card_44_s2s_220_sel_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2714, "NONVOICE", "【彩野】「直哉くん、この場所を決める場面なんだけど……」")
@@ -13,8 +11,7 @@ card_44_s2s_220_sel_intro = function()
     vms(2719, "NONVOICE", "【直哉】「あ、うん。カードがつくってあるよ」")
     comPoseDelete()
 end
-card_44_s2s_220_sel_resolve = function()
-    local card_44_s2s_220_sel_intro
+local card_44_s2s_220_sel_resolve = function()
     oCard.cardAnswerTrue()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
@@ -34,8 +31,7 @@ card_44_s2s_220_sel_resolve = function()
     vms(2730, "NONVOICE", "【直哉】「セクション１の最後の場面。『誰かが呼んでた』だったかな。つくってあるよ」")
     comPoseDelete()
 end
-card_44_s2s_220_sel_step3 = function()
-    local card_44_s2s_220_sel_intro, card_44_s2s_220_sel_resolve
+local card_44_s2s_220_sel_step3 = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     comPoseLoad("po2_aya_f_2_e")
@@ -50,7 +46,7 @@ card_44_s2s_220_sel_step3 = function()
     vms(2737, "NONVOICE", "【彩野】「うん。『プラネタリウムに行く場面』、追加、お願いしていいかな？ 」")
     vms(2738, "NONVOICE", "【直哉】「了解。カードを書いてみるね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：出かける場所』の選択肢（プラネタリウム）を作成しました。") -- tr_line:53
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：出かける場所』の選択肢（プラネタリウム）を作成しました。") -- tr_line:49
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -58,7 +54,6 @@ card_44_s2s_220_sel_step3 = function()
     end
 end
 main = function()
-    local v3, v4, v5, v6, v7, v8, v9, v10
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[30].hold == -1 then
         oCard.mesNot()
@@ -84,55 +79,55 @@ main = function()
         quit()
     end
     card_44_s2s_220_sel_intro()
-    v3 = 0
-    v4 = 0
-    v5 = -1
-    while v3 < 1 do
-        v6 = oCard.selectCardObj()
-        if v6 == 59 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 59 then
             break
         end
-        if v6 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v4 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(2746, "NONVOICE", "ユウイチとアヤノさんが、プールに行ったときのあらすじカードを見せてみよう。")
             comPoseDelete()
         end
-        if v4 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v4 = v4 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_44_s2s_220_sel_resolve()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 30 then
+    local l1_3 = 0
+    local l1_4 = 0
+    local l1_5 = -1
+    while l1_3 < 1 do
+        local l1_6 = oCard.selectCardObj()
+        if l1_6 == 30 then
             break
         end
-        if v9 == -1 then
+        if l1_6 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
+        if l1_4 == 1 then
             oCard.mesNG2()
             vms(2747, "NONVOICE", "セクション１の最後のシーン。『誰かが呼んでた』だったかな。")
             comPoseDelete()
         end
-        if v7 == 0 then
+        if l1_4 == 0 then
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_4 = l1_4 + 1
             comPoseDelete()
         end
         wait(30)

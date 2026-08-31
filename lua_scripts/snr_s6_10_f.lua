@@ -1,7 +1,5 @@
-local scene_s6f_10, scene_s6f_20, scene_s6f_30, scene_s6f_40, scene_s6f_50, scene_s6f_complete, v6
-scene_s6f_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -95,11 +93,10 @@ scene_s6f_10 = function(scene_id, scene_title)
     vms(15337, "CHI02630", "【千秋】「もう、私の前から誰も消えて欲しくないんです」")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s6f_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_146"), false)
@@ -185,11 +182,10 @@ scene_s6f_20 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s6f_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -248,11 +244,10 @@ scene_s6f_30 = function(scene_id, scene_title)
     vms(15431, "NAO14080", "【直哉】「うーん、これと言って。アイツがあれをマスターに預けるとき、やたら忘れたり落としたりしないことを注意していたって事ぐらいです」")
     comPoseLoad("po1_yuk_f_1_c")
     vms(15432, "YUK07250", "【由加里】「忘れものと落とし物……」")
-    v0()
+    l1_2()
 end
-scene_s6f_40 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_40 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comPoseLoad("po1_yuk_f_2_c")
@@ -440,11 +435,10 @@ scene_s6f_40 = function(scene_id, scene_title)
     vms(15510, "YUK07460", "【由加里】「死なないで。教え子が死ぬところ、もう見たくないの」")
     wait(120)
     vms(15511, "NAO14330", "【直哉】「……はい」")
-    v0()
+    l1_2()
 end
-scene_s6f_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_50 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -464,11 +458,10 @@ scene_s6f_50 = function(scene_id, scene_title)
         run(cGetFileName("script", "snr_lib"))
         quit()
     end
-    v0()
+    l1_2()
 end
-scene_s6f_complete = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s6f_complete = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_8"))
     layerLoad(layerName.pose1, cGetFileName("cutin", "cut_e_s6"))
@@ -481,7 +474,7 @@ scene_s6f_complete = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 0, 30)
     wait(120)
     wait(120)
-    oCard.show(cGetFileName("card", "crd_140_a"), "『セクション６』のあらすじを作成しました。") -- tr_line:484
+    oCard.show(cGetFileName("card", "crd_140_a"), "『セクション６』のあらすじを作成しました。") -- tr_line:477
     vms(17030, "NONVOICE", "フラグメントモード：セクション６が終了しました。")
     cLoadPlaySE(cGetFileName("se", "se_28"), false)
     layerMoveScale(layerName.pose1, 100, 0, 60)
@@ -499,35 +492,34 @@ scene_s6f_complete = function(scene_id, scene_title)
     vms(17032, "NONVOICE", "【■おしらせ】ゲームメニューに『セクション７』が追加されました。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
 main = function()
-    local v6 = 0
-    local v7
-    while v6 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v6 = 1
+            l1_0 = 1
         elseif doScriptScene == "s6f-10" then
-            scene_s6f_10(doScriptScene, "サクラの日記") -- tr_line:511
+            scene_s6f_10(doScriptScene, "サクラの日記") -- tr_line:503
             doScriptScene = "s6f-20"
         elseif doScriptScene == "s6f-20" then
-            scene_s6f_20(doScriptScene, "ユウイチの伝言") -- tr_line:514
+            scene_s6f_20(doScriptScene, "ユウイチの伝言") -- tr_line:506
             doScriptScene = "s6f-30"
         elseif doScriptScene == "s6f-30" then
-            scene_s6f_30(doScriptScene, "眠っている二人") -- tr_line:517
+            scene_s6f_30(doScriptScene, "眠っている二人") -- tr_line:509
             doScriptScene = "s6f-40"
         elseif doScriptScene == "s6f-40" then
-            scene_s6f_40(doScriptScene, "ユウイチの遺書") -- tr_line:520
+            scene_s6f_40(doScriptScene, "ユウイチの遺書") -- tr_line:512
             doScriptScene = "s6f-50"
         elseif doScriptScene == "s6f-50" then
-            scene_s6f_50(doScriptScene, "君の優しい所") -- tr_line:523
+            scene_s6f_50(doScriptScene, "君の優しい所") -- tr_line:515
             doScriptScene = "s6f-complete"
         elseif doScriptScene == "s6f-complete" then
             if memoryFlag == true then
                 run(cGetFileName("script", "snr_memory"))
                 quit()
             end
-            scene_s6f_complete(doScriptScene, "セクション６読了") -- tr_line:530
+            scene_s6f_complete(doScriptScene, "セクション６読了") -- tr_line:522
             gameSave.myCard[110].hold = 1
             gameSave.myCard[140].hold = 1
             doScriptScene = "end"

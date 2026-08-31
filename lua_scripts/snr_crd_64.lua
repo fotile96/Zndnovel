@@ -1,6 +1,4 @@
-local card_64_s3s_10_intro, card_64_s3s_10_resolve, v2, v3, v4, v5
-card_64_s3s_10_intro = function()
-    local card_64_s3s_10_intro
+local card_64_s3s_10_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3141, "NONVOICE", "【直哉】「休み時間、サクラさんとお話する場面、だね」")
@@ -11,13 +9,12 @@ card_64_s3s_10_intro = function()
     vms(3145, "NONVOICE", "【直哉】「うん。セクション２の初めのほうだったんだけど……」")
     comPoseDelete()
 end
-card_64_s3s_10_resolve = function()
-    local card_64_s3s_10_intro, card_64_s3s_10_resolve
+local card_64_s3s_10_resolve = function()
     oCard.cardAnswerTrue()
     vms(3146, "NONVOICE", "【彩野】「そっか、ここでは図書室でオマジナイを聞いたんだ」")
     vms(3147, "NONVOICE", "【直哉】「うん、そうみたいだね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『昼休みの廊下』のあらすじを作成しました。") -- tr_line:20
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『昼休みの廊下』のあらすじを作成しました。") -- tr_line:17
     comPoseDelete()
     vms(3148, "NONVOICE", "『コックリさん』、『オマジナイ』の次は『階段のウワサ』……か。")
     vms(3149, "NONVOICE", "まさにお約束的な展開と言えなくもないけど……。")
@@ -30,7 +27,6 @@ card_64_s3s_10_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[34].hold == -1 then
         oCard.mesNot()
@@ -39,29 +35,29 @@ main = function()
         quit()
     end
     card_64_s3s_10_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 34 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 34 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(3152, "NONVOICE", "サクラさんとアヤノさんが話したのはいつの時間かな……。")
             vms(3153, "NONVOICE", "確か、休憩時間だったような。")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

@@ -1,6 +1,4 @@
-local card_65_s3s_20_sel_main, v1
-card_65_s3s_20_sel_main = function()
-    local card_65_s3s_20_sel_main, v1, v2
+local card_65_s3s_20_sel_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3154, "NONVOICE", "【彩野】「階段のウワサ……」")
@@ -17,7 +15,7 @@ card_65_s3s_20_sel_main = function()
     comPoseLoad("po2_aya_f_1_b")
     vms(3163, "NONVOICE", "【彩野】「うん。お願い」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：階段のウワサ』の選択肢（教えて）を作成しました。") -- tr_line:20
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：階段のウワサ』の選択肢（教えて）を作成しました。") -- tr_line:18
     vms(3164, "NONVOICE", "【彩野】「あ、それでここの階段って……。物語、だけじゃないよね」")
     comPoseLoad("po2_aya_f_1_c")
     vms(3165, "NONVOICE", "【彩野】「現実でも……」")
@@ -30,7 +28,6 @@ card_65_s3s_20_sel_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_65_s3s_20_sel_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

@@ -1,6 +1,4 @@
-local card_52_s2s_350_main, v1
-card_52_s2s_350_main = function()
-    local card_52_s2s_350_main, v1, v2
+local card_52_s2s_350_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2889, "NONVOICE", "【彩野】「『絶対に効くオマジナイ』を選んだときの場面だね」")
@@ -13,7 +11,7 @@ card_52_s2s_350_main = function()
     comPoseLoad("po2_aya_f_2_d")
     vms(2895, "NONVOICE", "【彩野】「あ……そうかもしれないね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『絶対に効くと思う』のあらすじを作成しました。") -- tr_line:16
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『絶対に効くと思う』のあらすじを作成しました。") -- tr_line:14
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -21,7 +19,6 @@ card_52_s2s_350_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_52_s2s_350_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

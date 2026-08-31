@@ -1,6 +1,4 @@
-local card_164_s4s_360_sel_intro, card_164_s4s_360_sel_resolve, v2, v3, v4, v5
-card_164_s4s_360_sel_intro = function()
-    local card_164_s4s_360_sel_intro
+local card_164_s4s_360_sel_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1146, "NONVOICE", "【直哉】「アヤノさんの机を調べるかどうかの選択、だね」")
@@ -13,8 +11,7 @@ card_164_s4s_360_sel_intro = function()
     vms(1151, "NONVOICE", "【直哉】「えっとね、この前の場面でサクラさんから質問があったんだけど、その答えにこう答える必要があったのかなって」")
     comPoseDelete()
 end
-card_164_s4s_360_sel_resolve = function()
-    local card_164_s4s_360_sel_intro, card_164_s4s_360_sel_resolve
+local card_164_s4s_360_sel_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(1152, "NONVOICE", "【彩野】「『信じてみてもいい』――」")
@@ -34,7 +31,7 @@ card_164_s4s_360_sel_resolve = function()
     vms(1162, "NONVOICE", "【彩野】「うん。……そうすれば、次の物語に進めると思う」")
     vms(1163, "NONVOICE", "【直哉】「……わかった。作ってみるよ」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：アヤノの机』の選択肢（机を調べる）を作成しました。") -- tr_line:37
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：アヤノの机』の選択肢（机を調べる）を作成しました。") -- tr_line:34
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -42,7 +39,6 @@ card_164_s4s_360_sel_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[161].hold == -1 then
         oCard.mesNot()
@@ -57,29 +53,29 @@ main = function()
         quit()
     end
     card_164_s4s_360_sel_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 161 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 161 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(1164, "NONVOICE", "この場面に辿り着くには、屋上のサクラさんの質問にどう答える必要があったのだろうか……。")
             vms(1165, "NONVOICE", "「信じてみてもいい」、「下らない」……どちらだったろうか？")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

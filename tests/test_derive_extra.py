@@ -589,4 +589,5 @@ def test_real_data_derive_never_drops_a_row_and_writes_nothing_to_pilot_dir(tmp_
     assert rc == 0
     ledger = read_jsonl(REPO / "pilot/lanes/opus/data/ledger_extra.jsonl")
     results = read_jsonl(out_jsonl)
-    assert len(results) == len(ledger) == 829
+    # 827：换基座后 extra 轨条数（旧基座 829，多出的 2 条是反编译冗余）
+    assert len(results) == len(ledger) == 827

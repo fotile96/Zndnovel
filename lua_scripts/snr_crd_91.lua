@@ -1,6 +1,4 @@
-local card_91_s3s_670_main, v1, v2, v3
-card_91_s3s_670_main = function()
-    local card_91_s3s_670_main, v1, v2, v3
+local card_91_s3s_670_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_12_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3827, "NONVOICE", "【彩野】「ユウイチとキスしない――」")
@@ -24,7 +22,7 @@ card_91_s3s_670_main = function()
     vms(3841, "NONVOICE", "【彩野】「お願い」")
     vms(3842, "NONVOICE", "【直哉】「……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチとキスしない』のあらすじを作成しました。") -- tr_line:27
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチとキスしない』のあらすじを作成しました。") -- tr_line:25
     comPoseDelete()
     vms(3843, "NONVOICE", "昨日の出来事――")
     vms(3844, "NONVOICE", "恐らく、『僕の関与』によって、彩野さんの――何かが、変わってきている。")
@@ -44,7 +42,6 @@ card_91_s3s_670_main = function()
     quit()
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_91_s3s_670_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

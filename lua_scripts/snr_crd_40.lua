@@ -1,6 +1,4 @@
-local card_40_s2s_180_main, v1
-card_40_s2s_180_main = function()
-    local card_40_s2s_180_main, v1, v2
+local card_40_s2s_180_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2681, "NONVOICE", "【彩野】「ここは、ユウイチに対してアヤノが『好きでも嫌いでもない』と答える場面」")
@@ -11,7 +9,7 @@ card_40_s2s_180_main = function()
     vms(2685, "NONVOICE", "【直哉】「あ、いや……なんでもない。カードをつくるね」")
     vms(2686, "NONVOICE", "【彩野】「うん。お願い。すぐつくれちゃうね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチのことは……』のあらすじを作成しました。") -- tr_line:14
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチのことは……』のあらすじを作成しました。") -- tr_line:12
     vms(2687, "NONVOICE", "【直哉】「……」")
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
@@ -20,7 +18,6 @@ card_40_s2s_180_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_40_s2s_180_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

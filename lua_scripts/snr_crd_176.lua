@@ -1,6 +1,4 @@
-local card_176_s4s_680_step5, card_176_s4s_680_intro, card_176_s4s_680_resolve, card_176_s4s_680_step3, card_176_s4s_680_step4, card_176_s4s_680_step6, v6, v7, v8, v9, v10
-card_176_s4s_680_step5 = function()
-    local card_176_s4s_680_step5
+local card_176_s4s_680_step5 = function()
     cStopBGMWrap()
     comPoseLoad("po2_aya_f_2_e")
     vms(1483, "NONVOICE", "【彩野】「うーん……」")
@@ -19,8 +17,7 @@ card_176_s4s_680_step5 = function()
     run(cGetFileName("script", "snr_fragment_main"))
     quit()
 end
-card_176_s4s_680_intro = function()
-    local card_176_s4s_680_step5
+local card_176_s4s_680_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_7_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1492, "NONVOICE", "【直哉】「物語――セクション４の終わり、なんだけど――」")
@@ -40,7 +37,7 @@ card_176_s4s_680_intro = function()
     vms(1502, "NONVOICE", "【直哉】「うん。物語の開始から、アヤノさんのノートを調べるところまで、だね」")
     comPoseDelete()
 end
-card_176_s4s_680_resolve = function()
+local card_176_s4s_680_resolve = function()
     oCard.cardAnswerNonvoiceTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(1503, "NONVOICE", "【彩野】「メモを受け取って、それで屋上に……」")
@@ -50,7 +47,7 @@ card_176_s4s_680_resolve = function()
     vms(1506, "NONVOICE", "【直哉】「それで教室に戻ったユウイチは、アヤノさんのノートを調べたんだ。そこに書いてあったのが――」")
     comPoseDelete()
 end
-card_176_s4s_680_step3 = function()
+local card_176_s4s_680_step3 = function()
     oCard.cardAnswerNonvoiceTrue()
     comPoseLoad("po2_aya_f_2_e")
     vms(1507, "NONVOICE", "【彩野】「コックリさん……消しゴム……ユキ……」")
@@ -64,7 +61,7 @@ card_176_s4s_680_step3 = function()
     vms(1515, "NONVOICE", "【直哉】「ユウイチは、アヤノさんを引き戻し、アヤノさんは、意識を――」")
     comPoseDelete()
 end
-card_176_s4s_680_step4 = function()
+local card_176_s4s_680_step4 = function()
     oCard.cardAnswerNonvoiceTrue()
     cStopBGMWrap()
     comPoseLoad("po2_aya_f_2_e")
@@ -74,8 +71,7 @@ card_176_s4s_680_step4 = function()
     vms(1519, "NONVOICE", "【直哉】「セクション４の最後の部分は、セクション１のこのシーンと同じ展開だったんだ――」")
     comPoseDelete()
 end
-card_176_s4s_680_step6 = function()
-    local card_176_s4s_680_step5, card_176_s4s_680_intro, card_176_s4s_680_resolve, card_176_s4s_680_step3
+local card_176_s4s_680_step6 = function()
     oCard.cardAnswerTrue()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
@@ -86,7 +82,7 @@ card_176_s4s_680_step6 = function()
     vms(1523, "NONVOICE", "【彩野】「一部の場面では重なっている、という感じ？」")
     vms(1524, "NONVOICE", "【直哉】「重なっている、繋がっている……うん。僕もそんな風に思ってる」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『消えたサクラ』のあらすじを作成しました。") -- tr_line:89
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『消えたサクラ』のあらすじを作成しました。") -- tr_line:85
     cStopBGMWrap()
     vms(1525, "NONVOICE", "【彩野】「……セクション１……」")
     vms(1526, "NONVOICE", "【彩野】「……物語の、終わり……」")
@@ -101,7 +97,6 @@ card_176_s4s_680_step6 = function()
     quit()
 end
 main = function()
-    local v6, v7, v8, v9, v10, v11
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[167].hold == -1 then
         oCard.mesNot()
@@ -127,125 +122,125 @@ main = function()
         run(cGetFileName("script", "snr_fragment_main"))
         quit()
     end
-    v6 = false
+    local l1_0 = false
     card_176_s4s_680_intro()
-    v7 = 0
-    v8 = 0
-    v9 = -1
-    while v7 < 1 do
-        v10 = oCard.selectCardObj()
-        if v10 == 167 then
+    local l1_1 = 0
+    local l1_2 = 0
+    local l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 167 then
             break
         end
-        if v10 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v8 == 1 then
-            v6 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1529, "NONVOICE", "『選択：アヤノのノート』に、それまでの行動をまとめてあるから、これを見てもらうのが早いかな……。")
             comPoseDelete()
         end
-        if v8 == 0 then
-            v6 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v8 = v8 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_176_s4s_680_resolve()
-    v7 = 0
-    v8 = 0
-    v9 = -1
-    while v7 < 1 do
-        v10 = oCard.selectCardObj()
-        if v10 == 168 then
+    l1_1 = 0
+    l1_2 = 0
+    l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 168 then
             break
         end
-        if v10 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v8 == 1 then
-            v6 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1530, "NONVOICE", "教室に戻ったユウイチは、アヤノさんのノートを調べた。")
             vms(1531, "NONVOICE", "ノートには名前が書かれていて……")
             comPoseDelete()
         end
-        if v8 == 0 then
-            v6 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v8 = v8 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_176_s4s_680_step3()
-    v7 = 0
-    v8 = 0
-    v9 = -1
-    while v7 < 1 do
-        v10 = oCard.selectCardObj()
-        if v10 == 172 then
+    l1_1 = 0
+    l1_2 = 0
+    l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 172 then
             break
         end
-        if v10 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v8 == 1 then
-            v6 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1532, "NONVOICE", "ユウイチが強くアヤノさんの身体を引き戻したことにより、アヤノさんは意識を――")
             comPoseDelete()
         end
-        if v8 == 0 then
-            v6 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v8 = v8 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_176_s4s_680_step4()
-    v7 = 0
-    v8 = 0
-    v9 = -1
-    while v7 < 1 do
-        v10 = oCard.selectCardObj()
-        if v10 == 30 then
+    l1_1 = 0
+    l1_2 = 0
+    l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 30 then
             break
         end
-        if v10 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v8 == 1 then
-            v6 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1533, "NONVOICE", "この物語……セクション４の最後の部分は、セクション１のこのシーンと同じ展開だった――")
             comPoseDelete()
         end
-        if v8 == 0 then
-            v6 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v8 = v8 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
-    if v6 == true then
+    if l1_0 == true then
         card_176_s4s_680_step5()
     end
     card_176_s4s_680_step6()

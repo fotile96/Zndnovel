@@ -1,6 +1,4 @@
-local card_42_s2s_209_main, v1
-card_42_s2s_209_main = function()
-    local card_42_s2s_209_main, v1, v2
+local card_42_s2s_209_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2700, "NONVOICE", "【彩野】「ここは、ナゾトキの中に間違いがあったときの場面」")
@@ -8,7 +6,7 @@ card_42_s2s_209_main = function()
     comPoseLoad("po2_aya_f_1_e")
     vms(2702, "NONVOICE", "【彩野】「うん」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ナゾトキの間違い』のあらすじを作成しました。") -- tr_line:11
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ナゾトキの間違い』のあらすじを作成しました。") -- tr_line:9
     vms(2703, "NONVOICE", "【直哉】「そういえば、この前の千秋ちゃん――サクラさんの妹さんのお話だと、サクラさんはたくさん本を読んでいるということだったよ」")
     comPoseLoad("po2_aya_f_1_a")
     vms(2704, "NONVOICE", "【彩野】「サクラさん……」")
@@ -21,7 +19,6 @@ card_42_s2s_209_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_42_s2s_209_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

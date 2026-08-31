@@ -1,6 +1,4 @@
-local card_170_s4s_490_sel_intro, card_170_s4s_490_sel_resolve, v2, v3, v4, v5
-card_170_s4s_490_sel_intro = function()
-    local card_170_s4s_490_sel_intro
+local card_170_s4s_490_sel_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1334, "NONVOICE", "【直哉】「屋上でアヤノさんを見つけたユウイチが、アヤノさんを呼び止めるシーンだね」")
@@ -10,8 +8,7 @@ card_170_s4s_490_sel_intro = function()
     vms(1337, "NONVOICE", "【直哉】「うん。これも結果はあまり良くないけど……」")
     comPoseDelete()
 end
-card_170_s4s_490_sel_resolve = function()
-    local card_170_s4s_490_sel_intro, card_170_s4s_490_sel_resolve, v2, v3
+local card_170_s4s_490_sel_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(1338, "NONVOICE", "【彩野】「……」")
@@ -31,7 +28,7 @@ card_170_s4s_490_sel_resolve = function()
     vms(1347, "NONVOICE", "【彩野】「えっとね。『腕を掴む』ぐらいじゃ駄目だったから、グイッと『引き戻す』ような感じで、お願い」")
     vms(1348, "NONVOICE", "【直哉】「うん、了解。カードを作っておくね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：アヤノを――』の選択肢（腕を掴む）を作成しました。") -- tr_line:34
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『選択：アヤノを――』の選択肢（腕を掴む）を作成しました。") -- tr_line:31
     comPoseLoad("po2_aya_f_1_a")
     cPlayOneshotMusic(cGetFileName("mus", "mus_12"))
     comEffectYellowIn(60)
@@ -61,7 +58,6 @@ card_170_s4s_490_sel_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[171].hold == -1 then
         oCard.mesNot()
@@ -70,28 +66,28 @@ main = function()
         quit()
     end
     card_170_s4s_490_sel_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 171 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 171 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(1363, "NONVOICE", "【直哉】「『腕を掴む』時のあらすじを見せてみよう」")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

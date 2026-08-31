@@ -1,8 +1,7 @@
-local scene_s8s_10, scene_s8s_30, scene_s8s_40, scene_s8s_50, scene_s8s_comp, v5
-scene_s8s_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
-        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 25)
+local scene_s8s_10 = function(scene_id, scene_title)
+    local l1_2 = function()
+        local l2_0 = 25
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
     end
     cPlayBGMWrap(cGetFileName("bgm", "bgm_11_x"))
     layerLoad(layerName.event, cGetFileName("event", "eve_32_x"))
@@ -11,9 +10,8 @@ scene_s8s_10 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v1 = comDlgStorylineSkip(scene_id)
-    if v1 == true then
-        v0()
+    if comDlgStorylineSkip(scene_id) == true then
+        l1_2()
         return
     end
     vms(16753, "NAO16020", "【ユウイチ】「彩野、『戻る』んだ」")
@@ -23,12 +21,12 @@ scene_s8s_10 = function(scene_id, scene_title)
     vms(16757, "NAO16040", "【ユウイチ】「アヤノ！」")
     cStopBGMWrap()
     vms(16758, "AYA20120", "【アヤノ】「ユウイチ――」")
-    v0()
+    l1_2()
 end
-scene_s8s_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
-        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 25)
+local scene_s8s_30 = function(scene_id, scene_title)
+    local l1_2 = function()
+        local l2_0 = 25
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
     end
     cStopBGMWrap()
     layerLoad(layerName.event, cGetFileName("event", "eve_32_x"))
@@ -37,9 +35,8 @@ scene_s8s_30 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v1 = comDlgStorylineSkip(scene_id)
-    if v1 == true then
-        v0()
+    if comDlgStorylineSkip(scene_id) == true then
+        l1_2()
         return
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_5"))
@@ -63,12 +60,12 @@ scene_s8s_30 = function(scene_id, scene_title)
     layerLoad(layerName.pose2, "")
     switchScreen(0, "", 5)
     wait(5)
-    v0()
+    l1_2()
 end
-scene_s8s_40 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
-        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 25)
+local scene_s8s_40 = function(scene_id, scene_title)
+    local l1_2 = function()
+        local l2_0 = 25
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
     end
     cStopBGMWrap()
     layerLoad(layerName.event, cGetFileName("event", "eve_32_x"))
@@ -77,9 +74,8 @@ scene_s8s_40 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v1 = comDlgStorylineSkip(scene_id)
-    if v1 == true then
-        v0()
+    if comDlgStorylineSkip(scene_id) == true then
+        l1_2()
         return
     end
     wait(1)
@@ -223,12 +219,12 @@ scene_s8s_40 = function(scene_id, scene_title)
     cStopLoopSeWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s8s_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
-        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+local scene_s8s_50 = function(scene_id, scene_title)
+    local l1_2 = function()
+        local l2_0 = 0
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
     end
     cStopBGMWrap()
     layerLoad(layerName.event, cGetFileName("event", "eve_0_b"))
@@ -237,9 +233,8 @@ scene_s8s_50 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v1 = comDlgStorylineSkip(scene_id)
-    if v1 == true then
-        v0()
+    if comDlgStorylineSkip(scene_id) == true then
+        l1_2()
         return
     end
     wait(1)
@@ -267,11 +262,10 @@ scene_s8s_50 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s8s_comp = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s8s_comp = function(scene_id, scene_title)
+    local l1_2 = function()
         comSectionComplete()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
@@ -293,29 +287,28 @@ scene_s8s_comp = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 100, 60)
     wait(60)
     comEffectFadeOut(60)
-    v0()
+    l1_2()
 end
 main = function()
-    local v5, v6
-    gameSave.sectionName = "８：Ｓｔｏｒｙ" -- tr_line:300
-    v5 = 0
-    while v5 == 0 do
+    gameSave.sectionName = "８：Ｓｔｏｒｙ" -- tr_line:293
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v5 = 1
+            l1_0 = 1
         elseif doScriptScene == "s8s_10" then
-            scene_s8s_10(doScriptScene, "僕の言葉") -- tr_line:306
+            scene_s8s_10(doScriptScene, "僕の言葉") -- tr_line:299
             doScriptScene = "s8s_30"
         elseif doScriptScene == "s8s_30" then
-            scene_s8s_30(doScriptScene, "セクション８：ユウイチ、直哉") -- tr_line:309
+            scene_s8s_30(doScriptScene, "セクション８：ユウイチ、直哉") -- tr_line:302
             doScriptScene = "s8s_40"
         elseif doScriptScene == "s8s_40" then
-            scene_s8s_40(doScriptScene, "フェンスの向こう側") -- tr_line:312
+            scene_s8s_40(doScriptScene, "フェンスの向こう側") -- tr_line:305
             doScriptScene = "s8s_50"
         elseif doScriptScene == "s8s_50" then
-            scene_s8s_50(doScriptScene, "誰も見たことのない夕焼け") -- tr_line:315
+            scene_s8s_50(doScriptScene, "誰も見たことのない夕焼け") -- tr_line:308
             doScriptScene = "s8s_comp"
         elseif doScriptScene == "s8s_comp" then
-            scene_s8s_comp(doScriptScene, "セクション８完了") -- tr_line:318
+            scene_s8s_comp(doScriptScene, "セクション８完了") -- tr_line:311
             doScriptScene = "end"
         end
         wait(5)

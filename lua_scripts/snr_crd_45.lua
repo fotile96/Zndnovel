@@ -1,6 +1,4 @@
-local card_45_s2s_230_main, v1
-card_45_s2s_230_main = function()
-    local card_45_s2s_230_main, v1, v2
+local card_45_s2s_230_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2748, "NONVOICE", "【直哉】「ここはユウイチとプールに行くことを約束する場面だね」")
@@ -28,7 +26,7 @@ card_45_s2s_230_main = function()
     vms(2766, "NONVOICE", "【彩野】「そう。プール行きたいって思ったことはなかったなあ。……恥ずかしいし」")
     vms(2767, "NONVOICE", "【直哉】「うーん……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プールの約束』のあらすじを作成しました。") -- tr_line:31
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プールの約束』のあらすじを作成しました。") -- tr_line:29
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -36,7 +34,6 @@ card_45_s2s_230_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_45_s2s_230_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

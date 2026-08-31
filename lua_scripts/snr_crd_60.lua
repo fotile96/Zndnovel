@@ -1,12 +1,10 @@
-local card_60_s2s_590_main, v1
-card_60_s2s_590_main = function()
-    local card_60_s2s_590_main, v1, v2
+local card_60_s2s_590_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3070, "NONVOICE", "【直哉】「アヤノさんがプラネタリウムに行った場面だね」")
     vms(3071, "NONVOICE", "【彩野】「うん。あらすじもすぐにまとめられると思う」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プラネタリウム』のあらすじを作成しました。") -- tr_line:9
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プラネタリウム』のあらすじを作成しました。") -- tr_line:7
     vms(3072, "NONVOICE", "【彩野】「ここ、私の『現実』と、重なってる」")
     vms(3073, "NONVOICE", "【彩野】「私がプラネタリウムに行った記憶って、やっぱり小さい頃だから」")
     comPoseLoad("po2_aya_f_2_d")
@@ -29,7 +27,6 @@ card_60_s2s_590_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_60_s2s_590_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

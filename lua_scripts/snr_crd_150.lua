@@ -1,6 +1,4 @@
-local card_150_s4s_60_main, v1
-card_150_s4s_60_main = function()
-    local card_150_s4s_60_main, v1, v2
+local card_150_s4s_60_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(931, "NONVOICE", "【直哉】「セクション４は、主人公がユウイチ……」")
@@ -20,7 +18,7 @@ card_150_s4s_60_main = function()
     vms(942, "NONVOICE", "【直哉】「そうだよね……ごめんね」")
     vms(943, "NONVOICE", "【彩野】「ううん。私のほうこそ……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション４：ユウイチ』のあらすじを作成しました。") -- tr_line:23
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション４：ユウイチ』のあらすじを作成しました。") -- tr_line:21
     comPoseDelete()
     vms(944, "NONVOICE", "ユウイチ、か……。")
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
@@ -29,7 +27,6 @@ card_150_s4s_60_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[149].hold == -1 then
         oCard.mesNot()

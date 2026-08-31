@@ -9,11 +9,19 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from tools.ambient_rules import SYS_FILES, AMBIENT_FUNC_EXCEPTIONS, NARRATIVE_FUNC_EXCEPTIONS
 
-FUNC_RE = re.compile(r'^\s*([A-Za-z_][\w.]*)\s*=\s*function')
+# 函数声明：兼容两代反编译基座的两种形状——
+#   旧（pyluadec）  `NAME = function(...)`（顶部集中 local 声明 + 全局式赋值）
+#   新（refactor）  `local NAME = function(...)`（890 处）与 `NAME = function(...)`（317 处）
+# 入栈的缩进必须取**声明行缩进**（group 1）而非名字列号：新基座的 `end` 与声明行同缩进，
+# 若沿用名字列号，`local ` 前缀会把名字推后 6 列，函数永远配不上 end。
+# 依据：pyluadec-refactor/docs/runbooks/zndnovel-naming-migration.md §1。
+FUNC_RE = re.compile(r'^(\s*)(?:local\s+)?([A-Za-z_][\w.]*)\s*=\s*function')
 END_RE = re.compile(r'^(\s*)end\b')
 VMS_RE = re.compile(r'vms\((\d+), "([A-Z0-9]+)", (.+)\)$')
 TR_LINE_RE = re.compile(r'\s*--\s*tr_line:\d+\s*$')
-BARE_VN_RE = re.compile(r'^v\d+$')
+# 无语义的残余局部名，_owner_func 找真实归属时要跳过：
+# 旧基座 v\d+/p\d+，新基座 l<depth>_<reg>（例 l1_2）与 u\d+。两代并存。
+BARE_VN_RE = re.compile(r'^(?:v\d+|p\d+|l\d+_\d+|u\d+)$')
 
 
 def _owner_func(stack: list[tuple[str, int]]) -> str:
@@ -32,7 +40,7 @@ def parse_vms_lines(stem: str, text: str) -> list[dict]:
     for lineno, line in enumerate(text.splitlines(), 1):
         m = FUNC_RE.match(line)
         if m:
-            stack.append((m.group(1), m.start(1)))
+            stack.append((m.group(2), len(m.group(1))))   # (函数名, 声明行缩进)
             continue
         m_end = END_RE.match(line)
         if m_end and stack and len(m_end.group(1)) == stack[-1][1]:
@@ -132,12 +140,14 @@ def main(argv=None):
     from tools.pipelib import REPO, DATA, write_jsonl, read_jsonl
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default=str(DATA))
+    ap.add_argument("--script-dir", default=None,
+                    help="反编译语料目录（默认仓库 lua_scripts/）——换基座对账时指向新产物")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--report", action="store_true")
     args = ap.parse_args(argv)
     from pathlib import Path
     out = Path(args.out_dir)
-    ledger, extra = build(REPO / "lua_scripts")
+    ledger, extra = build(Path(args.script_dir) if args.script_dir else REPO / "lua_scripts")
     if args.report:
         from collections import Counter
         by_file = Counter((r["file"], r["kind"]) for r in ledger)

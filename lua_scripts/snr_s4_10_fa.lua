@@ -1,7 +1,5 @@
-local scene_s4fa_10, scene_s4fa_20, scene_s4fa_30, scene_s4fa_60, scene_s4fa_70, scene_s4fa_80, scene_s4fa_110, scene_s4fa_120, scene_s4fa_130, scene_s4fa_140, scene_s4fa_150, scene_s4fa_160, scene_s4fa_170, scene_s4fa_180, scene_s4fa_190, scene_s4fa_200, scene_s4fa_complete, v17
-scene_s4fa_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_5"))
@@ -171,11 +169,10 @@ scene_s4fa_10 = function(scene_id, scene_title)
     vms(12438, "NONVOICE", "彩野さんの家の扉を開き、空を見ると、いつの間にかねずみ色の雲が一面を覆っていた。")
     cPlayOneshotMusic(cGetFileName("mus", "mus_37"))
     vms(12439, "NONVOICE", "これは――早く帰らないと、降られてしまいそうだ。")
-    v0()
+    l1_2()
 end
-scene_s4fa_20 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_s4fa_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -196,11 +193,10 @@ scene_s4fa_20 = function(scene_id, scene_title)
     vms(12447, "NONVOICE", "そもそもこの雨量は、ビニール傘でしのげるようなモノではなかった。")
     vms(12448, "NAO11400", "【直哉】「……まいったな」")
     vms(12449, "NONVOICE", "とりあえずは落ち着けて、雨宿りできる場所を探さないと駄目みたいだ。")
-    v0()
+    l1_2()
 end
-scene_s4fa_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopLoopSeWrap()
@@ -302,11 +298,10 @@ scene_s4fa_30 = function(scene_id, scene_title)
     cStopLoopSeWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s4fa_60 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_60 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
@@ -323,11 +318,10 @@ scene_s4fa_60 = function(scene_id, scene_title)
     switchScreen(0, "", 120)
     vms(12517, "NAO11590", "【直哉】「服の大きさは……？」")
     vms(12518, "CHI01770", "【千秋】「はい、大丈夫です。ありがとうございます」")
-    v0()
+    l1_2()
 end
-scene_s4fa_70 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_70 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(12519, "NAO11600", "【直哉】「ご飯、用意していい？」")
@@ -379,11 +373,10 @@ scene_s4fa_70 = function(scene_id, scene_title)
     vms(12557, "NAO11730", "【直哉】「と、とりあえず、テレビとか観て、適当にくつろいでいてくれればいいから」")
     vms(12558, "NONVOICE", "千秋ちゃんはこくんと頷く。")
     cStopBGMWrap()
-    v0()
+    l1_2()
 end
-scene_s4fa_80 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_80 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_16"))
@@ -471,11 +464,10 @@ scene_s4fa_80 = function(scene_id, scene_title)
     vms(12618, "NAO11820", "【直哉】「……そっか。ごめんね。もっとちゃんと、キミの。千秋ちゃんの話を聞くべきだった」")
     vms(12619, "CHI01950", "【千秋】「……いえ」")
     vms(12620, "NONVOICE", "僕は胃の奥に苦い物がこみ上げてくるのを感じつつ、やっとそう答えた。")
-    v0()
+    l1_2()
 end
-scene_s4fa_110 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_110 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_19_x"))
@@ -506,11 +498,10 @@ scene_s4fa_110 = function(scene_id, scene_title)
     cStopLoopSeWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s4fa_120 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_120 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_138"), false)
@@ -591,11 +582,10 @@ scene_s4fa_120 = function(scene_id, scene_title)
     vms(12685, "NONVOICE", "その時、閃光が辺りを照らし、そのすぐ後に轟音とも言える地響きが窓をビリビリと揺らした。")
     vms(12686, "NONVOICE", "もしかしたら、近くの変電所にでも落ちたのかもしれない。")
     vms(12687, "NONVOICE", "小さい頃、何度か経験した停電の時も、確かこんな感じだった。")
-    v0()
+    l1_2()
 end
-scene_s4fa_130 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_s4fa_130 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comEffectYellowIn(30)
@@ -645,11 +635,10 @@ scene_s4fa_130 = function(scene_id, scene_title)
     vms(12722, "NAO11930", "【直哉】「まあ、電気も天気も、暫く待てば回復すると思うよ。心配することはないから。大丈夫」")
     vms(12723, "NONVOICE", "【千秋】「……」")
     vms(12724, "NONVOICE", "ややあって、「はい」と小さく千秋ちゃんは返事をした。")
-    v0()
+    l1_2()
 end
-scene_s4fa_140 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_s4fa_140 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(12725, "NONVOICE", "……。")
@@ -744,11 +733,10 @@ scene_s4fa_140 = function(scene_id, scene_title)
         run(cGetFileName("script", "snr_lib"))
         quit()
     end
-    v0()
+    l1_2()
 end
-scene_s4fa_150 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_150 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_12_x"))
@@ -780,11 +768,10 @@ scene_s4fa_150 = function(scene_id, scene_title)
     vms(12819, "NONVOICE", "僕もチョコをくわえながら答えた。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s4fa_160 = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_s4fa_160 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopBGMWrap()
@@ -793,11 +780,10 @@ scene_s4fa_160 = function(scene_id, scene_title)
     vms(12822, "NONVOICE", "両親のベッドに寝かせるのはさすがに控えた。")
     vms(12823, "NONVOICE", "留守中、女の子にベッドを使わせたなんて事がバレたら、何を言われるのかわかったもんじゃない。")
     vms(12824, "NONVOICE", "「おやすみ」と僕がいうと、千秋ちゃんは小さく頷いた。")
-    v0()
+    l1_2()
 end
-scene_s4fa_170 = function(scene_id, scene_title)
-    local v0, v1
-    v0 = function()
+local scene_s4fa_170 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_18"))
@@ -891,11 +877,10 @@ scene_s4fa_170 = function(scene_id, scene_title)
     vms(12904, "NAO12250", "【直哉】「マットを敷いて寝る。ハンマーで頭を殴られた様にグッスリとね」")
     vms(12905, "NONVOICE", "千秋ちゃんはコクンと頷いた。")
     cStopOneshotMusic()
-    v0()
+    l1_2()
 end
-scene_s4fa_180 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_180 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_16_x"))
@@ -973,11 +958,10 @@ scene_s4fa_180 = function(scene_id, scene_title)
     vms(12947, "NONVOICE", "明日、できることのために。")
     cStopBGMWrap()
     wait(120)
-    v0()
+    l1_2()
 end
-scene_s4fa_190 = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_s4fa_190 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     comEffectWhiteOut(120)
@@ -991,11 +975,10 @@ scene_s4fa_190 = function(scene_id, scene_title)
     vms(12958, "NAO12390", "【直哉】「千秋ちゃん……」")
     cLoadPlaySE(cGetFileName("se", "se_102"), false)
     vms(12959, "NONVOICE", "台所に行くと、机の上に朝食とともに「今日も教室に行きます」と、二つ目の書き置きを見つけた。")
-    v0()
+    l1_2()
 end
-scene_s4fa_200 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_200 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_5"))
@@ -1058,11 +1041,10 @@ scene_s4fa_200 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s4fa_complete = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s4fa_complete = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_8"))
     layerLoad(layerName.pose1, cGetFileName("cutin", "cut_e_s4"))
@@ -1075,7 +1057,7 @@ scene_s4fa_complete = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 0, 30)
     wait(120)
     wait(120)
-    oCard.show(cGetFileName("card", "crd_137_a"), "『セクション４Ａ』のあらすじを作成しました。") -- tr_line:1078
+    oCard.show(cGetFileName("card", "crd_137_a"), "『セクション４Ａ』のあらすじを作成しました。") -- tr_line:1060
     vms(17023, "NONVOICE", "フラグメントモード：セクション４Ａが終了しました。")
     cLoadPlaySE(cGetFileName("se", "se_28"), false)
     layerMoveScale(layerName.pose1, 100, 0, 60)
@@ -1094,68 +1076,67 @@ scene_s4fa_complete = function(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_102"), false)
     vms(17024, "NONVOICE", "【■おしらせ】新しい物語が届きました。")
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
 main = function()
-    local v17 = 0
-    local v18
-    while v17 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v17 = 1
+            l1_0 = 1
         elseif doScriptScene == "s4fa-10" then
-            scene_s4fa_10(doScriptScene, "彩野を家に帰す") -- tr_line:1106
+            scene_s4fa_10(doScriptScene, "彩野を家に帰す") -- tr_line:1087
             doScriptScene = "s4fa-20"
         elseif doScriptScene == "s4fa-20" then
-            scene_s4fa_20(doScriptScene, "通り雨") -- tr_line:1109
+            scene_s4fa_20(doScriptScene, "通り雨") -- tr_line:1090
             doScriptScene = "s4fa-30"
         elseif doScriptScene == "s4fa-30" then
-            scene_s4fa_30(doScriptScene, "学校の千秋") -- tr_line:1112
+            scene_s4fa_30(doScriptScene, "学校の千秋") -- tr_line:1093
             doScriptScene = "s4fa-60"
         elseif doScriptScene == "s4fa-60" then
-            scene_s4fa_60(doScriptScene, "自宅へ") -- tr_line:1115
+            scene_s4fa_60(doScriptScene, "自宅へ") -- tr_line:1096
             doScriptScene = "s4fa-70"
         elseif doScriptScene == "s4fa-70" then
-            scene_s4fa_70(doScriptScene, "夕ご飯") -- tr_line:1118
+            scene_s4fa_70(doScriptScene, "夕ご飯") -- tr_line:1099
             doScriptScene = "s4fa-80"
         elseif doScriptScene == "s4fa-80" then
-            scene_s4fa_80(doScriptScene, "千秋の家に電話") -- tr_line:1121
+            scene_s4fa_80(doScriptScene, "千秋の家に電話") -- tr_line:1102
             doScriptScene = "s4fa-110"
         elseif doScriptScene == "s4fa-110" then
-            scene_s4fa_110(doScriptScene, "雨脚") -- tr_line:1124
+            scene_s4fa_110(doScriptScene, "雨脚") -- tr_line:1105
             doScriptScene = "s4fa-120"
         elseif doScriptScene == "s4fa-120" then
-            scene_s4fa_120(doScriptScene, "湯船") -- tr_line:1127
+            scene_s4fa_120(doScriptScene, "湯船") -- tr_line:1108
             doScriptScene = "s4fa-130"
         elseif doScriptScene == "s4fa-130" then
-            scene_s4fa_130(doScriptScene, "湯船") -- tr_line:1130
+            scene_s4fa_130(doScriptScene, "湯船") -- tr_line:1111
             doScriptScene = "s4fa-140"
         elseif doScriptScene == "s4fa-140" then
-            scene_s4fa_140(doScriptScene, "千秋の家庭の事情") -- tr_line:1133
+            scene_s4fa_140(doScriptScene, "千秋の家庭の事情") -- tr_line:1114
             doScriptScene = "s4fa-150"
         elseif doScriptScene == "s4fa-150" then
-            scene_s4fa_150(doScriptScene, "風呂上がり") -- tr_line:1136
+            scene_s4fa_150(doScriptScene, "風呂上がり") -- tr_line:1117
             doScriptScene = "s4fa-160"
         elseif doScriptScene == "s4fa-160" then
-            scene_s4fa_160(doScriptScene, "夜が更ける") -- tr_line:1139
+            scene_s4fa_160(doScriptScene, "夜が更ける") -- tr_line:1120
             doScriptScene = "s4fa-170"
         elseif doScriptScene == "s4fa-170" then
-            scene_s4fa_170(doScriptScene, "眠れない") -- tr_line:1142
+            scene_s4fa_170(doScriptScene, "眠れない") -- tr_line:1123
             doScriptScene = "s4fa-180"
         elseif doScriptScene == "s4fa-180" then
-            scene_s4fa_180(doScriptScene, "睡眠") -- tr_line:1145
+            scene_s4fa_180(doScriptScene, "睡眠") -- tr_line:1126
             doScriptScene = "s4fa-190"
         elseif doScriptScene == "s4fa-190" then
-            scene_s4fa_190(doScriptScene, "朝") -- tr_line:1148
+            scene_s4fa_190(doScriptScene, "朝") -- tr_line:1129
             doScriptScene = "s4fa-200"
         elseif doScriptScene == "s4fa-200" then
-            scene_s4fa_200(doScriptScene, "教室の千秋") -- tr_line:1151
+            scene_s4fa_200(doScriptScene, "教室の千秋") -- tr_line:1132
             doScriptScene = "s4fa-complete"
         elseif doScriptScene == "s4fa-complete" then
             if memoryFlag == true then
                 run(cGetFileName("script", "snr_memory"))
                 quit()
             end
-            scene_s4fa_complete(doScriptScene, "セクション４Ａ読了") -- tr_line:1158
+            scene_s4fa_complete(doScriptScene, "セクション４Ａ読了") -- tr_line:1139
             gameSave.myCard[176].hold = 1
             gameSave.myCard[137].hold = 1
             doScriptScene = "end"

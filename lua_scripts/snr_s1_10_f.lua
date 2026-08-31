@@ -1,7 +1,5 @@
-local scene_s1f_10, scene_s1f_20, scene_s1f_30, scene_s1f_40, scene_s1f_50, scene_s1f_60, scene_s1f_complete, v7
-scene_s1f_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_12_x"))
@@ -50,11 +48,10 @@ scene_s1f_10 = function(scene_id, scene_title)
     vms(6664, "NONVOICE", "綺麗に整理された区画の中に家々が立ち並んでいる。門構えも立派なものだった。")
     vms(6665, "NONVOICE", "家の形も様々で、同じような家々が並ぶ住宅街とは雰囲気がちがう。中庭も広い家が多かった。")
     vms(6666, "NONVOICE", "この住宅街に居を構えている人たちは、いわゆる『中流』よりも少し上の方だと言うことが伺えた。")
-    v0()
+    l1_2()
 end
-scene_s1f_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -422,11 +419,10 @@ scene_s1f_20 = function(scene_id, scene_title)
     vms(6892, "NONVOICE", "そう言い残すと、お母さんはスリッパの音をさせながら部屋の向こうに消えてしまった。")
     vms(6893, "AYA06200", "【彩野】「ごめんね、お母さん、思い込むとすぐ集中しちゃうタイプだから。じゃ、直哉くん、いこ」")
     vms(6894, "NAO07860", "【直哉】「あ、う、うん……」")
-    v0()
+    l1_2()
 end
-scene_s1f_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -594,11 +590,10 @@ scene_s1f_30 = function(scene_id, scene_title)
     comPoseLoad("po2_aya_f_1_a")
     vms(7009, "AYA06480", "【彩野】「直哉くん、それで、いい？」")
     vms(7010, "NONVOICE", "もちろん、と僕は頷いた。")
-    v0()
+    l1_2()
 end
-scene_s1f_40 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_40 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -694,11 +689,10 @@ scene_s1f_40 = function(scene_id, scene_title)
     comEffectFadeOut(120)
     wait(120)
     vms(7084, "NONVOICE", "その笑顔は――やはり、彩野さんに似ていた。")
-    v0()
+    l1_2()
 end
-scene_s1f_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_50 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
@@ -946,11 +940,10 @@ scene_s1f_50 = function(scene_id, scene_title)
     comEffectFadeOut(120)
     wait(120)
     vms(7252, "NONVOICE", "そう言って笑う彩野さんの瞳は、不思議なほど澄んでいた。")
-    v0()
+    l1_2()
 end
-scene_s1f_60 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_60 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_12_x"))
@@ -1028,9 +1021,8 @@ scene_s1f_60 = function(scene_id, scene_title)
     comEffectFadeOut(120)
     wait(120)
 end
-scene_s1f_complete = function()
-    local v0, v1, v2
-    v0 = function()
+local scene_s1f_complete = function()
+    local l1_0 = function()
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_8"))
     layerLoad(layerName.pose1, cGetFileName("cutin", "cut_e_s1"))
@@ -1043,7 +1035,7 @@ scene_s1f_complete = function()
     layerMoveRotate(layerName.pose1, 0, 0, 0, 30)
     wait(120)
     wait(120)
-    oCard.show(cGetFileName("card", "crd_133_a"), "『セクション１』のあらすじを作成しました。") -- tr_line:1046
+    oCard.show(cGetFileName("card", "crd_133_a"), "『セクション１』のあらすじを作成しました。") -- tr_line:1038
     vms(17002, "NONVOICE", "フラグメントモード：セクション１が終了しました。")
     cLoadPlaySE(cGetFileName("se", "se_28"), false)
     layerMoveScale(layerName.pose1, 100, 0, 60)
@@ -1068,38 +1060,37 @@ scene_s1f_complete = function()
     vms(17010, "NONVOICE", "【■おしらせ】・ゲーム内小説とゲーム本編の関係について_n_rゲーム内小説を読まなくともゲーム自体を進行させることは可能です。")
     vms(17011, "NONVOICE", "【■おしらせ】落ち着いたときに一気に読む等、お好みのスタイルでお楽しみ下さい。")
     comEffectFadeOut(60)
-    v0()
+    l1_0()
 end
 main = function()
-    local v7 = 0
-    local v8
-    while v7 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v7 = 1
+            l1_0 = 1
         elseif doScriptScene == "s1f-10" then
-            scene_s1f_10(doScriptScene, "彩野さんの家へ") -- tr_line:1080
+            scene_s1f_10(doScriptScene, "彩野さんの家へ") -- tr_line:1071
             doScriptScene = "s1f-20"
         elseif doScriptScene == "s1f-20" then
-            scene_s1f_20(doScriptScene, "お母さん") -- tr_line:1083
+            scene_s1f_20(doScriptScene, "お母さん") -- tr_line:1074
             doScriptScene = "s1f-30"
         elseif doScriptScene == "s1f-30" then
-            scene_s1f_30(doScriptScene, "彩野さんの部屋へ") -- tr_line:1086
+            scene_s1f_30(doScriptScene, "彩野さんの部屋へ") -- tr_line:1077
             doScriptScene = "s1f-40"
         elseif doScriptScene == "s1f-40" then
-            scene_s1f_40(doScriptScene, "電話の相手") -- tr_line:1089
+            scene_s1f_40(doScriptScene, "電話の相手") -- tr_line:1080
             doScriptScene = "s1f-50"
         elseif doScriptScene == "s1f-50" then
-            scene_s1f_50(doScriptScene, "待ち合わせの場所へ") -- tr_line:1092
+            scene_s1f_50(doScriptScene, "待ち合わせの場所へ") -- tr_line:1083
             doScriptScene = "s1f-60"
         elseif doScriptScene == "s1f-60" then
-            scene_s1f_60(doScriptScene, "『あらすじ』") -- tr_line:1095
+            scene_s1f_60(doScriptScene, "『あらすじ』") -- tr_line:1086
             doScriptScene = "s1f-complete"
         elseif doScriptScene == "s1f-complete" then
             if memoryFlag == true then
                 run(cGetFileName("script", "snr_memory"))
                 quit()
             end
-            scene_s1f_complete(doScriptScene, "セクション１読了") -- tr_line:1102
+            scene_s1f_complete(doScriptScene, "セクション１読了") -- tr_line:1093
             gameSave.myCard[30].hold = 1
             gameSave.myCard[133].hold = 1
             doScriptScene = "end"

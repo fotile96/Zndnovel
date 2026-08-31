@@ -1,6 +1,4 @@
-local card_174_s4s_710_main, v1
-card_174_s4s_710_main = function()
-    local card_174_s4s_710_main, v1, v2
+local card_174_s4s_710_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1431, "NONVOICE", "【直哉】「セクション４の続き……というか、もう一つの物語、でいいのかな……」")
@@ -11,7 +9,7 @@ card_174_s4s_710_main = function()
     vms(1434, "NONVOICE", "【彩野】「また、アヤノの視点から見る必要があるのかなって」")
     vms(1435, "NONVOICE", "【直哉】「ふむ……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション４：アヤノ』のあらすじを作成しました。") -- tr_line:14
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション４：アヤノ』のあらすじを作成しました。") -- tr_line:12
     comPoseLoad("po2_aya_f_1_c")
     vms(1436, "NONVOICE", "【彩野】「でも……」")
     vms(1437, "NONVOICE", "【直哉】「……ん、どうかした？」")
@@ -28,7 +26,6 @@ card_174_s4s_710_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_174_s4s_710_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

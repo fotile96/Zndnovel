@@ -49,7 +49,11 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 **翻译骨架已冻结**（`git tag skeleton-v1`，2026-07-30）：正文翻译轨的定译基准 = `skeleton/anchors.yaml`（锚点句一律逐字沿用其 zh）+ `skeleton/cards.zh/`（卡面梗概定稿，亦是前缀 compact 的『あらすじ』语料）；术语取 `glossary/` 最高版本号（现 v6）与 `active.json`，风格与润色尺度见 `glossary/style.md`。骨架文件此后视同只读，改动须走新 glossary 版本 + 召回令。
 
-这些 lua 是反编译产物**且已被手工修改过**：变量名是 v0/p0 型，但（1）`snr_common.lua` 已把字体 0 换成中文字体 `pgf/LXGWWenKai-Regular.pgf`（原日文字体行被注释保留）；（2）162 个文件里有 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等）；（3）部分脚本的局部函数被改成可读名（如 `card_0_main`、`scene_s1s_20 = function(scene_id, scene_title)`）。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
+这些 lua 是反编译产物。**2026-08-31 已换基座**：来源从旧 pyluadec 产物改为 `~/pyluadec-refactor/corpus/final/`（`tools/migrate_base.py` 执行，迁移依据与验收见 `docs/ops/decompiler-base-migration-2026-08-31.md`）。新基座**每个文件重编译后与游戏原始字节码逐字节相同**（229/229，仅 `linedefined/lastlinedefined` 行号字段不同——`tools/luac_norm.py` 归零后比对可复验）；旧基座 0/229。
+
+当前形态与约定：（1）局部名是 `l<depth>_<reg>` 型（如 `l1_2`），**不再是 v0/p0**；顶层函数名（`scene_*`、`card_*`）与旧基座逐名相同，是跨基座唯一稳定锚；（2）`snr_common.lua` 的字体 0 已换成 `pgf/LXGWWenKai-Regular.pgf`（迁移时自动重放，`FONT_PATCH`）；字体槽 1 的中文化不在源里，由 `tools/inject_lua.py` 在注入期改写；（3）164 个文件带 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等），由 `migrate_base.py` 的 `add_tr_line_markers()` 机械重生成，规则已对旧基座验证 678/678 复现。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
+
+⚠ **行号不是稳定锚**：`data/ledger*.jsonl` 的 `line` 字段与 extra 轨的 `文件:行号` 键都随基座变化，换基座必须整体重生成并重挂译文（迁移脚本已代劳；重挂靠 `(file, kind, jp)→zh` 唯一映射，实测 791 组 0 冲突）。
 
 ## 引擎与脚本体系（PSP）
 

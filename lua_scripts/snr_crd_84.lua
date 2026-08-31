@@ -1,6 +1,4 @@
-local card_84_s3s_460_intro, card_84_s3s_460_resolve, v2, v3, v4, v5
-card_84_s3s_460_intro = function()
-    local card_84_s3s_460_intro
+local card_84_s3s_460_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3602, "NONVOICE", "【彩野】「ごめんなさい、直哉くん……。ちょっとわからなくなっちゃった」")
@@ -13,8 +11,7 @@ card_84_s3s_460_intro = function()
     vms(3607, "NONVOICE", "アヤノさんが拒否した理由――。それは、図書室のあの場面を目撃したからだ。")
     comPoseDelete()
 end
-card_84_s3s_460_resolve = function()
-    local card_84_s3s_460_intro, card_84_s3s_460_resolve
+local card_84_s3s_460_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(3608, "NONVOICE", "【彩野】「あ……」")
@@ -24,7 +21,7 @@ card_84_s3s_460_resolve = function()
     vms(3610, "NONVOICE", "【彩野】「――そっか」")
     vms(3611, "NONVOICE", "【彩野】「直哉くん。ここのあらすじはこうなると思う」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチの腕』のあらすじを作成しました。") -- tr_line:27
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ユウイチの腕』のあらすじを作成しました。") -- tr_line:24
     vms(3612, "NONVOICE", "【彩野】「……」")
     comPoseLoad("po2_aya_f_2_e")
     vms(3613, "NONVOICE", "【彩野】「……ごめんね」")
@@ -36,7 +33,6 @@ card_84_s3s_460_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[80].hold == -1 then
         oCard.mesNot()
@@ -45,28 +41,28 @@ main = function()
         quit()
     end
     card_84_s3s_460_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 80 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 80 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(3615, "NONVOICE", "アヤノさんが拒否した理由――。それは、図書室のあの場面を目撃したから……。")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

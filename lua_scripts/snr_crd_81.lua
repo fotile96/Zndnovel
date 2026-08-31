@@ -1,6 +1,4 @@
-local card_81_s3s_375_main, v1
-card_81_s3s_375_main = function()
-    local card_81_s3s_375_main, v1, v2
+local card_81_s3s_375_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3549, "NONVOICE", "【直哉】「この物語も、やっぱりアヤノさんが主人公みたいだね」")
@@ -19,7 +17,7 @@ card_81_s3s_375_main = function()
     vms(3559, "NONVOICE", "【彩野】「ううん……自分の事だから」")
     vms(3560, "NONVOICE", "【彩野】「……はっきりしなくて、ごめんね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション３：アヤノ』のあらすじを作成しました。") -- tr_line:22
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『セクション３：アヤノ』のあらすじを作成しました。") -- tr_line:20
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -27,7 +25,6 @@ card_81_s3s_375_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_81_s3s_375_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

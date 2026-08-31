@@ -1,13 +1,11 @@
-local card_74_s3s_230_sel_main, v1
-card_74_s3s_230_sel_main = function()
-    local card_74_s3s_230_sel_main, v1, v2
+local card_74_s3s_230_sel_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3375, "NONVOICE", "【直哉】「ここはざっくりまとめちゃうと、階段のウワサについて保健室の先生とユカリ先生に聞いて、その後にユウイチの姿を見かけるって感じだね」")
     comPoseLoad("po2_aya_f_1_e")
     vms(3376, "NONVOICE", "【彩野】「うん。あらすじもこれでいいと思う」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『探索：放課後の学校』のあらすじを作成しました。") -- tr_line:10
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『探索：放課後の学校』のあらすじを作成しました。") -- tr_line:8
     vms(3377, "NONVOICE", "【直哉】「うん。カードにもまとめたよ」")
     comPoseLoad("po2_aya_f_1_a")
     vms(3378, "NONVOICE", "【彩野】「ありがとう、直哉くん」")
@@ -33,7 +31,6 @@ card_74_s3s_230_sel_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[79].hold == -1 then
         oCard.mesNot()

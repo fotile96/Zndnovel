@@ -1,6 +1,4 @@
-local card_68_s3s_100_intro, card_68_s3s_100_resolve, card_68_s3s_100_step3, v3, v4, v5, v6, v7, v8, v9
-card_68_s3s_100_intro = function()
-    local card_68_s3s_100_intro
+local card_68_s3s_100_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3244, "NONVOICE", "【直哉】「ここの部分の展開は、またまた『いつもの生活』だね」")
@@ -11,8 +9,7 @@ card_68_s3s_100_intro = function()
     vms(3248, "NONVOICE", "【直哉】「まずはセクション１の『いつもの生活』」")
     comPoseDelete()
 end
-card_68_s3s_100_resolve = function()
-    local card_68_s3s_100_intro
+local card_68_s3s_100_resolve = function()
     oCard.cardAnswerTrue()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
@@ -20,8 +17,7 @@ card_68_s3s_100_resolve = function()
     vms(3250, "NONVOICE", "【直哉】「そして……これがセクション２の『また、いつもの生活』」")
     comPoseDelete()
 end
-card_68_s3s_100_step3 = function()
-    local card_68_s3s_100_intro, card_68_s3s_100_resolve
+local card_68_s3s_100_step3 = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(3251, "NONVOICE", "【彩野】「そうなんだ……いろんな物語で出てきているんだね、この場面」")
@@ -40,7 +36,7 @@ card_68_s3s_100_step3 = function()
     vms(3260, "NONVOICE", "【彩野】「じゃあ、やっぱり、この場面でも……」")
     vms(3261, "NONVOICE", "【直哉】「うん。前の場面の『選択』が重要なんじゃないかなって、思ってる」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ウワサに興味がない』のあらすじを作成しました。") -- tr_line:43
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ウワサに興味がない』のあらすじを作成しました。") -- tr_line:39
     vms(3262, "NONVOICE", "【彩野】「日常を脱すること……」")
     comPoseLoad("po2_aya_f_2_e")
     vms(3263, "NONVOICE", "【彩野】「……」")
@@ -51,7 +47,6 @@ card_68_s3s_100_step3 = function()
     end
 end
 main = function()
-    local v3, v4, v5, v6, v7, v8, v9, v10
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[19].hold == -1 then
         oCard.mesNot()
@@ -66,55 +61,55 @@ main = function()
         quit()
     end
     card_68_s3s_100_intro()
-    v3 = 0
-    v4 = 0
-    v5 = -1
-    while v3 < 1 do
-        v6 = oCard.selectCardObj()
-        if v6 == 19 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 19 then
             break
         end
-        if v6 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v4 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(3264, "NONVOICE", "セクション１の『いつもの生活』のあらすじを彩野さんに見せてみよう。")
             comPoseDelete()
         end
-        if v4 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v4 = v4 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_68_s3s_100_resolve()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 31 then
+    local l1_3 = 0
+    local l1_4 = 0
+    local l1_5 = -1
+    while l1_3 < 1 do
+        local l1_6 = oCard.selectCardObj()
+        if l1_6 == 31 then
             break
         end
-        if v9 == -1 then
+        if l1_6 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
+        if l1_4 == 1 then
             oCard.mesNG2()
             vms(3265, "NONVOICE", "セクション２の『また、いつもの生活』のあらすじを彩野さんに見せてみよう。")
             comPoseDelete()
         end
-        if v7 == 0 then
+        if l1_4 == 0 then
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_4 = l1_4 + 1
             comPoseDelete()
         end
         wait(30)

@@ -1,6 +1,4 @@
-local card_193_s5s_870_step4, card_193_s5s_870_intro, card_193_s5s_870_resolve, card_193_s5s_870_step3, card_193_s5s_870_step5, v5, v6, v7, v8, v9
-card_193_s5s_870_step4 = function()
-    local card_193_s5s_870_step4
+local card_193_s5s_870_step4 = function()
     cStopBGMWrap()
     comPoseLoad("po2_aya_f_2_e")
     vms(1683, "NONVOICE", "【彩野】「うーん……」")
@@ -19,8 +17,7 @@ card_193_s5s_870_step4 = function()
     run(cGetFileName("script", "snr_fragment_main"))
     quit()
 end
-card_193_s5s_870_intro = function()
-    local card_193_s5s_870_step4, card_193_s5s_870_intro
+local card_193_s5s_870_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_7_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1692, "NONVOICE", "【直哉】「２月の、中庭……」")
@@ -94,7 +91,7 @@ card_193_s5s_870_intro = function()
     vms(1724, "NONVOICE", "【彩野】「……直哉くん、もう一度サクラさんの日記――。私たちが出会った部分の『９月の物語』を見せてもらっていい？」")
     comPoseDelete()
 end
-card_193_s5s_870_resolve = function()
+local card_193_s5s_870_resolve = function()
     keyPlaySE(seName.getCard)
     comEffectYellowIn(60)
     wait(60)
@@ -102,7 +99,7 @@ card_193_s5s_870_resolve = function()
     vms(1725, "NONVOICE", "【彩野】「ありがとう……それじゃあ、物語の私たちが、『中庭でお話した場面』のあらすじも、お願いしていい？」")
     comPoseDelete()
 end
-card_193_s5s_870_step3 = function()
+local card_193_s5s_870_step3 = function()
     keyPlaySE(seName.getCard)
     comEffectYellowIn(60)
     wait(60)
@@ -111,15 +108,14 @@ card_193_s5s_870_step3 = function()
     vms(1726, "NONVOICE", "【彩野】「最後に、『私が書いた日記』を見せてもらっていいかな。９月の日記になると思う」")
     comPoseDelete()
 end
-card_193_s5s_870_step5 = function()
-    local card_193_s5s_870_step4, card_193_s5s_870_intro, card_193_s5s_870_resolve, card_193_s5s_870_step3
+local card_193_s5s_870_step5 = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1727, "NONVOICE", "【彩野】「……ありがとう。直哉くん」")
     vms(1728, "NONVOICE", "彩野さんはフェンスの側に寄るとじっと外を見つめている。")
     vms(1729, "NONVOICE", "そろそろ日が暮れかけていた。")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『２月、中庭』のあらすじを作成しました。") -- tr_line:122
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『２月、中庭』のあらすじを作成しました。") -- tr_line:118
     vms(1730, "NONVOICE", "【彩野】「私たちの日記。交換日記」")
     comPoseLoad("po2_aya_f_1_c")
     vms(1731, "NONVOICE", "【彩野】「私たちは日記をやりとりしていた」")
@@ -170,7 +166,6 @@ card_193_s5s_870_step5 = function()
     quit()
 end
 main = function()
-    local v5, v6, v7, v8, v9, v10
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[179].hold == -1 then
         oCard.mesNot()
@@ -190,95 +185,95 @@ main = function()
         run(cGetFileName("script", "snr_fragment_main"))
         quit()
     end
-    v5 = false
+    local l1_0 = false
     card_193_s5s_870_intro()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 179 then
+    local l1_1 = 0
+    local l1_2 = 0
+    local l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 179 then
             break
         end
-        if v9 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
-            v5 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1760, "NONVOICE", "【彩野】「……直哉くん、もう一度サクラさんの日記――。私たちが出会った部分の『９月の物語』を見せてもらっていい？」")
             comPoseDelete()
         end
-        if v7 == 0 then
-            v5 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_193_s5s_870_resolve()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 194 then
+    l1_1 = 0
+    l1_2 = 0
+    l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 194 then
             break
         end
-        if v9 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
-            v5 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1761, "NONVOICE", "【彩野】「……物語の私たちが、『中庭でお話した場面』のあらすじも、お願いしていい？」")
             comPoseDelete()
         end
-        if v7 == 0 then
-            v5 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_193_s5s_870_step3()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 93 then
+    l1_1 = 0
+    l1_2 = 0
+    l1_3 = -1
+    while l1_1 < 1 do
+        local l1_4 = oCard.selectCardObj()
+        if l1_4 == 93 then
             break
         end
-        if v9 == -1 then
+        if l1_4 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
-            v5 = true
+        if l1_2 == 1 then
+            l1_0 = true
             oCard.mesNG2()
             vms(1762, "NONVOICE", "【彩野】「最後に、『私が書いた日記』を見せてもらっていいかな。９月の日記になると思う」")
             comPoseDelete()
         end
-        if v7 == 0 then
-            v5 = true
+        if l1_2 == 0 then
+            l1_0 = true
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_2 = l1_2 + 1
             comPoseDelete()
         end
         wait(30)
     end
-    if v5 == true then
+    if l1_0 == true then
         card_193_s5s_870_step4()
     end
     wait(60)

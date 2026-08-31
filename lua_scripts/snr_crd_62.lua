@@ -1,6 +1,4 @@
-local card_62_s2s_208_main, v1
-card_62_s2s_208_main = function()
-    local card_62_s2s_208_main, v1, v2
+local card_62_s2s_208_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3128, "NONVOICE", "【彩野】「ここは、ナゾトキに間違いなく答えられたときの場面」")
@@ -8,7 +6,7 @@ card_62_s2s_208_main = function()
     vms(3130, "NONVOICE", "【彩野】「たぶん、そうだと思う」")
     vms(3131, "NONVOICE", "【直哉】「間違いが良い結果を生むとは思えないし……。ナゾトキにはちゃんと正解したほうがいいみたいだね」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ナゾトキの正解』のあらすじを作成しました。") -- tr_line:11
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『ナゾトキの正解』のあらすじを作成しました。") -- tr_line:9
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -16,7 +14,6 @@ card_62_s2s_208_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_62_s2s_208_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

@@ -1,13 +1,11 @@
-local card_59_s2s_570_main, v1
-card_59_s2s_570_main = function()
-    local card_59_s2s_570_main, v1, v2
+local card_59_s2s_570_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3032, "NONVOICE", "【彩野】「ここは、ユウイチとプールに行く所だね」")
     vms(3033, "NONVOICE", "【直哉】「うん。まあ、なんてことのない場面だと思う」")
     vms(3034, "NONVOICE", "【彩野】「あらすじも……まとめちゃっていいかな」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プール』のあらすじを作成しました。") -- tr_line:10
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プール』のあらすじを作成しました。") -- tr_line:8
     vms(3035, "NONVOICE", "【彩野】「あ、それとここ、ファストフードに行く前に、なにかのバーのお店が気になってるみたいなんだけど……」")
     vms(3036, "NONVOICE", "【直哉】「う、うん……そうだね」")
     vms(3037, "NONVOICE", "【彩野】「直哉くん、このお店知ってる？」")
@@ -32,7 +30,6 @@ card_59_s2s_570_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_59_s2s_570_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

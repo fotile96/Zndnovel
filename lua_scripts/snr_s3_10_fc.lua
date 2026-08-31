@@ -1,7 +1,5 @@
-local scene_s3fc_10, scene_s3fc_20, scene_s3fc_30, scene_s3fc_40, scene_s3fc_50, scene_s3fc_60, scene_s3fc_70, scene_s3fc_80, scene_s3fc_90, v9
-scene_s3fc_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -21,11 +19,10 @@ scene_s3fc_10 = function(scene_id, scene_title)
     vms(11017, "YUK01670", "【由加里】「彩野さんのお母さんが、職場で倒れたって！ 今学校に連絡があったの！」")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s3fc_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_15_x"))
@@ -40,11 +37,10 @@ scene_s3fc_20 = function(scene_id, scene_title)
     vms(11021, "NONVOICE", "腕から伸びている点滴のチューブが痛々しい。")
     vms(11022, "YUK01690", "【由加里】「まあ、過労が直接の原因ってわけじゃないんだけどね」")
     vms(11023, "YUK01700", "【由加里】「普通なら体内で対応できるような細菌が、疲れて免疫力が落ちちゃってるせいで、対応しきれなくなった……という事みたい」")
-    v0()
+    l1_2()
 end
-scene_s3fc_30 = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_s3fc_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(11024, "YUK01710", "【由加里】「暫くは入院する必要はあるけれど、点滴で大丈夫だろう、ということよ。……」")
@@ -62,11 +58,10 @@ scene_s3fc_30 = function(scene_id, scene_title)
     comPoseLoad("po1_yuk_f_1_d")
     vms(11034, "YUK01770", "【由加里】「あれ？ ……それで、彩野さんは？」")
     comPoseLoad("po1_yuk_f_1_c")
-    v0()
+    l1_2()
 end
-scene_s3fc_40 = function(scene_id, scene_title)
-    local v0
-    v0 = function()
+local scene_s3fc_40 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(11035, "NAO03750", "【直哉】「今は病院の中庭に行ってます。千秋ちゃんと」")
@@ -86,11 +81,10 @@ scene_s3fc_40 = function(scene_id, scene_title)
     vms(11045, "NAO03790", "【直哉】「いえ、そんな。彼女が自分で何とかしようと思ったから、だと思います」")
     vms(11046, "YUK01820", "【由加里】「ふうん」")
     vms(11047, "NAO03800", "【直哉】「……いや、本当ですよ」")
-    v0()
+    l1_2()
 end
-scene_s3fc_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_50 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_6"))
@@ -131,11 +125,10 @@ scene_s3fc_50 = function(scene_id, scene_title)
     vms(11064, "AYA04620", "【彩野】「ちゃんと忘れないように、手帳に書いておきますね。お母さんの事と、先生の事」")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s3fc_60 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_60 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopBGMWrap()
@@ -165,11 +158,10 @@ scene_s3fc_60 = function(scene_id, scene_title)
     vms(11077, "AYA04630", "【彩野】「……むー」")
     vms(11078, "YUK01920", "【由加里】「大丈夫よ。彩野さんなら、怒るような事なんてないんだから。こちらがしっかりしなさいって怒られちゃう」")
     vms(11079, "HAH00050", "【お母さん】「ふふ。それでは、すみませんけれど、お願いします」")
-    v0()
+    l1_2()
 end
-scene_s3fc_70 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_70 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -221,11 +213,10 @@ scene_s3fc_70 = function(scene_id, scene_title)
     layerLoad(layerName.bg1, cGetFileName("bg", "bg_18_a_0"))
     switchScreen(0, "", 60)
     wait(60)
-    v0()
+    l1_2()
 end
-scene_s3fc_80 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_80 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -305,11 +296,10 @@ scene_s3fc_80 = function(scene_id, scene_title)
     comEffectFadeOut(120)
     vms(11122, "NONVOICE", "ページを捲る。")
     vms(11123, "NONVOICE", "そこに書かれている『お話』は――")
-    v0()
+    l1_2()
 end
-scene_s3fc_90 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s3fc_90 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -987,42 +977,41 @@ scene_s3fc_90 = function(scene_id, scene_title)
     wait(1)
     comEffectFadeOut(120)
     cPlayOneshotMusic(cGetFileName("mus", "mus_7"))
-    oCard.show(cGetFileName("card", "crd_145_a"), "『いつか きみが みる お話』のあらすじを作成しました。") -- tr_line:990
+    oCard.show(cGetFileName("card", "crd_145_a"), "『いつか きみが みる お話』のあらすじを作成しました。") -- tr_line:980
     wait(120)
-    v0()
+    l1_2()
 end
 main = function()
-    local v9 = 0
-    local v10
-    while v9 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v9 = 1
+            l1_0 = 1
         elseif doScriptScene == "s3fc-10" then
-            scene_s3fc_10(doScriptScene, "連絡") -- tr_line:1001
+            scene_s3fc_10(doScriptScene, "連絡") -- tr_line:990
             doScriptScene = "s3fc-20"
         elseif doScriptScene == "s3fc-20" then
-            scene_s3fc_20(doScriptScene, "病院１") -- tr_line:1004
+            scene_s3fc_20(doScriptScene, "病院１") -- tr_line:993
             doScriptScene = "s3fc-30"
         elseif doScriptScene == "s3fc-30" then
-            scene_s3fc_30(doScriptScene, "病院２") -- tr_line:1007
+            scene_s3fc_30(doScriptScene, "病院２") -- tr_line:996
             doScriptScene = "s3fc-40"
         elseif doScriptScene == "s3fc-40" then
-            scene_s3fc_40(doScriptScene, "病院３") -- tr_line:1010
+            scene_s3fc_40(doScriptScene, "病院３") -- tr_line:999
             doScriptScene = "s3fc-50"
         elseif doScriptScene == "s3fc-50" then
-            scene_s3fc_50(doScriptScene, "中庭") -- tr_line:1013
+            scene_s3fc_50(doScriptScene, "中庭") -- tr_line:1002
             doScriptScene = "s3fc-60"
         elseif doScriptScene == "s3fc-60" then
-            scene_s3fc_60(doScriptScene, "彩野の家") -- tr_line:1016
+            scene_s3fc_60(doScriptScene, "彩野の家") -- tr_line:1005
             doScriptScene = "s3fc-70"
         elseif doScriptScene == "s3fc-70" then
-            scene_s3fc_70(doScriptScene, "今夜の予定") -- tr_line:1019
+            scene_s3fc_70(doScriptScene, "今夜の予定") -- tr_line:1008
             doScriptScene = "s3fc-80"
         elseif doScriptScene == "s3fc-80" then
-            scene_s3fc_80(doScriptScene, "手帳のメモ") -- tr_line:1022
+            scene_s3fc_80(doScriptScene, "手帳のメモ") -- tr_line:1011
             doScriptScene = "s3fc-90"
         elseif doScriptScene == "s3fc-90" then
-            scene_s3fc_90(doScriptScene, "いつかきみがみるお話") -- tr_line:1025
+            scene_s3fc_90(doScriptScene, "いつかきみがみるお話") -- tr_line:1014
             doScriptScene = "s3fc-complete"
         elseif doScriptScene == "s3fc-complete" then
             if memoryFlag == true then

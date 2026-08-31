@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -47,6 +48,30 @@ OUT_BC = REPO / "build" / "inject" / "script"
 LANE = REPO / "pilot" / "lanes" / "opus" / "data"
 LUAC = Path(os.environ.get("SNDL_LUAC", Path.home() / "pyluadec-refactor" / "build" / "luac_sz4"))
 PSP_LUAC_HEADER = bytes.fromhex("1b4c75615100010404040800")
+
+
+# 紧邻的两组 ruby（中间一个字符都没有）。注意 `[^<>,]` 保证不会跨过别的标记。
+ADJACENT_RUBY = re.compile(r"<([^<>,]+),([^<>,]+)><([^<>,]+),([^<>,]+)>")
+
+
+def merge_adjacent_ruby(text: str) -> tuple[str, int]:
+    """把紧邻的多组单字注音合并成一组。
+
+    为什么必须合（2026-08-31 游戏内实测）：ruby 由 C 侧 stub **逐组独立居中**，
+    而拼音比它标注的那个汉字宽得多——单个汉字 17px，`hú` 之类却要 18~27px。
+    于是 `<胡,hú><萝,luó><卜,bo>` 三组各自居中时相互重叠，糊成一团。合成
+    `<胡萝卜,húluóbo>` 后整串对着整个词居中，组内不再打架。
+    音节间不补空格：空格步进是半角，每个都会让整串左偏 4.5px（实测）；而合写
+    本来就是拼音词式拼写的规范写法（胡萝卜 = húluóbo）。
+    只合并**字面紧邻**的组：`<哐,kuāng>当 <哐,kuāng>当` 中间隔着字，不动。
+    """
+    n = 0
+    while True:
+        merged, k = ADJACENT_RUBY.subn(
+            lambda m: f"<{m.group(1)}{m.group(3)},{m.group(2)}{m.group(4)}>", text)
+        if not k:
+            return merged, n
+        text, n = merged, n + k
 
 
 def lua_quote(s: str) -> str:
@@ -99,6 +124,9 @@ def _inject_body(stem: str, lineno: int, body: str, vms_rows: dict[int, dict],
             if text_zh is None:
                 stats["vms_missing"] += 1
             else:
+                if row["literal"]:
+                    text_zh, merged = merge_adjacent_ruby(text_zh)
+                    stats["ruby_merged"] += merged
                 new = lua_quote(text_zh) if row["literal"] else text_zh
                 stats["vms"] += 1
                 return _replace_span(body, m.start(3), m.end(3), new)
@@ -171,7 +199,7 @@ def main() -> None:
         shutil.rmtree(OUT_SRC)
     OUT_SRC.mkdir(parents=True)
     stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
-                 font_slot1=0)
+                 font_slot1=0, ruby_merged=0)
     for f in sorted(SRC.glob("*.lua")):
         stem = f.stem
         text = f.read_text(encoding="utf-8")
@@ -183,7 +211,7 @@ def main() -> None:
         (OUT_SRC / f.name).write_text(text, encoding="utf-8")
     print(f"[inject] vms 替换 {stats['vms']}（缺译 {stats['vms_missing']}，"
           f"账本外 {stats['vms_unledgered']}）；extra 替换 {stats['extra']}"
-          f"（缺译/留空 {stats['extra_missing']}）")
+          f"（缺译/留空 {stats['extra_missing']}）；ruby 合并 {stats['ruby_merged']} 次")
 
     if not args.no_compile:
         n = compile_bytecode(OUT_SRC, OUT_BC)

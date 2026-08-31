@@ -1,6 +1,4 @@
-local card_156_s4s_210_sel_intro, card_156_s4s_210_sel_resolve, v2, v3, v4, v5
-card_156_s4s_210_sel_intro = function()
-    local card_156_s4s_210_sel_intro
+local card_156_s4s_210_sel_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1027, "NONVOICE", "【直哉】「ここは、アヤノさんを捜しにユウイチが学校を探索するシーンだけど……」")
@@ -11,8 +9,7 @@ card_156_s4s_210_sel_intro = function()
     vms(1031, "NONVOICE", "【直哉】「あらすじカードをつくってあるから、それを見て貰った方が早いと思う」")
     comPoseDelete()
 end
-card_156_s4s_210_sel_resolve = function()
-    local card_156_s4s_210_sel_intro, card_156_s4s_210_sel_resolve
+local card_156_s4s_210_sel_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(1032, "NONVOICE", "【彩野】「廊下のユウイチ……」")
@@ -24,7 +21,7 @@ card_156_s4s_210_sel_resolve = function()
     vms(1036, "NONVOICE", "【直哉】「うん。もしかしたら、展開を変えてあげる必要があるかもしれない」")
     vms(1037, "NONVOICE", "【彩野】「そうだね……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『探索：アヤノに何が？』のあらすじを作成しました。") -- tr_line:27
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『探索：アヤノに何が？』のあらすじを作成しました。") -- tr_line:24
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -32,7 +29,6 @@ card_156_s4s_210_sel_resolve = function()
     end
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[157].hold == -1 then
         oCard.mesNot()
@@ -41,28 +37,28 @@ main = function()
         quit()
     end
     card_156_s4s_210_sel_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 157 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 157 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(1038, "NONVOICE", "『廊下のユウイチ』のカードを彩野さんに見せてみよう。")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

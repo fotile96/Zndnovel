@@ -1,6 +1,4 @@
-local v0
 main = function()
-    local v0
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     vms(1642, "NONVOICE", "≪この場面のカードは、サクラの日記を見て彩野が作成しました。そのため、直哉と彩野によるカード選択シーンはありません≫")
     vms(1643, "NONVOICE", "【（ヒント）】セクション５を読み進めるには、彩野の言葉に耳をかたむけ、ストーリーモードでカードを選択してください。正解カードを選んでいくことで、先に進むことができます。")

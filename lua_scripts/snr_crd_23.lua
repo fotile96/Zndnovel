@@ -1,6 +1,4 @@
-local card_23_s1s_220_intro, card_23_s1s_220_resolve, v2, v3, v4, v5
-card_23_s1s_220_intro = function()
-    local card_23_s1s_220_intro
+local card_23_s1s_220_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2036, "NONVOICE", "【彩野】「コックリさんの場面」")
@@ -8,8 +6,7 @@ card_23_s1s_220_intro = function()
     vms(2038, "NONVOICE", "【彩野】「『あること？』それって何かな？」")
     comPoseDelete()
 end
-card_23_s1s_220_resolve = function()
-    local card_23_s1s_220_intro, card_23_s1s_220_resolve, v2, v3
+local card_23_s1s_220_resolve = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_a")
     vms(2039, "NONVOICE", "将来の、職業……。")
@@ -145,7 +142,7 @@ card_23_s1s_220_resolve = function()
     wait(120)
     vms(2116, "NONVOICE", "由加里先生と別れ、僕たちも教室に戻ることにした。")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『良くない結果』のあらすじを作成しました。") -- tr_line:148
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『良くない結果』のあらすじを作成しました。") -- tr_line:145
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -154,7 +151,6 @@ card_23_s1s_220_resolve = function()
     comSectionCardEndEvent()
 end
 main = function()
-    local v2, v3, v4, v5, v6
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[120].hold == -1 then
         oCard.mesNot()
@@ -169,28 +165,28 @@ main = function()
         quit()
     end
     card_23_s1s_220_intro()
-    v2 = 0
-    v3 = 0
-    v4 = -1
-    while v2 < 1 do
-        v5 = oCard.selectCardObj()
-        if v5 == 120 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 120 then
             break
         end
-        if v5 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v3 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(2117, "NONVOICE", "【彩野】「コックリさんの時に、何かを聞いたときから、様子が一変したような……」")
             comPoseDelete()
         end
-        if v3 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v3 = v3 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)

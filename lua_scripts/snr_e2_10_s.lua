@@ -1,16 +1,15 @@
-local v0, v1, scene_e2s_10, scene_e2s_20_2, scene_e2s_20_3, scene_e2s_20_4, scene_e2s_20_5, scene_e2s_20_6, scene_e2s_20_7, scene_e2s_20_8, scene_e2s_20, scene_e2s_155, scene_e2s_comp, v13
-v0 = function()
+local l0_0 = function()
     layerMoveAlpha(layerName.hour1, 0, 30)
     wait(30)
 end
-v1 = function()
+local l0_1 = function()
     layerMoveAlpha(layerName.hour1, 100, 30)
     wait(30)
 end
-scene_e2s_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
-        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+local scene_e2s_10 = function(scene_id, scene_title)
+    local l1_2 = function()
+        local l2_0 = 0
+        comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l2_0)
     end
     cPlayBGMWrap(cGetFileName("bgm", "bgm_12_x"))
     layerLoad(layerName.bg1, cGetFileName("bg", "bg_8_c_0"))
@@ -54,11 +53,10 @@ scene_e2s_10 = function(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_71"), false)
     comEffectWhiteOut(120)
     wait(120)
-    v0()
+    l1_2()
 end
-scene_e2s_20_2 = function(scene_id, scene_title)
-    local v1, v2, v3
-    v1 = function()
+local scene_e2s_20_2 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cStopBGMWrap()
     layerLoad(layerName.event, cGetFileName("event", "eve_0_b"))
@@ -67,7 +65,7 @@ scene_e2s_20_2 = function(scene_id, scene_title)
     switchScreen(0, "", 5)
     wait(5)
     comSectionStoryBegin(scene_id, scene_title)
-    v0()
+    l0_0()
     cPlayOneshotMusic(cGetFileName("mus", "mus_5"))
     wait(1)
     layerLoad(layerName.bg1, cGetFileName("bg", "bg_1_b_0"))
@@ -86,11 +84,10 @@ scene_e2s_20_2 = function(scene_id, scene_title)
     layerMoveAlpha(layerName.pose1, 0, 60)
     wait(60)
     comEffectFadeOut(120)
-    v1()
+    l1_2()
 end
-scene_e2s_20_3 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_3 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_6"))
@@ -306,11 +303,10 @@ scene_e2s_20_3 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e2s_20_4 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_4 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_3"))
@@ -478,11 +474,10 @@ scene_e2s_20_4 = function(scene_id, scene_title)
     wait(60)
     cLoadPlaySE(cGetFileName("se", "se_134"), false)
     wait(200)
-    v0()
+    l1_2()
 end
-scene_e2s_20_5 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_5 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_6"))
@@ -567,11 +562,10 @@ scene_e2s_20_5 = function(scene_id, scene_title)
     wait(1)
     comEffectFadeOut(120)
     wait(120)
-    v0()
+    l1_2()
 end
-scene_e2s_20_6 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_6 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_7"))
@@ -645,11 +639,10 @@ scene_e2s_20_6 = function(scene_id, scene_title)
     wait(60)
     cLoadPlaySE(cGetFileName("se", "se_134"), false)
     wait(200)
-    v0()
+    l1_2()
 end
-scene_e2s_20_7 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_7 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("loop", "loop_6"))
@@ -760,11 +753,10 @@ scene_e2s_20_7 = function(scene_id, scene_title)
     wait(120)
     vms(5944, "NONVOICE", "【≦看護師≧】「でも……気をつけて」")
     wait(120)
-    v0()
+    l1_2()
 end
-scene_e2s_20_8 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20_8 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_146"), false)
@@ -810,11 +802,10 @@ scene_e2s_20_8 = function(scene_id, scene_title)
     vms(5969, "NONVOICE", "【≦マスター≧】「なんというか、やっぱり、彼の雰囲気が……ね」")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e2s_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayLoopSeWrap(cGetFileName("loop", "loop_3"))
@@ -937,14 +928,13 @@ scene_e2s_20 = function(scene_id, scene_title)
     vms(6024, "NONVOICE", "【≦お母さん≧】「ではまた、今度来て下さいね。はいー」")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_e2s_155 = function(scene_id, scene_title)
-    local v1, v2, v3
-    v1 = function()
+local scene_e2s_155 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
-    v0()
+    l0_0()
     cPlayLoopSeWrap(cGetFileName("loop", "loop_4"))
     cPlayBGMWrap(cGetFileName("bgm", "bgm_21_a"))
     wait(1)
@@ -987,11 +977,10 @@ scene_e2s_155 = function(scene_id, scene_title)
     wait(120)
     comEffectFadeOut(120)
     wait(120)
-    v1()
+    l1_2()
 end
-scene_e2s_comp = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_e2s_comp = function(scene_id, scene_title)
+    local l1_2 = function()
         comSectionComplete()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
@@ -1025,35 +1014,36 @@ scene_e2s_comp = function(scene_id, scene_title)
     wait(120)
     cLoadPlaySE(cGetFileName("se", "se_51"), false)
     wait(120)
-    v0()
+    l1_2()
 end
 main = function()
-    local v0, v1, v13
-    gameSave.sectionName = "ＥＸ２：Ｓｔｏｒｙ" -- tr_line:1032
-    v0 = 0
-    while v0 == 0 do
+    gameSave.sectionName = "ＥＸ２：Ｓｔｏｒｙ" -- tr_line:1020
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v0 = 1
+            l1_0 = 1
         elseif doScriptScene == "e2s_10" then
-            scene_e2s_10(doScriptScene, "誰も来ない") -- tr_line:1038
+            scene_e2s_10(doScriptScene, "誰も来ない") -- tr_line:1026
             doScriptScene = "e2s_20"
         elseif doScriptScene == "e2s_20" then
-            scene_e2s_20_2(doScriptScene, "セクションＥＸ２：女子生徒") -- tr_line:1041
-            scene_e2s_20_3(doScriptScene, "学校") -- tr_line:1042
-            scene_e2s_20_4(doScriptScene, "電話") -- tr_line:1043
-            scene_e2s_20_5(doScriptScene, "病院") -- tr_line:1044
-            scene_e2s_20_6(doScriptScene, "父親") -- tr_line:1045
-            scene_e2s_20_7(doScriptScene, "病院") -- tr_line:1046
-            scene_e2s_20_8(doScriptScene, "居酒屋") -- tr_line:1047
-            scene_e2s_20(doScriptScene, "リビングルーム") -- tr_line:1048
-            comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+            scene_e2s_20_2(doScriptScene, "セクションＥＸ２：女子生徒") -- tr_line:1029
+            scene_e2s_20_3(doScriptScene, "学校") -- tr_line:1030
+            scene_e2s_20_4(doScriptScene, "電話") -- tr_line:1031
+            scene_e2s_20_5(doScriptScene, "病院") -- tr_line:1032
+            scene_e2s_20_6(doScriptScene, "父親") -- tr_line:1033
+            scene_e2s_20_7(doScriptScene, "病院") -- tr_line:1034
+            scene_e2s_20_8(doScriptScene, "居酒屋") -- tr_line:1035
+            scene_e2s_20(doScriptScene, "リビングルーム") -- tr_line:1036
+            local l1_1 = 0
+            comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l1_1)
             doScriptScene = "e2s_155"
         elseif doScriptScene == "e2s_155" then
-            scene_e2s_155(doScriptScene, "セカンドノベル") -- tr_line:1052
-            comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, 0)
+            scene_e2s_155(doScriptScene, "セカンドノベル") -- tr_line:1041
+            local l1_1 = 0
+            comSectionStoryEnd(gameSave.sceneId, gameSave.sceneName, l1_1)
             doScriptScene = "e2s_comp"
         elseif doScriptScene == "e2s_comp" then
-            scene_e2s_comp(doScriptScene, "セクションＥＸ２完了") -- tr_line:1056
+            scene_e2s_comp(doScriptScene, "セクションＥＸ２完了") -- tr_line:1046
             doScriptScene = "end"
         end
         wait(5)

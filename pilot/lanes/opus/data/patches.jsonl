@@ -9169,3 +9169,9 @@
 {"id":74,"zh":"【彩野】「嗯……对不起哦」","reason":"polish","glossary_v":20,"ts":"2026-08-29T03:42:35+00:00","prov":{"channel":"fable-wf","candidate_ts":"2026-08-29T03:29:28.199327+00:00","seg":"p5seg9-ambient"}}
 {"id":6082,"zh":"当然，现实里她还存在于某个地方。_n还在某处好好地呼吸着。_n应该是。_n大概。","reason":"review","glossary_v":21,"ts":"2026-08-26T09:11:21+00:00"}
 {"id":9330,"zh":"【Ayano】「你看，败家子老是伸手要钱，这可是个严重问题啊——！ ……之类的紧急家庭会议什么的」","reason":"review","glossary_v":21,"ts":"2026-08-29T18:20:34+00:00"}
+{"id":1,"zh":"\"■デバッグ：\" .. msg","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 透传，改用新基座表达式"}
+{"id":2,"zh":"\"Ｋｅｙ＿\" .. k .. \"：Ｖａｌｕｅ＿\" .. v","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 透传，改用新基座表达式"}
+{"id":4,"zh":"l1_3 .. \"_rsceneId：\" .. gameSave.storyRoute[l1_3].sceneId","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 透传，改用新基座表达式"}
+{"id":5,"zh":"l1_3 .. \"_rayanoTime：\" .. gameSave.storyRoute[l1_3].ayanoTime","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 透传，改用新基座表达式"}
+{"id":22,"zh":"\"这样一来，在故事模式中阅读『\" .. l1_8 .. \"』时经过的时间就能缩短了。\"","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 重命名 v7→l1_8"}
+{"id":58,"zh":"l1_0","reason":"review","glossary_v":21,"ts":"2026-08-31T14:30:17+00:00","prov":"migrate_base: 透传，改用新基座表达式"}

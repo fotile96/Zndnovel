@@ -1,6 +1,4 @@
-local card_175_s4s_720_main, v1, v2, v3
-card_175_s4s_720_main = function()
-    local card_175_s4s_720_main, v1, v2, v3
+local card_175_s4s_720_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1441, "NONVOICE", "【直哉】「教室でサクラさんを待ったんだけど、姿を見せることはなくて……」")
@@ -60,14 +58,13 @@ card_175_s4s_720_main = function()
     vms(1481, "NONVOICE", "そこに『だって』も『なぜならば』もなかった。")
     vms(1482, "NONVOICE", "ただ一言だけ。終わり、と。")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『サクラを待つ』のあらすじを作成しました。") -- tr_line:63
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『サクラを待つ』のあらすじを作成しました。") -- tr_line:61
     comSectionCardEndSection()
     doScriptScene = "s4fb-10"
     run(cGetFileName("script", "snr_s4_10_fb"))
     quit()
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[176].hold == -1 then
         oCard.mesNot()

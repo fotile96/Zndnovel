@@ -1,6 +1,4 @@
-local card_161_s4s_310_main, v1
-card_161_s4s_310_main = function()
-    local card_161_s4s_310_main, v1, v2
+local card_161_s4s_310_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1106, "NONVOICE", "【直哉】「メモの内容を信じてみてもいい、そうユウイチは女の子に伝えたんだね」")
@@ -15,7 +13,7 @@ card_161_s4s_310_main = function()
     comPoseLoad("po2_aya_f_2_d")
     vms(1113, "NONVOICE", "【彩野】「ごめんね、うん。あらすじも、まとめちゃっていいと思う」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『信じてみてもいい』のあらすじを作成しました。") -- tr_line:18
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『信じてみてもいい』のあらすじを作成しました。") -- tr_line:16
     vms(1114, "NONVOICE", "【直哉】「……それでね、前に彩野さん」")
     comPoseLoad("po2_aya_f_1_b")
     vms(1115, "NONVOICE", "【彩野】「ん。どうかした？」")
@@ -42,7 +40,6 @@ card_161_s4s_310_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_161_s4s_310_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

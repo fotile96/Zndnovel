@@ -1,6 +1,4 @@
-local card_61_s2s_610_intro, card_61_s2s_610_resolve, card_61_s2s_610_step3, v3, v4, v5, v6, v7, v8, v9
-card_61_s2s_610_intro = function()
-    local card_61_s2s_610_intro
+local card_61_s2s_610_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3083, "NONVOICE", "【彩野】「セクション２は、これで終わりなんだね」")
@@ -20,8 +18,7 @@ card_61_s2s_610_intro = function()
     vms(3094, "NONVOICE", "僕は彩野さんにカードを渡すことにした。")
     comPoseDelete()
 end
-card_61_s2s_610_resolve = function()
-    local card_61_s2s_610_intro
+local card_61_s2s_610_resolve = function()
     oCard.cardAnswerTrue()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
@@ -31,8 +28,7 @@ card_61_s2s_610_resolve = function()
     vms(3098, "NONVOICE", "【直哉】「その場面に行ったときのあらすじがこれだよ」")
     comPoseDelete()
 end
-card_61_s2s_610_step3 = function()
-    local card_61_s2s_610_intro, card_61_s2s_610_resolve, card_61_s2s_610_step3, v3, v4
+local card_61_s2s_610_step3 = function()
     oCard.cardAnswerTrue()
     comPoseLoad("po2_aya_f_1_e")
     comPoseLoad("po2_aya_f_2_e")
@@ -73,7 +69,7 @@ card_61_s2s_610_step3 = function()
     vms(3123, "NONVOICE", "なんとなく、僕の頭に机に向かっている彩野さんの姿が浮かんだ。")
     vms(3124, "NONVOICE", "消しゴムで『物語』を何度も何度も修正しながらノートに書いている、彩野さんの姿が。")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『オマジナイの効果』のあらすじを作成しました。") -- tr_line:76
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『オマジナイの効果』のあらすじを作成しました。") -- tr_line:72
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
@@ -83,7 +79,6 @@ card_61_s2s_610_step3 = function()
     quit()
 end
 main = function()
-    local v3, v4, v5, v6, v7, v8, v9, v10
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     if gameSave.myCard[58].hold == -1 then
         oCard.mesNot()
@@ -104,56 +99,56 @@ main = function()
         quit()
     end
     card_61_s2s_610_intro()
-    v3 = 0
-    v4 = 0
-    v5 = -1
-    while v3 < 1 do
-        v6 = oCard.selectCardObj()
-        if v6 == 58 then
+    local l1_0 = 0
+    local l1_1 = 0
+    local l1_2 = -1
+    while l1_0 < 1 do
+        local l1_3 = oCard.selectCardObj()
+        if l1_3 == 58 then
             break
         end
-        if v6 == -1 then
+        if l1_3 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v4 == 1 then
+        if l1_1 == 1 then
             oCard.mesNG2()
             vms(3125, "NONVOICE", "『夜の廊下』のあらすじを見せてみよう。")
             comPoseDelete()
         end
-        if v4 == 0 then
+        if l1_1 == 0 then
             oCard.mesNG()
-            v4 = v4 + 1
+            l1_1 = l1_1 + 1
             comPoseDelete()
         end
         wait(30)
     end
     card_61_s2s_610_resolve()
-    v6 = 0
-    v7 = 0
-    v8 = -1
-    while v6 < 1 do
-        v9 = oCard.selectCardObj()
-        if v9 == 60 then
+    local l1_3 = 0
+    local l1_4 = 0
+    local l1_5 = -1
+    while l1_3 < 1 do
+        local l1_6 = oCard.selectCardObj()
+        if l1_6 == 60 then
             break
         end
-        if v9 == -1 then
+        if l1_6 == -1 then
             oCard.cancelCard()
             comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
             run(cGetFileName("script", "snr_fragment_main"))
             quit()
         end
-        if v7 == 1 then
+        if l1_4 == 1 then
             oCard.mesNG2()
             vms(3126, "NONVOICE", "プールとは別の場所。")
             vms(3127, "NONVOICE", "その場所に『行ったときのあらすじ』を見せてみよう。")
             comPoseDelete()
         end
-        if v7 == 0 then
+        if l1_4 == 0 then
             oCard.mesNG()
-            v7 = v7 + 1
+            l1_4 = l1_4 + 1
             comPoseDelete()
         end
         wait(30)

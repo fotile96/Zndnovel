@@ -1,6 +1,4 @@
-local card_80_s3s_370_main, v1
-card_80_s3s_370_main = function()
-    local card_80_s3s_370_main, v1, v2
+local card_80_s3s_370_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(3536, "NONVOICE", "【直哉】「彩野さ――」")
@@ -14,7 +12,7 @@ card_80_s3s_370_main = function()
     vms(3543, "NONVOICE", "【彩野】「お願い。カードをつくって」")
     vms(3544, "NONVOICE", "【直哉】「……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『口づけ』のあらすじを作成しました。") -- tr_line:17
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『口づけ』のあらすじを作成しました。") -- tr_line:15
     vms(3545, "NONVOICE", "【直哉】「……彩野さん」")
     vms(3546, "NONVOICE", "【彩野】「ごめんなさい」")
     comPoseDelete()
@@ -27,7 +25,6 @@ card_80_s3s_370_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_80_s3s_370_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

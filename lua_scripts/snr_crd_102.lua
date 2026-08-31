@@ -1,5 +1,4 @@
-local v0, v1, v2, card_102_s6s_110_intro, card_102_s6s_110_resolve, v5, v6
-v0 = function()
+local l0_0 = function()
     vms(331, "NONVOICE", "＜推理クイズ＞")
     vms(332, "NONVOICE", "さてアヤノさん、問題です。")
     vms(333, "NONVOICE", "この前はアヤノさん、ギブアップしちゃったから（泣）今度はちゃんと答えを送ってくださいね！")
@@ -14,7 +13,7 @@ v0 = function()
     vms(342, "NONVOICE", "【Ｃの椅子】「Ａはアヤノです」")
     vms(343, "NONVOICE", "さて、それではＡ、Ｂ、Ｃの椅子に座っている人物はそれぞれ誰になるでしょうか？")
 end
-v1 = function()
+local l0_1 = function()
     comPoseLoad("po2_aya_f_1_c")
     vms(344, "NONVOICE", "【彩野】「うーん、何か違うような……」")
     vms(345, "NONVOICE", "……。")
@@ -22,7 +21,7 @@ v1 = function()
     vms(347, "NONVOICE", "Ｂの椅子に座っている人物がアヤノさんの場合、アヤノさんは本当のことを言っている事になるのだろうか？")
     vms(348, "NONVOICE", "Ｃの椅子に座っている人物がアヤノさんの場合、アヤノさんは本当のことを言っている事になるのだろうか？")
 end
-v2 = function()
+local l0_2 = function()
     comPoseLoad("po2_aya_f_2_e")
     vms(349, "NONVOICE", "【彩野】「うーん、これも違うような……」")
     vms(350, "NONVOICE", "……。")
@@ -31,8 +30,7 @@ v2 = function()
     vms(353, "NONVOICE", "Ｃの椅子に座っている人物がアヤノさんの場合、アヤノさんは本当のことを言っている事になるのだろうか？")
     vms(354, "NONVOICE", "Ｃの椅子に座っている人物がサクラさんの場合、サクラさんは本当のことを言っている事になるのだろうか？")
 end
-card_102_s6s_110_intro = function()
-    local card_102_s6s_110_intro, card_102_s6s_110_resolve, v5, v6
+local card_102_s6s_110_intro = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_c")
     vms(355, "NONVOICE", "【直哉】「サクラさんからの手紙だけど……これは……推理クイズ……？」")
@@ -52,29 +50,29 @@ card_102_s6s_110_intro = function()
     comPoseLoad("po2_aya_f_1_b")
     vms(366, "NONVOICE", "【彩野】「えっと、それじゃあ問題をもう一度聞かせてもらっていい？」")
     vms(367, "NONVOICE", "【直哉】「確か――」")
-    v0()
-    card_102_s6s_110_intro = 0
-    card_102_s6s_110_resolve = 0
-    while card_102_s6s_110_intro == 0 do
-        if comDlgSelectItem(false, true, false, true, 1, "none", 0, 0, "sel_s6s_110_sel_a", 115, 80, 1, "sel_s6s_110_sel_b", 115, 100, 2, "sel_s6s_110_sel_c", 115, 120, 3, "sel_s6s_110_sel_d", 115, 140, 4, "sel_s6s_110_sel_e", 115, 160, 5, "sel_s6s_110_sel_f", 115, 180, 6) == 5 then
-            card_102_s6s_110_intro = 1
+    l0_0()
+    local l1_0 = 0
+    local l1_1 = 0
+    while l1_0 == 0 do
+        local l1_2 = 0
+        l1_2 = comDlgSelectItem(false, true, false, true, 1, "none", 0, 0, "sel_s6s_110_sel_a", 115, 80, 1, "sel_s6s_110_sel_b", 115, 100, 2, "sel_s6s_110_sel_c", 115, 120, 3, "sel_s6s_110_sel_d", 115, 140, 4, "sel_s6s_110_sel_e", 115, 160, 5, "sel_s6s_110_sel_f", 115, 180, 6)
+        if l1_2 == 5 then
+            l1_0 = 1
             break
-        else
-            if card_102_s6s_110_resolve == 1 then
-                v0()
-                v2()
-            end
-            if card_102_s6s_110_resolve == 0 then
-                v0()
-                v1()
-                card_102_s6s_110_resolve = 1
-            end
-            wait(5)
         end
+        if l1_1 == 1 then
+            l0_0()
+            l0_2()
+        end
+        if l1_1 == 0 then
+            l0_0()
+            l0_1()
+            l1_1 = 1
+        end
+        wait(5)
     end
 end
-card_102_s6s_110_resolve = function()
-    local v0, v1
+local card_102_s6s_110_resolve = function()
     comPoseLoad("po2_aya_f_1_a")
     keyPlaySE(seName.getCard)
     comEffectYellowIn(60)
@@ -85,7 +83,7 @@ card_102_s6s_110_resolve = function()
     comPoseLoad("po2_aya_f_1_e")
     vms(370, "NONVOICE", "【彩野】「ありがとう、直哉くんのおかげだよ」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『図書室で読む』のあらすじを作成しました。") -- tr_line:88
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『図書室で読む』のあらすじを作成しました。") -- tr_line:86
     comPoseDelete()
     if not (gameSave.myCard[gameSave.fragmentDoCardId].hold == 1) then
         gameSave.myCard[gameSave.fragmentDoCardId].hold = 1
@@ -93,7 +91,6 @@ card_102_s6s_110_resolve = function()
     end
 end
 main = function()
-    local v0
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_102_s6s_110_intro()
     card_102_s6s_110_resolve()

@@ -1,7 +1,5 @@
-local scene_s2f_10, scene_s2f_20, scene_s2f_30, scene_s2f_40, scene_s2f_50, scene_s2f_60, scene_s2f_70, scene_s2f_complete, v8
-scene_s2f_10 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_10 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(8737, "NONVOICE", "『物語』が一区切りついたところで、僕たちは教室を出た。")
@@ -69,11 +67,10 @@ scene_s2f_10 = function(scene_id, scene_title)
     vms(8774, "NONVOICE", "それ以上の言葉はなかった。_n誰の口からも発せられなかった。")
     vms(8775, "NONVOICE", "だから。")
     vms(8776, "NONVOICE", "僕たちは黙って家に帰った。")
-    v0()
+    l1_2()
 end
-scene_s2f_20 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_20 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -228,11 +225,10 @@ scene_s2f_20 = function(scene_id, scene_title)
     vms(8887, "NONVOICE", "お礼を言うと、僕は時間を掛けないようにして彩野さんの家を出た。")
     vms(8888, "NONVOICE", "彩野さんが自分の部屋から戻って来たときに鉢合わせしてしまうと、また、昨日の様な事になってしまう。")
     vms(8889, "NONVOICE", "……今、彩野さんの顔を見たくはなかった。")
-    v0()
+    l1_2()
 end
-scene_s2f_30 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_30 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     wait(1)
@@ -344,11 +340,10 @@ scene_s2f_30 = function(scene_id, scene_title)
     vms(8960, "NONVOICE", "これではまるで、彩野さんのようじゃないか。")
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s2f_40 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_40 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopBGMWrap()
@@ -470,11 +465,10 @@ scene_s2f_40 = function(scene_id, scene_title)
     vms(9054, "NONVOICE", "もちろん、同級生の事を言っているのだから、千秋ちゃんも子供、だ。")
     vms(9055, "NONVOICE", "けれど、この時に見せた彼女の表情は驚くぐらい大人びていた。")
     vms(9056, "NONVOICE", "彼女よりは人生経験が豊富であると思う僕が躊躇してしまうぐらいの。")
-    v0()
+    l1_2()
 end
-scene_s2f_50 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_50 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cStopBGMWrap()
@@ -521,11 +515,10 @@ scene_s2f_50 = function(scene_id, scene_title)
     layerLoad(layerName.event, cGetFileName("event", "eve_20_d"))
     switchScreen(0, "", 160)
     wait(120)
-    v0()
+    l1_2()
 end
-scene_s2f_60 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_60 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     vms(9089, "YUK05450", "【由加里】「ふふ。慣れてないのかな、他人からこういう事、されることに」")
@@ -559,11 +552,10 @@ scene_s2f_60 = function(scene_id, scene_title)
     vms(9118, "YUK05520", "【由加里】「だから、ね。あの子には優しくして欲しいの」")
     vms(9119, "NONVOICE", "僕は頷いた。頷く以外にどう反応して良いのかわからなかった。")
     vms(9120, "YUK05530", "【由加里】「ありがとう。そうして貰えると助かるわ」")
-    v0()
+    l1_2()
 end
-scene_s2f_70 = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_70 = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     comSectionNonLabelBegin(scene_id, scene_title)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_19_x"))
@@ -638,11 +630,10 @@ scene_s2f_70 = function(scene_id, scene_title)
     cStopBGMWrap()
     wait(1)
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
-scene_s2f_complete = function(scene_id, scene_title)
-    local v0, v1, v2
-    v0 = function()
+local scene_s2f_complete = function(scene_id, scene_title)
+    local l1_2 = function()
     end
     cPlayOneshotMusic(cGetFileName("mus", "mus_8"))
     layerLoad(layerName.pose1, cGetFileName("cutin", "cut_e_s2"))
@@ -655,7 +646,7 @@ scene_s2f_complete = function(scene_id, scene_title)
     layerMoveRotate(layerName.pose1, 0, 0, 0, 30)
     wait(120)
     wait(120)
-    oCard.show(cGetFileName("card", "crd_134_a"), "『セクション２』のあらすじを作成しました。") -- tr_line:658
+    oCard.show(cGetFileName("card", "crd_134_a"), "『セクション２』のあらすじを作成しました。") -- tr_line:649
     vms(17015, "NONVOICE", "フラグメントモード：セクション２が終了しました。")
     cLoadPlaySE(cGetFileName("se", "se_28"), false)
     layerMoveScale(layerName.pose1, 100, 0, 60)
@@ -674,41 +665,40 @@ scene_s2f_complete = function(scene_id, scene_title)
     cLoadPlaySE(cGetFileName("se", "se_102"), false)
     vms(17016, "NONVOICE", "【■おしらせ】新しい物語が届きました。")
     comEffectFadeOut(120)
-    v0()
+    l1_2()
 end
 main = function()
-    local v8 = 0
-    local v9
-    while v8 == 0 do
+    local l1_0 = 0
+    while l1_0 == 0 do
         if doScriptScene == "end" then
-            v8 = 1
+            l1_0 = 1
         elseif doScriptScene == "s2f-10" then
-            scene_s2f_10(doScriptScene, "夕方の校庭") -- tr_line:686
+            scene_s2f_10(doScriptScene, "夕方の校庭") -- tr_line:676
             doScriptScene = "s2f-20"
         elseif doScriptScene == "s2f-20" then
-            scene_s2f_20(doScriptScene, "当時の記憶") -- tr_line:689
+            scene_s2f_20(doScriptScene, "当時の記憶") -- tr_line:679
             doScriptScene = "s2f-30"
         elseif doScriptScene == "s2f-30" then
-            scene_s2f_30(doScriptScene, "まっすぐ家に帰る気になれない") -- tr_line:692
+            scene_s2f_30(doScriptScene, "まっすぐ家に帰る気になれない") -- tr_line:682
             doScriptScene = "s2f-40"
         elseif doScriptScene == "s2f-40" then
-            scene_s2f_40(doScriptScene, "校庭の千秋") -- tr_line:695
+            scene_s2f_40(doScriptScene, "校庭の千秋") -- tr_line:685
             doScriptScene = "s2f-50"
         elseif doScriptScene == "s2f-50" then
-            scene_s2f_50(doScriptScene, "千秋の家庭の事情") -- tr_line:698
+            scene_s2f_50(doScriptScene, "千秋の家庭の事情") -- tr_line:688
             doScriptScene = "s2f-60"
         elseif doScriptScene == "s2f-60" then
-            scene_s2f_60(doScriptScene, "あの子には優しくしてあげてね") -- tr_line:701
+            scene_s2f_60(doScriptScene, "あの子には優しくしてあげてね") -- tr_line:691
             doScriptScene = "s2f-70"
         elseif doScriptScene == "s2f-70" then
-            scene_s2f_70(doScriptScene, "日暮れ") -- tr_line:704
+            scene_s2f_70(doScriptScene, "日暮れ") -- tr_line:694
             doScriptScene = "s2f-complete"
         elseif doScriptScene == "s2f-complete" then
             if memoryFlag == true then
                 run(cGetFileName("script", "snr_memory"))
                 quit()
             end
-            scene_s2f_complete(doScriptScene, "セクション２読了") -- tr_line:711
+            scene_s2f_complete(doScriptScene, "セクション２読了") -- tr_line:701
             gameSave.myCard[61].hold = 1
             gameSave.myCard[134].hold = 1
             doScriptScene = "end"

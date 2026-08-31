@@ -1,12 +1,10 @@
-local card_166_s4s_390_main, v1
-card_166_s4s_390_main = function()
-    local card_166_s4s_390_main, v1, v2
+local card_166_s4s_390_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1178, "NONVOICE", "【直哉】「ここは、荒らされたアヤノさんの机をユウイチが調べようとする場面」")
     vms(1179, "NONVOICE", "【彩野】「そうだね。あらすじはそれでいいんだけど……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『アヤノの机を調べる』のあらすじを作成しました。") -- tr_line:9
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『アヤノの机を調べる』のあらすじを作成しました。") -- tr_line:7
     vms(1180, "NONVOICE", "【直哉】「『だけど』？」")
     comPoseLoad("po2_aya_f_1_c")
     vms(1181, "NONVOICE", "【彩野】「うん。ちょっと気になるの」")
@@ -29,7 +27,6 @@ card_166_s4s_390_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_166_s4s_390_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

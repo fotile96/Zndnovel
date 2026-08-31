@@ -1,30 +1,3 @@
-local v0 = {}
-v0[run] = "run"
-v0[wait] = "wait"
-v0[waitLoading] = "waitLoading"
-v0[msg] = "msg"
-v0[msgQuit] = "msgQuit"
-v0[pageScreen] = "pageScreen"
-v0[switchScreen] = "switchScreen"
-v0[runListLoad] = "runListLoad"
-v0[runListSave] = "runListSave"
-v0[runAutoLoad] = "runAutoLoad"
-v0[runAutoSave] = "runAutoSave"
-v0[playMovie] = "playMovie"
-permsPersist = v0
-permsUnpersist = {}
-permsUnpersist.run = run
-permsUnpersist.wait = wait
-permsUnpersist.waitLoading = waitLoading
-permsUnpersist.msg = msg
-permsUnpersist.msgQuit = msgQuit
-permsUnpersist.pageScreen = pageScreen
-permsUnpersist.switchScreen = switchScreen
-permsUnpersist.runListLoad = runListLoad
-permsUnpersist.runListSave = runListSave
-permsUnpersist.runAutoLoad = runAutoLoad
-permsUnpersist.runAutoSave = runAutoSave
-permsUnpersist.playMovie = playMovie
-config = {}
-config.libfontModule = "disc0:/PSP_GAME/USRDIR/module/libfont.prx"
-config.bootScript = "script/snr_common.lua"
+permsPersist = {[run] = "run", [wait] = "wait", [waitLoading] = "waitLoading", [msg] = "msg", [msgQuit] = "msgQuit", [pageScreen] = "pageScreen", [switchScreen] = "switchScreen", [runListLoad] = "runListLoad", [runListSave] = "runListSave", [runAutoLoad] = "runAutoLoad", [runAutoSave] = "runAutoSave", [playMovie] = "playMovie"}
+permsUnpersist = {run = run, wait = wait, waitLoading = waitLoading, msg = msg, msgQuit = msgQuit, pageScreen = pageScreen, switchScreen = switchScreen, runListLoad = runListLoad, runListSave = runListSave, runAutoLoad = runAutoLoad, runAutoSave = runAutoSave, playMovie = playMovie}
+config = {libfontModule = "disc0:/PSP_GAME/USRDIR/module/libfont.prx", bootScript = "script/snr_common.lua"}

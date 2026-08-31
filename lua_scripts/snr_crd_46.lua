@@ -1,6 +1,4 @@
-local card_46_s2s_240_main, v1
-card_46_s2s_240_main = function()
-    local card_46_s2s_240_main, v1, v2
+local card_46_s2s_240_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(2768, "NONVOICE", "【直哉】「ここは、アヤノさんがプラネタリウムに行くことを提案する場面だね」")
@@ -12,7 +10,7 @@ card_46_s2s_240_main = function()
     vms(2772, "NONVOICE", "【彩野】「ここはプラネタリウムに行こうってだけだから、それでまとめちゃっていいと思う」")
     vms(2773, "NONVOICE", "【直哉】「うん、了解」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プラネタリウムの約束』のあらすじを作成しました。") -- tr_line:15
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『プラネタリウムの約束』のあらすじを作成しました。") -- tr_line:13
     comPoseLoad("po2_aya_f_1_e")
     vms(2774, "NONVOICE", "【彩野】「そういえば、この屋上に行くのも、アイツっぽいなあ」")
     vms(2775, "NONVOICE", "【直哉】「え、そうなの？」")
@@ -28,7 +26,6 @@ card_46_s2s_240_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_46_s2s_240_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

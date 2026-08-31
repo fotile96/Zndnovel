@@ -1,12 +1,10 @@
-local card_160_s4s_300_main, v1
-card_160_s4s_300_main = function()
-    local card_160_s4s_300_main, v1, v2
+local card_160_s4s_300_main = function()
     cPlayBGMWrap(cGetFileName("bgm", "bgm_5_x"))
     comPoseLoad("po2_aya_f_1_a")
     vms(1095, "NONVOICE", "【直哉】「ここはサクラさんのメモに興味は持ったけど、結局『下らない』って思った場面だね」")
     vms(1096, "NONVOICE", "【彩野】「うん、あらすじもこんな感じで、まとめちゃえばいいと思うんだけど……」")
     cLoadPlaySE(cGetFileName("se", "se_30"), false)
-    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『下らない、と思った』のあらすじを作成しました。") -- tr_line:9
+    oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『下らない、と思った』のあらすじを作成しました。") -- tr_line:7
     vms(1097, "NONVOICE", "【直哉】「『……けど』。なにか、気になるところがある？」")
     comPoseLoad("po2_aya_f_2_e")
     vms(1098, "NONVOICE", "【彩野】「うん」")
@@ -26,7 +24,6 @@ card_160_s4s_300_main = function()
     end
 end
 main = function()
-    local v1
     comSectionCardStart(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)
     card_160_s4s_300_main()
     comSectionCardEnd(gameSave.fragmentDoSceneId, gameSave.fragmentDoCardId)

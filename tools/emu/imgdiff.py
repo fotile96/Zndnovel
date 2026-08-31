@@ -32,6 +32,32 @@ def mse(actual, reference) -> float:
     return total / (a.size[0] * a.size[1] * 3)
 
 
+def perceptual_mse(actual, reference) -> float:
+    """alpha 感知 MSE：分别在黑底与白底上合成后取较大者。
+
+    直接对 RGBA 图 convert("RGB") 比 MSE 会把**全透明像素的 RGB 残值**算进去——
+    量化后透明像素的 RGB 可以任意变化却毫无视觉影响，实测能把真实误差 5 的图
+    报成 2379（2026-08-31 烤字回填 QA）。合成到底色上才是"看得见的差别"。
+    """
+    a = load_rgba(actual)
+    b = load_rgba(reference)
+    assert a.size == b.size, f"尺寸不一致: {a.size} vs {b.size}"
+    out = []
+    for bg in ((0, 0, 0, 255), (255, 255, 255, 255)):
+        ca = Image.alpha_composite(Image.new("RGBA", a.size, bg), a).convert("RGB")
+        cb = Image.alpha_composite(Image.new("RGBA", b.size, bg), b).convert("RGB")
+        out.append(mse(ca, cb))
+    return max(out)
+
+
+def load_rgba(src) -> Image.Image:
+    if isinstance(src, Image.Image):
+        return src.convert("RGBA")
+    if isinstance(src, bytes):
+        return Image.open(io.BytesIO(src)).convert("RGBA")
+    return Image.open(src).convert("RGBA")
+
+
 def diff_image(actual, reference, amplify: int = 8) -> Image.Image:
     """左=实际，右=参照，下=放大 amplify 倍的差异图（黑=一致）。"""
     a, b = load(actual), load(reference)

@@ -174,9 +174,20 @@ class EmuClient:
         await self.fire("cpu.resume")
 
     async def break_cpu(self, timeout: float = 10.0) -> dict:
+        """请求 CPU 进入断住态。已经断住时直接返回——那种情况不会再有新广播，
+        傻等 cpu.stepping 必然超时（2026-08-31 playthrough 实测踩到）。"""
+        status = await self.cpu_status()
+        if status.get("stepping"):
+            return status
         mark = self.seq_mark()
         await self.fire("cpu.stepping")
-        return await self.wait_broadcast("cpu.stepping", after_seq=mark, timeout=timeout)
+        try:
+            return await self.wait_broadcast("cpu.stepping", after_seq=mark, timeout=timeout)
+        except TimeoutError:
+            status = await self.cpu_status()
+            if status.get("stepping"):
+                return status          # 广播丢了但状态已到位
+            raise
 
     async def run_until_time(self, relative_us: int, timeout: float = 30.0) -> dict:
         """跑指定模拟时长后断住（master 专属 cpu.runUntilTime）。"""
@@ -230,12 +241,31 @@ class EmuClient:
         await self.request("input.analog.send", x=x, y=y, stick=stick)
 
     async def screenshot(self) -> tuple[bytes, int, int]:
-        """当前画面 PNG（gpu.buffer.screenshot，'uri' 形态）。返回 (png_bytes, w, h)。"""
+        """当前画面 PNG（gpu.buffer.screenshot，'uri' 形态）。返回 (png_bytes, w, h)。
+
+        ⚠ 本机实测（macOS，master 1ee9168）：CPU 断住时该命令在 software 与
+        Vulkan 后端都答 "Could not download output"（GE 线程不服务回读）——
+        游戏截图请改用 vram_screenshot()。保留本方法以备上游修复。"""
         data = await self.request("gpu.buffer.screenshot", type="uri", timeout=30.0)
         uri = data["uri"]
         prefix = "base64,"
         png = base64.b64decode(uri[uri.index(prefix) + len(prefix):])
         return png, data["width"], data["height"]
+
+    VRAM_FB0 = 0x04000000  # PSP 显存基址；引擎双缓冲的另一块常在 +0x88000
+    VRAM_FB1 = 0x04088000
+
+    async def vram_screenshot(self, address: int = VRAM_FB0, *, width: int = 480,
+                              height: int = 272, stride: int = 512):
+        """软渲染下直读模拟 VRAM 帧缓冲，返回 PIL Image（RGB，width×height）。
+
+        前提：--graphics=software（帧缓冲真实驻留模拟 VRAM）且 CPU 已断住
+        （break_cpu）。像素即软渲染确定性输出，比后端回读更适合 golden diff。
+        格式按本作实测 RGBA8888/stride 512 处理。"""
+        from PIL import Image  # 延迟导入，保持客户端库对 Pillow 弱依赖
+        raw = await self.read_bytes(address, stride * height * 4)
+        img = Image.frombytes("RGBA", (stride, height), raw).convert("RGB")
+        return img.crop((0, 0, width, height))
 
     async def speed_set(self, *, fast_forward: bool | None = None,
                         percent: int | None = None) -> dict:

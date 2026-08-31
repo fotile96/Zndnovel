@@ -33,6 +33,9 @@ tools/                          分析提取脚本（可复跑，路径相对仓
   extract_crd.py                卡片谜题结构一览
   databin.py                    DATA.BIN 资源包 list/unpack/pack/verify（pack 容器 + nislzs 解压；
                                 回封一律 raw 存储、严格保持原封包成员顺序、幂等，格式详见其 docstring）
+  gimcodec.py                   GIM 纹理编解码 decode/encode/verify-pngdir/verify-identity（index4/8+RGBA8888、
+                                swizzle、多帧、大端老版全支持；编码走模板回填=只换像素与色板 payload，
+                                未改图逐字节还原；已对全部 2153 张与 png/ 双向全量验证）
 analysis/                       上述脚本的产物归档（lua 变动后重跑，详见其 README.md）
   dag_all.txt                   全 23 章调度器场景图快照（DAG 权威参照）
   crd_summary.txt               196 个卡片谜题：前置卡/答案卡/触发章节/提示语
@@ -186,7 +189,9 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 手工核对某章调度器：读文件末尾的 `main = function()`（`doScriptScene` 状态机）。
 - 解包/回封游戏资源包：`python3 tools/databin.py unpack assets/DATA.BIN build/databin`、`pack build/databin build/DATA.new.BIN`（`assets/` 为本机 gitignore 资产，不入库；回封无压缩，顺序按 manifest.jsonl 行序 = 原封包序）。
 - 读 novel 页图前先旋转：`python3 -c "from PIL import Image; Image.open(p).rotate(-90, expand=True).save(out)"`。
-- 图片均为 PSP 480×272 逻辑分辨率素材；改图后需回转 .gim 才能进游戏（转换工具不在本仓库）。
+- 图片均为 PSP 480×272 逻辑分辨率素材；改图（烤字 png）进游戏 = 量化到模板色板容量后
+  `uv run python tools/gimcodec.py encode <原包同名模板.gim> <烤字.png> <out.gim>`，再经 databin.py 回封。
+  索引图色板 16/256 色（RGBA8888），量化损耗需在烤字 QA 时目检。
 
 ## 已知坑与注意事项
 

@@ -9,6 +9,8 @@ __pycache__/
 .env
 .env.*
 
+assets
+
 # tool outputs / scratch
 build/
 scratch/

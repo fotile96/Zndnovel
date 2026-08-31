@@ -15,6 +15,7 @@ snr_common，回滚只需重新注入原成员。
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -150,8 +151,12 @@ main = function()
         gameSave.storyRoute[i0].sceneId = route[i0]
         gameSave.storyRoute[i0].ayanoTime = i0 * 3
     end
-    systemSave.storyLineSkip = true
-    systemSave.messageReadColor = true
+    -- ⚠ 不要在这里动 systemSave：那些字段是**数字**不是布尔。
+    -- 2026-09-01 实测——曾写 systemSave.messageReadColor = true，而 snr_common:2569
+    -- 用它做算术 `layerClip(…, messageReadColor * 17, …)`，进 option 画面即
+    -- 「attempt to perform arithmetic on a boolean」当场卡死（日志表现为
+    -- sceAudioOutputPannedBlocking channel not reserved 无限刷屏）。
+    -- 何况这两个字段跟「解锁」无关，本就不该设。设置项交给 option 画面自己去改。
     run(cGetFileName("script", "snr_mainmenu"))
     quit()
 end
@@ -435,6 +440,37 @@ def main() -> None:
     OUT_SRC.mkdir(parents=True, exist_ok=True)
     INJECT.mkdir(parents=True, exist_ok=True)
 
+    # ⚠ 先把上一轮改过的成员还原，再打这一轮的补丁。
+    # 不还原会串味：早期版本是**顶替** snr_mainmenu 成员的，换成新架构后
+    # snr_test 会去 run(snr_mainmenu)，于是跑进上一轮留下的探针——
+    # 2026-09-01 实测就是这么把 mainmenu 模式跑成了 cutin 探针。
+    # 台账记的是「本工具改过哪些成员」，还原时从 build/inject_src 重编译回译文版；
+    # snr_test.lua 是纯新增成员，直接删。
+    ledger = OUT_SRC / "emitted.json"
+    # 台账不存在（首次跑，或此前的版本没记账）时，按最保守的集合还原——
+    # 这三个是本工具历来会动的成员，还原它们廉价且无副作用。
+    prev = (json.loads(ledger.read_text()) if ledger.exists()
+            else ["snr_mainmenu.lua", "snr_common.lua", "snr_test.lua"])
+    restored = []
+    for name in prev:
+        dst = INJECT / name
+        if name == "snr_test.lua":
+            dst.unlink(missing_ok=True)
+            continue
+        pristine = REPO / "build" / "inject_src" / name
+        if not pristine.exists():
+            continue
+        proc = subprocess.run([str(LUAC), "-s", "-o", str(dst), str(pristine)],
+                              capture_output=True, text=True)
+        if proc.returncode != 0:
+            sys.exit(f"还原 {name} 失败: {proc.stderr}")
+        restored.append(name)
+    if prev:
+        print(f"[testboot] 还原上一轮改过的 {len(prev)} 个成员"
+              + (f"（{', '.join(restored)}）" if restored else ""))
+
+    emitted: list[str] = []
+
     def emit(name: str, text: str) -> None:
         lua = OUT_SRC / name
         lua.write_text(text, encoding="utf-8")
@@ -443,6 +479,7 @@ def main() -> None:
                               capture_output=True, text=True)
         if proc.returncode != 0:
             sys.exit(f"luac 失败 {name}: {proc.stderr}")
+        emitted.append(name)
         print(f"[testboot] {name} -> {dst}")
 
     # 测试脚本作为**新成员** script/snr_test.lua 注入，并把 snr_common 引导末尾的
@@ -482,6 +519,7 @@ def main() -> None:
 
     print(f"[testboot] 模式 {args.mode}"
           + (f" scene={args.scene}" if args.mode == "scene" else ""))
+    ledger.write_text(json.dumps(emitted, ensure_ascii=False))
     print("[testboot] 接着跑: uv run python tools/build_disc.py --stage stage,pack,disc")
 
 

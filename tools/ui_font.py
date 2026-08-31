@@ -401,3 +401,28 @@ def describe(face: str, sheet: str | None = None) -> str:
         label = f"{label} 斜{k:g}"
     b = size_bias(face, sheet)
     return f"{label} {b:+d}pt" if b else label
+
+def fill_gain(face: str, sheet: str | None = None) -> float:
+    """字芯填充增益；未指定为 1.0。优先级同 `resolve`。
+
+    **为什么必须可按张解析。** 这个增益是给**细笔画字体**补偿用的——霞鹜文楷在
+    9–15px 下笔干到不了一个像素，整行发灰，2.2 的增益把中间调推向满值才看得清；
+    而笔画本就厚实的思源黑体叠上它只会把字腔糊死（裁决 Y6/Y14）。
+    先前它是模块级全局常量，于是「同一面里两套字」根本无法表达。
+    2026-09-01 sysgim 面正是这种情形：大字号面用思源（增益 1.0），
+    title_* 的极小字号假名小注回用霞鹜（增益 2.2）。
+    """
+    key = face.upper()
+    if key not in FACES:
+        raise ValueError(f"未知的烤字面 {face!r}；可用：{', '.join(FACES)}")
+
+    for var in (f"ZND_UI_FILL_GAIN_{key}", "ZND_UI_FILL_GAIN"):
+        raw = os.environ.get(var)
+        if raw:
+            try:
+                return float(raw)
+            except ValueError:
+                raise ValueError(f"{var} 要写成数字，收到 {raw!r}") from None
+
+    v = _config_entry(face, sheet).get("fill_gain")
+    return 1.0 if v is None else float(v)

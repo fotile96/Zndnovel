@@ -38,6 +38,7 @@ from tools.ui_font import resolve as _resolve_font  # noqa: E402
 from tools.bake_out import out_dir as _out_dir
 from tools.ui_font import slant as _ui_slant
 from tools.ui_font import truetype as _ui_truetype
+from tools.ui_font import fill_gain as _ui_fill_gain
 
 warnings.filterwarnings("ignore", message="Palette images with Transparency")
 
@@ -65,7 +66,9 @@ CORE_ALPHA_RATIO = 0.85
 #: `sys_13_a` 的环在远端仍离底 14，被收敛检查挡下——那道检查是有效的。
 MAX_DIST = 18
 #: 与描边族同因：霞鹜文楷 Regular 太细，字芯蒙版到不了饱和。
-FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 2.2))
+#: 2026-09-01：sysgim 面改用思源黑体 Medium（笔画实），故增益按裁决 Y6/Y14
+#: 调回 1.0——2.2 是为补霞鹜文楷细笔而加的，叠在实笔画上会把字腔糊死。
+FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 1.0))
 
 #: **底存在与否，用「环的远端收不收敛到它」来验，不用占比或倍数来猜。**
 #:
@@ -314,6 +317,9 @@ def render_glow(text: str, size: int, g: Glow, sheet: str | None = None,
     里面），故这一式对透明底与不透明底同样成立——这正是能把两条路径合成一条的原因。
     """
     m = _core_mask(text, size, sheet, face)
+    # 增益按**面/张**解析，不再吃模块级全局：同一面里可以两套字
+    # （sysgim 大字号用思源 gain=1.0、title 小注用霞鹜 gain=2.2）。
+    gain = _ui_fill_gain(face, sheet)
     W, H = m.size
     mp = m.load()
     core = [[mp[x, y] > 128 for x in range(W)] for y in range(H)]
@@ -323,7 +329,7 @@ def render_glow(text: str, size: int, g: Glow, sheet: str | None = None,
     bg_pm = _pm(g.bg)
     for y in range(H):
         for x in range(W):
-            ac = min(1.0, mp[x, y] / 255.0 * FILL_GAIN)
+            ac = min(1.0, mp[x, y] / 255.0 * gain)
             k = d[y][x]
             base = g.ring[k - 1] if 1 <= k <= MAX_DIST else bg_pm
             op[x, y] = _unpm(

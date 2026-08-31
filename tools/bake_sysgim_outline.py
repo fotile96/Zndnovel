@@ -34,6 +34,7 @@ from tools.measure_sysgim import FILL_OFF, FILL_ON, STROKE, measure  # noqa: E40
 from tools.ui_font import resolve as _resolve_font  # noqa: E402
 from tools.bake_out import out_dir as _out_dir
 from tools.ui_font import truetype as _ui_truetype
+from tools.ui_font import fill_gain as _ui_fill_gain
 
 warnings.filterwarnings("ignore", message="Palette images with Transparency")
 
@@ -68,7 +69,9 @@ STROKE_WIDTH = 1
 #:
 #: 增益法只抬蒙版值、不动轮廓，故笔画变实而字腔不闭。逐档对照
 #: （1.0/1.6/2.2/3.0 × 15/16/17px）取 2.2：白芯饱满且字腔仍清晰可辨。
-FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 2.2))
+#: 2026-09-01：sysgim 面改用思源黑体 Medium（笔画实），故增益按裁决 Y6/Y14
+#: 调回 1.0——2.2 是为补霞鹜文楷细笔而加的，叠在实笔画上会把字腔糊死。
+FILL_GAIN = float(os.environ.get("ZND_UI_FILL_GAIN", 1.0))
 
 #: 文字相同、仅禁用态分布不同的几张，共用同一份译文。
 TEXT_ALIAS = {"sys_20_cb": "sys_20_c", "sys_20_cc": "sys_20_c", "sys_20_cd": "sys_20_c"}
@@ -261,12 +264,14 @@ def render_row(text: str, size: int, fill: tuple[int, int, int], alpha: float = 
                sheet: str | None = None) -> Image.Image:
     """填充覆在描边之上，按原图的两色插值结构合成。"""
     fill_m, str_m = _masks(text, size, sheet)
+    # 增益按面/张解析（同 bake_sysgim_glow）：同一面可并存两套字。
+    gain = _ui_fill_gain("sysgim", sheet)
     W, H = fill_m.size
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     fp, sp, op = fill_m.load(), str_m.load(), out.load()
     for y in range(H):
         for x in range(W):
-            af = min(1.0, fp[x, y] / 255.0 * FILL_GAIN)
+            af = min(1.0, fp[x, y] / 255.0 * gain)
             a_s = sp[x, y] / 255.0 * (STROKE_ALPHA / 255.0)
             a = af + a_s * (1 - af)
             if a <= 0:

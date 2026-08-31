@@ -75,14 +75,28 @@ GRID_LOCATIONS_LEFT/RIGHT:
    校庭/教室/屋上/廊下/図書室 -- this is what GRID_LOCATIONS_LEFT/RIGHT
    below encode.
 2. **Mechanical, regression-proof**: `lua_order_from_source()` re-parses
-   `lua_scripts/snr_common.lua`'s `v0.<key> = <N>` assignments (the actual
-   `comSelectMap` location table CLAUDE.md documents) fresh every call, and
-   `tests/test_bake_select_map.py::test_grid_locations_match_lua_v0_table`
-   asserts GRID_LOCATIONS_LEFT+RIGHT (in order) equals that freshly-parsed
-   N=1..10 order. This is the check that actually re-runs on every test
-   invocation and would fail loudly if this module's hardcoded list ever
-   drifted from the lua source of truth (or was mutated) -- the human visual
-   read above cannot re-run itself automatically, this can.
+   `comSelectMap`'s location-id table out of `lua_scripts/snr_common.lua`
+   fresh every call, and the tests assert GRID_LOCATIONS_LEFT+RIGHT (in
+   order) equals that freshly-parsed N=1..10 order. This is the check that
+   actually re-runs on every test invocation and would fail loudly if this
+   module's hardcoded list ever drifted from the lua source of truth (or was
+   mutated) -- the human visual read above cannot re-run itself
+   automatically, this can.
+3. **Mechanical, and directly about PIXELS**: `lua_grid_from_source()`
+   re-parses the two clip-offset tables that sit right next to the id table
+   in the same function -- the x offsets the engine feeds `layerClip` (0 or
+   120 = GRID_CELL_W, i.e. the COLUMN) and the y offsets (0/52/104/156/208 =
+   loc_idx * 2 * GRID_CELL_H, i.e. the ROW PAIR). Those two tables are what
+   actually decides which 120x26 rectangle of this sheet each location
+   shows, so agreeing with them is a stronger statement than agreeing with
+   the id numbering. `run()` refuses to bake unless BOTH checks pass.
+
+   (Check 2 alone would have been the letter of the pre-2026-08-31 gate;
+   the 2026-08-31 decompiler base rewrote all three tables from ten
+   `v0.<key> = <N>` statements into three one-line table constructors
+   `local l1_5 = {art = 1, ...}` inside `comSelectMap`, which broke the old
+   parser outright. Since the offsets had to be understood anyway to rewrite
+   the parser safely, check 3 was added rather than merely restoring 2.)
 
 A third, weaker corroboration (real-ink-width vs predicted-width for each
 of the 10 known jp strings, same technique as tools/select_layout.py) is
@@ -213,34 +227,129 @@ def all_cells():
 
 
 # ---------------------------------------------------------------------------
-# 0. Ground truth: lua v0 table order, re-parsed fresh every call.
+# 0. Ground truth: comSelectMap's location tables, re-parsed fresh every call.
 # ---------------------------------------------------------------------------
 
-def lua_order_from_source(lua_path=LUA_COMMON):
-    """Re-parses `v0.<key> = <N>` assignments (comSelectMap's location
-    table, CLAUDE.md's 探索场景 section) from the real lua source, returns
-    the 10 keys sorted by N (1..10). Never trusts a cached/prior-round
-    transcription -- reads the file fresh every call, per this round's "no
-    assuming, no trusting caches" rule, and is the check that actually
-    re-runs on every test invocation (see module docstring)."""
-    expected_keys = set(GRID_LOCATIONS_LEFT) | set(GRID_LOCATIONS_RIGHT)
+#: One-line lua table constructor, e.g. `{art = 1, music = 2, ...}`.
+_TABLE_LITERAL_RE = re.compile(r"\{([^{}]*)\}")
+_TABLE_ENTRY_RE = re.compile(r"(\w+)\s*=\s*(\d+)\b")
+#: A top-level (column-0) function declaration -- the scope terminator. Both
+#: `NAME = function` and `local NAME = function` occur in this base; a nested
+#: closure is always indented, so anchoring at column 0 is what makes this a
+#: "next sibling declaration" marker rather than "next closure anywhere".
+_FUNC_DECL_RE = re.compile(r"^(?:local\s+)?[A-Za-z_][\w.]*\s*=\s*function\b")
+
+
+def _com_select_map_tables(lua_path):
+    """Every `{key = int, ...}` table inside `comSelectMap`'s body that maps
+    ALL 10 known location keys to integers, as [{key: int}, ...].
+
+    Scoped to the function body -- from its declaration line down to the next
+    top-level `... = function` declaration -- rather than scanned file-wide,
+    for the same reason the pre-2026-08-31 parser restricted itself to the 10
+    known keys: unrelated assignments elsewhere in this 4000-line library
+    must not be able to pollute the read. The 10-key completeness requirement
+    is what separates a location table from `{bg = 0, chara = 1, ...}` and
+    friends declared two lines below it."""
     with open(lua_path, encoding="utf-8") as f:
-        src = f.read()
-    # Restricted to the 10 known comSelectMap location keys, NOT a bare
-    # "v0\.\w+ = \d+" scan -- snr_common.lua has other unrelated `v0.X = N`
-    # assignments elsewhere (e.g. `v0.startMenuState = 0` at line ~1160)
-    # that would otherwise pollute a positional "first 10 matches" read.
-    pairs = re.findall(r"v0\.(\w+)\s*=\s*(\d+)", src)
-    by_n = {}
-    for key, n in pairs:
-        if key in expected_keys:
-            by_n[int(n)] = key
+        lines = f.read().splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if line.startswith("comSelectMap = function("):
+            start = i
+            break
+    if start is None:
+        raise RuntimeError(
+            f"{lua_path}: no `comSelectMap = function(` declaration found -- "
+            f"cannot locate the 探索地图 location tables")
+    stop = len(lines)
+    for i in range(start + 1, len(lines)):
+        if _FUNC_DECL_RE.match(lines[i]):
+            stop = i
+            break
+    expected_keys = set(GRID_LOCATIONS_LEFT) | set(GRID_LOCATIONS_RIGHT)
+    tables = []
+    for line in lines[start:stop]:
+        for m in _TABLE_LITERAL_RE.finditer(line):
+            entries = {k: int(v) for k, v in _TABLE_ENTRY_RE.findall(m.group(1))}
+            if expected_keys <= set(entries):
+                tables.append({k: entries[k] for k in expected_keys})
+    return tables
+
+
+def _pick_table(tables, predicate, what, lua_path):
+    hits = [t for t in tables if predicate(t)]
+    if len(hits) != 1:
+        raise RuntimeError(
+            f"lua source {lua_path}: expected exactly one comSelectMap "
+            f"{what} table, found {len(hits)} among {len(tables)} candidate "
+            f"10-key tables -- refusing to guess which one is authoritative")
+    return hits[0]
+
+
+def lua_order_from_source(lua_path=LUA_COMMON):
+    """Re-parses comSelectMap's location-id table from the real lua source
+    and returns the 10 keys sorted by their id N (1..10). Never trusts a
+    cached/prior-round transcription -- reads the file fresh every call, and
+    is (with `lua_grid_from_source`) the check that actually re-runs on every
+    test invocation (see module docstring).
+
+    The id table is identified by its VALUES being exactly {1..10}; the two
+    sibling tables in the same function map the same 10 keys to pixel offsets
+    ({0,120} and {0,52,104,156,208}), so no other table in `comSelectMap` can
+    be mistaken for it. Raises rather than returning a partial order."""
+    tables = _com_select_map_tables(lua_path)
+    ids = _pick_table(tables, lambda t: sorted(t.values()) == list(range(1, 11)),
+                      "location-id (values 1..10)", lua_path)
+    by_n = {n: k for k, n in ids.items()}
     missing = [n for n in range(1, 11) if n not in by_n]
+    if missing:   # unreachable given _pick_table's predicate; kept as a belt
+        raise RuntimeError(
+            f"lua_order_from_source: location-id table missing N={missing} "
+            f"-- cannot derive a total order")
+    return [by_n[n] for n in range(1, 11)]
+
+
+def lua_grid_from_source(lua_path=LUA_COMMON):
+    """Re-parses comSelectMap's two `layerClip` offset tables and returns
+    (left_column_keys, right_column_keys), each ordered top-to-bottom.
+
+    This is the check that is literally about pixels of THIS file: the engine
+    clips `sel_map_1_a.png` at (x_off, y_off) .. (x_off + 120, y_off + 26),
+    so x_off / GRID_CELL_W is the column and y_off / (2 * GRID_CELL_H) is the
+    row pair -- exactly the (col, loc_idx) that `location_for()` computes
+    from GRID_LOCATIONS_LEFT/RIGHT. Tables are identified structurally (the
+    column table's values are {0, GRID_CELL_W}; the row table's are the five
+    multiples of 2 * GRID_CELL_H), not by variable name, because the
+    decompiled local names (`l1_6`, `l1_7`) carry no meaning and change with
+    the decompiler."""
+    tables = _com_select_map_tables(lua_path)
+    col_values = {0, GRID_CELL_W}
+    row_values = {i * 2 * GRID_CELL_H for i in range(GRID_ROWS // 2)}
+    cols = _pick_table(tables, lambda t: set(t.values()) == col_values,
+                       f"column-offset (values {sorted(col_values)})", lua_path)
+    rows = _pick_table(tables, lambda t: set(t.values()) == row_values,
+                       f"row-offset (values {sorted(row_values)})", lua_path)
+    grid = {}
+    for key in cols:
+        col = cols[key] // GRID_CELL_W
+        idx = rows[key] // (2 * GRID_CELL_H)
+        if (col, idx) in grid:
+            raise RuntimeError(
+                f"lua source {lua_path}: comSelectMap offsets put both "
+                f"{grid[(col, idx)]!r} and {key!r} at grid cell {(col, idx)} "
+                f"-- the sheet mapping is not a bijection, refusing to guess")
+        grid[(col, idx)] = key
+    n_rows = GRID_ROWS // 2
+    missing = [cell for cell in
+               ((c, i) for c in range(GRID_COLS) for i in range(n_rows))
+               if cell not in grid]
     if missing:
         raise RuntimeError(
-            f"lua_order_from_source: v0 table missing N={missing} in its "
-            f"first 10 assignments -- cannot derive a total order")
-    return [by_n[n] for n in range(1, 11)]
+            f"lua source {lua_path}: comSelectMap offsets leave grid cells "
+            f"{missing} unassigned -- cannot derive the full sheet mapping")
+    return ([grid[(0, i)] for i in range(n_rows)],
+            [grid[(1, i)] for i in range(n_rows)])
 
 
 # ---------------------------------------------------------------------------
@@ -451,9 +560,17 @@ def run(write=True):
     if lua_order != expected_order:
         raise RuntimeError(
             f"GRID_LOCATIONS_LEFT+RIGHT {expected_order} does not match "
-            f"the lua source's v0 table order {lua_order} -- refusing to "
-            f"bake with a possibly-mismapped grid (this is the asset's "
-            f"承重点, see module docstring)")
+            f"the lua source's comSelectMap location-id table order "
+            f"{lua_order} -- refusing to bake with a possibly-mismapped grid "
+            f"(this is the asset's 承重点, see module docstring)")
+    lua_left, lua_right = lua_grid_from_source()
+    if [lua_left, lua_right] != [GRID_LOCATIONS_LEFT, GRID_LOCATIONS_RIGHT]:
+        raise RuntimeError(
+            f"GRID_LOCATIONS_LEFT/RIGHT {[GRID_LOCATIONS_LEFT, GRID_LOCATIONS_RIGHT]} "
+            f"does not match the grid the lua source's comSelectMap layerClip "
+            f"offsets actually address {[lua_left, lua_right]} -- refusing to "
+            f"bake with a possibly-mismapped grid (this is the asset's 承重点, "
+            f"see module docstring)")
 
     covered, missing = compute_coverage()
     if missing:
@@ -506,6 +623,11 @@ def run(write=True):
                  "cell_w": GRID_CELL_W, "cell_h": GRID_CELL_H},
         "lua_order_check": {"expected": expected_order, "lua_order": lua_order,
                              "match": lua_order == expected_order},
+        "lua_grid_check": {
+            "expected": [GRID_LOCATIONS_LEFT, GRID_LOCATIONS_RIGHT],
+            "lua_grid": [lua_left, lua_right],
+            "match": [lua_left, lua_right] == [GRID_LOCATIONS_LEFT, GRID_LOCATIONS_RIGHT],
+        },
         "font_size_cascade": list(MAP_FONT_CASCADE),
         "font_size_default": MAP_FONT_CASCADE[0],
         "location_font_sizes": {k: plans[k]["font_size"] for k in sorted(plans)},

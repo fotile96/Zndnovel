@@ -1,10 +1,15 @@
 """tools/bake_select_map.py — png/select/sel_map_1_a.png（探索地图 10 地点 x
-on/off 标签表，comSelectMap 的 v0 表）烤字回填。
+on/off 标签表，comSelectMap 的地点表）烤字回填。
 
 覆盖硬约束闸（见 tools/bake_select_map.py 模块 docstring 与
 .superpowers/sdd/2026-08-07-p4-polish-pass/bake-select-report.md 的既有惯例）：
   1. 格号↔地点映射是本图的承重点——20 个格子里错一格，两个地点就互换了。
-     用 lua v0 表重新解析（不是缓存/一次性人工核对）钉死这个映射。
+     每次运行都从 lua 源码**重新解析**（不是缓存/一次性人工核对）钉死这个映射，
+     且是**两条独立证据**：地点编号表（值恰为 1..10）与真正决定像素的
+     layerClip 偏移表（列偏移 {0,120}、行偏移 {0,52,104,156,208}）。
+     2026-08-31 换反编译基座后，这三张表从十条 `v0.<key> = <N>` 语句变成了
+     `comSelectMap` 里三行 `{art = 1, ...}` 表构造器——闸的**语义**不变，
+     只换了解析形状；绝不允许退化成"信任模块里硬编码的顺序"。
   2. 覆盖率（10/10 地点）必须每次独立重算，中文源缺失时必须报错停下。
   3. 字号级联的"零溢出"判据必须是真实渲染墨迹，不能只是字符数估算。
   4. TEXT_BOX 之外的像素必须逐字节保真。
@@ -23,8 +28,8 @@ from tools.bake_select_map import (
     MAP_MAX_TEXT_W, MAP_TEXT_BOX, SHEET_H, SHEET_W, SOURCE_IMAGE, all_cells,
     absolute_box, bake_cell, build_map_render_plan, cell_origin,
     compute_coverage, find_all_outside_box_diffs, load_fonts,
-    location_for, lua_order_from_source, measure_fill_colors,
-    measure_stroke_colors, run, variant_for,
+    location_for, lua_grid_from_source, lua_order_from_source,
+    measure_fill_colors, measure_stroke_colors, run, variant_for,
 )
 from tools.bake_select import measure_ink_extent, TEXT_FILL_COLOR
 
@@ -117,22 +122,87 @@ def test_interior_fill_mismatch_is_detected(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_lua_order_from_source_matches_module_constant():
-    """核心闸：重新解析 lua_scripts/snr_common.lua 的 v0 表，必须与
-    GRID_LOCATIONS_LEFT+RIGHT 完全一致——这是本图"格号↔地点映射"的
-    机械回归检查，不依赖任何一次性人工读图结论。"""
+    """核心闸之一：重新解析 lua_scripts/snr_common.lua 里 comSelectMap 的
+    地点编号表，必须与 GRID_LOCATIONS_LEFT+RIGHT 完全一致——这是本图
+    "格号↔地点映射"的机械回归检查，不依赖任何一次性人工读图结论。"""
     lua_order = lua_order_from_source()
     assert lua_order == GRID_LOCATIONS_LEFT + GRID_LOCATIONS_RIGHT
     assert lua_order == ["art", "music", "health", "staffRoom", "court",
                           "ground", "class", "roof", "corridor", "library"]
 
 
-def test_lua_order_ignores_unrelated_v0_assignments():
-    """回归：snr_common.lua 里还有与 comSelectMap 无关的其它
-    `v0.X = N` 赋值（如 v0.startMenuState = 0），解析函数必须只看
-    10 个已知地点键，不能被这些无关赋值污染位置顺序。"""
+def test_lua_order_ignores_the_sibling_offset_tables():
+    """回归（2026-08-31 换基座后的真实污染源）：comSelectMap 里紧挨着编号表
+    还有两张**同样 10 个地点键**的表——layerClip 的列偏移 {0,120} 与行偏移
+    {0,52,104,156,208}。一个"扫全文件所有 `key = N`"的解析器会把三张表混在
+    一起，得出的顺序随行序而变。解析函数必须只认"取值恰为 1..10"的那一张，
+    并且只在 comSelectMap 函数体内找。"""
+    tables = bsm._com_select_map_tables(bsm.LUA_COMMON)
+    assert len(tables) == 3, "本基座里 comSelectMap 恰有 3 张 10 键表"
+    assert sorted(tables[0].values()) == list(range(1, 11))
     order = lua_order_from_source()
     assert len(order) == 10
-    assert "startMenuState" not in order
+    assert set(order) == set(GRID_LOCATIONS_LEFT) | set(GRID_LOCATIONS_RIGHT)
+
+
+def test_lua_grid_from_source_matches_module_constant():
+    """核心闸之二（比编号表更硬）：真正决定"哪个地点显示这张 240x260 图的
+    哪个 120x26 矩形"的是 comSelectMap 喂给 layerClip 的两张偏移表。
+    col = x偏移 / GRID_CELL_W、loc_idx = y偏移 / (2*GRID_CELL_H)，必须与
+    GRID_LOCATIONS_LEFT/RIGHT 逐项一致。"""
+    left, right = lua_grid_from_source()
+    assert left == GRID_LOCATIONS_LEFT == ["art", "music", "health",
+                                           "staffRoom", "court"]
+    assert right == GRID_LOCATIONS_RIGHT == ["ground", "class", "roof",
+                                             "corridor", "library"]
+
+
+def test_lua_parsers_raise_when_the_table_is_gone(tmp_path, monkeypatch):
+    """变异形态：换了基座/改了源码导致表找不到时，必须硬报错停下，不能返回
+    半张表或退回硬编码顺序。"""
+    fake = tmp_path / "snr_common_stub.lua"
+    fake.write_text("cHan2Zen = function(l1_0)\nend\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="comSelectMap"):
+        lua_order_from_source(str(fake))
+    with pytest.raises(RuntimeError, match="comSelectMap"):
+        lua_grid_from_source(str(fake))
+
+    fake2 = tmp_path / "snr_common_stub2.lua"
+    keys = GRID_LOCATIONS_LEFT + GRID_LOCATIONS_RIGHT
+    only_offsets = ", ".join(f"{k} = {0 if i < 5 else 120}"
+                             for i, k in enumerate(keys))
+    fake2.write_text(
+        "comSelectMap = function(l1_0)\n"
+        f"local l1_7 = {{{only_offsets}}}\n"
+        "end\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="location-id"):
+        lua_order_from_source(str(fake2))
+
+
+def test_lua_parsers_are_scoped_to_comSelectMap_and_refuse_ambiguity(tmp_path):
+    """两个"拆闸"变异形态各配一条：
+    (a) 解析范围放宽到全文件——文件别处一张同样 10 键、值 1..10 的诱饵表就会
+        污染顺序（这里诱饵是错位的，正确实现必须忽略它）；
+    (b) 命中多张同类表时"随便取第一张"——必须硬报错，不能猜。"""
+    keys = GRID_LOCATIONS_LEFT + GRID_LOCATIONS_RIGHT
+    decoy_keys = list(reversed(keys))
+    real = ", ".join(f"{k} = {i + 1}" for i, k in enumerate(keys))
+    decoy = ", ".join(f"{k} = {i + 1}" for i, k in enumerate(decoy_keys))
+
+    scoped = tmp_path / "scoped.lua"
+    scoped.write_text(
+        f"someOtherFunc = function()\nlocal l1_0 = {{{decoy}}}\nend\n"
+        f"comSelectMap = function(l1_0)\nlocal l1_5 = {{{real}}}\nend\n"
+        f"yetAnother = function()\nlocal l1_0 = {{{decoy}}}\nend\n",
+        encoding="utf-8")
+    assert lua_order_from_source(str(scoped)) == keys
+
+    ambiguous = tmp_path / "ambiguous.lua"
+    ambiguous.write_text(
+        f"comSelectMap = function(l1_0)\nlocal l1_5 = {{{real}}}\n"
+        f"local l1_6 = {{{decoy}}}\nend\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="refusing to guess"):
+        lua_order_from_source(str(ambiguous))
 
 
 def test_run_refuses_to_bake_when_grid_mapping_diverges_from_lua(monkeypatch):
@@ -141,6 +211,29 @@ def test_run_refuses_to_bake_when_grid_mapping_diverges_from_lua(monkeypatch):
     swapped_left = ["music", "art", "health", "staffRoom", "court"]  # 错位一格
     monkeypatch.setattr(bsm, "GRID_LOCATIONS_LEFT", swapped_left)
     with pytest.raises(RuntimeError, match="承重点|does not match"):
+        run(write=False)
+
+
+def test_run_id_order_check_fires_even_if_the_grid_check_is_neutered(monkeypatch):
+    """对称的另一半：伪造 layerClip 偏移表检查永远通过，编号表检查仍须拦住
+    错位的映射。两条闸各自独立会红，才谈得上"双重证据"。"""
+    swapped_left = ["music", "art", "health", "staffRoom", "court"]
+    monkeypatch.setattr(bsm, "GRID_LOCATIONS_LEFT", swapped_left)
+    monkeypatch.setattr(bsm, "lua_grid_from_source",
+                        lambda *a, **kw: (swapped_left, GRID_LOCATIONS_RIGHT))
+    with pytest.raises(RuntimeError, match="location-id"):
+        run(write=False)
+
+
+def test_run_grid_offset_check_fires_even_if_the_id_check_is_neutered(monkeypatch):
+    """两条证据必须**各自独立**会红：把编号表检查伪造成永远通过（模拟"编号表
+    被改得和错位后的模块常量一致"或"第一道闸被绕过"），第二道闸——真正决定像素
+    的 layerClip 偏移表——仍须拦住错位的映射。"""
+    swapped_left = ["music", "art", "health", "staffRoom", "court"]
+    monkeypatch.setattr(bsm, "GRID_LOCATIONS_LEFT", swapped_left)
+    monkeypatch.setattr(bsm, "lua_order_from_source",
+                        lambda *a, **kw: swapped_left + GRID_LOCATIONS_RIGHT)
+    with pytest.raises(RuntimeError, match="layerClip"):
         run(write=False)
 
 
@@ -337,6 +430,9 @@ def test_run_end_to_end_zero_pixel_violations(tmp_path, monkeypatch):
         manifest = json.load(f)
     assert manifest["num_locations"] == 10
     assert manifest["lua_order_check"]["match"] is True
+    assert manifest["lua_grid_check"]["match"] is True
+    assert manifest["lua_grid_check"]["lua_grid"] == [
+        GRID_LOCATIONS_LEFT, GRID_LOCATIONS_RIGHT]
     assert manifest["overflow"] == []
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive Japanese source text for png/select/ option-button images from the
+r"""Derive Japanese source text for png/select/ option-button images from the
 lua control flow, without reading pixels.
 
 ## Why this is possible at all
@@ -45,17 +45,63 @@ a coincidental regex hit landing on the wrong scene_X() call).
 
 ## Block boundaries: indentation, not bracket-counting
 
-lua_scripts/*.lua is decompiled-then-hand-touched code with betrayingly
-consistent indentation (4 spaces/level, verified by direct inspection of
-several hundred lines spanning nested if/while/elseif chains -- see the
-report). This module exploits that directly: a block header line's `end` /
-next `elseif` / `else` is simply the next line at the SAME indentation,
-because every nested statement is indented strictly deeper. This is far
-simpler and more auditable than a bracket-counting Lua tokenizer, but it is
-a real assumption -- `_find_block_end` raises rather than silently guessing
-if a file's indentation turns out inconsistent (never observed in practice
+lua_scripts/*.lua is decompiled code with betrayingly consistent
+indentation (4 spaces/level, verified by direct inspection of several
+hundred lines spanning nested if/while/elseif chains -- see the report).
+This module exploits that directly: a block header line's `end` / next
+`elseif` / `else` is simply the next line at the SAME indentation, because
+every nested statement is indented strictly deeper. This is far simpler and
+more auditable than a bracket-counting Lua tokenizer, but it is a real
+assumption -- `_find_block_end` raises rather than silently guessing if a
+file's indentation turns out inconsistent (never observed in practice
 across the 9 files this module reads, but the guard exists so a future file
 with sloppier formatting fails loudly instead of returning a wrong span).
+
+## 2026-08-31: decompiler-base migration (pyluadec-refactor/corpus/final)
+
+lua_scripts/ was re-generated from a decompiler whose output is
+byte-identical to the original game bytecode (229/229 files, see
+docs/ops/decompiler-base-migration-2026-08-31.md). The 4-space indentation
+invariant above still holds, but four shapes this module keys on changed:
+
+  a. **Receiver names.** `v50 = comDlgSelectItem(...)` became
+     `l1_2 = comDlgSelectItem(...)` (`l<depth>_<reg>`), and the three
+     hand-named global receivers (`retSelect`, `retSelect2`) are unchanged.
+     The receiver regex is now a generic identifier, NOT `v\d+` -- which
+     also un-blocks the `retSelect*` call sites the old `v\d+`-only regex
+     silently degraded to "no_chain" (6 buttons, 2 of them recoverable).
+     Because a generic name like `l1_2` is REUSED by ~56 unrelated call
+     sites in one file, the forward search for the dispatch chain is now
+     scope-bounded (`_scope_bound_indent`) so an undispatched result cannot
+     latch onto some later block's `if l1_2 == 1 then`.
+
+  b. **`and`-conjunctions became nested ifs.** The old base printed the
+     nazotoki joint answer check as `if (v60 == 1) and (v61 == 1) then`,
+     which `find_var_dispatch` rejected outright as UNRESOLVED_COMPOUND.
+     The new base prints the same bytecode as `if l1_5 == 1 then / if l1_6
+     == 1 then` -- textually two perfectly ordinary single-variable
+     dispatches. A parser that just reads them at face value would happily
+     hand both buttons the enclosing maze scene's title. `_is_joint_dispatch`
+     restores the guard structurally (see its docstring); losing it would be
+     a silent downgrade from "honest None" to "confident wrong string".
+
+  c. **`else` arms became implicit fall-through.** Where the old base
+     printed `if v62 == 2 then ... else <maze retry> end`, the new base
+     prints `if l1_7 == 2 then ... end` followed by the retry statements at
+     the enclosing level. Same control flow, no `else` token.
+     `_fallthrough_region` models it and the affected values keep the SAME
+     low-confidence "共享 else" tag they had before (they are not this
+     button's own caption either way).
+
+  d. **`elseif` chains are sometimes several sibling `if` statements**
+     (`if l1_8 == 1 then ... end` `if l1_8 == 2 then ... end` ...). The
+     chain walker continues across a closing `end` when the next code line
+     is another simple test on the same variable at the same indent.
+
+The two legacy tolerances that no longer have a real fixture in this base
+(`else` whose whole body is one nested `if var == K`, and the bare
+`if comDlgSelectItem(...) == K then` inline-compare call shape) are kept
+and pinned by synthetic fixtures in tests/test_derive_select.py.
 
 ## What is reported when a button's text truly cannot be derived
 
@@ -82,12 +128,14 @@ CALL_FILES = [
 ]
 
 OPTION_RE = re.compile(r'"(sel_[A-Za-z0-9_]+)"\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)')
+RECEIVER_RE = re.compile(r'^(?:local\s+)?([A-Za-z_]\w*)\s*=\s*$')
+SIMPLE_TEST_RE = re.compile(r'^(?:else)?if\s+([A-Za-z_]\w*)\s*==\s*(-?\d+)\s+then\b')
 SCENE_CALL_RE = re.compile(r'scene_[A-Za-z0-9_]+\(\s*[^,()]+,\s*"([^"]*)"\s*\)')
 DOSCRIPTSCENE_ASSIGN_RE = re.compile(r'doScriptScene\s*=\s*"([A-Za-z0-9_]+)"')
 RUN_JUMP_RE = re.compile(r'run\(cGetFileName\("scriptc?",\s*"([^"]+)"\)\)')
 
 UNRESOLVED_NO_CHAIN = "选择结果变量之后未找到形如 if var==K then 的单变量简单判断（可能只用于复合条件，或结果从未被读取）"
-UNRESOLVED_COMPOUND = "变量出现在复合条件（如 (v60==1) and (v61==1)）中，本解析器不做跨变量联合覆盖——这类分支是谜题作答的对错判定，不是单选项的场景标题"
+UNRESOLVED_COMPOUND = "变量与另一个选择的结果被联合判定（源码形态：`(a==1) and (b==1)` 的复合条件，或新基座等价的 `if a==1 then if b==1 then` 嵌套），本解析器不做跨变量联合覆盖——这类分支是谜题作答的对错判定，不是单选项的场景标题"
 UNRESOLVED_NO_BRANCH_FOR_VALUE = "该选项的整数值在 if/elseif 链中未见任何显式分支（且没有 else 兜底），可能是不可达值"
 UNRESOLVED_SHARED_ELSE_EMPTY = "该选项落在多个选项共享的 else 兜底分支，且该分支体内既无 scene_X() 调用也无 doScriptScene 赋值——是通用流程（如谜题主线/其它状态处理），不是这个按钮专属的文字"
 UNRESOLVED_EMPTY_BODY = "分支体内既无 scene_X(...) 调用也无 doScriptScene 字面量赋值，机械解析找不到可用文本源"
@@ -147,12 +195,20 @@ def _load_lines(fname):
 
 
 _FILE_CACHE = {}
+_RECEIVERS_CACHE = {}
 
 
 def _get_file(fname):
     if fname not in _FILE_CACHE:
         _FILE_CACHE[fname] = _load_lines(fname)
     return _FILE_CACHE[fname]
+
+
+def clear_caches():
+    """Drop the per-file line/receiver caches. Only needed by tests that
+    point SCRIPT_DIR at a synthetic fixture directory."""
+    _FILE_CACHE.clear()
+    _RECEIVERS_CACHE.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -226,10 +282,29 @@ def find_calls(fname):
     return calls
 
 
+def _receiver_call_lines(fname):
+    """{receiver_name: [0-based call line index, ...]} for every
+    comDlgSelectItem call in `fname` that assigns its result to a plain
+    variable. Used by `_is_joint_dispatch`; cached because it is queried once
+    per option and `find_calls` re-scans the whole file."""
+    if fname not in _RECEIVERS_CACHE:
+        by_name = {}
+        for c in find_calls(fname):
+            if c["receiver"]:
+                by_name.setdefault(c["receiver"], []).append(c["line_start"] - 1)
+        _RECEIVERS_CACHE[fname] = by_name
+    return _RECEIVERS_CACHE[fname]
+
+
 def _build_call_record(fname, line_start, indent, prefix, call_text, suffix):
     options = [(m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4)))
                for m in OPTION_RE.finditer(call_text)]
-    m = re.match(r'^(?:local\s+)?(v\d+)\s*=\s*$', prefix)
+    # Generic identifier, not `v\d+`: the 2026-08-31 base names locals
+    # `l<depth>_<reg>` and keeps two hand-named globals (retSelect,
+    # retSelect2). `\w` excludes `.`, so table-field targets such as
+    # `gameSave.x = comDlgSelectItem(...)` still do NOT count as receivers
+    # (this module's dispatch search only understands plain variables).
+    m = RECEIVER_RE.match(prefix)
     receiver, inline_value = None, None
     if m:
         receiver = m.group(1)
@@ -273,6 +348,113 @@ def _chain_body(lines, indents, body_start, body_end):
     return lines[body_start:body_end]
 
 
+def _next_code_line(lines, indents, start_idx):
+    """Index of the next non-blank line at/after start_idx, or None."""
+    for k in range(start_idx, len(lines)):
+        if indents[k] is not None:
+            return k
+    return None
+
+
+def _enclosing_headers(lines, indents, idx):
+    """0-based indices of the block headers lexically enclosing `idx`,
+    innermost first: the nearest preceding line at each strictly smaller
+    indentation level (the indentation invariant makes that line the
+    enclosing block's header)."""
+    out = []
+    cur = indents[idx]
+    if cur is None:
+        return out
+    for k in range(idx - 1, -1, -1):
+        if indents[k] is None:
+            continue
+        if indents[k] < cur:
+            out.append(k)
+            cur = indents[k]
+            if cur == 0:
+                break
+    return out
+
+
+def _block_header_for_end(lines, indents, end_idx):
+    """Header line of the block closed by the `end` at end_idx (the nearest
+    preceding line at the same indentation). For an if/elseif/else chain this
+    is the LAST arm's header, which is all `_fallthrough_region` needs: it
+    only has to tell if-family blocks (control continues after the `end`)
+    from loop/function blocks (it does not)."""
+    for k in range(end_idx - 1, -1, -1):
+        if indents[k] is None:
+            continue
+        if indents[k] < indents[end_idx]:
+            return None
+        if indents[k] == indents[end_idx]:
+            return k
+    return None
+
+
+def _fallthrough_region(lines, indents, end_idx):
+    """(start, stop) of the statements that run when an if/elseif chain --
+    the one closed by the `end` at `end_idx` -- matches no arm and has NO
+    explicit `else`, or None if that cannot be determined mechanically.
+
+    The 2026-08-31 base prints what the old base printed as an `else` arm as
+    plain statements after the construct (module docstring "c."), sometimes
+    several levels out: `if a==1 then if b==1 then <..> end end <retry>` --
+    control reaching the end of the inner construct falls straight out of
+    both enclosing `if`s to <retry>, because neither has any statement left
+    after it. So this walks outward across bare `end`s, but ONLY while each
+    one closes an if-family block: an `end` closing a `while`/`for`/`repeat`
+    means the next thing that runs is another loop iteration, not a
+    fall-through, and an `else`/`elseif`/`until` after the construct means
+    control skips the enclosing arm entirely -- both give up (None) rather
+    than attribute a wrong region."""
+    k = end_idx + 1
+    while k < len(lines):
+        if indents[k] is None:
+            k += 1
+            continue
+        stripped = lines[k].strip()
+        if stripped == "end":
+            hdr = _block_header_for_end(lines, indents, k)
+            if hdr is None:
+                return None
+            hs = lines[hdr].strip()
+            if not (hs == "else" or re.match(r'^(?:else)?if\b', hs)):
+                return None
+            k += 1
+            continue
+        if stripped == "else" or stripped.startswith("elseif") \
+                or stripped.startswith("until"):
+            return None
+        level = indents[k]
+        stop = k
+        while stop < len(lines) and (indents[stop] is None or indents[stop] >= level):
+            stop += 1
+        return (k, stop)
+    return None
+
+
+def _scope_bound_indent(lines, indents, call_idx, varname, lookback=120):
+    """Shallowest indentation at which `varname`'s dispatch may still live.
+
+    Needed because the new base's receiver names (`l1_2` &c.) are reused by
+    dozens of unrelated call sites per file: without a bound, a call whose
+    result is never tested (e.g. the single-option confirm dialogs in
+    snr_s4_10_fb.lua) would scan on for 600 lines and latch onto some later
+    block's `if l1_2 == 1 then`, inventing a dispatch that does not exist.
+    The bound is the indentation of the variable's own `local` declaration
+    when there is one (its scope cannot outlive that block), else the call's
+    own indentation."""
+    call_indent = indents[call_idx]
+    decl_re = re.compile(r'^local\s+' + re.escape(varname) + r'\b')
+    for k in range(call_idx - 1, max(-1, call_idx - lookback), -1):
+        if indents[k] is None or indents[k] > call_indent:
+            continue
+        if decl_re.match(lines[k].strip()):
+            return indents[k]
+    return call_indent
+
+
 def _skip_if_construct(lines, indents, header_idx):
     """Given the 0-based index of an `if ... then` header, walk through its
     own elseif/else continuations (each found via `_find_block_end`) until
@@ -293,21 +475,74 @@ def _skip_if_construct(lines, indents, header_idx):
 #    the search just after the call.
 # ---------------------------------------------------------------------------
 
+def _is_joint_dispatch(fname, lines, indents, call_idx, chain_idx, varname):
+    """True when `varname`'s dispatch is really a JOINT test of two select
+    results -- the nazotoki answer-correctness checks, whose buttons are
+    puzzle answers and carry no scene title of their own.
+
+    The old base made this trivially visible as `if (v60 == 1) and
+    (v61 == 1) then`, which the textual compound check in
+    `find_var_dispatch` caught. The 2026-08-31 base prints the identical
+    bytecode as two nested single-variable tests, so the guard has to be
+    structural. Two shapes, both meaning "this select's value was computed
+    and then tested together with another select's value":
+
+      J1 -- another comDlgSelectItem is issued BETWEEN this call and this
+            variable's own dispatch header (both results are queued up
+            before either is examined). Real case: sel_s2s_192a_*, whose
+            receiver is tested only after sel_s2s_192b_*'s select has run.
+      J2 -- this variable's dispatch header sits INSIDE an
+            `if <other> == K then` where `<other>` is another select's
+            receiver that was computed BEFORE this call and whose test
+            comes AFTER it. Real case: sel_s2s_192b_*, nested inside
+            192a's test.
+
+    Both conditions require the other select's call to precede the test, so
+    an ordinary nested sub-menu (outer select dispatched first, inner select
+    issued inside the chosen arm -- e.g. sel_s2s_192c_*, all of whose
+    enclosing tests sit BEFORE its own call) is not misread as joint and
+    keeps its normal resolution path. (Line numbers deliberately omitted:
+    they are not stable across decompiler bases -- see the migration doc.)"""
+    receivers = _receiver_call_lines(fname)
+    for other, idxs in receivers.items():
+        if other == varname:
+            continue
+        if any(call_idx < j < chain_idx for j in idxs):
+            return True
+    for h in _enclosing_headers(lines, indents, chain_idx):
+        m = SIMPLE_TEST_RE.match(lines[h].strip())
+        if not m:
+            continue
+        other = m.group(1)
+        if other == varname or h <= call_idx:
+            continue
+        idxs = receivers.get(other)
+        if idxs and any(j < call_idx for j in idxs):
+            return True
+    return False
+
+
 def find_var_dispatch(fname, call, max_search=600):
-    """Returns (branches, status) where branches: {value_int_or_'else':
-    (body_start, body_end)} and status is 'ok', 'no_chain', or 'compound'
-    (var is used, but only inside a compound condition -- see
-    UNRESOLVED_COMPOUND)."""
+    """Returns (branches, status) where branches: {value_int_or_'else'_or_
+    'fallthrough': (body_start, body_end)} and status is 'ok', 'no_chain',
+    or 'compound' (var's value is only ever tested jointly with another
+    select's -- see UNRESOLVED_COMPOUND and `_is_joint_dispatch`)."""
     lines, indents = _get_file(fname)
     varname = call["receiver"]
+    call_idx = call["line_start"] - 1
     start = call["line_start"]  # 1-based line AFTER call end is >= start
     simple_re = re.compile(r'^(?:else)?if\s+' + re.escape(varname) + r'\s*==\s*(-?\d+)\s+then\b')
     mention_re = re.compile(r'\b' + re.escape(varname) + r'\b')
+    bound_indent = _scope_bound_indent(lines, indents, call_idx, varname)
     limit = min(len(lines), start + max_search)
     chain_start = None
     for i in range(start, limit):
-        if lines[i].strip() == "":
+        if indents[i] is None:
             continue
+        if indents[i] < bound_indent:
+            # left the block that owns the variable -- anything further out
+            # testing this NAME is a different, unrelated variable/reuse.
+            break
         if simple_re.match(lines[i].strip()):
             chain_start = i
             break
@@ -317,6 +552,8 @@ def find_var_dispatch(fname, call, max_search=600):
             return {}, "compound"
     if chain_start is None:
         return {}, "no_chain"
+    if _is_joint_dispatch(fname, lines, indents, call_idx, chain_start, varname):
+        return {}, "compound"
 
     branches = {}
     i = chain_start
@@ -331,21 +568,20 @@ def find_var_dispatch(fname, call, max_search=600):
         if m:
             value = int(m.group(1))
             body_end = _find_block_end(lines, indents, i)
-            branches[value] = (i + 1, body_end)
+            # first arm wins: a value repeated later in the chain is dead code.
+            branches.setdefault(value, (i + 1, body_end))
             i = body_end
             continue
         if stripped == "else":
             body_start = i + 1
             body_end = _find_block_end(lines, indents, i)
-            # Decompiler idiom seen throughout lua_scripts/: `elseif var==K`
-            # is frequently rendered as a bare `else` whose ENTIRE body is
-            # one nested `if var==K then ... end` (see
-            # e.g. snr_s2_10_s.lua:2815-2886's v50 dispatch). Semantically
-            # identical to a real elseif -- must be flattened into the same
-            # chain, or every value after the first one silently falls into
-            # a bogus catch-all "else" bucket shared with genuinely-untested
-            # values (a real bug this test suite caught this round, see
-            # tests/test_derive_select.py's s2s_190_sel_c case).
+            # Legacy decompiler idiom (no fixture in the 2026-08-31 base,
+            # pinned by a synthetic one in the tests): `elseif var==K` is
+            # rendered as a bare `else` whose ENTIRE body is one nested
+            # `if var==K then ... end`. Semantically identical to a real
+            # elseif -- must be flattened into the same chain, or every
+            # value after the first one silently falls into a bogus
+            # catch-all "else" bucket shared with genuinely-untested values.
             if body_start < body_end:
                 inner = lines[body_start].strip()
                 inner_m = re.match(
@@ -365,6 +601,20 @@ def find_var_dispatch(fname, call, max_search=600):
             i = body_end
             continue
         if stripped == "end":
+            # (d) sibling-`if` chains: `if v==1 then .. end` `if v==2 then
+            # .. end` -- one dispatch printed as separate statements. Only
+            # continue when the very next code line is another simple test
+            # on the same variable at the same indent, so an unrelated later
+            # `if v==K` cannot be absorbed into this chain.
+            nxt = _next_code_line(lines, indents, i + 1)
+            if (nxt is not None and indents[nxt] == indents[i]
+                    and simple_re.match(lines[nxt].strip())):
+                i = nxt
+                continue
+            if "else" not in branches:
+                fall = _fallthrough_region(lines, indents, i)
+                if fall is not None:
+                    branches["fallthrough"] = fall
             break
         # anything else at chain_indent breaks the simple chain assumption
         break
@@ -509,8 +759,13 @@ def resolve_file(fname):
                 body_start, body_end = branches[value]
                 lines = _get_file(fname)[0]
                 title, how, reason = derive_from_body(fname, lines[body_start:body_end])
-            elif "else" in branches:
-                body_start, body_end = branches["else"]
+            elif "else" in branches or "fallthrough" in branches:
+                # "fallthrough" is the 2026-08-31 base's spelling of "else":
+                # the chain has no else token, the untested values simply run
+                # whatever follows the construct (see _fallthrough_region).
+                # Same body, same shared/low-confidence tag as a real else.
+                key = "else" if "else" in branches else "fallthrough"
+                body_start, body_end = branches[key]
                 lines = _get_file(fname)[0]
                 title, how, reason = derive_from_body(fname, lines[body_start:body_end], shared_else=True)
                 if title:

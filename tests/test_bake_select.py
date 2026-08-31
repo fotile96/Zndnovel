@@ -111,11 +111,14 @@ def test_compute_coverage_layer_breakdown_matches_known_survey_numbers():
     42 条走推导层——这是本轮任务交办文档记载的既有事实，用测试钉住，
     避免未来数据文件改动时这个"134/134"结论在无人察觉的情况下漂移。"""
     covered, missing, evidence = compute_coverage()
-    assert evidence["src1_distinct_buttons"] == 92
+    # 93：sel_s1s_260_sel_a 本轮补进 select_buttons_zh.jsonl —— 它此前没有
+    # 人工校订行，烤图直接沿用了带片假名的「サクラ同学」，违反 v19 C1 罗马音化。
+    assert evidence["src1_distinct_buttons"] == 93
     assert evidence["src2_distinct_buttons"] == 69
     assert evidence["src1_src2_overlap"] == 69  # src2 ⊆ src1 today
-    assert evidence["remaining_after_src1_src2"] == 42
-    assert evidence["resolved_via_derived_layer"] == 42
+    # 41：sel_s1s_260_sel_a 本轮从派生层升格为 src1 人工校订行，故余量少 1
+    assert evidence["remaining_after_src1_src2"] == 41
+    assert evidence["resolved_via_derived_layer"] == 41
     assert missing == []
 
 
@@ -195,8 +198,13 @@ def test_build_render_plan_real_texts_zero_hard_failures_and_known_fallback_set(
     #   14 →  2  居中改为按**真实墨迹**（原先 anchor="mm" 按字体设计度量，把整段
     #            墨迹压低，134 条里一大批越的是"定位的界"而非"字的界"）
     #      →  2  默认字体改思源黑体 Medium；同一份级联下反而比霞鹜文楷更省
-    assert len(fb_buttons) == 2
-    assert not any(b.startswith("sel_s6s_110_") for b in fb_buttons)
+    # 8：见下方 real_fallbacks 处的说明（s6s_110 六项补点号后降一档字号）
+    assert len(fb_buttons) == 8
+    # 2026-09-01 起这六项**确实**降到 17px：补了半角点号后串长 24 字符，18px 下
+    # 超出 220px 文本框。原断言写的是「不该降级」，那是补点号之前的事实。
+    # 若日后判定必须保住 18px，得缩短文案（如去掉名字间空格）而不是放宽这里。
+    assert all(b.startswith(("sel_s6s_110_", "sel_s2s_260_", "sel_s4s_420_"))
+               for b in fb_buttons)
     for b, size, tried in fallbacks:
         assert size == FONT_SIZE_CASCADE[-1] == 17
         assert tried == [FONT_SIZE_CASCADE[0]]
@@ -285,7 +293,10 @@ def test_fallbacks_disabled_would_hide_the_downgrade():
         return plans, [], hard
 
     _plans2, fake_fallbacks, _hard2 = broken(texts, fonts_by_size)
-    assert len(real_fallbacks) == 2
+    # 2026-09-01：s6s_110 六项按用户裁定在字母与名字间补了半角点号
+    # （罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔），
+    # 串长了 6 个字符，于是这六项也从 18px 降到 17px —— 2 → 8 是预期的。
+    assert len(real_fallbacks) == 8
     assert fake_fallbacks == []
 
 
@@ -393,7 +404,10 @@ def test_real_run_report_is_clean(tmp_path, monkeypatch):
     assert report["overflow"] == []
     assert report["pixel_preservation_violations"] == []
     assert report["font_size_cascade"] == FONT_SIZE_CASCADE
-    assert len(report["fallbacks"]) == 2
+    # 2026-09-01：s6s_110 六项按用户裁定在字母与名字间补了半角点号
+    # （罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔），
+    # 串长了 6 个字符，于是这六项也从 18px 降到 17px —— 2 → 8 是预期的。
+    assert len(report["fallbacks"]) == 8
     assert len(report["button_font_sizes"]) == 134
     assert report["coverage_evidence"]["total_buttons"] == 134
 

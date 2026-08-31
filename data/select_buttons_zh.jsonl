@@ -1,92 +1,93 @@
-{"button":"sel_s1s_170_sel_a","jp":"学校にもどる","zh":"回学校","source":"本轮新译"}
-{"button":"sel_s1s_170_sel_b","jp":"家に帰る","zh":"回家","source":"既有语料"}
-{"button":"sel_s1s_260_sel_b","jp":"・・・・・・","zh":"……","source":"本轮新译"}
-{"button":"sel_s2s_120_sel_a","jp":"特にないなあ","zh":"没什么特别的","source":"本轮新译"}
-{"button":"sel_s2s_120_sel_d","jp":"両思いになる","zh":"想两情相悦","source":"本轮新译"}
-{"button":"sel_s2s_160_sel_a","jp":"好きと言い切る","zh":"明确说喜欢","source":"本轮新译"}
-{"button":"sel_s2s_160_sel_b","jp":"適当に言葉を濁す","zh":"含糊其辞","source":"本轮新译"}
-{"button":"sel_s2s_190_sel_c","jp":"ナゾトキに挑戦","zh":"挑战谜题","source":"本轮新译"}
-{"button":"sel_s2s_192a_sel_a","jp":"普通の家の中","zh":"普通的家中","source":"本轮新译"}
-{"button":"sel_s2s_192a_sel_b","jp":"人が殺されたあと","zh":"杀人后的现场","source":"本轮新译"}
-{"button":"sel_s2s_192a_sel_c","jp":"なにもない空間","zh":"空无一物的空间","source":"本轮新译"}
-{"button":"sel_s2s_192b_sel_a","jp":"両親に関係する","zh":"与父母有关","source":"本轮新译"}
-{"button":"sel_s2s_192b_sel_b","jp":"建物に関係する","zh":"与房子有关","source":"本轮新译"}
-{"button":"sel_s2s_192b_sel_c","jp":"女の子に関係する","zh":"与女孩有关","source":"本轮新译"}
-{"button":"sel_s2s_192b_sel_d","jp":"外の景色に関係する","zh":"与外面的景色有关","source":"本轮新译"}
-{"button":"sel_s2s_192b_sel_e","jp":"わからない","zh":"想不出来","source":"本轮新译"}
-{"button":"sel_s2s_192c_sel_a","jp":"モンスターがいた","zh":"里面有怪物","source":"本轮新译"}
-{"button":"sel_s2s_192c_sel_b","jp":"閉じ込められていた","zh":"女孩一直被关着","source":"本轮新译"}
-{"button":"sel_s2s_192c_sel_c","jp":"目が見えなかった","zh":"女孩看不见东西","source":"本轮新译"}
-{"button":"sel_s2s_193a_sel_a","jp":"紫外線放射で判明","zh":"用紫外线查出","source":"本轮新译"}
-{"button":"sel_s2s_193a_sel_b","jp":"虫眼鏡で判明","zh":"用放大镜查出","source":"本轮新译"}
-{"button":"sel_s2s_193a_sel_c","jp":"一目で判明","zh":"一眼就能看出","source":"本轮新译"}
-{"button":"sel_s2s_193a_sel_d","jp":"まったく問題なかった","zh":"完全没有问题","source":"本轮新译"}
-{"button":"sel_s2s_193b_sel_a","jp":"男の腕","zh":"男人的手艺","source":"本轮新译"}
-{"button":"sel_s2s_193b_sel_b","jp":"男の視力","zh":"男人的视力","source":"本轮新译"}
-{"button":"sel_s2s_193b_sel_c","jp":"専門家の目","zh":"专家的眼力","source":"本轮新译"}
-{"button":"sel_s2s_193b_sel_d","jp":"元の作品","zh":"原作","source":"本轮新译"}
-{"button":"sel_s2s_193c_sel_a","jp":"完成していなかった","zh":"赝品没有完成","source":"本轮新译"}
-{"button":"sel_s2s_193c_sel_b","jp":"元にした物がニセ物","zh":"原作本身是假货","source":"override:正文 v8 定 ニセモノ/ニセ物→假货（9597/9598/9609）、贋作→赝品（9593-9615，7/7）；骨架卡 41 tr_note 登记的图片轨待办"}
-{"button":"sel_s2s_193c_sel_c","jp":"男は贋作師ではない","zh":"男人不是做赝品的","source":"本轮新译"}
-{"button":"sel_s2s_220_sel_a","jp":"プール","zh":"游泳池","source":"既有语料"}
-{"button":"sel_s2s_220_sel_b","jp":"プラネタリウム","zh":"天象馆","source":"既有语料"}
-{"button":"sel_s2s_340_sel_a","jp":"絶対に効く","zh":"绝对灵验","source":"既有语料"}
-{"button":"sel_s2s_340_sel_b","jp":"たぶん……","zh":"多半吧……","source":"本轮新译"}
-{"button":"sel_s2s_80_sel_a","jp":"行く","zh":"去","source":"既有语料"}
-{"button":"sel_s3s_170_sel_c","jp":"とりあえず聞く","zh":"姑且问问","source":"本轮新译"}
-{"button":"sel_s3s_20_sel_a","jp":"教えて","zh":"告诉我","source":"既有语料"}
-{"button":"sel_s3s_20_sel_b","jp":"知らない","zh":"不知道","source":"本轮新译"}
-{"button":"sel_s3s_230_sel_a","jp":"教室","zh":"教室","source":"本轮新译"}
-{"button":"sel_s3s_230_sel_b","jp":"保健室","zh":"保健室","source":"本轮新译"}
-{"button":"sel_s3s_230_sel_c","jp":"図書室","zh":"图书室","source":"既有语料"}
-{"button":"sel_s3s_230_sel_d","jp":"校庭","zh":"操场","source":"本轮新译"}
-{"button":"sel_s3s_230_sel_e","jp":"屋上","zh":"天台","source":"既有语料"}
-{"button":"sel_s3s_230h_sel_a","jp":"ユカリ先生","zh":"Yukari老师","source":"既有语料；v19 C1 罗马音化"}
-{"button":"sel_s3s_230h_sel_b","jp":"保健室の先生","zh":"保健室老师","source":"本轮新译"}
-{"button":"sel_s3s_230h_sel_c","jp":"カタカナ先生","zh":"片假名老师","source":"本轮新译"}
-{"button":"sel_s3s_230l_sel_a","jp":"いない","zh":"没有这个人","source":"本轮新译"}
-{"button":"sel_s3s_230l_sel_b","jp":"いた","zh":"有这个人","source":"本轮新译"}
-{"button":"sel_s3s_300_sel_c","jp":"大声で呼ぶ","zh":"大声叫他","source":"本轮新译"}
-{"button":"sel_s3s_50_sel_a","jp":"教えて","zh":"告诉我","source":"既有语料"}
-{"button":"sel_s3s_50_sel_b","jp":"聞かない","zh":"不听","source":"既有语料"}
-{"button":"sel_s3s_641_sel_a","jp":"キス","zh":"接吻","source":"本轮新译"}
-{"button":"sel_s3s_641_sel_b","jp":"キスしない","zh":"不接吻","source":"本轮新译"}
-{"button":"sel_s3s_90_sel_b","jp":"興味ないなあ","zh":"没兴趣","source":"本轮新译"}
-{"button":"sel_s3s_90_sel_c","jp":"知らない","zh":"不知道","source":"本轮新译"}
-{"button":"sel_s4fb_30_sel_a","jp":"抱きしめる","zh":"紧紧抱住","source":"本轮新译"}
-{"button":"sel_s4fb_50_sel_a","jp":"唇をあわせる","zh":"轻轻吻上去","source":"本轮新译"}
-{"button":"sel_s4s_100_sel_a","jp":"受け入れる","zh":"接受","source":"既有语料"}
-{"button":"sel_s4s_100_sel_b","jp":"受け入れない","zh":"不接受","source":"本轮新译"}
-{"button":"sel_s4s_210_sel_a","jp":"教室","zh":"教室","source":"本轮新译"}
-{"button":"sel_s4s_210_sel_b","jp":"廊下","zh":"走廊","source":"本轮新译"}
-{"button":"sel_s4s_210_sel_c","jp":"屋上","zh":"天台","source":"既有语料"}
-{"button":"sel_s4s_210_sel_d","jp":"音楽室","zh":"音乐室","source":"本轮新译"}
-{"button":"sel_s4s_210_sel_e","jp":"美術室","zh":"美术室","source":"本轮新译"}
-{"button":"sel_s4s_210_sel_f","jp":"中庭","zh":"中庭","source":"既有语料"}
-{"button":"sel_s4s_210_sel_g","jp":"校庭","zh":"操场","source":"本轮新译"}
-{"button":"sel_s4s_290_sel_a","jp":"くだらない","zh":"真无聊","source":"本轮新译"}
-{"button":"sel_s4s_360_sel_a","jp":"机を調べる","zh":"检查课桌","source":"既有语料"}
-{"button":"sel_s4s_420_sel_a","jp":"ノートを調べる","zh":"翻看笔记本","source":"既有语料"}
-{"button":"sel_s4s_450_sel_a","jp":"教室","zh":"教室","source":"本轮新译"}
-{"button":"sel_s4s_450_sel_b","jp":"廊下","zh":"走廊","source":"本轮新译"}
-{"button":"sel_s4s_450_sel_c","jp":"屋上","zh":"天台","source":"既有语料"}
-{"button":"sel_s4s_450_sel_d","jp":"音楽室","zh":"音乐室","source":"本轮新译"}
-{"button":"sel_s4s_450_sel_e","jp":"美術室","zh":"美术室","source":"本轮新译"}
-{"button":"sel_s4s_450_sel_f","jp":"中庭","zh":"中庭","source":"既有语料"}
-{"button":"sel_s4s_450_sel_g","jp":"校庭","zh":"操场","source":"本轮新译"}
-{"button":"sel_s4s_450_sel_h","jp":"図書室","zh":"图书室","source":"既有语料"}
-{"button":"sel_s4s_490_sel_b","jp":"引き戻す","zh":"拉回来","source":"本轮新译"}
-{"button":"sel_s4s_490_sel_c","jp":"元の姿に戻す","zh":"恢复原样","source":"本轮新译"}
-{"button":"sel_s4s_670_sel_a","jp":"サクラを待つ","zh":"等Sakura","source":"既有语料；v19 C1 罗马音化"}
-{"button":"sel_s4s_670_sel_b","jp":"家に帰る","zh":"回家","source":"既有语料"}
-{"button":"sel_s5s_190_sel_a","jp":"中庭に行く","zh":"去中庭","source":"本轮新译"}
-{"button":"sel_s5s_190_sel_b","jp":"家に帰る","zh":"回家","source":"既有语料"}
-{"button":"sel_s5s_350_sel_a","jp":"無理はしない","zh":"不硬撑","source":"本轮新译"}
-{"button":"sel_s5s_80_sel_b","jp":"人が落ちてくる","zh":"有人坠落","source":"既有语料"}
-{"button":"sel_s5s_80_sel_c","jp":"雪が降る","zh":"下雪","source":"本轮新译"}
-{"button":"sel_s6s_110_sel_a","jp":"Aサクラ Bアヤノ Cユウイチ","zh":"ASakura BAyano CYuichi","source":"本轮新译；v19 C1 罗马音化"}
-{"button":"sel_s6s_110_sel_b","jp":"Aサクラ Bユウイチ Cアヤノ","zh":"ASakura BYuichi CAyano","source":"本轮新译；v19 C1 罗马音化"}
-{"button":"sel_s6s_110_sel_c","jp":"Aユウイチ Bアヤノ Cサクラ","zh":"AYuichi BAyano CSakura","source":"本轮新译；v19 C1 罗马音化"}
-{"button":"sel_s6s_110_sel_d","jp":"Aユウイチ Bサクラ Cアヤノ","zh":"AYuichi BSakura CAyano","source":"本轮新译；v19 C1 罗马音化"}
-{"button":"sel_s6s_110_sel_e","jp":"Aアヤノ Bサクラ Cユウイチ","zh":"AAyano BSakura CYuichi","source":"本轮新译；v19 C1 罗马音化"}
-{"button":"sel_s6s_110_sel_f","jp":"Aアヤノ Bユウイチ Cサクラ","zh":"AAyano BYuichi CSakura","source":"本轮新译；v19 C1 罗马音化"}
+{"button": "sel_s1s_170_sel_a", "jp": "学校にもどる", "zh": "回学校", "source": "本轮新译"}
+{"button": "sel_s1s_170_sel_b", "jp": "家に帰る", "zh": "回家", "source": "既有语料"}
+{"button": "sel_s1s_260_sel_a", "jp": "サクラさん", "zh": "Sakura同学", "source": "本轮修订；v19 C1 罗马音化（原烤图残留片假名『サクラ同学』）"}
+{"button": "sel_s1s_260_sel_b", "jp": "・・・・・・", "zh": "……", "source": "本轮新译"}
+{"button": "sel_s2s_120_sel_a", "jp": "特にないなあ", "zh": "没什么特别的", "source": "本轮新译"}
+{"button": "sel_s2s_120_sel_d", "jp": "両思いになる", "zh": "想两情相悦", "source": "本轮新译"}
+{"button": "sel_s2s_160_sel_a", "jp": "好きと言い切る", "zh": "明确说喜欢", "source": "本轮新译"}
+{"button": "sel_s2s_160_sel_b", "jp": "適当に言葉を濁す", "zh": "含糊其辞", "source": "本轮新译"}
+{"button": "sel_s2s_190_sel_c", "jp": "ナゾトキに挑戦", "zh": "挑战谜题", "source": "本轮新译"}
+{"button": "sel_s2s_192a_sel_a", "jp": "普通の家の中", "zh": "普通的家中", "source": "本轮新译"}
+{"button": "sel_s2s_192a_sel_b", "jp": "人が殺されたあと", "zh": "杀人后的现场", "source": "本轮新译"}
+{"button": "sel_s2s_192a_sel_c", "jp": "なにもない空間", "zh": "空无一物的空间", "source": "本轮新译"}
+{"button": "sel_s2s_192b_sel_a", "jp": "両親に関係する", "zh": "与父母有关", "source": "本轮新译"}
+{"button": "sel_s2s_192b_sel_b", "jp": "建物に関係する", "zh": "与房子有关", "source": "本轮新译"}
+{"button": "sel_s2s_192b_sel_c", "jp": "女の子に関係する", "zh": "与女孩有关", "source": "本轮新译"}
+{"button": "sel_s2s_192b_sel_d", "jp": "外の景色に関係する", "zh": "与外面的景色有关", "source": "本轮新译"}
+{"button": "sel_s2s_192b_sel_e", "jp": "わからない", "zh": "想不出来", "source": "本轮新译"}
+{"button": "sel_s2s_192c_sel_a", "jp": "モンスターがいた", "zh": "里面有怪物", "source": "本轮新译"}
+{"button": "sel_s2s_192c_sel_b", "jp": "閉じ込められていた", "zh": "女孩一直被关着", "source": "本轮新译"}
+{"button": "sel_s2s_192c_sel_c", "jp": "目が見えなかった", "zh": "女孩看不见东西", "source": "本轮新译"}
+{"button": "sel_s2s_193a_sel_a", "jp": "紫外線放射で判明", "zh": "用紫外线查出", "source": "本轮新译"}
+{"button": "sel_s2s_193a_sel_b", "jp": "虫眼鏡で判明", "zh": "用放大镜查出", "source": "本轮新译"}
+{"button": "sel_s2s_193a_sel_c", "jp": "一目で判明", "zh": "一眼就能看出", "source": "本轮新译"}
+{"button": "sel_s2s_193a_sel_d", "jp": "まったく問題なかった", "zh": "完全没有问题", "source": "本轮新译"}
+{"button": "sel_s2s_193b_sel_a", "jp": "男の腕", "zh": "男人的手艺", "source": "本轮新译"}
+{"button": "sel_s2s_193b_sel_b", "jp": "男の視力", "zh": "男人的视力", "source": "本轮新译"}
+{"button": "sel_s2s_193b_sel_c", "jp": "専門家の目", "zh": "专家的眼力", "source": "本轮新译"}
+{"button": "sel_s2s_193b_sel_d", "jp": "元の作品", "zh": "原作", "source": "本轮新译"}
+{"button": "sel_s2s_193c_sel_a", "jp": "完成していなかった", "zh": "赝品没有完成", "source": "本轮新译"}
+{"button": "sel_s2s_193c_sel_b", "jp": "元にした物がニセ物", "zh": "原作本身是假货", "source": "override:正文 v8 定 ニセモノ/ニセ物→假货（9597/9598/9609）、贋作→赝品（9593-9615，7/7）；骨架卡 41 tr_note 登记的图片轨待办"}
+{"button": "sel_s2s_193c_sel_c", "jp": "男は贋作師ではない", "zh": "男人不是做赝品的", "source": "本轮新译"}
+{"button": "sel_s2s_220_sel_a", "jp": "プール", "zh": "游泳池", "source": "既有语料"}
+{"button": "sel_s2s_220_sel_b", "jp": "プラネタリウム", "zh": "天象馆", "source": "既有语料"}
+{"button": "sel_s2s_340_sel_a", "jp": "絶対に効く", "zh": "绝对灵验", "source": "既有语料"}
+{"button": "sel_s2s_340_sel_b", "jp": "たぶん……", "zh": "多半吧……", "source": "本轮新译"}
+{"button": "sel_s2s_80_sel_a", "jp": "行く", "zh": "去", "source": "既有语料"}
+{"button": "sel_s3s_170_sel_c", "jp": "とりあえず聞く", "zh": "姑且问问", "source": "本轮新译"}
+{"button": "sel_s3s_20_sel_a", "jp": "教えて", "zh": "告诉我", "source": "既有语料"}
+{"button": "sel_s3s_20_sel_b", "jp": "知らない", "zh": "不知道", "source": "本轮新译"}
+{"button": "sel_s3s_230_sel_a", "jp": "教室", "zh": "教室", "source": "本轮新译"}
+{"button": "sel_s3s_230_sel_b", "jp": "保健室", "zh": "保健室", "source": "本轮新译"}
+{"button": "sel_s3s_230_sel_c", "jp": "図書室", "zh": "图书室", "source": "既有语料"}
+{"button": "sel_s3s_230_sel_d", "jp": "校庭", "zh": "操场", "source": "本轮新译"}
+{"button": "sel_s3s_230_sel_e", "jp": "屋上", "zh": "天台", "source": "既有语料"}
+{"button": "sel_s3s_230h_sel_a", "jp": "ユカリ先生", "zh": "Yukari老师", "source": "既有语料；v19 C1 罗马音化"}
+{"button": "sel_s3s_230h_sel_b", "jp": "保健室の先生", "zh": "保健室老师", "source": "本轮新译"}
+{"button": "sel_s3s_230h_sel_c", "jp": "カタカナ先生", "zh": "片假名老师", "source": "本轮新译"}
+{"button": "sel_s3s_230l_sel_a", "jp": "いない", "zh": "没有这个人", "source": "本轮新译"}
+{"button": "sel_s3s_230l_sel_b", "jp": "いた", "zh": "有这个人", "source": "本轮新译"}
+{"button": "sel_s3s_300_sel_c", "jp": "大声で呼ぶ", "zh": "大声叫他", "source": "本轮新译"}
+{"button": "sel_s3s_50_sel_a", "jp": "教えて", "zh": "告诉我", "source": "既有语料"}
+{"button": "sel_s3s_50_sel_b", "jp": "聞かない", "zh": "不听", "source": "既有语料"}
+{"button": "sel_s3s_641_sel_a", "jp": "キス", "zh": "接吻", "source": "本轮新译"}
+{"button": "sel_s3s_641_sel_b", "jp": "キスしない", "zh": "不接吻", "source": "本轮新译"}
+{"button": "sel_s3s_90_sel_b", "jp": "興味ないなあ", "zh": "没兴趣", "source": "本轮新译"}
+{"button": "sel_s3s_90_sel_c", "jp": "知らない", "zh": "不知道", "source": "本轮新译"}
+{"button": "sel_s4fb_30_sel_a", "jp": "抱きしめる", "zh": "紧紧抱住", "source": "本轮新译"}
+{"button": "sel_s4fb_50_sel_a", "jp": "唇をあわせる", "zh": "轻轻吻上去", "source": "本轮新译"}
+{"button": "sel_s4s_100_sel_a", "jp": "受け入れる", "zh": "接受", "source": "既有语料"}
+{"button": "sel_s4s_100_sel_b", "jp": "受け入れない", "zh": "不接受", "source": "本轮新译"}
+{"button": "sel_s4s_210_sel_a", "jp": "教室", "zh": "教室", "source": "本轮新译"}
+{"button": "sel_s4s_210_sel_b", "jp": "廊下", "zh": "走廊", "source": "本轮新译"}
+{"button": "sel_s4s_210_sel_c", "jp": "屋上", "zh": "天台", "source": "既有语料"}
+{"button": "sel_s4s_210_sel_d", "jp": "音楽室", "zh": "音乐室", "source": "本轮新译"}
+{"button": "sel_s4s_210_sel_e", "jp": "美術室", "zh": "美术室", "source": "本轮新译"}
+{"button": "sel_s4s_210_sel_f", "jp": "中庭", "zh": "中庭", "source": "既有语料"}
+{"button": "sel_s4s_210_sel_g", "jp": "校庭", "zh": "操场", "source": "本轮新译"}
+{"button": "sel_s4s_290_sel_a", "jp": "くだらない", "zh": "真无聊", "source": "本轮新译"}
+{"button": "sel_s4s_360_sel_a", "jp": "机を調べる", "zh": "检查课桌", "source": "既有语料"}
+{"button": "sel_s4s_420_sel_a", "jp": "ノートを調べる", "zh": "翻看笔记本", "source": "既有语料"}
+{"button": "sel_s4s_450_sel_a", "jp": "教室", "zh": "教室", "source": "本轮新译"}
+{"button": "sel_s4s_450_sel_b", "jp": "廊下", "zh": "走廊", "source": "本轮新译"}
+{"button": "sel_s4s_450_sel_c", "jp": "屋上", "zh": "天台", "source": "既有语料"}
+{"button": "sel_s4s_450_sel_d", "jp": "音楽室", "zh": "音乐室", "source": "本轮新译"}
+{"button": "sel_s4s_450_sel_e", "jp": "美術室", "zh": "美术室", "source": "本轮新译"}
+{"button": "sel_s4s_450_sel_f", "jp": "中庭", "zh": "中庭", "source": "既有语料"}
+{"button": "sel_s4s_450_sel_g", "jp": "校庭", "zh": "操场", "source": "本轮新译"}
+{"button": "sel_s4s_450_sel_h", "jp": "図書室", "zh": "图书室", "source": "既有语料"}
+{"button": "sel_s4s_490_sel_b", "jp": "引き戻す", "zh": "拉回来", "source": "本轮新译"}
+{"button": "sel_s4s_490_sel_c", "jp": "元の姿に戻す", "zh": "恢复原样", "source": "本轮新译"}
+{"button": "sel_s4s_670_sel_a", "jp": "サクラを待つ", "zh": "等Sakura", "source": "既有语料；v19 C1 罗马音化"}
+{"button": "sel_s4s_670_sel_b", "jp": "家に帰る", "zh": "回家", "source": "既有语料"}
+{"button": "sel_s5s_190_sel_a", "jp": "中庭に行く", "zh": "去中庭", "source": "本轮新译"}
+{"button": "sel_s5s_190_sel_b", "jp": "家に帰る", "zh": "回家", "source": "既有语料"}
+{"button": "sel_s5s_350_sel_a", "jp": "無理はしない", "zh": "不硬撑", "source": "本轮新译"}
+{"button": "sel_s5s_80_sel_b", "jp": "人が落ちてくる", "zh": "有人坠落", "source": "既有语料"}
+{"button": "sel_s5s_80_sel_c", "jp": "雪が降る", "zh": "下雪", "source": "本轮新译"}
+{"button": "sel_s6s_110_sel_a", "jp": "Aサクラ Bアヤノ Cユウイチ", "zh": "A.Sakura B.Ayano C.Yuichi", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 ASakura BAyano CYuichi 连读歧义）"}
+{"button": "sel_s6s_110_sel_b", "jp": "Aサクラ Bユウイチ Cアヤノ", "zh": "A.Sakura B.Yuichi C.Ayano", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 ASakura BYuichi CAyano 连读歧义）"}
+{"button": "sel_s6s_110_sel_c", "jp": "Aユウイチ Bアヤノ Cサクラ", "zh": "A.Yuichi B.Ayano C.Sakura", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 AYuichi BAyano CSakura 连读歧义）"}
+{"button": "sel_s6s_110_sel_d", "jp": "Aユウイチ Bサクラ Cアヤノ", "zh": "A.Yuichi B.Sakura C.Ayano", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 AYuichi BSakura CAyano 连读歧义）"}
+{"button": "sel_s6s_110_sel_e", "jp": "Aアヤノ Bサクラ Cユウイチ", "zh": "A.Ayano B.Sakura C.Yuichi", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 AAyano BSakura CYuichi 连读歧义）"}
+{"button": "sel_s6s_110_sel_f", "jp": "Aアヤノ Bユウイチ Cサクラ", "zh": "A.Ayano B.Yuichi C.Sakura", "source": "本轮新译；v19 C1 罗马音化；补半角点号分隔字母与名字（原 AAyano BYuichi CSakura 连读歧义）"}

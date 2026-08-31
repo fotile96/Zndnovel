@@ -24,6 +24,10 @@ REPO = Path(__file__).resolve().parent.parent
 OUT_SRC = REPO / "build" / "testboot"
 INJECT = REPO / "build" / "inject" / "script"
 LUAC = REPO.parent / "pyluadec-refactor" / "build" / "luac_sz4"
+#: 引导交接语句：snr_common.main() 末尾把控制权交给主菜单的那一行。
+BOOT_HANDOFF = 'run(cGetFileName("script", "snr_mainmenu"))'
+#: 选择肢串联时铺的底（教室，明暗中性，便于看清 on/off 两态按钮）
+CHOICE_BG = "bg_1_a_0"
 
 # 探针样本：(标签, 文本)。文本走 msg() 正文管线，故 ruby/控制码按引擎语义解释。
 FONT_PAGES = [
@@ -112,8 +116,7 @@ main = function()
 end
 '''
 
-CUTIN_PAGE = '''    layerLoad(layerName.bg1, {bg1})
-    layerLoad(layerName.event, {ev})
+CUTIN_PAGE = '''    layerLoad(layerName.event, {ev})
     layerLoad(layerName.pose1, cGetFileName("cutin", "{name}"))
     layerPosition(layerName.pose1, {x}, {y})
     layerRotate(layerName.pose1, {r}, {r}, {r})
@@ -123,6 +126,71 @@ CUTIN_PAGE = '''    layerLoad(layerName.bg1, {bg1})
     wait({hold})
     fontClear()
     layerLoad(layerName.pose1, "")
+'''
+
+MAINMENU_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：全解锁真主菜单（人工上手用）
+-- 把决定菜单形态的进度全部拉满后交给**真正的** snr_mainmenu，
+-- 于是四种形态里最全的那种、以及文库/回想/音乐/画廊/セクション7 全部可见可进。
+main = function()
+    local i0
+    cardIDFlag = true
+    for i0 = 1, 195 do
+        gameSave.myCard[i0].hold = 1
+    end
+    gameSave.startMenuState = 2
+    gameSave.tutorial.firstStory = 1
+    gameSave.tutorial.firstFragmentBegin = 1
+    gameSave.tutorial.firstFragment = 1
+    gameSave.ayanoTime = 0
+    cInitStoryRoute()
+    -- 记忆路线预置：Story/Fragment 两个模式的时间轴要有内容，
+    -- 否则进去是空的，看不到缩略图与场景名条。场景 ID 取自 data/dag.json。
+    local route = {{{route}}}
+    for i0 = 1, #route do
+        gameSave.storyRoute[i0].sceneId = route[i0]
+        gameSave.storyRoute[i0].ayanoTime = i0 * 3
+    end
+    systemSave.storyLineSkip = true
+    systemSave.messageReadColor = true
+    run(cGetFileName("script", "snr_mainmenu"))
+    quit()
+end
+'''
+
+CHOICES_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：全部选择肢按钮串联过目
+-- 逐个复现 lua 里的 comDlgSelectItem 调用（参数逐字照搬），**丢弃返回值**——
+-- 选什么都不影响，按完就出下一组。这样一遍就能看完全部 {n} 组按钮的中文烤图。
+main = function()
+    local ret
+    advPart(false)
+{pages}
+    quit()
+end
+'''
+
+CHOICES_PAGE = '''    layerLoad(layerName.event, cGetFileName("bg", "{bg}"))
+    layerLoad(layerName.pose1, "")
+    switchScreen(0, "", 0)
+    fontClear()
+    cfontPrint(0, 6, 4, 16777215, 255, "{tag}")
+    ret = comDlgSelectItem({args})
+    fontClear()
+'''
+
+MAP_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：探索地图选点界面串联
+-- comSelectMap 的调用同样逐字照搬、丢弃返回值。全库共 {n} 处，地点集合各不相同。
+main = function()
+    local ret
+    advPart(false)
+{pages}
+    quit()
+end
+'''
+
+MAP_PAGE = '''    fontClear()
+    cfontPrint(0, 6, 4, 16777215, 255, "{tag}")
+    ret = comSelectMap({args})
+    fontClear()
 '''
 
 CARD_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：直入卡片谜题 crd_{card}
@@ -262,6 +330,32 @@ def scan_cutins() -> list[tuple]:
     return [seen[k] for k in sorted(seen)]
 
 
+# 选择肢与地图：逐字照搬调用参数（实测 79 处 comDlgSelectItem 全是字面量参数）。
+DLG_CALL = re.compile(r'comDlgSelectItem\((.*)\)\s*$')
+MAP_CALL = re.compile(r'comSelectMap\((.*)\)\s*$')
+TRLINE = re.compile(r"\s*--\s*tr_line:\d+\s*$")
+
+
+def scan_calls(pat: re.Pattern) -> list[tuple[str, str]]:
+    """扫全部 lua，返回 [(来源标签, 参数原文)]，按文件名+行号排序。"""
+    out = []
+    for f in sorted((REPO / "lua_scripts").glob("*.lua")):
+        for i, raw in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            m = pat.search(TRLINE.sub("", raw).strip())
+            if m:
+                out.append((f"{f.stem[4:]}:{i}", m.group(1)))
+    return out
+
+
+def story_route(n: int = 16) -> str:
+    """取前 n 个 s1/s2 章故事场景 ID，给主菜单模式当预置记忆路线。"""
+    import json
+    dag = json.loads((REPO / "data" / "dag.json").read_text(encoding="utf-8"))
+    ids = [k for k in dag["scene_meta"] if k.startswith(("s1s_", "s2s_"))]
+    ids.sort(key=lambda k: (k[:3], int(re.sub(r"\D", "", k[4:]) or 0)))
+    return ", ".join(f'"{k}"' for k in ids[:n])
+
+
 def scene_to_script(scene: str) -> str:
     """场景 ID → 章节脚本名（comSectionUID2ScriptFileName 的规则）。"""
     chap, mode = scene[:2], scene[2]
@@ -274,8 +368,8 @@ def scene_to_script(scene: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("font", "scene", "ruby", "card", "cutin"),
-                    default="font")
+    ap.add_argument("--mode", default="font", choices=(
+        "font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map"))
     ap.add_argument("--card", type=int, help="card 模式的卡号（答案自 data/dag.json 取）")
     ap.add_argument("--scene", default="s1s_20", help="scene 模式的目标场景 ID")
     ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
@@ -284,18 +378,35 @@ def main() -> None:
                     help="保留 IPL 开场演出（默认剥掉，省约 28 秒/轮）")
     args = ap.parse_args()
 
-    if args.mode == "cutin":
+    if args.mode == "mainmenu":
+        src = MAINMENU_TEMPLATE.format(route=story_route())
+        print("[testboot] 全解锁主菜单（195 卡 + startMenuState=2 + 预置记忆路线）")
+    elif args.mode == "choices":
+        calls = scan_calls(DLG_CALL)
+        pages = "".join(CHOICES_PAGE.format(tag=t, args=a, bg=CHOICE_BG)
+                        for t, a in calls)
+        src = CHOICES_TEMPLATE.format(pages=pages, n=len(calls))
+        print(f"[testboot] 串起 {len(calls)} 组选择肢按钮")
+    elif args.mode == "map":
+        calls = scan_calls(MAP_CALL)
+        pages = "".join(MAP_PAGE.format(tag=t, args=a) for t, a in calls)
+        src = MAP_TEMPLATE.format(pages=pages, n=len(calls))
+        print(f"[testboot] 串起 {len(calls)} 处探索地图")
+    elif args.mode == "cutin":
         cuts = scan_cutins()
         def _bg_args(bg):
             if not bg:
-                return '""', '""'
+                return '""'
             kind, nm = bg
             call = f'cGetFileName("{kind}", "{nm}")'
-            return (call, '""') if kind == "bg" else ('""', call)
+            # ⚠ 一律走 event 层：实测 layerLoad(layerName.bg1, 路径) **不显示**
+            # （bg1 在引擎里是 layerCopy 的目标层，不吃直接的文件加载），
+            # 两个探针里凡走 bg1 的底都渲成黑屏。
+            return call
 
         pages = "".join(
             CUTIN_PAGE.format(name=n, x=x, y=y, r=r, hold=args.hold,
-                              bg1=_bg_args(bg)[0], ev=_bg_args(bg)[1])
+                              ev=_bg_args(bg))
             for n, x, y, r, bg in cuts)
         src = CUTIN_TEMPLATE.format(pages=pages)
         n_cg = sum(1 for c in cuts if c[4])
@@ -334,7 +445,10 @@ def main() -> None:
             sys.exit(f"luac 失败 {name}: {proc.stderr}")
         print(f"[testboot] {name} -> {dst}")
 
-    emit("snr_mainmenu.lua", src)
+    # 测试脚本作为**新成员** script/snr_test.lua 注入，并把 snr_common 引导末尾的
+    # `run(snr_mainmenu)` 改指它。早先的做法是直接顶替 snr_mainmenu 成员，那样就
+    # 没法再跑真菜单了——而主菜单本身正是要测的对象之一。
+    emit("snr_test.lua", src)
 
     if args.mode == "card":
         patched, n = short_circuit_card(args.card)
@@ -350,15 +464,21 @@ def main() -> None:
     if not common.exists():
         sys.exit(f"缺 {common}（先跑 tools/inject_lua.py）")
     text = common.read_text(encoding="utf-8")
-    if args.no_fast_boot:
-        emit("snr_common.lua", text)
-        print("[testboot] 保留 IPL 开场（如需看开场几屏 logo 就用这个）")
-    else:
+    if not args.no_fast_boot:
         text, ok = strip_ipl(text)
         if not ok:
             sys.exit("未能定位 IPL 开场块——snr_common 结构变了，检查 IPL_BLOCK_* 锚点")
-        emit("snr_common.lua", text)
         print("[testboot] 已剥离 IPL 开场（约省 28 秒/轮）")
+    else:
+        print("[testboot] 保留 IPL 开场")
+    # 引导末尾改指测试脚本。全文有 8 处 run(snr_mainmenu)，只有 main() 里那一处
+    # （最后一处）是引导交接，其余是暂停菜单的返回；只能换那一处，否则从暂停菜单
+    # 回主菜单也会掉进测试脚本。
+    if text.count(BOOT_HANDOFF) < 1:
+        sys.exit("未找到引导交接语句，snr_common 结构变了")
+    head, sep, tail = text.rpartition(BOOT_HANDOFF)
+    text = head + BOOT_HANDOFF.replace("snr_mainmenu", "snr_test") + tail
+    emit("snr_common.lua", text)
 
     print(f"[testboot] 模式 {args.mode}"
           + (f" scene={args.scene}" if args.mode == "scene" else ""))

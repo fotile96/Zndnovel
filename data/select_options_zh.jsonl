@@ -1,61 +1,61 @@
-{"jp":"学校にもどる","zh":"回学校","buttons":["sel_s1s_170_sel_a"],"source":"opus","note":"与已有 sel_s1s_170_sel_b『回家』成对；沿用卡名『選択：学校に戻る→选择：回学校』的用词。"}
-{"jp":"・・・・・・","zh":"……","buttons":["sel_s1s_260_sel_b"],"source":"opus","note":"原文六个中点＝沉默不答，转为中文省略号两组（六点）。"}
-{"jp":"特にないなあ","zh":"没什么特别的","buttons":["sel_s2s_120_sel_a"],"source":"opus","note":"答サクラ『今かなえたい願い事、ない？』，与同组『两情相悦』等愿望选项并列。"}
-{"jp":"両思いになる","zh":"想两情相悦","buttons":["sel_s2s_120_sel_d"],"source":"ds-flash","note":"術語『両思い→两情相悦』；原文是动词『変成』，中文补『想要』使其成为一句许愿，不然四字名词不像选项。"}
-{"jp":"好きと言い切る","zh":"明确说喜欢","buttons":["sel_s2s_160_sel_a"],"source":"opus","note":"『言い切る』＝把话说死，与 b『含糊带过』成对。"}
-{"jp":"適当に言葉を濁す","zh":"含糊其辞","buttons":["sel_s2s_160_sel_b"],"source":"ds-flash","note":"『適当に』（敷衍）＋『言葉を濁す』（含糊）合译，与 a『明确说喜欢』成对。"}
-{"jp":"ナゾトキに挑戦","zh":"挑战谜题","buttons":["sel_s2s_190_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":"術語『ナゾトキ→谜题』；此项才是真正做题，另两项是持卡后的跳过捷径。"}
-{"jp":"モンスターがいた","zh":"里面有怪物","buttons":["sel_s2s_192c_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题一「阁楼里到底有什么」的错误答案；原文无主语，中文补『里面』指阁楼。"}
-{"jp":"目が見えなかった","zh":"女孩看不见东西","buttons":["sel_s2s_192c_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案；与同组『女孩一直被关着』统一以『女孩』起头。"}
-{"jp":"完成していなかった","zh":"赝品没有完成","buttons":["sel_s2s_193c_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题二错误答案；原文省略主语，中文补『赝品』。"}
-{"jp":"男は贋作師ではない","zh":"男人不是做赝品的","buttons":["sel_s2s_193c_sel_c"],"source":"override:正文 9608 用动词短语「靠制作赝品维持生计」，无「赝作师」一词","note":"错误答案。『贋作師』暂定译『赝作师』——建议谜面正文里的『贋作』一并固定为『赝作/赝品』，两处需一致。"}
-{"jp":"たぶん……","zh":"多半吧……","buttons":["sel_s2s_340_sel_b"],"source":"opus","note":"与已有 sel_s2s_340_sel_a『绝对灵验』成对；原文只有『たぶん……』的欲言又止，不补『灵验』二字以保留语气。"}
-{"jp":"とりあえず聞く","zh":"姑且问问","buttons":["sel_s3s_170_sel_c"],"source":"ds-flash","note":"沿用已冻结卡名『とりあえず聞いてみる→姑且问问看』；同组另两项为『随口打听』『认真打听』。"}
-{"jp":"知らない","zh":"不知道","buttons":["sel_s3s_20_sel_b","sel_s3s_90_sel_c"],"source":"opus","note":"与已有 sel_s3s_20_sel_a『告诉我』成对；同一张图复用于 s3s_90（『那个传闻你知道吗』）。"}
-{"jp":"大声で呼ぶ","zh":"大声叫他","buttons":["sel_s3s_300_sel_c"],"source":"opus","note":"剧情实为『アヤノは大声でユウイチの名前を呼んだ』＝喊他名字；与同组『跟上去』『不管他』三字对仗。"}
-{"jp":"キス","zh":"接吻","buttons":["sel_s3s_641_sel_a"],"source":"opus","note":"沿用卡名『ユウイチとキス→与ユウイチ接吻』。"}
-{"jp":"キスしない","zh":"不接吻","buttons":["sel_s3s_641_sel_b"],"source":"opus","note":"沿用卡名『ユウイチとキスしない→不与ユウイチ接吻』。"}
-{"jp":"興味ないなあ","zh":"没兴趣","buttons":["sel_s3s_90_sel_b"],"source":"ds-flash","note":"与卡名『ウワサに興味がない→对传闻没兴趣』同族，按钮取口语化短形。"}
-{"jp":"受け入れない","zh":"不接受","buttons":["sel_s4s_100_sel_b"],"source":"opus","note":"与已有 sel_s4s_100_sel_a『接受』成对。"}
-{"jp":"くだらない","zh":"真无聊","buttons":["sel_s4s_290_sel_a"],"source":"opus","note":"沿用卡名『下らない、と思った→觉得真无聊』；对项为『试着相信也无妨』。"}
-{"jp":"引き戻す","zh":"拉回来","buttons":["sel_s4s_490_sel_b"],"source":"opus","note":"选择框为『選択：アヤノを――』，此项接『把她拉回来』；正文有『アヤノの身体を引き戻す』。"}
-{"jp":"元の姿に戻す","zh":"恢复原样","buttons":["sel_s4s_490_sel_c"],"source":"ds-flash","note":"同上句式；此项即 CLAUDE.md 所记『彩野を元の姿に戻す』（需卡 141，跳 s8）。"}
-{"jp":"無理はしない","zh":"不硬撑","buttons":["sel_s5s_350_sel_a"],"source":"ds-flash","note":"场景『耐えられそうにない発作』下按呼叫铃的一项；对项为『撑一撑试试』（未在本批）。"}
-{"jp":"普通の家の中","zh":"普通的家中","buttons":["sel_s2s_192a_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题一正解：女孩看到的只是寻常屋内。"}
-{"jp":"人が殺されたあと","zh":"杀人后的现场","buttons":["sel_s2s_192a_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案；『人が殺されたあと』直译为『有人被杀之后』过长，取『杀人后的现场』。"}
-{"jp":"なにもない空間","zh":"空无一物的空间","buttons":["sel_s2s_192a_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案。"}
-{"jp":"両親に関係する","zh":"与父母有关","buttons":["sel_s2s_192b_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题一第二问正解（原因在父母）；本组五项统一『与…有关』句式。"}
-{"jp":"建物に関係する","zh":"与房子有关","buttons":["sel_s2s_192b_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":"『建物』＝建筑物，此处语境是那栋房子，取『房子』更口语。"}
-{"jp":"女の子に関係する","zh":"与女孩有关","buttons":["sel_s2s_192b_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":""}
-{"jp":"外の景色に関係する","zh":"与外面的景色有关","buttons":["sel_s2s_192b_sel_d"],"source":"opus（用户裁定：谜题族取 opus）","note":"本组最长的一条，8 字，仍在 12 字上限内。"}
-{"jp":"わからない","zh":"想不出来","buttons":["sel_s2s_192b_sel_e"],"source":"opus（用户裁定：谜题族取 opus）","note":"『わからない』＝解不出来；刻意与第 14 条『知らない→不知道』区分开，避免两条不同原文撞同一译文。"}
-{"jp":"閉じ込められていた","zh":"女孩一直被关着","buttons":["sel_s2s_192c_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题一第三问正解：女孩一直被关在阁楼生活，所以『普通的屋内』才震撼。"}
-{"jp":"紫外線放射で判明","zh":"用紫外线查出","buttons":["sel_s2s_193a_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案。原文『紫外線放射』的『放射（照射）』被压缩掉，以与同组另三项保持六字对仗。"}
-{"jp":"虫眼鏡で判明","zh":"用放大镜查出","buttons":["sel_s2s_193a_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案。"}
-{"jp":"一目で判明","zh":"一眼就能看出","buttons":["sel_s2s_193a_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":"错误答案。"}
-{"jp":"まったく問題なかった","zh":"完全没有问题","buttons":["sel_s2s_193a_sel_d"],"source":"opus（用户裁定：谜题族取 opus）","note":"谜题二第一问正解：赝品本身做得毫无破绽。"}
-{"jp":"男の腕","zh":"男人的手艺","buttons":["sel_s2s_193b_sel_a"],"source":"opus（用户裁定：谜题族取 opus）","note":"『腕』此处＝技艺，非肢体（glossary 的『腕→手/手臂』是复现句族用法，不适用于此）。"}
-{"jp":"男の視力","zh":"男人的视力","buttons":["sel_s2s_193b_sel_b"],"source":"opus（用户裁定：谜题族取 opus）","note":""}
-{"jp":"専門家の目","zh":"专家的眼力","buttons":["sel_s2s_193b_sel_c"],"source":"opus（用户裁定：谜题族取 opus）","note":""}
-{"jp":"元の作品","zh":"原作","buttons":["sel_s2s_193b_sel_d"],"source":"override:正文 9615「原因在于原作」","note":"谜题二第二问正解（原因在原作）；与第 41 条『原本的作品是赝品』用词打通。"}
-{"jp":"元にした物がニセ物","zh":"原作本身是假货","buttons":["sel_s2s_193c_sel_b"],"source":"override:统一用「原作」「假货」——正文 v8 定 ニセモノ/ニセ物→假货，贋作→赝品","note":"谜题二终答：他照着仿的那件『原作』本身就是假货。与同屏的『赝品没有完成』『男人不是做赝品的』（jp 侧是 贋作）分用两词，是正文轨的既定分工，不是不一致。"}
-{"jp":"教室","zh":"教室","buttons":["sel_s3s_230_sel_a","sel_s4s_210_sel_a","sel_s4s_450_sel_a"],"source":"opus","note":"地图探索点。"}
-{"jp":"保健室","zh":"保健室","buttons":["sel_s3s_230_sel_b"],"source":"opus","note":"地图探索点；与第 45 条『保健室老师』同词。"}
-{"jp":"校庭","zh":"操场","buttons":["sel_s3s_230_sel_d","sel_s4s_210_sel_g","sel_s4s_450_sel_g"],"source":"opus","note":"术语表『校庭→操场』。"}
-{"jp":"保健室の先生","zh":"保健室老师","buttons":["sel_s3s_230h_sel_b"],"source":"opus","note":"承『保健室』与已有『ユカリ老师』的构词。"}
-{"jp":"カタカナ先生","zh":"片假名老师","buttons":["sel_s3s_230h_sel_c"],"source":"opus","note":"此处『カタカナ』是『片假名』这个词本身（一个并不存在的绰号，紧接台词『这学校有这么个外号的老师吗？』），不是角色名，故照译；保留了原文对片假名/汉字两套写法的暗梗。"}
-{"jp":"いない","zh":"没有这个人","buttons":["sel_s3s_230l_sel_a"],"source":"opus","note":"答『我们班好像有田径部的同学……』；原文仅『いない』，中文补『这个人』避免单字按钮太空。"}
-{"jp":"いた","zh":"有这个人","buttons":["sel_s3s_230l_sel_b"],"source":"opus","note":"正解（＝きくちゃん）；与 a 成对。"}
-{"jp":"抱きしめる","zh":"紧紧抱住","buttons":["sel_s4fb_30_sel_a"],"source":"opus","note":"选择框为『選択：彩野さんを――』，故不再重复宾语；后续场景名即『彩野さんを抱きしめる』。"}
-{"jp":"唇をあわせる","zh":"轻轻吻上去","buttons":["sel_s4fb_50_sel_a"],"source":"override:原文刻意避开 キス（另条已定「接吻」）以示委婉；两通道一版偏文一版偏生理","note":"选择框为『選択：彩野さん――』。原文用『唇をあわせる』而非『キス』，比第 16 条更委婉，故不译作『接吻』。"}
-{"jp":"廊下","zh":"走廊","buttons":["sel_s4s_210_sel_b","sel_s4s_450_sel_b"],"source":"opus","note":"地图探索点。"}
-{"jp":"音楽室","zh":"音乐室","buttons":["sel_s4s_210_sel_d","sel_s4s_450_sel_d"],"source":"opus","note":"与『保健室』『图书室』构词统一，未用『音乐教室』。"}
-{"jp":"美術室","zh":"美术室","buttons":["sel_s4s_210_sel_e","sel_s4s_450_sel_e"],"source":"opus","note":"同上。"}
-{"jp":"中庭に行く","zh":"去中庭","buttons":["sel_s5s_190_sel_a"],"source":"opus","note":"与已有 sel_s5s_190_sel_b『回家』成对；术语『中庭→中庭』。"}
-{"jp":"雪が降る","zh":"下雪","buttons":["sel_s5s_80_sel_c"],"source":"opus","note":"与已有 sel_s5s_80_sel_c 同组的 b『有人坠落』并列（另一项为『鲜花盛开』）；即『中庭の雪』伏笔，正解项。"}
-{"jp":"Aサクラ Bアヤノ Cユウイチ","zh":"ASakura BAyano CYuichi","buttons":["sel_s6s_110_sel_a"],"source":"opus","note":"六选一推理题（三把椅子 A/B/C 坐着谁）。A/B/C 是椅子编号直接沿用；故事层人名依 glossary v19 C1 罗马音化，标号与名之间不加空格——依正文 15589「ＡAyano、ＢSakura、ＣYuichi」先例。原图为压宽度用了半角片假名；罗马音是半角拉丁，18px 实测墨迹 x 至 230（框右界 235）不越界，故不再需要 17px 回落。"}
-{"jp":"Aサクラ Bユウイチ Cアヤノ","zh":"ASakura BYuichi CAyano","buttons":["sel_s6s_110_sel_b"],"source":"opus","note":"同上。"}
-{"jp":"Aユウイチ Bアヤノ Cサクラ","zh":"AYuichi BAyano CSakura","buttons":["sel_s6s_110_sel_c"],"source":"opus","note":"同上。"}
-{"jp":"Aユウイチ Bサクラ Cアヤノ","zh":"AYuichi BSakura CAyano","buttons":["sel_s6s_110_sel_d"],"source":"opus","note":"同上。"}
-{"jp":"Aアヤノ Bサクラ Cユウイチ","zh":"AAyano BSakura CYuichi","buttons":["sel_s6s_110_sel_e"],"source":"opus","note":"同上，且这是正解（B Sakura 说谎、C Yuichi 说真话，均自洽）。"}
-{"jp":"Aアヤノ Bユウイチ Cサクラ","zh":"AAyano BYuichi CSakura","buttons":["sel_s6s_110_sel_f"],"source":"opus","note":"同上。"}
+{"jp": "学校にもどる", "zh": "回学校", "buttons": ["sel_s1s_170_sel_a"], "source": "opus", "note": "与已有 sel_s1s_170_sel_b『回家』成对；沿用卡名『選択：学校に戻る→选择：回学校』的用词。"}
+{"jp": "・・・・・・", "zh": "……", "buttons": ["sel_s1s_260_sel_b"], "source": "opus", "note": "原文六个中点＝沉默不答，转为中文省略号两组（六点）。"}
+{"jp": "特にないなあ", "zh": "没什么特别的", "buttons": ["sel_s2s_120_sel_a"], "source": "opus", "note": "答サクラ『今かなえたい願い事、ない？』，与同组『两情相悦』等愿望选项并列。"}
+{"jp": "両思いになる", "zh": "想两情相悦", "buttons": ["sel_s2s_120_sel_d"], "source": "ds-flash", "note": "術語『両思い→两情相悦』；原文是动词『変成』，中文补『想要』使其成为一句许愿，不然四字名词不像选项。"}
+{"jp": "好きと言い切る", "zh": "明确说喜欢", "buttons": ["sel_s2s_160_sel_a"], "source": "opus", "note": "『言い切る』＝把话说死，与 b『含糊带过』成对。"}
+{"jp": "適当に言葉を濁す", "zh": "含糊其辞", "buttons": ["sel_s2s_160_sel_b"], "source": "ds-flash", "note": "『適当に』（敷衍）＋『言葉を濁す』（含糊）合译，与 a『明确说喜欢』成对。"}
+{"jp": "ナゾトキに挑戦", "zh": "挑战谜题", "buttons": ["sel_s2s_190_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": "術語『ナゾトキ→谜题』；此项才是真正做题，另两项是持卡后的跳过捷径。"}
+{"jp": "モンスターがいた", "zh": "里面有怪物", "buttons": ["sel_s2s_192c_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题一「阁楼里到底有什么」的错误答案；原文无主语，中文补『里面』指阁楼。"}
+{"jp": "目が見えなかった", "zh": "女孩看不见东西", "buttons": ["sel_s2s_192c_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案；与同组『女孩一直被关着』统一以『女孩』起头。"}
+{"jp": "完成していなかった", "zh": "赝品没有完成", "buttons": ["sel_s2s_193c_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题二错误答案；原文省略主语，中文补『赝品』。"}
+{"jp": "男は贋作師ではない", "zh": "男人不是做赝品的", "buttons": ["sel_s2s_193c_sel_c"], "source": "override:正文 9608 用动词短语「靠制作赝品维持生计」，无「赝作师」一词", "note": "错误答案。『贋作師』暂定译『赝作师』——建议谜面正文里的『贋作』一并固定为『赝作/赝品』，两处需一致。"}
+{"jp": "たぶん……", "zh": "多半吧……", "buttons": ["sel_s2s_340_sel_b"], "source": "opus", "note": "与已有 sel_s2s_340_sel_a『绝对灵验』成对；原文只有『たぶん……』的欲言又止，不补『灵验』二字以保留语气。"}
+{"jp": "とりあえず聞く", "zh": "姑且问问", "buttons": ["sel_s3s_170_sel_c"], "source": "ds-flash", "note": "沿用已冻结卡名『とりあえず聞いてみる→姑且问问看』；同组另两项为『随口打听』『认真打听』。"}
+{"jp": "知らない", "zh": "不知道", "buttons": ["sel_s3s_20_sel_b", "sel_s3s_90_sel_c"], "source": "opus", "note": "与已有 sel_s3s_20_sel_a『告诉我』成对；同一张图复用于 s3s_90（『那个传闻你知道吗』）。"}
+{"jp": "大声で呼ぶ", "zh": "大声叫他", "buttons": ["sel_s3s_300_sel_c"], "source": "opus", "note": "剧情实为『アヤノは大声でユウイチの名前を呼んだ』＝喊他名字；与同组『跟上去』『不管他』三字对仗。"}
+{"jp": "キス", "zh": "接吻", "buttons": ["sel_s3s_641_sel_a"], "source": "opus", "note": "沿用卡名『ユウイチとキス→与ユウイチ接吻』。"}
+{"jp": "キスしない", "zh": "不接吻", "buttons": ["sel_s3s_641_sel_b"], "source": "opus", "note": "沿用卡名『ユウイチとキスしない→不与ユウイチ接吻』。"}
+{"jp": "興味ないなあ", "zh": "没兴趣", "buttons": ["sel_s3s_90_sel_b"], "source": "ds-flash", "note": "与卡名『ウワサに興味がない→对传闻没兴趣』同族，按钮取口语化短形。"}
+{"jp": "受け入れない", "zh": "不接受", "buttons": ["sel_s4s_100_sel_b"], "source": "opus", "note": "与已有 sel_s4s_100_sel_a『接受』成对。"}
+{"jp": "くだらない", "zh": "真无聊", "buttons": ["sel_s4s_290_sel_a"], "source": "opus", "note": "沿用卡名『下らない、と思った→觉得真无聊』；对项为『试着相信也无妨』。"}
+{"jp": "引き戻す", "zh": "拉回来", "buttons": ["sel_s4s_490_sel_b"], "source": "opus", "note": "选择框为『選択：アヤノを――』，此项接『把她拉回来』；正文有『アヤノの身体を引き戻す』。"}
+{"jp": "元の姿に戻す", "zh": "恢复原样", "buttons": ["sel_s4s_490_sel_c"], "source": "ds-flash", "note": "同上句式；此项即 CLAUDE.md 所记『彩野を元の姿に戻す』（需卡 141，跳 s8）。"}
+{"jp": "無理はしない", "zh": "不硬撑", "buttons": ["sel_s5s_350_sel_a"], "source": "ds-flash", "note": "场景『耐えられそうにない発作』下按呼叫铃的一项；对项为『撑一撑试试』（未在本批）。"}
+{"jp": "普通の家の中", "zh": "普通的家中", "buttons": ["sel_s2s_192a_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题一正解：女孩看到的只是寻常屋内。"}
+{"jp": "人が殺されたあと", "zh": "杀人后的现场", "buttons": ["sel_s2s_192a_sel_b"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案；『人が殺されたあと』直译为『有人被杀之后』过长，取『杀人后的现场』。"}
+{"jp": "なにもない空間", "zh": "空无一物的空间", "buttons": ["sel_s2s_192a_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案。"}
+{"jp": "両親に関係する", "zh": "与父母有关", "buttons": ["sel_s2s_192b_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题一第二问正解（原因在父母）；本组五项统一『与…有关』句式。"}
+{"jp": "建物に関係する", "zh": "与房子有关", "buttons": ["sel_s2s_192b_sel_b"], "source": "opus（用户裁定：谜题族取 opus）", "note": "『建物』＝建筑物，此处语境是那栋房子，取『房子』更口语。"}
+{"jp": "女の子に関係する", "zh": "与女孩有关", "buttons": ["sel_s2s_192b_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": ""}
+{"jp": "外の景色に関係する", "zh": "与外面的景色有关", "buttons": ["sel_s2s_192b_sel_d"], "source": "opus（用户裁定：谜题族取 opus）", "note": "本组最长的一条，8 字，仍在 12 字上限内。"}
+{"jp": "わからない", "zh": "想不出来", "buttons": ["sel_s2s_192b_sel_e"], "source": "opus（用户裁定：谜题族取 opus）", "note": "『わからない』＝解不出来；刻意与第 14 条『知らない→不知道』区分开，避免两条不同原文撞同一译文。"}
+{"jp": "閉じ込められていた", "zh": "女孩一直被关着", "buttons": ["sel_s2s_192c_sel_b"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题一第三问正解：女孩一直被关在阁楼生活，所以『普通的屋内』才震撼。"}
+{"jp": "紫外線放射で判明", "zh": "用紫外线查出", "buttons": ["sel_s2s_193a_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案。原文『紫外線放射』的『放射（照射）』被压缩掉，以与同组另三项保持六字对仗。"}
+{"jp": "虫眼鏡で判明", "zh": "用放大镜查出", "buttons": ["sel_s2s_193a_sel_b"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案。"}
+{"jp": "一目で判明", "zh": "一眼就能看出", "buttons": ["sel_s2s_193a_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": "错误答案。"}
+{"jp": "まったく問題なかった", "zh": "完全没有问题", "buttons": ["sel_s2s_193a_sel_d"], "source": "opus（用户裁定：谜题族取 opus）", "note": "谜题二第一问正解：赝品本身做得毫无破绽。"}
+{"jp": "男の腕", "zh": "男人的手艺", "buttons": ["sel_s2s_193b_sel_a"], "source": "opus（用户裁定：谜题族取 opus）", "note": "『腕』此处＝技艺，非肢体（glossary 的『腕→手/手臂』是复现句族用法，不适用于此）。"}
+{"jp": "男の視力", "zh": "男人的视力", "buttons": ["sel_s2s_193b_sel_b"], "source": "opus（用户裁定：谜题族取 opus）", "note": ""}
+{"jp": "専門家の目", "zh": "专家的眼力", "buttons": ["sel_s2s_193b_sel_c"], "source": "opus（用户裁定：谜题族取 opus）", "note": ""}
+{"jp": "元の作品", "zh": "原作", "buttons": ["sel_s2s_193b_sel_d"], "source": "override:正文 9615「原因在于原作」", "note": "谜题二第二问正解（原因在原作）；与第 41 条『原本的作品是赝品』用词打通。"}
+{"jp": "元にした物がニセ物", "zh": "原作本身是假货", "buttons": ["sel_s2s_193c_sel_b"], "source": "override:统一用「原作」「假货」——正文 v8 定 ニセモノ/ニセ物→假货，贋作→赝品", "note": "谜题二终答：他照着仿的那件『原作』本身就是假货。与同屏的『赝品没有完成』『男人不是做赝品的』（jp 侧是 贋作）分用两词，是正文轨的既定分工，不是不一致。"}
+{"jp": "教室", "zh": "教室", "buttons": ["sel_s3s_230_sel_a", "sel_s4s_210_sel_a", "sel_s4s_450_sel_a"], "source": "opus", "note": "地图探索点。"}
+{"jp": "保健室", "zh": "保健室", "buttons": ["sel_s3s_230_sel_b"], "source": "opus", "note": "地图探索点；与第 45 条『保健室老师』同词。"}
+{"jp": "校庭", "zh": "操场", "buttons": ["sel_s3s_230_sel_d", "sel_s4s_210_sel_g", "sel_s4s_450_sel_g"], "source": "opus", "note": "术语表『校庭→操场』。"}
+{"jp": "保健室の先生", "zh": "保健室老师", "buttons": ["sel_s3s_230h_sel_b"], "source": "opus", "note": "承『保健室』与已有『ユカリ老师』的构词。"}
+{"jp": "カタカナ先生", "zh": "片假名老师", "buttons": ["sel_s3s_230h_sel_c"], "source": "opus", "note": "此处『カタカナ』是『片假名』这个词本身（一个并不存在的绰号，紧接台词『这学校有这么个外号的老师吗？』），不是角色名，故照译；保留了原文对片假名/汉字两套写法的暗梗。"}
+{"jp": "いない", "zh": "没有这个人", "buttons": ["sel_s3s_230l_sel_a"], "source": "opus", "note": "答『我们班好像有田径部的同学……』；原文仅『いない』，中文补『这个人』避免单字按钮太空。"}
+{"jp": "いた", "zh": "有这个人", "buttons": ["sel_s3s_230l_sel_b"], "source": "opus", "note": "正解（＝きくちゃん）；与 a 成对。"}
+{"jp": "抱きしめる", "zh": "紧紧抱住", "buttons": ["sel_s4fb_30_sel_a"], "source": "opus", "note": "选择框为『選択：彩野さんを――』，故不再重复宾语；后续场景名即『彩野さんを抱きしめる』。"}
+{"jp": "唇をあわせる", "zh": "轻轻吻上去", "buttons": ["sel_s4fb_50_sel_a"], "source": "override:原文刻意避开 キス（另条已定「接吻」）以示委婉；两通道一版偏文一版偏生理", "note": "选择框为『選択：彩野さん――』。原文用『唇をあわせる』而非『キス』，比第 16 条更委婉，故不译作『接吻』。"}
+{"jp": "廊下", "zh": "走廊", "buttons": ["sel_s4s_210_sel_b", "sel_s4s_450_sel_b"], "source": "opus", "note": "地图探索点。"}
+{"jp": "音楽室", "zh": "音乐室", "buttons": ["sel_s4s_210_sel_d", "sel_s4s_450_sel_d"], "source": "opus", "note": "与『保健室』『图书室』构词统一，未用『音乐教室』。"}
+{"jp": "美術室", "zh": "美术室", "buttons": ["sel_s4s_210_sel_e", "sel_s4s_450_sel_e"], "source": "opus", "note": "同上。"}
+{"jp": "中庭に行く", "zh": "去中庭", "buttons": ["sel_s5s_190_sel_a"], "source": "opus", "note": "与已有 sel_s5s_190_sel_b『回家』成对；术语『中庭→中庭』。"}
+{"jp": "雪が降る", "zh": "下雪", "buttons": ["sel_s5s_80_sel_c"], "source": "opus", "note": "与已有 sel_s5s_80_sel_c 同组的 b『有人坠落』并列（另一项为『鲜花盛开』）；即『中庭の雪』伏笔，正解项。"}
+{"jp": "Aサクラ Bアヤノ Cユウイチ", "zh": "A.Sakura B.Ayano C.Yuichi", "buttons": ["sel_s6s_110_sel_a"], "source": "opus", "note": "六选一推理题（三把椅子 A/B/C 坐着谁）。A/B/C 是椅子编号直接沿用；故事层人名依 glossary v19 C1 罗马音化，标号与名之间不加空格——依正文 15589「ＡAyano、ＢSakura、ＣYuichi」先例。原图为压宽度用了半角片假名；罗马音是半角拉丁，18px 实测墨迹 x 至 230（框右界 235）不越界，故不再需要 17px 回落。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}
+{"jp": "Aサクラ Bユウイチ Cアヤノ", "zh": "A.Sakura B.Yuichi C.Ayano", "buttons": ["sel_s6s_110_sel_b"], "source": "opus", "note": "同上。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}
+{"jp": "Aユウイチ Bアヤノ Cサクラ", "zh": "A.Yuichi B.Ayano C.Sakura", "buttons": ["sel_s6s_110_sel_c"], "source": "opus", "note": "同上。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}
+{"jp": "Aユウイチ Bサクラ Cアヤノ", "zh": "A.Yuichi B.Sakura C.Ayano", "buttons": ["sel_s6s_110_sel_d"], "source": "opus", "note": "同上。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}
+{"jp": "Aアヤノ Bサクラ Cユウイチ", "zh": "A.Ayano B.Sakura C.Yuichi", "buttons": ["sel_s6s_110_sel_e"], "source": "opus", "note": "同上，且这是正解（B Sakura 说谎、C Yuichi 说真话，均自洽）。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}
+{"jp": "Aアヤノ Bユウイチ Cサクラ", "zh": "A.Ayano B.Yuichi C.Sakura", "buttons": ["sel_s6s_110_sel_f"], "source": "opus", "note": "同上。 字母与名字间补半角点号：罗马音化后 ASakura 会连读成一个词，原文 Aサクラ 靠字符集切换天然分隔，中文没有这个便利。"}

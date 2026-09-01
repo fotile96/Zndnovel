@@ -36,6 +36,9 @@ tools/                          分析提取脚本（可复跑，路径相对仓
   gimcodec.py                   GIM 纹理编解码 decode/encode/verify-pngdir/verify-identity（index4/8+RGBA8888、
                                 swizzle、多帧、大端老版全支持；编码走模板回填=只换像素与色板 payload，
                                 未改图逐字节还原；已对全部 2153 张与 png/ 双向全量验证）
+  umdiso.py                     UMD ISO list/extract/replace/verify——**就地替换不重建**（通用刻录工具
+                                会 Joliet 改名/重排 LBA，造成模拟器好好的、实机黑屏）；恒等替换逐字节还原，
+                                变尺寸时平移尾部并更新 PVD/path table/目录记录三类扇区号引用
 analysis/                       上述脚本的产物归档（lua 变动后重跑，详见其 README.md）
   dag_all.txt                   全 23 章调度器场景图快照（DAG 权威参照）
   crd_summary.txt               196 个卡片谜题：前置卡/答案卡/触发章节/提示语
@@ -192,6 +195,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 数场景/文本量：`grep -c '^scene_' lua_scripts/snr_s1_10_s.lua`；`grep -c 'vms(' lua_scripts/*.lua`。
 - 手工核对某章调度器：读文件末尾的 `main = function()`（`doScriptScene` 状态机）。
 - 解包/回封游戏资源包：`python3 tools/databin.py unpack assets/DATA.BIN build/databin`、`pack build/databin build/DATA.new.BIN`（`assets/` 为本机 gitignore 资产，不入库；回封无压缩，顺序按 manifest.jsonl 行序 = 原封包序）。
+- 产实机盘：`uv run python tools/build_disc.py --stage iso` → `build/dist/game_zh.iso`（就地替换 `assets/orig.iso` 里的 DATA.BIN）；单独用工具则 `python3 tools/umdiso.py replace <原iso> <新iso> /PSP_GAME/USRDIR/DATA.BIN <新DATA.BIN>`，改完必 `verify --against <原iso>` 看差异区间。
 - 读 novel 页图前先旋转：`python3 -c "from PIL import Image; Image.open(p).rotate(-90, expand=True).save(out)"`。
 - 图片均为 PSP 480×272 逻辑分辨率素材；改图（烤字 png）进游戏 = 量化到模板色板容量后
   `uv run python tools/gimcodec.py encode <原包同名模板.gim> <烤字.png> <out.gim>`，再经 databin.py 回封。

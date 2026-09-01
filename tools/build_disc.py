@@ -9,6 +9,7 @@
            覆入 build/inject，新成员追加 manifest
   pack   E databin pack build/stage → build/dist/DATA.BIN
   disc   F 刷新盘目录 build/game（首次自 assets/orig.iso 解出）+ 覆入 DATA.BIN
+  iso    F2 实机盘：新 DATA.BIN 就地塞回原盘 → build/dist/game_zh.iso（tools/umdiso.py）
   boot   G PPSSPP 引导冒烟 + 连按 CROSS 推进的截图序列 → build/emu/bootseq/
 
 依据：docs/ops/{ppsspp-local-setup,pgf-font-research,bake-progress}-2026-08-31 与
@@ -244,6 +245,29 @@ def stage_disc() -> None:
     log(f"disc: DATA.BIN 已覆入 {GAME}")
 
 
+# ---------- F2 实机盘（ISO 就地替换） ----------
+
+def stage_iso() -> None:
+    """把新 DATA.BIN 就地塞回原盘 → build/dist/game_zh.iso。
+
+    实机（CFW）走 ISO，且固件的 isofs 比 PPSSPP 严格得多；故**不重建镜像**，
+    只替换该文件并平移尾部，其余字节保持原样。机理见
+    docs/ops/umd-iso-repack-research-2026-08-31.md。
+    """
+    from tools.umdiso import DATA_BIN_PATH, replace, verify
+
+    if not ORIG_ISO.exists():
+        die(f"缺 {ORIG_ISO}，无法产实机盘")
+    src = DIST / "DATA.BIN"
+    if not src.exists():
+        die("build/dist/DATA.BIN 不存在（先跑 pack 阶段）")
+    out = DIST / "game_zh.iso"
+    replace(str(ORIG_ISO), str(out), [(DATA_BIN_PATH, str(src))], log=log)
+    if not verify(str(out), against=str(ORIG_ISO), log=log):
+        die("iso: 结构自检未过")
+    log(f"iso: {out}（{out.stat().st_size} B）")
+
+
 # ---------- G 引导冒烟 ----------
 
 def stage_boot() -> None:
@@ -282,7 +306,8 @@ def stage_boot() -> None:
 
 
 STAGES = {"lua": stage_lua, "gim": None, "font": stage_font, "stage": stage_stage,
-          "pack": stage_pack, "disc": stage_disc, "boot": stage_boot}
+          "pack": stage_pack, "disc": stage_disc, "iso": stage_iso,
+          "boot": stage_boot}
 
 
 def main() -> None:

@@ -1,4 +1,4 @@
-local l0_0 = {layerNumber = {bg = 0, logo = 1, menu = 2}, layerKey0 = {"title_02_a", "title_05_a", "title_06_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey1 = {"title_03_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey2 = {"title_03_a", "title_04_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey3 = {"title_03_a", "title_04_a", "title_13_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerWidth = {title_02_a = 102, title_03_a = 88, title_04_a = 119, title_05_a = 67, title_06_a = 75, title_07_a = 102, title_08_a = 101, title_09_a = 116, title_10_a = 132, title_11_a = 127, title_12_a = 116, title_13_a = 117}, layerHeight = {title_02_a = 72, title_03_a = 70, title_04_a = 68, title_05_a = 62, title_06_a = 59, title_07_a = 32, title_08_a = 40, title_09_a = 34, title_10_a = 36, title_11_a = 40, title_12_a = 34, title_13_a = 67}}
+local l0_0 = {layerNumber = {bg = 0, logo = 1, menu = 2}, layerKey0 = {"title_02_a", "title_05_a", "title_06_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey1 = {"title_03_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey2 = {"title_03_a", "title_04_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey3 = {"title_03_a", "title_04_a", "title_13_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey4 = {"title_03_a", "title_04_a", "title_13_a", "title_14_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerWidth = {title_02_a = 102, title_03_a = 88, title_04_a = 119, title_05_a = 67, title_06_a = 75, title_07_a = 102, title_08_a = 101, title_09_a = 116, title_10_a = 132, title_11_a = 127, title_12_a = 116, title_13_a = 117, title_14_a = 117}, layerHeight = {title_02_a = 72, title_03_a = 70, title_04_a = 68, title_05_a = 62, title_06_a = 59, title_07_a = 32, title_08_a = 40, title_09_a = 34, title_10_a = 36, title_11_a = 40, title_12_a = 34, title_13_a = 67, title_14_a = 68}}
 if gameSave.startMenuState == 2 then
     systemSave.libFlag = true
 end
@@ -174,8 +174,46 @@ local l0_4 = function()
                 end
             end
             l0_3(l0_0.layerNumber.menu + 1, l0_0.layerKey2[1])
+        elseif gameSave.myCard[144].hold == 1 then
+            -- finale entry (card 144 = e2f digest, sole grant point e2f-complete)
+            l0_1 = {story = 1, fragment = 2, section7 = 3, finale = 4, library = 5, option = 6, save = 7, load = 8, novel = 9, scene = 10, cg = 11, music = 12}
+            l0_0.layerKeyCur = l0_0.layerKey4
+            for l1_3 = 1, #l0_0.layerKey4, 1 do
+                layerCopy(l0_0.layerNumber.menu + l1_3, layerName[l0_0.layerKey4[l1_3]])
+                l0_2(l0_0.layerNumber.menu + l1_3, l0_0.layerKey4[l1_3])
+                if l1_3 == l0_1.story then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.story, 210, 104)
+                elseif l1_3 == l0_1.fragment then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.fragment, 190, 131)
+                elseif l1_3 == l0_1.section7 then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.section7, 194, 158)
+                elseif l1_3 == l0_1.finale then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.finale, 194, 185)
+                elseif l1_3 == l0_1.library then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.library, 205, 212)
+                elseif l1_3 == l0_1.option then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.option, 215, 241)
+                elseif l1_3 == l0_1.save then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.save, 48, 145)
+                elseif l1_3 == l0_1.load then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.load, 330, 142)
+                elseif l1_3 == l0_1.novel then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.novel, 353, 185)
+                elseif l1_3 == l0_1.scene then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.scene, 335, 207)
+                elseif l1_3 == l0_1.cg then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.cg, 340, 223)
+                elseif l1_3 == l0_1.music then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.music, 352, 243)
+                end
+                if l0_1.novel <= l1_3 then
+                    layerVisible(l0_0.layerNumber.menu + l1_3, false)
+                end
+            end
+            l0_3(l0_0.layerNumber.menu + 1, l0_0.layerKey4[1])
         else
             l0_1 = {story = 1, fragment = 2, section7 = 3, library = 4, option = 5, save = 6, load = 7, novel = 8, scene = 9, cg = 10, music = 11}
+            l0_0.layerKeyCur = l0_0.layerKey3
             for l1_3 = 1, #l0_0.layerKey3, 1 do
                 layerCopy(l0_0.layerNumber.menu + l1_3, layerName[l0_0.layerKey3[l1_3]])
                 l0_2(l0_0.layerNumber.menu + l1_3, l0_0.layerKey3[l1_3])
@@ -835,6 +873,12 @@ elseif gameSave.startMenuState == 2 then
                             doScriptScene = "s7f-10"
                             run(cGetFileName("script", "snr_s7_10_f"))
                             quit()
+                        elseif l1_0 == l0_1.finale then
+                            cInitGame()
+                            switchScreen(0, "", 60)
+                            doScriptScene = "fin-10"
+                            run(cGetFileName("script", "snr_finale"))
+                            quit()
                         elseif l1_0 == l0_1.library then
                             l1_3 = true
                             if not (systemSave.novelFlag == true) then
@@ -842,7 +886,7 @@ elseif gameSave.startMenuState == 2 then
                             else
                                 l1_0 = l0_1.novel
                             end
-                            for l1_7 = 1, 11, 1 do
+                            for l1_7 = 1, #l0_0.layerKeyCur, 1 do
                                 if l1_7 < l0_1.novel then
                                     if not (l1_7 == l0_1.library) then
                                         layerMoveAlpha(l0_0.layerNumber.menu + l1_7, 50, 30)
@@ -863,8 +907,8 @@ elseif gameSave.startMenuState == 2 then
                         elseif l1_0 == l0_1.load then
                             l0_7()
                         end
-                        l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKey3[l1_1])
-                        l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKey3[l1_0])
+                        l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKeyCur[l1_1])
+                        l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKeyCur[l1_0])
                     end
                 end
             else
@@ -938,14 +982,14 @@ elseif gameSave.startMenuState == 2 then
                         for l1_7 = l0_1.novel, l0_1.music, 1 do
                             layerVisible(l0_0.layerNumber.menu + l1_7, false)
                         end
-                        l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKey3[l1_1])
-                        l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKey3[l1_0])
+                        l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKeyCur[l1_1])
+                        l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKeyCur[l1_0])
                     end
                 end
             end
             if l1_2 == true then
-                l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKey3[l1_1])
-                l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKey3[l1_0])
+                l0_2(l0_0.layerNumber.menu + l1_1, l0_0.layerKeyCur[l1_1])
+                l0_3(l0_0.layerNumber.menu + l1_0, l0_0.layerKeyCur[l1_0])
                 keyPlaySE(seName.arrowKey)
                 wait(3)
                 l1_2 = false

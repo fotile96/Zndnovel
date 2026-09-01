@@ -179,7 +179,12 @@ local l0_4 = function()
             l0_1 = {story = 1, fragment = 2, section7 = 3, finale = 4, library = 5, option = 6, save = 7, load = 8, novel = 9, scene = 10, cg = 11, music = 12}
             l0_0.layerKeyCur = l0_0.layerKey4
             for l1_3 = 1, #l0_0.layerKey4, 1 do
-                layerCopy(l0_0.layerNumber.menu + l1_3, layerName[l0_0.layerKey4[l1_3]])
+                if l1_3 == l0_1.finale then
+                    -- no resident source layer: slots below 200 are wiped by cInitGame, so load direct
+                    layerLoad(l0_0.layerNumber.menu + l1_3, cGetFileName("sysgim", "title_14_a"))
+                else
+                    layerCopy(l0_0.layerNumber.menu + l1_3, layerName[l0_0.layerKey4[l1_3]])
+                end
                 l0_2(l0_0.layerNumber.menu + l1_3, l0_0.layerKey4[l1_3])
                 if l1_3 == l0_1.story then
                     layerPosition(l0_0.layerNumber.menu + l0_1.story, 210, 104)

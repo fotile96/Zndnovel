@@ -363,6 +363,8 @@ def story_route(n: int = 16) -> str:
 
 def scene_to_script(scene: str) -> str:
     """场景 ID → 章节脚本名（comSectionUID2ScriptFileName 的规则）。"""
+    if scene.startswith("fin-"):
+        return "snr_finale"  # 谢幕章：编外 id，不合 UID 解析约定（刻意，不进路线）
     chap, mode = scene[:2], scene[2]
     suffix = mode
     if len(scene) > 3 and scene[3] in "abc" and mode == "f":

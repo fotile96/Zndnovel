@@ -46,7 +46,8 @@ GAME = REPO / "build" / "game"         # PPSSPP 目录引导用盘目录
 # (build/ 下烤字产物目录, 封包成员前缀)；成员名 = 前缀/相对路径(.png→.gim)。
 # 前缀为空 = 产物目录自带子目录（mode_zh/music/..、memory_thumb_zh/graphic/..）。
 GIM_SOURCES = [
-    ("card_zh", "card"), ("select_zh", "select"), ("scene_zh", "scene"),
+    ("card_zh", "card"), ("select_zh", "select"), ("select_voice_zh", "select"),
+    ("scene_zh", "scene"),
     ("plot_zh", "plot"), ("sysgim", "sysgim"), ("sysgim_title_zh", "sysgim"),
     ("sysgim_note_zh", "sysgim"), ("sysgim_panel_zh", "sysgim"),
     ("event_zh", "event"), ("cutin_zh", "cutin"), ("cutin_tut_zh", "cutin"),

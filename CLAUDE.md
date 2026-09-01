@@ -17,7 +17,7 @@ lua_scripts/                    229 个文件，共 3.6MB
   config.lua                    引导配置：bootScript = snr_common.lua
   snr_lib.lua                   调试启动菜单（SEC7F/PROLOGUE/STORY/DEBUG）
   snr_common.lua                5113 行核心库：全局状态、195 卡片表、UI 对象、引擎封装
-  snr_mainmenu.lua              标题菜单（4 种形态，随进度解锁）
+  snr_mainmenu.lua              标题菜单（5 种形态，随进度解锁；第 5 形态=卡 144 后的谢幕直达）
   snr_story_main.lua            Story 模式中枢（记忆路线时间轴 UI）
   snr_fragment_main.lua         Fragment 模式中枢（同一时间轴，选场景做卡）
   snr_memory.lua                回想模式（重放各章 _f 剧本）
@@ -122,6 +122,13 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
   - s6：サクラからの手紙 → 図書室 → 『True Color』（s6s_150_sel 需卡 103 大谜题解锁）→ 中庭の雪完结。多 GAMEOVER。
   - s7：**无 `_s`**，只有 s7f（主菜单直入）＝现实层高潮章（重演坠楼日）+ 第一次 staff roll。
   - s8：s8s 仅 5 场（僕の言葉→フェンスの向こう側→誰も見たことのない夕焼け）；s8f=黎明结局 + 五年后 + 第二次 staff roll。
+  - 谢幕章（encore，2026-09-02 本地化新增·编外）：`docs/finale/snr_finale.lua`（canonical 源
+    **刻意不入 lua_scripts/**——build_ledger 会把中文正文当 jp 源收账，打破「缺译 0」闸；
+    由 build_disc.stage_lua 编译为新成员 script/snr_finale.lua）。场景 fin-10..50，主菜单
+    encore 项直达（卡 144 门控，`snr_mainmenu` 第 5 形态），**绝不进 storyRoute**；
+    vms 17300–17481 + 卡消息 18201–18207 已实测冻结。谢幕卡 crd_201..207 与菜单图
+    title_14_a 经 build_disc `NEW_GIM_SOURCES` 进包（模板 crd_1_a/title_13_a）。
+    实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md。
   - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。
   - e2s：千秋（多年后）的调查——**只有对方半边的电话/拜访独白**（老教师/筑紫(きくちゃん)/护士/雪乃生父/酒吧老板/彩野母）；e2f：雪乃弥留之际"编纂"的if 幸福线（标题回收章）。
 - GAMEOVER/COMPLETE/TIMEOVER 都进 `comStorySceneEnd` 三选单（回 Story/去 Fragment/回菜单）。
@@ -208,4 +215,6 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - s7f 引用的给彩野的信文（『放課後、校庭で待っていて』）与 s5f_80 实物信（『屋上で待っていて。サクラ』）字面不同——原作即如此，翻译时保持各自原样，不要"修复"。
 - sceneId2aCard 表中大量 `sceneId2aCard.keyword = N` 是反编译噪声（键重复覆盖），仅真实场景键有效。
 - 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。
-- 主线术语的既有官方英文（Prologue/Story/Fragment/library/memory 等菜单词）在图片里成对出现（英+日），中文化时可保英文大词+中文小注的原版式。
+- 主线术语的既有官方英文（Prologue/Story/Fragment/library/memory 等菜单词）在图片里成对出现（英+日）。⚠ 2026-09-01 裁定 E22 已定稿为**只留英文大词、小注只擦不写**（7px 注芯下中文糊成一团），encore 项同族处理。
+- **层号 200 以下不能常驻**（2026-09-02 实测）：`cInitGame→cInitLayer` 清掉 <200 的层，"86–199 无人使用"实为"无人能用"；常驻区 201–255 已满。需要新图的场合走"绘制期同步 layerLoad 直载工作层"（encore 菜单图即此做法）。
+- **DATA.BIN 可新增成员**：按名排序位插入（引擎二分查找），build_disc.stage_stage 已内建；script/card/sysgim/pgf 四面实测通过。BGM 不在 DATA.BIN（在 SOUND.BIN），lua 引用即可。

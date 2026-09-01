@@ -75,11 +75,65 @@ def die(msg: str) -> None:
 
 # ---------- A 译文注入 ----------
 
+#: 测试引导（tools/make_test_boot.py）注入的**新成员**，绝不能进发布盘。
+TESTBOOT_MEMBER = "script/snr_test.lua"
+#: 译文注入的明文源；发布自检拿它当基准重编译一遍逐字节对。
+INJECT_SRC = REPO / "build" / "inject_src"
+LUAC = REPO.parent / "pyluadec-refactor" / "build" / "luac_sz4"
+
+
 def stage_lua() -> None:
-    """译文注入 + luac_sz4 重编译（tools/inject_lua.py 全权负责，产物直落 INJECT/script）。"""
+    """译文注入 + luac_sz4 重编译（tools/inject_lua.py 全权负责，产物直落 INJECT/script）。
+
+    ⚠ 顺手删掉测试引导留下的新成员：`inject_lua.py` 会清空明文源目录
+    （`build/inject_src`）但**不清字节码目录**，于是 `snr_test.lua` 会一直活着
+    ——它不属于译文管线的产物，没人会覆盖它，也没人会删它。
+    """
     subprocess.run([sys.executable, str(REPO / "tools" / "inject_lua.py")], check=True)
+    stray = INJECT / TESTBOOT_MEMBER
+    if stray.exists():
+        stray.unlink()
+        log(f"lua: 清掉测试引导残留 {TESTBOOT_MEMBER}")
     n = len(list((INJECT / "script").glob("*.lua")))
     log(f"lua: {n} 个字节码就位")
+
+
+def check_release_clean() -> list[str]:
+    """发布自检：封包树里的 script 一律等于译文管线的产物，一个测试补丁都没有。
+
+    **查的是 `build/stage`（真正被打进 DATA.BIN 的那份），不是 `build/inject`。**
+    两者会不同步——`--stage iso` 可以单独跑，那时 stage 树是上一轮留下的。
+
+    判法是**逐字节重编译比对**，不是查特征串：把 `build/inject_src/*.lua` 用同一个
+    luac 重编一遍，与封包树里的对。这样无论测试引导改了什么（剥 IPL、改引导交接、
+    短路某张卡的递卡），只要与译文管线的产物不一致就会被抓住，不必逐个模式去认。
+    """
+    bad: list[str] = []
+    manifest = STAGE / "manifest.jsonl"
+    if not manifest.exists():
+        return [f"{STAGE} 未组装（先跑 stage 阶段）"]
+    names = {json.loads(l)["name"] for l in manifest.read_text().splitlines() if l}
+    if TESTBOOT_MEMBER in names or (STAGE / TESTBOOT_MEMBER).exists():
+        bad.append(f"封包树里有测试引导成员 {TESTBOOT_MEMBER}")
+    if not INJECT_SRC.exists():
+        return bad + [f"缺 {INJECT_SRC}，无法逐字节核对 script（先跑 lua 阶段）"]
+    if not LUAC.exists():
+        return bad + [f"缺 {LUAC}，无法逐字节核对 script"]
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        for src in sorted(INJECT_SRC.glob("*.lua")):
+            ref = Path(td) / src.name
+            proc = subprocess.run([str(LUAC), "-s", "-o", str(ref), str(src)],
+                                  capture_output=True, text=True)
+            if proc.returncode != 0:
+                bad.append(f"{src.name} 重编译失败：{proc.stderr.strip()}")
+                continue
+            packed = STAGE / "script" / src.name
+            if not packed.exists():
+                bad.append(f"封包树缺 script/{src.name}")
+            elif packed.read_bytes() != ref.read_bytes():
+                bad.append(f"script/{src.name} 与译文管线产物不一致（疑似测试补丁）")
+    return bad
 
 
 # ---------- B 烤字 → gim ----------
@@ -255,6 +309,17 @@ def stage_iso() -> None:
     docs/ops/umd-iso-repack-research-2026-08-31.md。
     """
     from tools.umdiso import DATA_BIN_PATH, replace, verify
+
+    # ⚠ **发布闸**：ISO 是交到志愿者手里的那个东西，测试引导绝不能混进去。
+    # 带着 snr_test.lua 或剥了 IPL 的盘发出去，人家一开机就直接掉进探针，
+    # 而且看不出哪里不对——只会以为汉化版坏了。故这里宁可拒绝也不产物。
+    bad = check_release_clean()
+    if bad:
+        for b in bad:
+            log(f"iso: ✗ {b}")
+        die("iso: 封包树里有测试改动，拒绝出盘。"
+            "跑 `--stage lua,gim,font,stage,pack` 重建干净的封包树再来。")
+    log("iso: 发布自检通过（script 逐字节等于译文管线产物，无测试引导成员）")
 
     if not ORIG_ISO.exists():
         die(f"缺 {ORIG_ISO}，无法产实机盘")

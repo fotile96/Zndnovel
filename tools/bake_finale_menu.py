@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""主菜单谢幕项 title_14_a 底图拼接——encore 字形移植。
+"""主菜单谢幕项 title_14_a 底图拼接——encore 字形移植（无小注版）。
 
-按 docs/finale/mainmenu-entry-plan.md §5 的两步路线之第一步：
 从 title_13_a（Section 7）与 title_02_a（Prologue）的同字号小写字库中
-等大剪贴 e/n/c/o/r 字形，拼出上（暗态）下（亮态）双态的大词 `encore`，
-下半再原样移植 title_13 的小注条『- セクション7 -』作**捐赠注**占位。
-第二步在同一次运行里完成：把捐赠注态源图连同单行 jsonl 喂给
-bake_para_glow（与 bake_sysgim_title 同款 Spec），遮掉捐赠注、烤上
-『- 谢幕 -』——注盒＝title_13 实测盒 [47,56,115,65] 随贴图平移 −31px。
+等大剪贴 e/n/c/o/r 字形，拼出上（暗态）下（亮态）双态的大词 `encore`。
+**不烤中文小注**——2026-09-01 用户裁定：主菜单 12 项定稿为"只留英文大词、
+小注只擦不写"（裁定 E22：注芯像素预算下中文糊成一团，留白比糊干净），
+encore 项与全族同体例。早期的『- 谢幕 -』/『- 安可 -』A/B 与捐赠注管线
+随该裁定作废（git 历史可查）。
+
+画布 117×68 ＝ title_13_a 模板实尺寸——gimcodec 模板回填**钉死尺寸**
+（encode_from_pil 尺寸不符即拒），直接产模板同尺寸省去 pad；墨迹居中，
+摆位 x=194 时墨心 ≈252 与主列墨迹中轴对齐（且与 section7 同 x 左缘对齐）。
 
 字形盒与词行窗口来自逐列/逐行强像素（alpha>200）投影实测（GLYPHS /
 WINDOWS / BASELINE 表）；r 取 Prologue 的 ro 连段左半、切割列钉死在
@@ -15,9 +18,10 @@ WINDOWS / BASELINE 表）；r 取 Prologue 的 ro 连段左半、切割列钉死
 盒收窄后 P 顶部渗入已实测为零（y0-5 干净），r 的头尾光晕（up y6-7、lo y57-58）
 完整保留——早先窗口裁掉光晕尾曾造成 r 底缘生硬、被目检读作"色差"。lower 态一律裁
 **词行窗口**而非整半区——半区里还躺着小注行，整裁会混入注的像素。
-输出：docs/finale/assets/title_14_a_src.png ＋ build/finale_menu/ 3x 目检图。
+输出：docs/finale/assets/title_14_a.png（源=成品）＋ build/finale_menu/ 成品与 3x 目检图。
 不触碰 png/sysgim/ 原件。
 """
+import shutil
 import sys
 from pathlib import Path
 
@@ -29,11 +33,10 @@ SRC13 = REPO / "png" / "sysgim" / "title_13_a.png"   # Section 7
 SRC02 = REPO / "png" / "sysgim" / "title_02_a.png"   # Prologue（r 的捐赠源——
 # library 实测 x-height 仅 9px 与 Section7 的 13px 不同档，plan §5 的"等大"在 r 上失实；
 # Prologue 与 Section7 同字号（x-height 13、上半基线同为 20），r 取其 ro 连段左半）
-OUT_SRC = REPO / "docs" / "finale" / "assets" / "title_14_a.png"   # 管线按 file 名寻图，即源图名
-NOTE_JSONL = REPO / "docs" / "finale" / "assets" / "title_14_note.jsonl"
+OUT_SRC = REPO / "docs" / "finale" / "assets" / "title_14_a.png"
 OUT_DBG = REPO / "build" / "finale_menu"
 
-W, H, SPLIT = 100, 68, 34          # 新图规格（plan §5：偶数高，分界 y=34）
+W, H, SPLIT = 117, 68, 34          # ＝title_13_a 模板尺寸（偶数高，分界 y=34）
 KERN = 2                            # 原词相邻字形段间距实测 ≈2px
 
 # 字形盒 (src, x0, x1)。title_13 上/下半词芯 x 段实测一致。
@@ -61,8 +64,6 @@ BASELINE = {("13", "up"): 20, ("02", "up"): 20,
 # r 按同底对齐；up 同理原位。
 TARGET_BASE = {"up": 20, "lo": 53}
 
-NOTE_BOX = (47, 56, 115, 66)   # title_13 下半小注条『- セクション7 -』
-
 
 def main():
     imgs = {"13": Image.open(SRC13).convert("RGBA"),
@@ -83,40 +84,17 @@ def main():
             canvas.alpha_composite(tile, (x, y_paste))
             x += tile.size[0] + KERN
 
-    # 捐赠注：title_13 下半注条整条移植，横向随词居中、纵向保持半区内原位
-    note = imgs["13"].crop(NOTE_BOX)
-    note_x = (W - note.size[0]) // 2
-    note_y = NOTE_BOX[1]                     # 56：两图分界同为 34，半区内原位即同 y
-    canvas.alpha_composite(note, (note_x, note_y))
-    print(f"note pasted at ({note_x},{note_y}) size={note.size}")
-
     OUT_SRC.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(OUT_SRC)
     OUT_DBG.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(OUT_SRC, OUT_DBG / "title_14_a.png")   # 成品＝源（无烤注步）
     canvas.resize((W * 3, H * 3), Image.NEAREST).save(OUT_DBG / "title_14_a_src_3x.png")
     ref = imgs["13"]
     combo = Image.new("RGBA", ((ref.size[0] + W + 12) * 3, max(ref.size[1], H) * 3), (24, 24, 24, 255))
     combo.alpha_composite(ref.resize((ref.size[0] * 3, ref.size[1] * 3), Image.NEAREST), (0, 0))
     combo.alpha_composite(canvas.resize((W * 3, H * 3), Image.NEAREST), ((ref.size[0] + 12) * 3, 0))
-    combo.save(OUT_DBG / "compare_3x.png")
-    print(f"src -> {OUT_SRC}")
-
-    # ── 第二步：捐赠注 → 『- 谢幕 -』（bake_para_glow 管线，Spec 同 bake_sysgim_title）
-    import json
-    from tools.bake_para_glow import Spec, run
-    note_row = {"file": "title_14_a", "row": 0, "box": [16, 56, 84, 65],
-                "jp": "- セクション7 -", "zh": "- 谢幕 -",
-                "note": "谢幕菜单项。盒＝title_13 注盒 [47,56,115,65] 平移 dx=-31（捐赠注贴于 x16）。"}
-    NOTE_JSONL.write_text(json.dumps(note_row, ensure_ascii=False) + "\n", encoding="utf-8")
-    spec = Spec(face="sysgim", src=OUT_SRC.parent, data=NOTE_JSONL, out=OUT_DBG,
-                mask_mode="glow_footprint", core_anchor=True)
-    bad = run(spec, write=True, label="谢幕菜单项小注")
-    final = Image.open(OUT_DBG / "title_14_a.png").convert("RGBA")
-    combo2 = Image.new("RGBA", ((ref.size[0] + W + 12) * 3, max(ref.size[1], H) * 3), (24, 24, 24, 255))
-    combo2.alpha_composite(ref.resize((ref.size[0] * 3, ref.size[1] * 3), Image.NEAREST), (0, 0))
-    combo2.alpha_composite(final.resize((W * 3, H * 3), Image.NEAREST), ((ref.size[0] + 12) * 3, 0))
-    combo2.save(OUT_DBG / "final_compare_3x.png")
-    print(f"final -> {OUT_DBG}/title_14_a.png  (bad={bad})")
+    combo.save(OUT_DBG / "final_compare_3x.png")
+    print(f"final -> {OUT_SRC} ＋ {OUT_DBG}/title_14_a.png")
 
 
 if __name__ == "__main__":

@@ -165,6 +165,52 @@ def test_parse_extra_four_kinds():
     assert [r["jp"] for r in savedata] == ["オープニング", "フラグメント"]
     assert savedata[0]["key"].endswith(":1") and savedata[1]["key"].endswith(":2")
 
+def test_parse_extra_covers_the_four_shapes_added_2026_09_01():
+    """`gameSave.sceneName/sectionName`、dispatch 首参、单参 `msg` 四类。
+
+    这四类此前**整整漏在账本外**：51 行带着 `-- tr_line:` 标记，却因为
+    `parse_extra` 没有对应规则而拿不到键，于是永远不会被翻译，其中 41 行是玩家
+    真能看到的日文（第 4 章场景名、第 5 章彩野台词、第 7 章递卡旁白、文库空提示）。
+    """
+    src = "\n".join([
+        'gameSave.sceneName = "放課後の教室" -- tr_line:1',
+        'gameSave.sectionName = "１：Ｓｔｏｒｙ" -- tr_line:2',
+        'l1_1 = scene_s7f_dispatch_v52("その『お話』の題名は――", 104, l1_1, 10) -- tr_line:3',
+        'msg("まだ一冊も取得していません。") -- tr_line:4',
+    ])
+    rows = parse_extra("snr_x", src)
+    assert [(r["kind"], r["key"], r["jp"]) for r in rows] == [
+        ("scene_name", "snr_x:1", "放課後の教室"),
+        ("section_name", "snr_x:2", "１：Ｓｔｏｒｙ"),
+        ("dispatch_text", "snr_x:3", "その『お話』の題名は――"),
+        ("msg_text", "snr_x:4", "まだ一冊も取得していません。"),
+    ]
+
+
+def test_msg_rule_does_not_swallow_vms():
+    """`msg_text` 的 `(?<![A-Za-z0-9_])` 前瞻必须挡住 `vms(`——正文轨不归 extra 管。"""
+    assert parse_extra("snr_x", 'vms(1, "NONVOICE", "あ")') == []
+    assert parse_extra("snr_x", 'xmsg("あ")') == []
+    assert len(parse_extra("snr_x", 'msg("あ")')) == 1
+
+
+def test_every_tr_line_mark_gets_a_ledger_key():
+    """**标记与账本的口径必须一致**，这是 51 行漏译的直接成因。
+
+    `migrate_base.should_mark`（含全角串、非 vms、不在排除文件）比 `parse_extra`
+    的规则**更宽**，宽出来的部分就是黑洞：注入期只会报「账本里的键缺译」，
+    账本里压根没有的键**报不出来**，于是整条管线一声不吭地漏掉那些文字。
+
+    这条对全仓库跑，不用夹具——夹具证明不了「没有第 9 种形状」。
+    """
+    from tools.build_ledger import uncovered_tr_lines
+    holes = []
+    for p in sorted((REPO / "lua_scripts").glob("*.lua")):
+        holes += [f"{p.stem}:{n}  {s[:60]}"
+                  for n, s in uncovered_tr_lines(p.stem, p.read_text(encoding="utf-8"))]
+    assert holes == [], f"{len(holes)} 行标了 tr_line 却没有账本键：\n" + "\n".join(holes[:10])
+
+
 def test_parse_extra_card_msg_with_concat_first_arg():
     # 主流形态：首参含 cGetFileName 逗号与 .. 拼接，可译文本是最后一个字符串参数
     line = 'oCard.show(cGetFileName("card", "crd_" .. gameSave.fragmentDoCardId .. "_a"), "『約束をしている』のあらすじを作成しました。") -- tr_line:39'

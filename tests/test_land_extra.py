@@ -251,9 +251,11 @@ def test_main_lands_all_rows_with_matching_key_set(tmp_path):
 # 真实数据冒烟：对着真实 ledger_extra.jsonl + skeleton + data/extra_translated.jsonl
 # 跑一遍 assemble+validate（只写 tmp_path，绝不碰 pilot/lanes/opus/data/），钉住
 # "一条不少不多、key 集合完全吻合" 这一硬约束。
-# 2026-08-31 换反编译基座后条数 829→827：旧基座把 snr_s2_10_s 的
-# scene_s2s_190_sel_5/_11 各多输出了一份（if/else 两支各写一遍），新基座用
-# elseif 合并，故少 2 条 scene_title。见 docs/ops/decompiler-base-migration-2026-08-31.md。
+# 条数沿革：旧基座 829 → 2026-08-31 换反编译基座 827（旧基座把 snr_s2_10_s 的
+# scene_s2s_190_sel_5/_11 各多输出了一份，新基座用 elseif 合并，故少 2 条 scene_title，
+# 见 docs/ops/decompiler-base-migration-2026-08-31.md）→ 2026-09-01 补 parse_extra 的
+# 四类识别规则 +51 = 878（scene_name 18 / section_name 10 / dispatch_text 22 /
+# msg_text 1，此前整整漏在账本外，含 41 条玩家可见的日文）。
 # ---------------------------------------------------------------------------
 
 def test_real_data_assemble_and_validate_all_rows_no_dup_no_missing():
@@ -269,7 +271,7 @@ def test_real_data_assemble_and_validate_all_rows_no_dup_no_missing():
     rows = assemble_rows(ledger_rows, jp_by_card, zh_by_card, title_to_cards,
                           translated, glossary_v=1, ts="2026-01-01T00:00:00+00:00")
     assert validate_forward_extra(rows, ledger_rows) is True
-    assert len(rows) == 827
+    assert len(rows) == 878
     assert {r["key"] for r in rows} == {r["key"] for r in ledger_rows}
     assert all(r["zh"] == "" or r["zh"] for r in rows)  # 每行都是字符串（含合法空串）
     empty_zh = [r for r in rows if r["zh"] == ""]

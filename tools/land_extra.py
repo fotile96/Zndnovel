@@ -1,6 +1,13 @@
-"""extra 轨 829 条落盘：derive_extra.py 的机械派生（536 条）+ 人工裁定译文
-（data/extra_translated.jsonl，覆盖 285 条 scene_title + 8 条 savedata，共 293 条经
-去重后 243 行）→ pilot/lanes/opus/data/forward_extra.jsonl（append-only，主键 key）。
+"""extra 轨 878 条落盘：derive_extra.py 的机械派生 + 人工裁定译文
+（data/extra_translated.jsonl，按 jp 查表）→ pilot/lanes/opus/data/forward_extra.jsonl
+（append-only，主键 key）。
+
+⚠ 2026-09-01：账本由 829 → 878。`build_ledger.parse_extra` 补了四类识别规则
+（scene_name / section_name / dispatch_text / msg_text），此前这 51 行带着
+`-- tr_line:` 标记却拿不到键，**整整漏在账本外**，其中 41 行是玩家可见的日文。
+新增的 4 类 `derive_extra` 一律派生不出（`confidence=none`），全部走
+`data/extra_translated.jsonl` 查表——40 种原文里 1 种（放課後の教室）表中已有，
+直接复用；39 种新入表。
 
 为什么另开 forward_extra.jsonl 而不并进 forward.jsonl（用户裁定）：ledger_extra.jsonl
 本来就与 ledger.jsonl 分开（key 是字符串如 "plotTitle:1"，不是整数 id），
@@ -149,22 +156,33 @@ def validate_forward_extra(rows, ledger_rows):
 # 落盘（I/O 层）
 # ---------------------------------------------------------------------------
 
-def land(rows, path=None):
+def land(rows, path=None, only_new=False):
     """append-only 落盘。若目标文件已存在且与本次 rows 有重叠 key，拒绝写入——
     本函数只保证绝不会把已落盘的行覆盖成新行；重复 key 一律拒绝，逼着调用方显式
     决定修订怎么处理（新记录、不同 key 后缀等），而不是本函数替它做主。
     落盘后立即回读校验，确认 append_jsonl 按预期写入（防"以为写了其实没写全"）。
+
+    `only_new=True`＝**账本长出了新 key**时的追加策略（`--only-new`）。这正是上面
+    那句「请自行决定追加策略」所指的决定之一，现在把它显式命名，而不是让每个调用方
+    临时写一段过滤：只落尚未落盘的 key，已落盘的一行不碰。
+    ⚠ 它**不放宽**任何保证——已有 key 依旧绝不覆写，只是从「整批拒绝」变成「跳过已有」。
+    改既有译文仍然不走这里（那是修订，要留痕，走 patches 式的新记录）。
+    2026-09-01 首次用到：`parse_extra` 补了 4 类识别规则，账本 827 → 878。
     """
     path = Path(path or FORWARD_EXTRA)
     existing = read_jsonl(path) if path.exists() else []
     existing_keys = {r["key"] for r in existing}
+    if only_new:
+        rows = [r for r in rows if r["key"] not in existing_keys]
+        if not rows:
+            return path
     new_keys = {r["key"] for r in rows}
     dup = existing_keys & new_keys
     if dup:
         raise ValueError(
             f"append-only 冲突：{path} 里已有 {len(dup)} 个 key 与本次落盘重叠"
             f"（如 {sorted(dup)[:5]}）——拒绝覆写。若这是有意修订，请自行决定"
-            f"追加策略，不要用本函数覆盖首次落盘")
+            f"追加策略，不要用本函数覆盖首次落盘（账本长出新 key 用 --only-new）")
     append_jsonl(path, rows)
 
     after = read_jsonl(path)
@@ -187,6 +205,8 @@ def main(argv=None):
     ap.add_argument("--translated", default=str(TRANSLATED))
     ap.add_argument("--out", default=str(FORWARD_EXTRA))
     ap.add_argument("--check", action="store_true", help="只校验，不落盘")
+    ap.add_argument("--only-new", action="store_true",
+                    help="账本长出新 key 时只追加新的，已落盘的一行不碰")
     ap.add_argument("--ts", help="覆盖时间戳（测试用；省略则用当前 UTC 时间，精确到秒）")
     args = ap.parse_args(argv)
 
@@ -209,8 +229,13 @@ def main(argv=None):
         print("--check 模式：不落盘。", file=sys.stderr)
         return 0
 
-    out_path = land(rows, args.out)
-    landed = read_jsonl(out_path)
+    out_path = land(rows, args.out, only_new=args.only_new)
+    # ⚠ 回读校验必须按**生效视图**（同 key 后行覆盖前行）来，不能拿原始行数比。
+    # forward_extra.jsonl 是 append-only 且**带修订史**的：实测 1068 行只对应 878 个
+    # key，190 行是历次修订留下的旧值。按原始行比会恒定报「行数不符」——这条路径
+    # 此前只在文件不存在的首次落盘跑过，所以一直没暴露。生效视图与
+    # inject_lua.load_translations 的读法完全一致，校验的才是真正会被注入的那份。
+    landed = list({r["key"]: r for r in read_jsonl(out_path)}.values())
     validate_forward_extra(landed, ledger_rows)
     print(f"已落盘 {out_path}（{len(landed)} 行），落盘后回读校验通过。", file=sys.stderr)
     return 0

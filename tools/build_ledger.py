@@ -96,9 +96,37 @@ def classify(row: dict) -> dict:
 
 
 PLOT_TITLE_RE = re.compile(r'^plotTitle\[(\d+)\] = "(.*)"')
-SCENE_TITLE_RE = re.compile(r'scene_[\w]+\((?:doScriptScene|p0), "([^"]*)"')
+# ⚠ 旧基座的 `p0` 形式已随基座迁移消失（实测 lua_scripts 全库 0 处，452 处一律是
+# `doScriptScene`）。留着一个永不命中的分支只会让人以为两种形状都还在。
+SCENE_TITLE_RE = re.compile(r'scene_[\w]+\(doScriptScene, "([^"]*)"')
 SAVEDATA_RE = re.compile(r'savedataTitle\("([^"]*)", "([^"]*)"\)')
 CARD_MSG_RE = re.compile(r'oCard\.show\(.+, "([^"]+)"\)$')
+# ── 以下四类是 2026-09-01 补的，此前**整整漏在账本外**（见 SIMPLE_EXTRA 的说明）──
+#: `gameSave.sceneName = "放課後の教室"`——Story 时间轴上显示的场景名。
+SCENE_NAME_RE = re.compile(r'gameSave\.sceneName = "([^"]*)"')
+#: `gameSave.sectionName = "１：Ｓｔｏｒｙ"`——存档界面的章节标签。
+SECTION_NAME_RE = re.compile(r'gameSave\.sectionName = "([^"]*)"')
+#: `scene_s7f_dispatch_v52("その『お話』の題名は――", 104, l1_1, 10)`
+#: ——递卡段的提示语，文本在**第一参**（与 scene_title 的「第二参」正好相反）。
+DISPATCH_TEXT_RE = re.compile(r'scene_[A-Za-z0-9_]+_dispatch_v\d+\("([^"]*)"')
+#: 单参 `msg("まだ一冊も取得していません。")`——`(?<![A-Za-z0-9_])` 挡住 `vms(`/`xmsg(`。
+MSG_TEXT_RE = re.compile(r'(?<![A-Za-z0-9_])msg\("([^"]*)"\)')
+
+#: extra 轨里「一行一个可译串、键就是 `文件:行号`」的构造，**按序匹配、先中先得**。
+#:
+#: ⚠ **这张表是 `parse_extra` 与 `inject_lua._inject_body` 共用的，别再拆成两条
+#: elif 链。** 拆开正是 41 条玩家可见文本漏译的成因：两边各写一份，
+#: `add_tr_line_markers` 又按「含全角串且非 vms」这个**更宽**的判据打标记，于是
+#: 「标了 tr_line 却没有账本键」的行悄悄堆到 51 条，注入期既不报缺译也不报错
+#: ——账本里根本没有这个键，无从缺起。`uncovered_tr_lines()` 现在把这个洞钉死。
+SIMPLE_EXTRA = [
+    ("card_msg", CARD_MSG_RE),
+    ("scene_title", SCENE_TITLE_RE),
+    ("scene_name", SCENE_NAME_RE),
+    ("section_name", SECTION_NAME_RE),
+    ("dispatch_text", DISPATCH_TEXT_RE),
+    ("msg_text", MSG_TEXT_RE),
+]
 
 
 def parse_extra(stem: str, text: str) -> list[dict]:
@@ -108,30 +136,61 @@ def parse_extra(stem: str, text: str) -> list[dict]:
         if m := PLOT_TITLE_RE.match(line):
             rows.append({"key": f"plotTitle:{m.group(1)}", "jp": m.group(2),
                          "kind": "plot_title", "file": stem})
-        elif m := SAVEDATA_RE.search(line):
+            continue
+        if m := SAVEDATA_RE.search(line):
             for i in (1, 2):
                 rows.append({"key": f"{stem}:{lineno}:{i}", "jp": m.group(i),
                              "kind": "savedata", "file": stem})
-        elif m := CARD_MSG_RE.search(line):
-            rows.append({"key": f"{stem}:{lineno}", "jp": m.group(1),
-                         "kind": "card_msg", "file": stem})
-        elif m := SCENE_TITLE_RE.search(line):
-            rows.append({"key": f"{stem}:{lineno}", "jp": m.group(1),
-                         "kind": "scene_title", "file": stem})
+            continue
+        for kind, rx in SIMPLE_EXTRA:
+            if m := rx.search(line):
+                rows.append({"key": f"{stem}:{lineno}", "jp": m.group(1),
+                             "kind": kind, "file": stem})
+                break
     return rows
 
 
+def uncovered_tr_lines(stem: str, text: str) -> list[tuple[int, str]]:
+    """带 `-- tr_line:N` 标记、却没能产出账本键的行。**应当恒为空。**
+
+    两套识别器的口径必须一致：`migrate_base.should_mark` 负责标记「这行有可译文本」，
+    `parse_extra` 负责给它一个键。标了却没键 ＝ 这段文字**永远不会被翻译**，而且
+    整条管线一声不吭——注入期只会报「账本里的键缺译」，账本里压根没有的键报不出来。
+    """
+    covered = set()
+    for r in parse_extra(stem, text):
+        parts = r["key"].split(":")
+        if len(parts) > 1 and parts[1].isdigit():
+            covered.add(int(parts[1]))
+    out = []
+    for lineno, raw in enumerate(text.splitlines(), 1):
+        if "-- tr_line:" not in raw or lineno in covered:
+            continue
+        line = TR_LINE_RE.sub("", raw.strip())
+        if PLOT_TITLE_RE.match(line):      # plotTitle 的键不带行号，另算
+            continue
+        out.append((lineno, line))
+    return out
+
+
 def build(script_dir):
-    ledger, extra = [], []
+    ledger, extra, holes = [], [], []
     for path in sorted(script_dir.glob("*.lua")):
         text = path.read_text(encoding="utf-8")
         stem = path.stem
         ledger += [classify(r) for r in parse_vms_lines(stem, text)]
         extra += parse_extra(stem, text)
+        holes += [(stem, n, s) for n, s in uncovered_tr_lines(stem, text)]
     ledger.sort(key=lambda r: r["id"])
     extra.sort(key=lambda r: (r["kind"], r["key"]))
     ids = [r["id"] for r in ledger]
     assert len(ids) == len(set(ids)), "vms ID 出现重复"
+    # 标了 tr_line 却没有账本键 ＝ 那段文字永远不会被翻译，且全程一声不吭。
+    # 宁可在这里炸掉：账本是整条译文管线的入口，入口漏了后面全是白做。
+    assert not holes, (
+        f"{len(holes)} 行带 tr_line 标记却没进 extra 账本，"
+        f"parse_extra 少一条识别规则：\n" +
+        "\n".join(f"  {f}:{n}  {s[:70]}" for f, n, s in holes[:10]))
     return ledger, extra
 
 

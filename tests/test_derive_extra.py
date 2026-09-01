@@ -589,5 +589,7 @@ def test_real_data_derive_never_drops_a_row_and_writes_nothing_to_pilot_dir(tmp_
     assert rc == 0
     ledger = read_jsonl(REPO / "pilot/lanes/opus/data/ledger_extra.jsonl")
     results = read_jsonl(out_jsonl)
-    # 827：换基座后 extra 轨条数（旧基座 829，多出的 2 条是反编译冗余）
-    assert len(results) == len(ledger) == 827
+    # 878：2026-09-01 起。沿革——旧基座 829 → 换基座 827（少的 2 条是反编译冗余，
+    # 见 decompiler-base-migration）→ 补 parse_extra 四类识别规则 +51 = 878。
+    # 那 51 行此前带着 tr_line 标记却拿不到账本键，玩家可见的日文漏了 41 条。
+    assert len(results) == len(ledger) == 878

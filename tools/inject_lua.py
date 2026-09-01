@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from tools.build_ledger import (  # noqa: E402
-    CARD_MSG_RE, PLOT_TITLE_RE, SAVEDATA_RE, SCENE_TITLE_RE, TR_LINE_RE, VMS_RE,
+    PLOT_TITLE_RE, SAVEDATA_RE, SIMPLE_EXTRA, TR_LINE_RE, VMS_RE,
 )
 from tools.pipelib import read_jsonl  # noqa: E402
 from tools.resolve import resolve_map  # noqa: E402
@@ -132,7 +132,9 @@ def _inject_body(stem: str, lineno: int, body: str, vms_rows: dict[int, dict],
                 return _replace_span(body, m.start(3), m.end(3), new)
         return body
 
-    # ---- extra 四类：优先级与 build_ledger.parse_extra 的 elif 链完全一致 ----
+    # ---- extra：两个特例 + 共用的 SIMPLE_EXTRA 表 ----
+    # ⚠ 表是**直接 import 的同一个对象**，不是照抄一份。这里曾与 build_ledger 各写
+    # 一条 elif 链，结果 build_ledger 那边加了识别规则、这边没加，就会静默漏译。
     if m := PLOT_TITLE_RE.match(body):
         return _sub_extra(body, m, 2, f"plotTitle:{m.group(1)}", extra, stats)
     if m := SAVEDATA_RE.search(body):
@@ -141,10 +143,9 @@ def _inject_body(stem: str, lineno: int, body: str, vms_rows: dict[int, dict],
                               allow_empty=True)
             m = SAVEDATA_RE.search(body)  # 左参替换后右参 span 已失效，重新匹配
         return body
-    if m := CARD_MSG_RE.search(body):
-        return _sub_extra(body, m, 1, f"{stem}:{lineno}", extra, stats)
-    if m := SCENE_TITLE_RE.search(body):
-        return _sub_extra(body, m, 1, f"{stem}:{lineno}", extra, stats)
+    for _kind, rx in SIMPLE_EXTRA:
+        if m := rx.search(body):
+            return _sub_extra(body, m, 1, f"{stem}:{lineno}", extra, stats)
     return body
 
 

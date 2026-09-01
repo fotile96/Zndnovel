@@ -156,7 +156,7 @@ def validate_forward_extra(rows, ledger_rows):
 # 落盘（I/O 层）
 # ---------------------------------------------------------------------------
 
-def land(rows, path=None, only_new=False):
+def land(rows, path=None, only_new=False, only_changed=False):
     """append-only 落盘。若目标文件已存在且与本次 rows 有重叠 key，拒绝写入——
     本函数只保证绝不会把已落盘的行覆盖成新行；重复 key 一律拒绝，逼着调用方显式
     决定修订怎么处理（新记录、不同 key 后缀等），而不是本函数替它做主。
@@ -166,16 +166,34 @@ def land(rows, path=None, only_new=False):
     那句「请自行决定追加策略」所指的决定之一，现在把它显式命名，而不是让每个调用方
     临时写一段过滤：只落尚未落盘的 key，已落盘的一行不碰。
     ⚠ 它**不放宽**任何保证——已有 key 依旧绝不覆写，只是从「整批拒绝」变成「跳过已有」。
-    改既有译文仍然不走这里（那是修订，要留痕，走 patches 式的新记录）。
     2026-09-01 首次用到：`parse_extra` 补了 4 类识别规则，账本 827 → 878。
+
+    `only_changed=True`＝**修订既有译文**（`--only-changed`）。这就是上面说的
+    「走 patches 式的新记录」：同 key 追加一行新值，**旧行原样留在文件里**，
+    生效值按 append-only 的「后行覆盖前行」取新的（与 `inject_lua.load_translations`
+    的读法一致）。所以修订**不是覆写**，历史逐条可查——这正是 append-only 的意义。
+    只追加 zh 与当前生效值不同的行；无变化的一行不写，避免刷出一堆同值噪声。
+    2026-09-01 首次用到：P5·opus46-wf 校对轮裁定 6 行。
     """
     path = Path(path or FORWARD_EXTRA)
     existing = read_jsonl(path) if path.exists() else []
     existing_keys = {r["key"] for r in existing}
+    if only_new and only_changed:
+        raise ValueError("--only-new 与 --only-changed 是两种互斥的追加策略，只能选一个")
     if only_new:
         rows = [r for r in rows if r["key"] not in existing_keys]
         if not rows:
             return path
+    if only_changed:
+        eff = {r["key"]: r["zh"] for r in existing}          # 后行覆盖前行＝生效值
+        rows = [r for r in rows if r["key"] in eff and eff[r["key"]] != r["zh"]]
+        if not rows:
+            return path
+        append_jsonl(path, rows)
+        after = read_jsonl(path)
+        if [r["key"] for r in after[len(existing):]] != [r["key"] for r in rows]:
+            raise RuntimeError(f"落盘后回读与预期不符——{path} 未按预期写入，需人工核查")
+        return path
     new_keys = {r["key"] for r in rows}
     dup = existing_keys & new_keys
     if dup:
@@ -207,6 +225,8 @@ def main(argv=None):
     ap.add_argument("--check", action="store_true", help="只校验，不落盘")
     ap.add_argument("--only-new", action="store_true",
                     help="账本长出新 key 时只追加新的，已落盘的一行不碰")
+    ap.add_argument("--only-changed", action="store_true",
+                    help="修订既有译文：同 key 追加新值一行，旧行留存（append-only 留痕）")
     ap.add_argument("--ts", help="覆盖时间戳（测试用；省略则用当前 UTC 时间，精确到秒）")
     args = ap.parse_args(argv)
 
@@ -229,7 +249,8 @@ def main(argv=None):
         print("--check 模式：不落盘。", file=sys.stderr)
         return 0
 
-    out_path = land(rows, args.out, only_new=args.only_new)
+    out_path = land(rows, args.out, only_new=args.only_new,
+                    only_changed=args.only_changed)
     # ⚠ 回读校验必须按**生效视图**（同 key 后行覆盖前行）来，不能拿原始行数比。
     # forward_extra.jsonl 是 append-only 且**带修订史**的：实测 1068 行只对应 878 个
     # key，190 行是历次修订留下的旧值。按原始行比会恒定报「行数不符」——这条路径

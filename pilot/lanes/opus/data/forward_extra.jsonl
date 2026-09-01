@@ -1066,3 +1066,9 @@
 {"key":"snr_s6_10_s:1092","kind":"section_name","zh":"６：Ｓｔｏｒｙ","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T05:28:13+00:00"}
 {"key":"snr_s7_10_f:2037","kind":"section_name","zh":"７","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T05:28:13+00:00"}
 {"key":"snr_s8_10_s:293","kind":"section_name","zh":"８：Ｓｔｏｒｙ","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T05:28:13+00:00"}
+{"key":"snr_s5_10_s:2285","kind":"dispatch_text","zh":"【≪彩野≫】「夏天的前奏……初夏。那时候的事，我们两个本来是想一起写下来的吧」","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}
+{"key":"snr_s5_10_s:2342","kind":"dispatch_text","zh":"【≪彩野≫】「从９月１６日算起，几天之后的故事――」","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}
+{"key":"snr_s5_10_s:2407","kind":"dispatch_text","zh":"【≪彩野≫】「冬天开头的……事……」","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}
+{"key":"snr_s7_10_f:2081","kind":"dispatch_text","zh":"也曾是我的挚友……","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}
+{"key":"snr_s7_10_f:2101","kind":"dispatch_text","zh":"担任国语课的老师……","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}
+{"key":"snr_s7_10_f:2114","kind":"dispatch_text","zh":"这个故事，最初本该是通过和Yuichi做什么，才迎来结局的呢――","source":"model+review:data/extra_translated.jsonl","glossary_v":21,"ts":"2026-09-01T07:19:45+00:00"}

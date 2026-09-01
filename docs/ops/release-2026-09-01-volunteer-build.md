@@ -6,7 +6,7 @@
 | | |
 |---|---|
 | 产物 | `build/dist/game_zh.iso`（642,234,368 B） |
-| SHA-256 | `a1d8483814a034d88847fd36d5c83173a52cff061164988acb1f219bc616367b` |
+| SHA-256 | `4694ecab38a4f9852c525198995e62c7c1d5cec78d9a87ae0034252d95a5c449` |
 | 基线 | `assets/orig.iso`（NPJH50279 v1.01） |
 | 出盘命令 | `uv run python tools/build_disc.py --stage lua,gim,font,stage,pack,disc,iso` |
 | 全量测试 | 1676 passed / 4 skipped |
@@ -35,8 +35,9 @@
 
 ## 已知缺口（志愿者会看到的）
 
-**没有漏译了。** 首版曾有 41 条玩家可见文本仍是日文，当日已补齐（见下「tr_line 黑洞」）。
-`vms` 正文轨 16,749 条、extra 轨 878 条，缺译均为 0。
+**没有漏译了。** 首版曾有 41 条玩家可见文本仍是日文，当日已补齐（见下「tr_line 黑洞」），
+并已过一轮 P5 校对（`p5tr-extra-adjudication-notes.md`：opus46-wf 单通道 + 三镜头对抗性复核，
+21 条自由行改 7 行）。`vms` 正文轨 16,749 条、extra 轨 878 条，缺译均为 0。
 
 **下列日文是刻意保留的，不是漏译**，别当 bug 报：
 

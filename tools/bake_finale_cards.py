@@ -93,8 +93,8 @@ def main():
         print(f"crd_{card}_a.png  {status}")
         all_problems.extend((card, p) for p in problems)
     preview = build_preview(pairs)
-    preview.save(OUT_DIR / "preview.png")
-    print(f"preview: {OUT_DIR / 'preview.png'}")
+    preview.save(OUT_DIR / "_preview.png")   # _ 前缀＝QA 对照图，按约定非入包件
+    print(f"preview: {OUT_DIR / '_preview.png'}")
     if all_problems:
         print(f"PROBLEMS: {all_problems}", file=sys.stderr)
         sys.exit(1)

@@ -54,6 +54,15 @@ GIM_SOURCES = [
     ("mode_zh", ""), ("memory_thumb_zh", ""),
 ]
 
+# 谢幕章新增 gim 成员（原包无同名件，模板取同面同规格既有成员——回填只钉格式与
+# 尺寸，色板由烤字图自带）。新成员进包已 2026-09-01 头号验证：按名排序位插入，
+# 引擎寻径/渲染实测通过（card/crd_201_a + script/snr_finale）。
+# (build/ 下产物目录, 封包成员前缀, 模板成员)
+NEW_GIM_SOURCES = [
+    ("finale_cards", "card", "card/crd_1_a.gim"),        # crd_201..207_a，212×148 index8/256
+    ("finale_menu", "sysgim", "sysgim/title_13_a.gim"),  # title_14_a，117×68 index8/256
+]
+
 # 两个字体槽（tools/build_font.py 裁剪产物 → 封包成员名）。
 # 槽 0 = 正文 17px（snr_common.lua:5007 已写死该名）；
 # 槽 1 = ruby/小字 9px（inject_lua.py 在注入期把 fontLoad(1,…) 改到该名）——
@@ -81,6 +90,8 @@ TESTBOOT_MEMBER = "script/snr_test.lua"
 #: 译文注入的明文源；发布自检拿它当基准重编译一遍逐字节对。
 INJECT_SRC = REPO / "build" / "inject_src"
 LUAC = REPO.parent / "pyluadec-refactor" / "build" / "luac_sz4"
+#: 谢幕章演出脚本的 canonical 源（新增成员 script/snr_finale.lua）。
+FINALE_LUA = REPO / "docs" / "finale" / "snr_finale.lua"
 
 
 def stage_lua() -> None:
@@ -95,6 +106,18 @@ def stage_lua() -> None:
     if stray.exists():
         stray.unlink()
         log(f"lua: 清掉测试引导残留 {TESTBOOT_MEMBER}")
+    # 谢幕章新脚本：canonical 源在 docs/finale/（刻意不入 lua_scripts/——
+    # build_ledger 会把它的中文正文当 jp 源收进账本，打破「缺译 0」闸）。
+    # 源同时落 inject_src：check_release_clean 的逐字节重编译核对自动覆盖它，
+    # make_test_boot 的成员还原也从这里取。
+    shutil.copyfile(FINALE_LUA, INJECT_SRC / "snr_finale.lua")
+    dst = INJECT / "script" / "snr_finale.lua"
+    proc = subprocess.run([str(LUAC), "-s", "-o", str(dst),
+                           str(INJECT_SRC / "snr_finale.lua")],
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        die(f"snr_finale.lua 编译失败：{proc.stderr.strip()}")
+    log("lua: 谢幕章 snr_finale.lua 编译进包（源已入 inject_src）")
     n = len(list((INJECT / "script").glob("*.lua")))
     log(f"lua: {n} 个字节码就位")
 
@@ -169,6 +192,26 @@ def stage_gim(force: bool) -> None:
                       (BASE / "manifest.jsonl").read_text().splitlines() if l}
     done = skipped = missing = 0
     losses: list[tuple[float, str]] = []
+
+    def encode(png: Path, member: str, tpl_path: Path) -> None:
+        nonlocal done, skipped
+        out = INJECT / member
+        if out.exists() and not force and out.stat().st_mtime >= png.stat().st_mtime:
+            skipped += 1
+            return
+        tpl = Gim(tpl_path.read_bytes())
+        im = Image.open(png)
+        if tpl.image.fmt in (4, 5):  # index4/8
+            im = quantize_for_template(im, tpl.palette.w * tpl.palette.h)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        blob = tpl.encode_from_pil(im)
+        out.write_bytes(blob)
+        # 量化损耗自检：解回来与源图做 alpha 感知比对（透明像素不计）
+        loss = perceptual_mse(Gim(blob).to_pil(), Image.open(png))
+        if loss > 0:
+            losses.append((loss, member))
+        done += 1
+
     for src_dir, prefix in GIM_SOURCES:
         root = REPO / "build" / src_dir
         if not root.is_dir():
@@ -183,23 +226,21 @@ def stage_gim(force: bool) -> None:
                 log(f"gim: ⚠ {src_dir}/{png.relative_to(root)} 无对应封包成员 {member}，跳过")
                 missing += 1
                 continue
-            out = INJECT / member
-            if out.exists() and not force and out.stat().st_mtime >= png.stat().st_mtime:
-                skipped += 1
+            encode(png, member, BASE / member)
+    for src_dir, prefix, tpl_member in NEW_GIM_SOURCES:
+        root = REPO / "build" / src_dir
+        if not root.is_dir():
+            log(f"gim: {src_dir}/ 不存在，跳过整面（谢幕新增件，先跑对应 bake 工具）")
+            continue
+        for png in sorted(root.rglob("*.png")):
+            if png.name.startswith("_"):
                 continue
-            tpl = Gim((BASE / member).read_bytes())
-            im = Image.open(png)
-            blk = tpl.image
-            if blk.fmt in (4, 5):  # index4/8
-                im = quantize_for_template(im, tpl.palette.w * tpl.palette.h)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            blob = tpl.encode_from_pil(im)
-            out.write_bytes(blob)
-            # 量化损耗自检：解回来与源图做 alpha 感知比对（透明像素不计）
-            loss = perceptual_mse(Gim(blob).to_pil(), Image.open(png))
-            if loss > 0:
-                losses.append((loss, member))
-            done += 1
+            member = str(Path(prefix) / png.relative_to(root).with_suffix(".gim"))
+            if member in manifest_names:
+                log(f"gim: ⚠ {member} 已是原包成员——NEW_GIM_SOURCES 只管新增件，跳过")
+                missing += 1
+                continue
+            encode(png, member, BASE / tpl_member)
     losses.sort(reverse=True)
     over = [x for x in losses if x[0] > QUANT_MSE_WARN]
     log(f"gim: 编码 {done}，未变跳过 {skipped}，无成员 {missing}；"

@@ -88,12 +88,12 @@ def main():
     canvas.save(OUT_SRC)
     OUT_DBG.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(OUT_SRC, OUT_DBG / "title_14_a.png")   # 成品＝源（无烤注步）
-    canvas.resize((W * 3, H * 3), Image.NEAREST).save(OUT_DBG / "title_14_a_src_3x.png")
+    canvas.resize((W * 3, H * 3), Image.NEAREST).save(OUT_DBG / "_src_3x.png")
     ref = imgs["13"]
     combo = Image.new("RGBA", ((ref.size[0] + W + 12) * 3, max(ref.size[1], H) * 3), (24, 24, 24, 255))
     combo.alpha_composite(ref.resize((ref.size[0] * 3, ref.size[1] * 3), Image.NEAREST), (0, 0))
     combo.alpha_composite(canvas.resize((W * 3, H * 3), Image.NEAREST), ((ref.size[0] + 12) * 3, 0))
-    combo.save(OUT_DBG / "final_compare_3x.png")
+    combo.save(OUT_DBG / "_final_compare_3x.png")
     print(f"final -> {OUT_SRC} ＋ {OUT_DBG}/title_14_a.png")
 
 

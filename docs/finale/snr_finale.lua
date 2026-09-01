@@ -1,7 +1,7 @@
 -- snr_finale.lua —— 谢幕章『放学后的讲述者』（encore）
 -- 文稿：docs/finale/draft-finale-v2.md；演出设计：docs/finale/stage-design-v1.md；
 -- 入口约定：doScriptScene == "fin-10"（主菜单直达 / e2f-complete 链入，见 mainmenu-entry-plan.md）。
--- vms id：正文 17300–17478（紧贴既有上限 17220 之后，首测项）；
+-- vms id：正文 17300–17481（紧贴既有上限 17220 之后，首测项）；
 --         卡片消息 18201–18207 由 oCard.show 自动生成（18200 已被 crd_200 用过）。
 -- 结构仿 snr_s8_10_f.lua；不调用 comSectionNonLabelBegin（其前缀表不认识 fin-，
 -- 开场函数内联），不调用 comSectionStoryEnd、不写 gameSave.storyRoute（硬约束）。
@@ -253,10 +253,8 @@ scene_fin_40 = function(scene_id, scene_title)
     vms(17426, "NONVOICE", "千秋翻开笔记本，念了起来。")
     cStopLoopSeWrap()
     wait(1)
-    comEffectWhiteOut(120)
-    wait(1)
     layerLoad(layerName.event, cGetFileName("event", "eve_74_x"))
-    switchScreen(0, "", 120)
+    comEffectWhiteIn(120)
     wait(120)
     cPlayBGMWrap(cGetFileName("bgm", "bgm_20_c"))
     vms(17427, "NONVOICE", "○文化祭。教室里挂着彩带，黑板上写着大大的『祝』字。")

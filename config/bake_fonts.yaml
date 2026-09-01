@@ -50,6 +50,9 @@ faces:
   # 而非标签。暂随默认，等看过烤出来的效果再定。
   event:
     font: third_party/LXGWWenKai-Regular.ttf
+    # ⚠ 见下方 cutin 的同款说明：2.2 是这一面的**既定值**，2026-09-01 的按面解析
+    # 重构一度把它掉成默认 1.0（本面症状更重：环在 d=18 处离底 41.5，容差 6）。
+    fill_gain: 2.2
 
   # ── cutin/：章节起止字幕卡（cut_e_* / cut_s_*）。透明底发光单行条 ────────
   #
@@ -70,6 +73,15 @@ faces:
   #
   # 填充增益维持 2.2：仿宋与霞鹜文楷同属细笔画，不是裁决 Y6/Y14 说的粗体情形。
   #
+  # ⚠ **这个 2.2 必须写在这里，不能靠默认值。** 它原先来自 `bake_sysgim_glow` 的
+  #   模块级 `FILL_GAIN`（全局默认 2.2，所有面共享）；2026-09-01 为 sysgim 换思源
+  #   而把它改成 `ui_font.fill_gain()` 按面/按张解析、默认 1.0 之后，**没有 fill_gain
+  #   条目的面就静默掉到了 1.0**——cutin 与 event 两面因此被连累，而上面这行注释
+  #   还在说「维持 2.2」，字面为真、机制已被抽走。
+  #   症状是发光收敛检查（`tests/test_bake_{cutin_title,event_op}.py`）报环在 d=18
+  #   处离底 6.4 / 41.5（容差 6）——**这两道闸抓住了它**，但只有跑全量才看得见。
+  #
+  #
   # ── 两个**主动偏离原图**的旋钮（2026-08-29 用户看过五档对照后裁定）──────
   #
   # `slant: 0.10` 轻微右倾。⚠ **原图并没有被切变**——实测残差（原图 vs 我们用
@@ -87,6 +99,7 @@ faces:
     font: /System/Library/AssetsV2/com_apple_MobileAsset_Font7/1821952872c81043711aab6910052b65da8edf2c.asset/AssetData/STFANGSO.ttf
     slant: 0.10
     size_bias: 1
+    fill_gain: 2.2
 
   # ── sysgim：**2026-09-01 改判为思源黑体 Medium**（推翻下方 F11）──────────
   #

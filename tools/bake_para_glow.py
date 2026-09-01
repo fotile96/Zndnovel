@@ -89,6 +89,8 @@ class Spec:
     #: 保护判据改成**几何足迹**（逐保留层一个实测半径，见 tools/bake_mask.py
     #: `plan_geo`），geo 参数逐张放在数据行的 `geo` 字段里。
     mask_mode: str | None = None
+    #: 强制所有行使用同一字号（跳过自动选号）。用于跨段/跨文件统一字号。
+    force_size: int | None = None
 
 #: 分行阈值：相对该盒峰值墨距的比例。
 #:
@@ -221,7 +223,8 @@ def _fit_one(text: str, target_h: int, avail_w: int, sheet: str, face: str):
 
 
 def choose_size(zh_lines: list[str], para: Para, box, sheet: str,
-                face: str = "sysgim") -> tuple[list[int], list[str]]:
+                face: str = "sysgim",
+                force_size: int | None = None) -> tuple[list[int], list[str]]:
     """逐行选字号，返回与 `zh_lines` 等长的字号表。
 
     承裁决 Y7——**锚在原行墨迹高，不锚行距**（按行距选会渲出比原文大一圈的字）。
@@ -233,7 +236,12 @@ def choose_size(zh_lines: list[str], para: Para, box, sheet: str,
       大字 21px + 小字注 13px，若取中位数 17，小字注会被渲成大字号。
 
     宽度对每一行单独判：最宽的那行不能超出盒。
+
+    `force_size`：跳过自动选号，所有内容行强制使用该字号。用于跨段/跨文件统一。
     """
+    if force_size is not None:
+        return ([force_size if ln.strip() else FONT_CASCADE[-1]
+                 for ln in zh_lines], [])
     avail_w = box[2] - box[0] - 2 * (para.left - box[0])
     spread = max(para.heights) - min(para.heights)
     uniform = spread <= UNIFORM_HEIGHT_TOL
@@ -253,6 +261,11 @@ def choose_size(zh_lines: list[str], para: Para, box, sheet: str,
         sizes.append(size)
         if warn:
             over.append(warn)
+    if uniform:
+        content = [s for s, ln in zip(sizes, zh_lines) if ln.strip()]
+        if content:
+            m = min(content)
+            sizes = [m if ln.strip() else s for s, ln in zip(sizes, zh_lines)]
     return sizes, over
 
 
@@ -348,6 +361,14 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
     for meta in rows:
         box = tuple(meta["box"])
         boxes.append(box)
+        # `erase`＝**只擦不写**：这一盒的原文抹掉，不落任何中文。
+        #
+        # 与「待译」（空 zh）是两回事，故用独立字段而不是靠空 zh 推断：待译要整张
+        # 跳过（免得半中半日），只擦要照常出活。用在**中文注不如没有**的地方——
+        # 主菜单 12 项的小注只有 7px 高，中文四字注在这个像素预算下必然糊成一团
+        # （2026-09-01 用户裁定：抹掉日文小注、留英文大词）。
+        if meta.get("erase"):
+            continue
         # 保留层的地盘不参与量环——盒里混着它的晕，不排除就会把它当成本层的晕。
         # 字芯也由 mask 给：默认判据会漏掉纯青的细笔，漏掉的笔画会变成假的远场晕。
         geo = (rows[0].get("geo", {})
@@ -379,7 +400,8 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
             )
         if spec.core_anchor:
             para = replace(para, heights=_core_heights(im, box, para))
-        sizes, warn = choose_size(zh_lines, para, box, name, spec.face)
+        sizes, warn = choose_size(zh_lines, para, box, name, spec.face,
+                                  force_size=spec.force_size)
         report += warn
 
         # ── 横向：复现原文块的**重心**，不是它的左缘 ────────────────────
@@ -469,14 +491,17 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
 
 
 def load_text(spec: "Spec") -> tuple[dict[str, list[dict]], list[str]]:
-    """同 `bake_sysgim_glow.load_text`：空 `zh` 的图整张不渲染，避免半中半日。"""
+    """同 `bake_sysgim_glow.load_text`：空 `zh` 的图整张不渲染，避免半中半日。
+
+    带 `erase` 的行不算待译——它的空 `zh` 是**裁定**不是缺口（见 `bake_file`）。
+    """
     out: dict[str, list[dict]] = {}
     untranslated: set[str] = set()
     for line in spec.data.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         r = json.loads(line)
-        if not str(r.get("zh", "")).strip():
+        if not str(r.get("zh", "")).strip() and not r.get("erase"):
             untranslated.add(r["file"])
         out.setdefault(r["file"], []).append(r)
     for f in untranslated:

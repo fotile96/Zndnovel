@@ -335,7 +335,12 @@ glow_floor），遮盖规划器 `tools/bake_mask.py::plan_geo`。裁决 **E8–E
 ### ✅ 已解决：遮盖与嵌字分两步、两个框（2026-08-29 收尾）
 
 工具 `tools/bake_mask.py`，裁决 **E1–E7** 见 `bake-decisions.md`，
-测试 `tests/test_bake_sysgim_title.py`（13 条）。产物 `build/sysgim_title_zh/`。
+测试 `tests/test_bake_sysgim_title.py`。产物 `build/sysgim_title_zh/`。
+
+> ⚠ **2026-09-01 起这 12 张只擦不写**（裁决 E22）：遮盖照旧、嵌字取消——抹掉假名小注，
+> 只留英文大词，不放中文。上一节列的那批待定译名（`ライブラリ` 等）**因此不再需要**；
+> 已定的 12 条中文小注撤下，逐张留在 `data/sysgim_title_text.jsonl` 的 `note` 里备查。
+> 下面关于遮盖的一切（两个框、残留表、亮边成因）仍然成立且仍在用——**变的只是嵌字那一步**。
 
 **做法**：数据里的 `box` 只当**嵌字框**（字多大、落在哪，不变）；遮盖另算——
 「旧墨外接盒 +6px」减去「保留层的发光足迹（到英文字芯欧氏距离 <5，允许 τ≤16 的最外圈）」，

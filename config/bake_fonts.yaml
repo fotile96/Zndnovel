@@ -81,7 +81,6 @@ faces:
   #   症状是发光收敛检查（`tests/test_bake_{cutin_title,event_op}.py`）报环在 d=18
   #   处离底 6.4 / 41.5（容差 6）——**这两道闸抓住了它**，但只有跑全量才看得见。
   #
-  #
   # ── 两个**主动偏离原图**的旋钮（2026-08-29 用户看过五档对照后裁定）──────
   #
   # `slant: 0.10` 轻微右倾。⚠ **原图并没有被切变**——实测残差（原图 vs 我们用
@@ -121,32 +120,27 @@ faces:
     weight: Medium
     fill_gain: 1.0
     sheets:
-      # ── title_02..13_a：主菜单项的极小字号小注，**回用霞鹜**（用户 2026-09-01 裁定）
+      # ── sys_2_a / sys_3_a：面板标题下的小注，**回用霞鹜**（用户 2026-09-01 裁定）
       #
-      # 这一族与同面其余张不同：注音墨迹只有 8–10px 高，而中文四字注（如「故事目录」
-      # 合计约 30 笔）在这个高度上**换任何字体都是一团**——实测思源 Medium/Bold ×
-      # 抬档 0/1 四种组合与霞鹜无可辨差异，缩短成两字也只是留白变多。这是像素预算
-      # 问题，不是字重问题。故这一族按观感回到霞鹜，并带回它需要的 2.2 填充增益。
+      # 与同面其余张不同：这是极小字号的小注，思源在这个尺度上并不更好，且换成思源后
+      # ref_right 对齐实测偏 11px（右缘落在 94、参照物在 105），退回霞鹜即复位——
+      # 归类与观感两条理由指向同一处置。带回霞鹜需要的 2.2 填充增益。
       #
       # 增益能按张给，是因为 2026-09-01 把它从模块级全局改成了 ui_font.fill_gain()
       # 按面/按张解析——否则「同一面里两套字」根本无法表达。
-      # sys_2_a/3_a 也是小注（「面板标题下的小注」，数据注释原文），同归霞鹜。
-      # 换成思源后 ref_right 对齐实测偏 11px（右缘落在 94、参照物在 105），
-      # 退回霞鹜即复位——归类与观感两条理由指向同一处置。
       sys_2_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
       sys_3_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_02_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_03_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_04_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_05_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_06_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_07_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_08_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_09_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_10_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_11_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_12_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
-      title_13_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
+      # ── title_02..13_a **不在这里**，因为它们不再渲染任何中文 ────────────
+      #
+      # 这 12 张（主菜单项的假名小注）同日改判为**只擦不写**：抹掉日文小注、只留
+      # 英文大词（裁决 E22，理由见 tools/bake_sysgim_title.py 的文档串）。既然一个
+      # 字都不渲，给它们指字体就是空条目——留着会让人以为「主菜单小注用霞鹜渲」。
+      #
+      # ⚠ 翻案（要恢复中文小注）时得把这 12 行加回来：
+      #     title_0N_a: {font: third_party/LXGWWenKai-Regular.ttf, weight: null, fill_gain: 2.2}
+      #   那是当初为它们定的配置。不过 E22 的实测结论是**这个尺度换任何字体都一样糊**
+      #   （思源 Medium/Bold × 抬档 0/1 四种组合与霞鹜无可辨差异），所以真要翻案，
+      #   该重新考虑的是「放不放中文」，而不是「用哪套字」。
 
 
   # ── 以下为已被推翻的 F11 原文，保留以存来龙去脉 ──────────────────────

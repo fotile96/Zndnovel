@@ -71,7 +71,10 @@ REQUIRED = ("file", "row", "jp", "zh")
 # 用于原行高差**超出**自动统一的噪声容差、但人工裁定该段就该同号的张——
 # autosave 四行原行高 13/14/16/16 差 3，逐行选号渲成 12/15/16/17，用户看图判为参差。
 # 强制号不自动降级：放不下就报 OVERFLOW，由人改小或改盒，否则「全段同号」名存实亡。
-KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left", "force_size")
+# `erase`：只擦不写（bake_para_glow 同名同义）。空 `zh` 于是不算待译——
+# 那是「这里裁定不放中文」，不是「中文还没译」。两者都表现为空 zh，靠字段区分。
+KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left", "force_size",
+                    "erase")
 
 
 @dataclass(frozen=True)
@@ -128,7 +131,7 @@ def check(path: Path, box_required: bool, img_dir: Path = SYSGIM) -> tuple[list[
         if not str(r["jp"]).strip():
             errs.append(Problem(rel, n, "jp 为空", f"{r['file']} row={r['row']}"))
         if not str(r["zh"]).strip():
-            if not r.get("deferred"):
+            if not r.get("deferred") and not r.get("erase"):
                 todo.append(Problem(rel, n, "待译", f"{r['file']} row={r['row']}「{r['jp']}」"))
 
         if "box" in r:

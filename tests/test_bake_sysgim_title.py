@@ -56,9 +56,30 @@ def _split(name):
     return im, px, W, H, keep, drop
 
 
-def test_corpus_is_the_twelve_menu_items_all_translated():
+def test_corpus_is_the_twelve_menu_items_all_erase_only():
+    """12 张全部**只擦不写**（用户 2026-09-01 裁定，理由见 bake_sysgim_title 文档串）。
+
+    先前这条断言的是「12 条译文全部非空」。裁定把它整个推翻了：小注只有 7–10px 高，
+    中文四字注在这个像素预算下换任何字体都糊，故抹掉日文、只留英文大词。
+    留空必须是**显式**的 `erase`，不能靠空 `zh` 推断——那和「还没译」同形，
+    而两者的处置相反（待译要整张跳过，只擦要照常出活）。
+    """
     assert sorted(r["file"] for r in ROWS) == sorted(SEPARATE + ADJACENT)
-    assert all(r["zh"].strip() for r in ROWS)
+    assert all(r.get("erase") for r in ROWS), [
+        r["file"] for r in ROWS if not r.get("erase")]
+    assert all(not r["zh"].strip() for r in ROWS), [
+        r["file"] for r in ROWS if r["zh"].strip()]
+
+
+def test_the_retired_translations_are_kept_in_the_notes():
+    """撤下的 12 条中文小注要留在数据里，不能只活在 git 历史里。
+
+    它们是过了术语闸的定译（「故事目录」「片段目录」「记录存档」…）。翻案时
+    直接取回，不必重译、不必再走一遍闸。
+    """
+    for r in ROWS:
+        assert "撤下备查" in r["note"], r["file"]
+        assert r["note"].count("「- ") >= 1, (r["file"], r["note"][:80])
 
 
 def test_english_glow_dies_exactly_at_distance_five():
@@ -254,6 +275,35 @@ def test_baked_output_changes_nothing_outside_the_mask_roi():
         masked = baked.copy()
         masked.paste(orig.crop(mp.roi), mp.roi)
         assert diff_bbox(orig, masked) is None, (name, diff_bbox(orig, masked))
+
+
+@needs_face_font("sysgim")
+def test_erase_only_output_keeps_no_cyan_but_the_counted_residual():
+    """**产物层面的主张**：假名走了，也没有中文顶上——盒里一个青像素都不剩。
+
+    判据就是工具文档串里那条实测的分层判据（小注青 `G−R` 达 42–83，英文蓝晕
+    `G−R≈0`），故「还有青」等价于「还有假名，或者写了新字」。双向验：原图必须
+    确实有一大片青（250–354），否则这条测试没在量任何东西。
+
+    6 张空间分离的必须**归零**；6 张紧贴英文的只许剩下 `mp.residual` 逐粒数过的
+    那几个——它们是两层真重叠处的旧墨，落在英文发光足迹里，擦掉就会在英文的晕上
+    豁个口（实测 3–11 个／张）。
+    """
+    def cyan(im):
+        px = im.load()
+        return sum(1 for y in range(im.height) for x in range(im.width)
+                   if px[x, y][3] > 0 and px[x, y][1] - px[x, y][0] > 25
+                   and px[x, y][2] >= px[x, y][1])
+
+    for r in ROWS:
+        name = r["file"]
+        before, after = cyan(_img(name)), cyan(bake_file(name, [r], [], SPEC))
+        assert before > 200, (name, before)      # 实测 250–354
+        assert after <= len(_plan(name).residual), (name, after)
+        if name in SEPARATE:
+            assert after == 0, name
+        else:
+            assert after <= 12, (name, after)    # 实测 3–11
 
 
 def test_merge_farther_accepts_a_predicate_for_non_rectangular_bounds():

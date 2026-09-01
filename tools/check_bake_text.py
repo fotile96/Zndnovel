@@ -73,8 +73,10 @@ REQUIRED = ("file", "row", "jp", "zh")
 # 强制号不自动降级：放不下就报 OVERFLOW，由人改小或改盒，否则「全段同号」名存实亡。
 # `erase`：只擦不写（bake_para_glow 同名同义）。空 `zh` 于是不算待译——
 # 那是「这里裁定不放中文」，不是「中文还没译」。两者都表现为空 zh，靠字段区分。
+# `twin`：孪生态重建参数 {"dy":…, "band":[y0,y1]}（bake_mask.plan 同名同义）——
+# 本图另有一份不含旧墨的保留层渲染，用来重建擦不掉的那几粒残留。
 KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left", "force_size",
-                    "erase")
+                    "erase", "twin")
 
 
 @dataclass(frozen=True)

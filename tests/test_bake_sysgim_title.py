@@ -34,9 +34,27 @@ def _img(name):
     return Image.open(SRC / f"{name}.png").convert("RGBA")
 
 
+TWIN = {r["file"]: r["twin"] for r in ROWS if "twin" in r}
+
+
 @lru_cache(maxsize=None)
 def _plan(name):
+    """**不带**孪生重建的方案——遮盖本身的行为由它作证。"""
     return bake_mask.plan(_img(name), tuple(BOXES[name]))
+
+
+@lru_cache(maxsize=None)
+def _plan_twin(name):
+    """production 用的方案：带孪生重建（六张紧贴英文的才有孪生态）。"""
+    return bake_mask.plan(_img(name), tuple(BOXES[name]), twin=TWIN.get(name))
+
+
+def _cyan(im):
+    """小注那一层的颜色签名：青绿系 `G−R` 达 42–83，而英文蓝晕 `G−R≈0`。"""
+    px = im.load()
+    return sum(1 for y in range(im.height) for x in range(im.width)
+               if px[x, y][3] > 0 and px[x, y][1] - px[x, y][0] > 25
+               and px[x, y][2] >= px[x, y][1])
 
 
 def _split(name):
@@ -256,13 +274,19 @@ def test_pure_cyan_strokes_count_as_ink_not_as_glow():
 
 @needs_face_font("sysgim")
 def test_baked_output_leaves_the_english_byte_identical():
-    """**产物层面的主张**：英文大词按用户裁定原样保留——不是"渲得像"，是没动过。"""
+    """**产物层面的主张**：英文大词按用户裁定原样保留——不是"渲得像"，是没动过。
+
+    ⚠ 唯一的例外是 `post_writes`：孪生态重建按地面真值改写的那批**晕**像素
+    （`check_keep_intact` 对它豁免）。那不是"没动过"的破例，正相反——那些像素原本
+    就不是纯英文，是英文的晕**叠着旧墨**，重建才让它们回到"只有英文"。英文的
+    笔画本体一粒都没被选中，由 `test_reconstruction_never_touches_the_english_strokes`
+    单独作证。
+    """
     for r in ROWS:
         name = r["file"]
         orig = _img(name)
         baked = bake_file(name, [r], [], SPEC)
-        mp = _plan(name)
-        assert bake_mask.check_keep_intact(orig, baked, mp) == 0, name
+        assert bake_mask.check_keep_intact(orig, baked, _plan_twin(name)) == 0, name
 
 
 @needs_face_font("sysgim")
@@ -278,32 +302,151 @@ def test_baked_output_changes_nothing_outside_the_mask_roi():
 
 
 @needs_face_font("sysgim")
-def test_erase_only_output_keeps_no_cyan_but_the_counted_residual():
-    """**产物层面的主张**：假名走了，也没有中文顶上——盒里一个青像素都不剩。
+def test_erase_only_output_keeps_no_cyan_at_all():
+    """**产物层面的主张**：假名走了，也没有中文顶上——**12 张一个青像素都不剩**。
 
     判据就是工具文档串里那条实测的分层判据（小注青 `G−R` 达 42–83，英文蓝晕
     `G−R≈0`），故「还有青」等价于「还有假名，或者写了新字」。双向验：原图必须
     确实有一大片青（250–354），否则这条测试没在量任何东西。
 
-    6 张空间分离的必须**归零**；6 张紧贴英文的只许剩下 `mp.residual` 逐粒数过的
-    那几个——它们是两层真重叠处的旧墨，落在英文发光足迹里，擦掉就会在英文的晕上
-    豁个口（实测 3–11 个／张）。
+    ⚠ 这条曾经宽到 `after <= 12`：紧贴英文的六张有 3–11 粒旧墨压在英文的发光足迹
+    里，按 `d_keep < 5` 那条距离判据一律不许动。嵌中文时它们被新墨的晕淹掉看不见，
+    改成只擦不写后就孤零零露在英文底下（用户 2026-09-01：「极力辨认仍可见」）。
+    孪生态重建把它们清了，**所以这里收紧到零**——宽限额度一旦没有了理由就该收回。
     """
-    def cyan(im):
-        px = im.load()
-        return sum(1 for y in range(im.height) for x in range(im.width)
-                   if px[x, y][3] > 0 and px[x, y][1] - px[x, y][0] > 25
-                   and px[x, y][2] >= px[x, y][1])
-
     for r in ROWS:
         name = r["file"]
-        before, after = cyan(_img(name)), cyan(bake_file(name, [r], [], SPEC))
+        before, after = _cyan(_img(name)), _cyan(bake_file(name, [r], [], SPEC))
         assert before > 200, (name, before)      # 实测 250–354
-        assert after <= len(_plan(name).residual), (name, after)
-        if name in SEPARATE:
-            assert after == 0, name
-        else:
-            assert after <= 12, (name, after)    # 实测 3–11
+        assert after == 0, (name, after)
+
+
+# ── 孪生态重建 ────────────────────────────────────────────────
+
+
+def test_twin_band_carries_no_kana():
+    """**孪生重建的前提**：暗态那条带是纯英文，一个假名像素都没有。
+
+    前提不成立的话，「地面真值」本身就带着要清的东西，重建只是把污染搬个家。
+    """
+    assert set(TWIN) == set(ADJACENT), sorted(TWIN)
+    for name, tw in TWIN.items():
+        im = _img(name)
+        b0, b1 = tw["band"]
+        assert _cyan(im.crop((0, b0, im.width, b1))) == 0, name
+        # 亮态那条带反过来必须有青，否则是把两条带认反了
+        lo = b0 + tw["dy"]
+        assert _cyan(im.crop((0, lo, im.width, lo + b1 - b0))) > 0, name
+
+
+def test_twin_offset_puts_the_two_states_on_top_of_each_other():
+    """记下来的 Δy 必须真的把两态对齐，**差一行就崩**——这个值不是随手填的。
+
+    尺子用「远场 alpha 一致度」而不是「非透明蒙版重叠率」。重叠率量的是笔画有没有
+    盖住笔画，而笔画是**粗的**：错开一行照样盖得住九成以上（实测 Δy 1.000 vs
+    +1 0.996，title_05_a 上只差 0.004，根本分不开）。一致度量的是**灰度层面对不对得上**，
+    对错位极敏感：
+
+        Δy 正确  p95 = 1–3（均值 0.22–0.52）
+        Δy ±1    p95 = 82–87（均值 24–30）
+
+    差着一个数量级。这也顺带说明「两态只换了配色、几何逐像素相同」这个前提是真的。
+    """
+    for name, tw in TWIN.items():
+        im = _img(name)
+        px = im.load()
+        W, H = im.size
+        mp = _plan(name)
+        drop = [(x, y) for y in range(H) for x in range(W) if mp.ink_core[y][x]]
+        dd = bake_mask._edt(drop, W, H)
+        b0, b1 = tw["band"]
+
+        def agree(dy):
+            """远场（离旧墨够远，没有污染）两态 alpha 差的 p95。"""
+            v = []
+            for y in range(b0, b1):
+                yl = y + dy
+                if not 0 <= yl < H:
+                    continue
+                for x in range(W):
+                    if px[x, y][3] == 0 and px[x, yl][3] == 0:
+                        continue
+                    if dd[yl][x] < bake_mask.TWIN_NEAR_D:
+                        continue
+                    v.append(abs(px[x, yl][3] - px[x, y][3]))
+            v.sort()
+            return v[int(len(v) * 0.95)]
+
+        assert agree(tw["dy"]) <= 3, (name, agree(tw["dy"]))
+        for off in (-1, 1):
+            assert agree(tw["dy"] + off) > 40, (name, off, agree(tw["dy"] + off))
+
+
+def test_contamination_only_raises_alpha_and_dies_within_three_pixels():
+    """`TWIN_EXCESS_TOL` 的两条实测依据，双向验。
+
+    ①**远处两态逐字节相同**：离旧墨字芯 ≥4px 处「亮态 α − 孪生 α」的 p95 只有 1。
+      这同时排除了「两态本来就一强一弱」——真有系统性差异的话远处不会归零，
+      那样按超出量做减法就会把英文的晕一起削掉。
+    ②**近处确实有污染**：d≤3 处成规模地超出容差，故这把尺子在量东西。
+    """
+    far, near = [], []
+    for name, tw in TWIN.items():
+        im = _img(name)
+        px = im.load()
+        W, H = im.size
+        mp = _plan(name)
+        drop = [(x, y) for y in range(H) for x in range(W) if mp.ink_core[y][x]]
+        dd = bake_mask._edt(drop, W, H)
+        b0, b1 = tw["band"]
+        for y in range(b0, b1):
+            yl = y + tw["dy"]
+            if not 0 <= yl < H:
+                continue
+            for x in range(W):
+                if px[x, y][3] == 0 and px[x, yl][3] == 0:
+                    continue
+                (far if dd[yl][x] >= 4 else near).append(px[x, yl][3] - px[x, y][3])
+    far.sort()
+    assert far[int(len(far) * 0.95)] <= 1, far[-5:]
+    assert sum(1 for v in near if v > bake_mask.TWIN_EXCESS_TOL) > 200, len(near)
+
+
+@needs_face_font("sysgim")
+def test_reconstruction_never_brightens_past_the_ground_truth():
+    """重建后成品不许比「只有英文」的地面真值亮出噪声地板以上。
+
+    这是重建**做到了**的正向主张。修前实测最多亮出 60+（孤零零的旧墨粒与它的晕），
+    修后 ≤11——而 11 正是两态量化噪声本身的极值（见上一条的 far 分布）。
+    """
+    for r in ROWS:
+        name = r["file"]
+        if name not in TWIN:
+            continue
+        dy, (b0, b1) = TWIN[name]["dy"], TWIN[name]["band"]
+        src, baked = _img(name), bake_file(name, [r], [], SPEC)
+        sp, bp = src.load(), baked.load()
+        worst = max(bp[x, y + dy][3] - sp[x, y][3]
+                    for y in range(b0, b1) for x in range(src.width)
+                    if 0 <= y + dy < src.height)
+        assert worst <= 11, (name, worst)
+
+
+def test_reconstruction_never_touches_the_english_strokes():
+    """重建只碰**晕**，绝不碰英文的笔画本体（「英文一律不动」是用户的裁定）。
+
+    ⚠ **这条曾经真的挂过，靠的不是运气而是补了一道闸。** 起初以为合成代数自动保证
+    ——英文字芯 alpha 拉满、旧墨压不上去、超出量恒为 0。但两态在笔画**边沿**会各自
+    舍入到差 4 左右（远场超出量 p95 虽是 1，极值却有 11），于是 title_03_a (20,52)
+    与 title_13_a (44,51) 两粒纯白满 alpha 的笔画被当成污染改掉了。
+    容差挡不住这条尾巴，`TWIN_NEAR_D` 那道几何闸才挡得住。
+    """
+    for name in ADJACENT:
+        px = _img(name).load()
+        for (x, y) in _plan_twin(name).post_writes:
+            p = px[x, y]
+            assert not (p[3] >= bake_mask.CORE_ALPHA
+                        and min(p[:3]) >= bake_mask.CORE_LUMA), (name, x, y, p)
 
 
 def test_merge_farther_accepts_a_predicate_for_non_rectangular_bounds():

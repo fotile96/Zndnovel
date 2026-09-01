@@ -711,8 +711,96 @@ def _rects_of(allowed, roi):
     return rects
 
 
-def plan(im: Image.Image, boxes, tau: int = PROTECT_TAU) -> MaskPlan:
-    """算一张图的遮盖方案。"""
+#: 学孪生调色映射时，离旧墨字芯至少这么远的像素才算「干净」样本。
+#:
+#: 实测（title 六张，阈值扫 6/10/14/18）众数命中率稳定在 86%，**不随阈值升高而
+#: 改善**——即那 14% 的分歧不是假名污染，是两态各自量化的舍入噪声。故取最低的 6：
+#: 再严只是白白丢样本。分歧本身也小（同族相邻色，差几个数值）。
+TWIN_CLEAN_D = 6
+
+#: 判「这一粒被旧墨污染了」的 alpha 超出容差。
+#:
+#: **判据是合成代数，不是阈值调参**：旧墨压在保留层上，合成后
+#: `α = α旧 + α留(1−α旧) ≥ α留`——**污染只会把 alpha 抬高，永不压低**。所以
+#: 「亮态比孪生真值亮」就等价于「这里还有旧墨」，反过来不亮就是干净的，不必动。
+#:
+#: 容差 2 来自实测的噪声地板：把超出量按「离旧墨字芯的距离」分箱（title 六张），
+#:
+#:     d= 0    1    2    3    4    5..14
+#:     中位 255  123   17    3    0    0
+#:     p95  255  210   46   16    2    1
+#:
+#: ——超出量在 d≤3 处成规模，d≥4 处**中位 0、p95 仅 1**，即两态在没有旧墨的地方
+#: 逐字节相同。这同时排除了「两态本来就一强一弱」的可能：真有系统性差异的话，
+#: 远处不会归零。故 >2 既盖住污染，又不去碰两态各自量化的 ±1 抖动。
+TWIN_EXCESS_TOL = 2
+
+#: 只在离旧墨字芯这么近的地方重建。**这道几何闸不是冗余的。**
+#:
+#: 上面那张表的 p95 是 1，但**极值是 11**：两态在保留层笔画的边沿会各自舍入到
+#: 差 4 左右。只凭超出量判，那种像素会被当成污染改掉——实测 title_03_a (20,52)
+#: 与 title_13_a (44,51) 两粒**纯白满 alpha 的英文笔画**就是这么被选中的
+#: （改成 (245,245,254,251)）。判据靠容差挡不住尾巴，得靠「污染只可能出现在旧墨
+#: 附近」这条几何事实挡。取 4 ＝ 实测超出量归零的那一档。
+TWIN_NEAR_D = 4
+
+
+def _twin_lut(im: Image.Image, dy: int, band: tuple[int, int],
+              ink_core) -> dict:
+    """学「暗态色 → 亮态色」的调色映射。
+
+    两态是**同一个字形的两套配色**：几何逐像素重合（实测非透明足迹重叠
+    98.4–100%），alpha 相同（差分布众数 0、尾巴 ±1），只有 RGB 换了一套
+    ——暗态晕 `(136,121,235)` 对亮态晕 `(33,32,253)`。
+
+    映射按**众数**取，不按公式推。曾试过「白 ↔ 晕色线性插值」的一参数模型：
+    它本身是对的（中间色实测确实落在插值线上），但要先定出两端的晕色，而
+    「最饱和的常见色」这个启发式挑出的是中间调 `(164,153,239)`，据此外推的
+    误差高达 195。众数不需要定端点，也就没有这个失败模式。
+    """
+    px = im.load()
+    W, H = im.size
+    drop = [(x, y) for y in range(H) for x in range(W) if ink_core[y][x]]
+    d_drop = _edt(drop, W, H)
+    lut: dict = {}
+    counts: dict = {}
+    for y in range(band[0], band[1]):
+        yl = y + dy
+        if not 0 <= yl < H:
+            continue
+        for x in range(W):
+            # 亮态那侧要离假名字芯足够远，才是没被污染的纯保留层像素
+            if d_drop[yl][x] < TWIN_CLEAN_D:
+                continue
+            a, b = px[x, y], px[x, yl]
+            if a[3] == 0 and b[3] == 0:
+                continue
+            c = counts.setdefault(a[:3], {})
+            c[b[:3]] = c.get(b[:3], 0) + 1
+    for k, c in counts.items():
+        lut[k] = max(c, key=c.get)
+    return lut
+
+
+def plan(im: Image.Image, boxes, tau: int = PROTECT_TAU,
+         twin: dict | None = None) -> MaskPlan:
+    """算一张图的遮盖方案。
+
+    `twin`＝**孪生态重建**（可选）。`{"dy": Δy, "band": [y0, y1]}`：本图在
+    `band` 这条带里还有一份**不含旧墨**的保留层渲染（`title_*` 的暗态就是纯英文），
+    与作用域那份相距 `dy` 行、逐像素重合。给了它，`residual` 那几粒擦不掉的旧墨
+    就不再原样留着，而是按孪生态**重建成「只有保留层」的样子**写进 `post_writes`。
+
+    **为什么非重建不可。** 残留是两层真重叠处的旧墨：它落在保留层的发光足迹里，
+    照 `d_keep < 5` 那条距离判据一律不许动，擦掉会在英文的晕上豁个口。原先只好
+    原样留着——嵌了中文时它们被新墨的晕淹掉看不出来，**改成只擦不写以后就孤零零
+    地露在英文底下**，用户 2026-09-01 反馈「极力辨认仍可见的青色 artifact」。
+
+    **孪生态是实测的地面真值，比那条距离判据更硬。** 判据只知道「这里离英文字芯
+    近，可能有晕」；孪生态直接给出「这里的英文晕到底是多少」。实测 47 粒残留的
+    孪生值**全部**是暗态晕色 `(136,121,235)`、alpha 4–47，而残留本身 alpha 68–255
+    ——重建后强度掉一个量级，且颜色回到英文那族的蓝。
+    """
     px = im.load()
     W, H = im.size
     allowed, protect, roi, bg, old_ink, d_keep = _erase_allowed(im, boxes, tau)
@@ -725,9 +813,46 @@ def plan(im: Image.Image, boxes, tau: int = PROTECT_TAU) -> MaskPlan:
                 and d_old[y][x] <= 5 and px[x, y][1] - px[x, y][0] > 8]
     ink_core = [[(x, y) in old_ink and px[x, y][3] >= CORE_ALPHA
                  for x in range(W)] for y in range(H)]
+
+    post_writes: dict = {}
+    if twin is not None:
+        dy, band = twin["dy"], tuple(twin["band"])
+        lut = _twin_lut(im, dy, band, ink_core)
+        l, t, r, b = roi
+        d_drop = _edt([(x, y) for y in range(H) for x in range(W)
+                       if ink_core[y][x]], W, H)
+        for y in range(t, b):
+            ys = y - dy
+            if not (0 <= ys < H and band[0] <= ys < band[1]):
+                continue
+            for x in range(l, r):
+                if not protect[y][x]:
+                    continue          # 非保留层的地盘已经擦成底了，不归这里管
+                if d_keep[y][x] == 0:
+                    continue          # 保留层的**笔画本体**：用户裁定一个字节都不动
+                if d_drop[y][x] >= TWIN_NEAR_D:
+                    continue          # 够远，旧墨的晕已经死透，这里的差是两态噪声
+                src = px[x, ys]
+                if px[x, y][3] - src[3] <= TWIN_EXCESS_TOL:
+                    continue          # 没被污染：合成只会**抬高** alpha（见下）
+                if src[3] == 0:
+                    # 孪生态说这里没有保留层——那条距离判据保护过头了，擦掉即可
+                    post_writes[(x, y)] = bg
+                    continue
+                if src[:3] not in lut:
+                    # **宁可报错也不猜**：映射学不到这个色，说明孪生假设在这张图上
+                    # 不成立（换素材、Δy 记错），此时重建出的颜色是没有依据的。
+                    raise ValueError(
+                        f"孪生重建：({x},{ys}) 的暗态色 {src[:3]} 不在调色映射里"
+                        f"（映射有 {len(lut)} 项）——Δy={dy} 或 band={band} 恐怕不对")
+                post_writes[(x, y)] = (*lut[src[:3]], src[3])
+        # 被重建的像素不再是「原样保留」——两份账必须互斥，报告才不撒谎
+        residual = [p for p in residual if p not in post_writes]
+
     return MaskPlan(rects=rects, roi=roi, bg=bg, protect=protect,
                     ink_core=ink_core, residual=residual,
-                    residual_max_alpha=max((px[x, y][3] for x, y in residual), default=0))
+                    residual_max_alpha=max((px[x, y][3] for x, y in residual), default=0),
+                    post_writes=post_writes)
 
 
 def apply(dst: Image.Image, mp: MaskPlan) -> None:

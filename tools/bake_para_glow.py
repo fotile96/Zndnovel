@@ -337,11 +337,19 @@ def bake_file(name: str, rows: list[dict], report: list[str], spec: "Spec") -> I
     boxes = []
     mp = None
     if spec.mask_mode == "glow_footprint":
-        mp = bake_mask.plan(im, [tuple(r["box"]) for r in rows])
+        mp = bake_mask.plan(im, [tuple(r["box"]) for r in rows],
+                            twin=rows[0].get("twin"))
         if mp.residual:
             report.append(
                 f"residual {name}: 旧墨有 {len(mp.residual)} 个像素压在保留层的发光里，"
                 f"擦不掉（最亮 alpha {mp.residual_max_alpha}）"
+            )
+        if mp.post_writes:
+            # 重建了多少、强度掉到多少，要说出来——静默的修补读起来就像「本来就干净」
+            hi = max(v[3] for v in mp.post_writes.values())
+            report.append(
+                f"twin {name}: 按孪生态重建 {len(mp.post_writes)} 粒残留"
+                f"（重建后最亮 alpha {hi}）"
             )
     elif spec.mask_mode == "geo_footprint":
         geo = rows[0].get("geo")

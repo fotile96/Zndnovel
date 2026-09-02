@@ -1,32 +1,47 @@
 #!/usr/bin/env -S uv run python
-"""生成测试引导脚本，替换封包内 script/snr_mainmenu.lua 成员。
+"""测试盘层生成器：产测试专用的层文件，不再直接写字节码。
 
-原理：`snr_common.main()` 做完全部初始化（双字体 fontLoad、常驻图层、SE、IPL
-演出、runAutoLoad）后 `run(script/snr_mainmenu)`。把那个成员换成我们的脚本，
-即可在完整初始化的环境里直接跑测试代码——不动 config.bootScript、不动
-snr_common，回滚只需重新注入原成员。
+原理不变：`snr_common.main()` 做完全部初始化（双字体 fontLoad、常驻图层、SE、IPL
+演出、runAutoLoad）后 `run(script/snr_mainmenu)`；测试脚本作为**新增成员**
+`script/snr_test.lua` 注入，并把这句引导交接改指向它，即可在完整初始化的环境里
+直接跑测试代码。但引导交接的改写、IPL 开场的剥离，现在是 `layers/overlays/` 下
+两个静态 test 层的事（`boot-handoff.toml`、`strip-ipl.toml`，Task 4 已产）——本工具
+只管测试脚本本身与（card 模式的）递卡短路叠加层，不再碰 snr_common、不再编译
+字节码、不再直接写封包成员树。
 
-两种模式：
-  font   字体/ruby 探针：用 fontPrint 逐槽画样本串、用 msg 走正文管线画 ruby，
-         每页停一帧等外部截图。回答 CLAUDE.md 悬置的两个问题——ruby 用哪个字体槽、
-         该槽有没有带声调的拉丁元音。
-  scene  跳场景：预置卡片/进度后直入指定章节场景（O(1) 抵达任意待验场景）。
+`generate(mode, out_dir, **opts) -> dict` 是唯一对外接口，产物：
+  out_dir/scripts/snr_test.lua              测试引导脚本（新增成员 script/snr_test.lua）
+  out_dir/overlays/card-short-circuit.toml  仅 card 模式：把递卡调用换成正确答案
+落到 out_dir（CLI 缺省 build/test/generated/），由 build_disc 在静态 test 层之后
+按文件名序施加（Task 8 接线）。
+
+八种模式（--mode）：
+  font     字体/ruby 探针：用 fontPrint 逐槽画样本串、用 msg 走正文管线画 ruby，
+           每页停一帧等外部截图。回答 CLAUDE.md 悬置的两个问题——ruby 用哪个字体槽、
+           该槽有没有带声调的拉丁元音。
+  ruby     ruby 居中对齐测量：固定底字「记忆」，一页一种注音变体，跨页比较偏移。
+  scene    跳场景：预置卡片/进度后直入指定章节场景（O(1) 抵达任意待验场景）。
+  card     直入卡片谜题 crd_N，并产递卡短路叠加层，QA 不必在卡表里翻页找答案。
+  cutin    章节首尾 cutin 一次过目：几何取自真实调用点的动画终态。
+  mainmenu 全解锁真主菜单：195 卡全持有 + startMenuState=2，人工验收用。
+  choices  全部 comDlgSelectItem 选择肢按钮串联过目。
+  map      全部 comSelectMap 探索地图选点串联过目。
 """
 from __future__ import annotations
 
 import argparse
-import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-OUT_SRC = REPO / "build" / "testboot"
-INJECT = REPO / "build" / "inject" / "script"
-LUAC = REPO.parent / "pyluadec-refactor" / "build" / "luac_sz4"
-#: 引导交接语句：snr_common.main() 末尾把控制权交给主菜单的那一行。
-BOOT_HANDOFF = 'run(cGetFileName("script", "snr_mainmenu"))'
+if str(REPO) not in sys.path:
+    # 直接跑本脚本（uv run python tools/testboot.py）时 sys.path[0] 是 tools/
+    # 而不是仓库根，_injected_source() 的 `from tools import inject_lua` 会
+    # ModuleNotFoundError——补上仓库根，与 tools/layers.py 同一惯例。
+    sys.path.insert(0, str(REPO))
+#: 层生成器产物目录（CLI 缺省）；由 build_disc 在静态 test 层之后按文件名序施加。
+OUT_DIR = REPO / "build" / "test" / "generated"
 #: 选择肢串联时铺的底（教室，明暗中性，便于看清 on/off 两态按钮）
 CHOICE_BG = "bg_1_a_0"
 
@@ -63,7 +78,7 @@ RUBY_VARIANTS = [
     ("全角假名基准", "きおく"),
 ]
 
-RUBY_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：ruby 居中对齐测量（一页一变体）
+RUBY_TEMPLATE = '''-- 自动生成（tools/testboot.py）：ruby 居中对齐测量（一页一变体）
 main = function()
     layerCopy(layerName.bg1, layerName.titleBG)
     switchScreen(0, "", 0)
@@ -75,7 +90,7 @@ main = function()
 end
 '''
 
-FONT_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：字体/ruby 探针
+FONT_TEMPLATE = '''-- 自动生成（tools/testboot.py）：字体/ruby 探针
 -- 替换 script/snr_mainmenu.lua；snr_common.main() 初始化完毕后进入这里。
 local probeFontSlots = function()
     -- 直接走 fontPrint（不经 cHan2Zen），逐槽验字形覆盖。
@@ -106,7 +121,7 @@ main = function()
 end
 '''
 
-CUTIN_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：章节首尾 cutin 一次过目
+CUTIN_TEMPLATE = '''-- 自动生成（tools/testboot.py）：章节首尾 cutin 一次过目
 -- 每张按其**真实调用点的几何**摆放（位置/旋转取动画结束后的静止态），
 -- 故能看出中文文案在原位置下会不会被屏幕边缘切掉。
 main = function()
@@ -129,7 +144,7 @@ CUTIN_PAGE = '''    layerLoad(layerName.event, {ev})
     layerLoad(layerName.pose1, "")
 '''
 
-MAINMENU_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：全解锁真主菜单（人工上手用）
+MAINMENU_TEMPLATE = '''-- 自动生成（tools/testboot.py）：全解锁真主菜单（人工上手用）
 -- 把决定菜单形态的进度全部拉满后交给**真正的** snr_mainmenu，
 -- 于是四种形态里最全的那种、以及文库/回想/音乐/画廊/セクション7 全部可见可进。
 main = function()
@@ -162,7 +177,7 @@ main = function()
 end
 '''
 
-CHOICES_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：全部选择肢按钮串联过目
+CHOICES_TEMPLATE = '''-- 自动生成（tools/testboot.py）：全部选择肢按钮串联过目
 -- 逐个复现 lua 里的 comDlgSelectItem 调用（参数逐字照搬），**丢弃返回值**——
 -- 选什么都不影响，按完就出下一组。这样一遍就能看完全部 {n} 组按钮的中文烤图。
 main = function()
@@ -182,7 +197,7 @@ CHOICES_PAGE = '''    layerLoad(layerName.event, cGetFileName("bg", "{bg}"))
     fontClear()
 '''
 
-MAP_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：探索地图选点界面串联
+MAP_TEMPLATE = '''-- 自动生成（tools/testboot.py）：探索地图选点界面串联
 -- comSelectMap 的调用同样逐字照搬、丢弃返回值。全库共 {n} 处，地点集合各不相同。
 main = function()
     local ret
@@ -198,7 +213,7 @@ MAP_PAGE = '''    fontClear()
     fontClear()
 '''
 
-CARD_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：直入卡片谜题 crd_{card}
+CARD_TEMPLATE = '''-- 自动生成（tools/testboot.py）：直入卡片谜题 crd_{card}
 -- 预置全卡持有 + 目标卡号，绕过 fragment 时间轴直接跑卡脚本。
 main = function()
     local i0
@@ -219,7 +234,7 @@ main = function()
 end
 '''
 
-SCENE_TEMPLATE = '''-- 自动生成（tools/make_test_boot.py）：跳场景 {scene}
+SCENE_TEMPLATE = '''-- 自动生成（tools/testboot.py）：跳场景 {scene}
 -- 替换 script/snr_mainmenu.lua；预置进度后直入目标章节脚本。
 main = function()
     local i0
@@ -240,21 +255,6 @@ end
 '''
 
 
-# snr_common.main() 的 IPL 开场：4 屏 logo 各 淡入120帧 + keyWait180 + 淡出120帧，
-# 合计约 28 秒，每轮测试都要白等。四个图层进块前后都是 alpha 0（5000-5006 行已
-# layerAlpha(…,0)），故整块删除不改变末态，只是不播演出。仅测试盘用。
-IPL_BLOCK_HEAD = "    layerMoveAlpha(0, 100, 120)\n"
-IPL_BLOCK_TAIL = "    layerMoveAlpha(3, 0, 120)\n    wait(120)\n"
-
-
-def strip_ipl(text: str) -> tuple[str, bool]:
-    i = text.find(IPL_BLOCK_HEAD)
-    j = text.find(IPL_BLOCK_TAIL)
-    if i < 0 or j < 0 or j < i:
-        return text, False
-    return text[:i] + text[j + len(IPL_BLOCK_TAIL):], True
-
-
 # 递卡短路：卡片谜题要玩家从持有卡里挑出正确卡才推进剧情。QA 时不想用按键在卡表里
 # 翻页，就把 `oCard.selectCardObj()` 直接换成 data/dag.json 里记录的正确答案——
 # 那份答案是 build_dag 从 `oCard.selectCardObj()` 接收变量的卡号比较里抽出来的，
@@ -272,6 +272,18 @@ def card_answer(card: int) -> int:
     return ans[0]
 
 
+def _dag_answers(card: int) -> list[int]:
+    """dag.json 记录的、这张卡全部 `oCard.selectCardObj()` 比较对象的去重集合
+    （build_dag.parse_crd_answers 的产出：按数值排序，不含调用点在文件里的先后
+    次序、也不含重复）。`card_answer()` 只取其中最小的一个当**唯一**替换值；
+    本函数把完整集合暴露出来，给「这张卡是不是多步骤、每步要交不同卡」的判断用
+    （见 generate() 里对多答案卡的告警）。
+    """
+    import json
+    dag = json.loads((REPO / "data" / "dag.json").read_text(encoding="utf-8"))
+    return (dag["crds"].get(str(card)) or {}).get("answers") or []
+
+
 def card_scene(card: int) -> str:
     """卡号 → 它所属的场景 ID（snr_common 的 sceneId2aCard 反查）。"""
     import re as _re
@@ -282,10 +294,53 @@ def card_scene(card: int) -> str:
     return ""
 
 
+def _injected_source(stem: str) -> str:
+    """给定 lua 文件 stem（不带 .lua），返回**译文注入后**的源码（内存，不落盘）。
+
+    tools/layers.py 模块 docstring 定的核心约束：叠加层在译文注入之后施加，锚点
+    只准是代码文本。递卡短路的 target 恰恰是可能挤满 vms() 对白的卡脚本（crd_103
+    这类大谜题一个文件十几处对白），构建时刻 find_all() 真正扫的是**这份**注入后
+    的文本，不是 lua_scripts/ 的日文原文——`oCard.selectCardObj()` 本身不是可译
+    字符串，两者在这个具体调用上「理应」不受译文影响，但「理应」不是「保证」；
+    唯一让 count 必然对得上构建时真实命中数的做法，是这里就地产出同一份源，别处
+    不再假定它跟基座原文等价。
+
+    复用 tools.inject_lua 已经在跑、已被信赖的按 (file,line) 替换逻辑，只对单个
+    文件现算——不像 tools.layers._injected_sources() 那样把整棵基座都注入一遍
+    （那是给 `check --compare-compiled` 用的，需要全量比对；这里只要一个文件）。
+    """
+    from tools import inject_lua
+    from tools.pipelib import read_jsonl
+
+    src_path = REPO / "lua_scripts" / f"{stem}.lua"
+    if not src_path.exists():
+        sys.exit(f"缺 {src_path}")
+    zh, extra = inject_lua.load_translations()
+    ledger_rows = read_jsonl(REPO / "data" / "ledger.jsonl")
+    rows = {r["line"]: r for r in ledger_rows if r["file"] == stem}
+    stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
+                 ruby_merged=0)
+    return inject_lua.inject_text(stem, src_path.read_text(encoding="utf-8"),
+                                  rows, zh, extra, stats)
+
+
 def short_circuit_card(card: int) -> tuple[str, int]:
-    """把卡脚本里的递卡调用换成正确答案，返回 (改后源码, 替换次数)。"""
-    src = (REPO / "build" / "inject_src" / f"snr_crd_{card}.lua").read_text(encoding="utf-8")
+    """把卡脚本里的递卡调用换成正确答案，返回 (改后源码, 替换次数)。
+
+    源取 `_injected_source`（译文注入后），不再读 `build/inject_src`——那是
+    inject_lua.py 收缩为纯注入之前（Task 5）的旧默认输出位置，如今已不存在。
+    """
+    src = _injected_source(f"snr_crd_{card}")
     return src.replace(SELECT_CALL, str(card_answer(card))), src.count(SELECT_CALL)
+
+
+def _count_select_calls(card: int) -> int:
+    """card-short-circuit 叠加层的 `count`：与 `short_circuit_card` 数的必须是
+    同一份源（译文注入后），故直接复用它的计数，不另起一份独立实现——两处各数
+    一遍，将来译文管线一旦改变这份源的字面内容，就可能悄悄分叉出两个不同的数。
+    """
+    _, n = short_circuit_card(card)
+    return n
 
 
 # 章节首尾 cutin 的真实几何：从 lua 调用点现场提取，不写死——脚本改了这里自动跟上。
@@ -372,157 +427,148 @@ def scene_to_script(scene: str) -> str:
     return f"snr_{chap}_10_{suffix}"
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", default="font", choices=(
-        "font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map"))
-    ap.add_argument("--card", type=int, help="card 模式的卡号（答案自 data/dag.json 取）")
-    ap.add_argument("--scene", default="s1s_20", help="scene 模式的目标场景 ID")
-    ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
-    ap.add_argument("--hold", type=int, default=180, help="font 模式每页停留帧数")
-    ap.add_argument("--no-fast-boot", action="store_true",
-                    help="保留 IPL 开场演出（默认剥掉，省约 28 秒/轮）")
-    args = ap.parse_args()
+_MODES = ("font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map")
 
-    if args.mode == "mainmenu":
-        src = MAINMENU_TEMPLATE.format(route=story_route())
+
+def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
+                 hold: int = 180, no_cards: bool = False) -> str:
+    """按模式渲染 `scripts/snr_test.lua` 的源码。原 main() 里的 if/elif 链搬到这里，
+    返回值取代模块级变量；未知模式硬失败——没有 argparse 的 choices= 替它把关了。
+    """
+    if mode == "mainmenu":
         print("[testboot] 全解锁主菜单（195 卡 + startMenuState=2 + 预置记忆路线）")
-    elif args.mode == "choices":
+        return MAINMENU_TEMPLATE.format(route=story_route())
+    if mode == "choices":
         calls = scan_calls(DLG_CALL)
         pages = "".join(CHOICES_PAGE.format(tag=t, args=a, bg=CHOICE_BG)
                         for t, a in calls)
-        src = CHOICES_TEMPLATE.format(pages=pages, n=len(calls))
         print(f"[testboot] 串起 {len(calls)} 组选择肢按钮")
-    elif args.mode == "map":
+        return CHOICES_TEMPLATE.format(pages=pages, n=len(calls))
+    if mode == "map":
         calls = scan_calls(MAP_CALL)
         pages = "".join(MAP_PAGE.format(tag=t, args=a) for t, a in calls)
-        src = MAP_TEMPLATE.format(pages=pages, n=len(calls))
         print(f"[testboot] 串起 {len(calls)} 处探索地图")
-    elif args.mode == "cutin":
+        return MAP_TEMPLATE.format(pages=pages, n=len(calls))
+    if mode == "cutin":
         cuts = scan_cutins()
+
         def _bg_args(bg):
             if not bg:
                 return '""'
             kind, nm = bg
-            call = f'cGetFileName("{kind}", "{nm}")'
             # ⚠ 一律走 event 层：实测 layerLoad(layerName.bg1, 路径) **不显示**
             # （bg1 在引擎里是 layerCopy 的目标层，不吃直接的文件加载），
             # 两个探针里凡走 bg1 的底都渲成黑屏。
-            return call
+            return f'cGetFileName("{kind}", "{nm}")'
 
         pages = "".join(
-            CUTIN_PAGE.format(name=n, x=x, y=y, r=r, hold=args.hold,
-                              ev=_bg_args(bg))
+            CUTIN_PAGE.format(name=n, x=x, y=y, r=r, hold=hold, ev=_bg_args(bg))
             for n, x, y, r, bg in cuts)
-        src = CUTIN_TEMPLATE.format(pages=pages)
         n_cg = sum(1 for c in cuts if c[4])
         print(f"[testboot] 扫到 {len(cuts)} 张章节 cutin（{n_cg} 张叠在 CG 上，"
               f"{len(cuts) - n_cg} 张在黑底上）")
-    elif args.mode == "card":
-        if not args.card:
-            sys.exit("--mode card 需要 --card N")
-        src = CARD_TEMPLATE.format(card=args.card, scene=card_scene(args.card))
-    elif args.mode == "ruby":
+        return CUTIN_TEMPLATE.format(pages=pages)
+    if mode == "card":
+        if not card:
+            sys.exit("card 模式需要 card 参数（CLI: --card N）")
+        return CARD_TEMPLATE.format(card=card, scene=card_scene(card))
+    if mode == "ruby":
         pages = []
         for i, (label, ruby) in enumerate(RUBY_VARIANTS):
             # 底字前不加任何前缀，保证每页底字起点一致（可跨页比较注音偏移）
             pages.append(f'    msg({9100 + i}, "<记忆,{ruby}>")')
-        src = RUBY_TEMPLATE.format(pages="\n".join(pages))
-    elif args.mode == "font":
+        return RUBY_TEMPLATE.format(pages="\n".join(pages))
+    if mode == "font":
         pages = []
         for i, (label, text) in enumerate(FONT_PAGES):
             esc = text.replace("\\", "\\\\").replace('"', '\\"')
             pages.append(f'    msg({9000 + i}, "[{label}] {esc}")')
-        src = FONT_TEMPLATE.format(pages="\n".join(pages), hold=args.hold)
-    else:
-        src = SCENE_TEMPLATE.format(scene=args.scene, script=scene_to_script(args.scene),
-                                    hold=-1 if args.no_cards else 1)
+        return FONT_TEMPLATE.format(pages="\n".join(pages), hold=hold)
+    if mode == "scene":
+        return SCENE_TEMPLATE.format(scene=scene, script=scene_to_script(scene),
+                                     hold=-1 if no_cards else 1)
+    sys.exit(f"未知模式 {mode!r}（可选 {', '.join(_MODES)}）")
 
-    OUT_SRC.mkdir(parents=True, exist_ok=True)
-    INJECT.mkdir(parents=True, exist_ok=True)
 
-    # ⚠ 先把上一轮改过的成员还原，再打这一轮的补丁。
-    # 不还原会串味：早期版本是**顶替** snr_mainmenu 成员的，换成新架构后
-    # snr_test 会去 run(snr_mainmenu)，于是跑进上一轮留下的探针——
-    # 2026-09-01 实测就是这么把 mainmenu 模式跑成了 cutin 探针。
-    # 台账记的是「本工具改过哪些成员」，还原时从 build/inject_src 重编译回译文版；
-    # snr_test.lua 是纯新增成员，直接删。
-    ledger = OUT_SRC / "emitted.json"
-    # 台账不存在（首次跑，或此前的版本没记账）时，按最保守的集合还原——
-    # 这三个是本工具历来会动的成员，还原它们廉价且无副作用。
-    prev = (json.loads(ledger.read_text()) if ledger.exists()
-            else ["snr_mainmenu.lua", "snr_common.lua", "snr_test.lua"])
-    restored = []
-    for name in prev:
-        dst = INJECT / name
-        if name == "snr_test.lua":
-            dst.unlink(missing_ok=True)
-            continue
-        pristine = REPO / "build" / "inject_src" / name
-        if not pristine.exists():
-            continue
-        proc = subprocess.run([str(LUAC), "-s", "-o", str(dst), str(pristine)],
-                              capture_output=True, text=True)
-        if proc.returncode != 0:
-            sys.exit(f"还原 {name} 失败: {proc.stderr}")
-        restored.append(name)
-    if prev:
-        print(f"[testboot] 还原上一轮改过的 {len(prev)} 个成员"
-              + (f"（{', '.join(restored)}）" if restored else ""))
+def generate(mode: str, out_dir: Path, **opts) -> dict:
+    """产测试层：scripts/snr_test.lua + 需要时的参数化叠加层。
 
-    emitted: list[str] = []
+    产物落 out_dir（CLI 缺省 build/test/generated/），由 build_disc 在静态 test 层
+    之后按文件名序施加。返回 {"scripts": [...], "overlays": [...]}（均为相对
+    out_dir 的路径），供调用方（测试、build_disc）核对产出。
+    """
+    out_dir = Path(out_dir)
+    src = _render_mode(mode, **opts)          # 未知 mode 在这里已 sys.exit，不会往下走
+    (out_dir / "scripts").mkdir(parents=True, exist_ok=True)
+    (out_dir / "scripts" / "snr_test.lua").write_text(src, encoding="utf-8")
+    result = {"scripts": ["scripts/snr_test.lua"], "overlays": []}
 
-    def emit(name: str, text: str) -> None:
-        lua = OUT_SRC / name
-        lua.write_text(text, encoding="utf-8")
-        dst = INJECT / name
-        proc = subprocess.run([str(LUAC), "-s", "-o", str(dst), str(lua)],
-                              capture_output=True, text=True)
-        if proc.returncode != 0:
-            sys.exit(f"luac 失败 {name}: {proc.stderr}")
-        emitted.append(name)
-        print(f"[testboot] {name} -> {dst}")
+    if mode == "card":
+        card = opts["card"]                  # _render_mode 已确认非空，这里必然存在
+        answer = card_answer(card)
+        count = _count_select_calls(card)
+        if not count:
+            sys.exit(f"snr_crd_{card} 里找不到 {SELECT_CALL}，无法短路递卡")
+        # ⚠ 已知限制（非本次生成器化引入，重构前的工具就是这个行为）：多步骤大
+        # 谜题（crd_103『選択：ノート』、crd_104『True Color』等 23 张）每处
+        # oCard.selectCardObj() 要交不同的卡，但下面只产一条 op、一个 with——
+        # 全部 count 处会被统一换成同一张卡，第一步之外的每个 while 循环永远等
+        # 不到匹配，测试盘会卡死而不是报错。按 dag.json 的答案去重集合探测这种
+        # 情况并提醒，但不拦——`--mode card --card 103` 仍是这个工具的验收样例
+        # （tests/test_testboot.py），拦下会连累它一起炸。真正的修法要按调用点
+        # 顺序拆成多条 occurrence= 专属 op，dag.json 目前不含调用点顺序，留作
+        # 后续任务。
+        n_answers = len(_dag_answers(card))
+        multi_step = count > 1 and n_answers > 1
+        warn = ""
+        if multi_step:
+            warn = (f"\n⚠ 本卡 {count} 处递卡对应 {n_answers} 个不同答案 "
+                    f"{_dag_answers(card)}——短路只填得了第一步的 {answer}，"
+                    f"之后每一步都会卡死。QA 请手动过牌，不要用这份 overlay。")
+            print(f"[testboot] ⚠ crd_{card} 是多步骤谜题：{count} 处递卡对应 "
+                  f"{n_answers} 个不同答案，短路只填第一步、之后每步都会卡死"
+                  f"——这类卡请手动过牌，不要拿这份 overlay 给 QA 用")
+        ov = f'''target  = "snr_crd_{card}.lua"
+profile = "test"
+why     = """递卡短路：卡片谜题要玩家从持有卡里挑出正确卡才推进剧情，QA 时不想
+翻页找答案。把 `{SELECT_CALL}` 换成 data/dag.json 记录的正确答案卡 {answer}——
+那份答案是 build_dag 从同一个调用的比较对象里抽出来的，与脚本自身同源。
+count 数的是**译文注入后**的源（见 _injected_source 的 docstring），不是
+lua_scripts/ 的日文原文：叠加层在译文注入之后施加，这份源才是构建时真正要
+过 find_all() 校验的那份。仅测试盘用。{warn}
+"""
 
-    # 测试脚本作为**新成员** script/snr_test.lua 注入，并把 snr_common 引导末尾的
-    # `run(snr_mainmenu)` 改指它。早先的做法是直接顶替 snr_mainmenu 成员，那样就
-    # 没法再跑真菜单了——而主菜单本身正是要测的对象之一。
-    emit("snr_test.lua", src)
+[[ops]]
+op    = "replace"
+count = {count}
+find  = "{SELECT_CALL}"
+with  = "{answer}"
+'''
+        (out_dir / "overlays").mkdir(parents=True, exist_ok=True)
+        (out_dir / "overlays" / "card-short-circuit.toml").write_text(ov, encoding="utf-8")
+        result["overlays"].append("overlays/card-short-circuit.toml")
+        print(f"[testboot] 递卡短路 {count} 处 → 答案卡 {answer}"
+              f"，场景 {card_scene(card) or '(未知)'}")
 
-    if args.mode == "card":
-        patched, n = short_circuit_card(args.card)
-        if not n:
-            sys.exit(f"snr_crd_{args.card} 里找不到 {SELECT_CALL}，无法短路递卡")
-        emit(f"snr_crd_{args.card}.lua", patched)
-        print(f"[testboot] 递卡短路 {n} 处 → 答案卡 {card_answer(args.card)}"
-              f"，场景 {card_scene(args.card) or '(未知)'}")
+    return result
 
-    # ⚠ 两个分支都必须重写 snr_common：--no-fast-boot 若只是「不写」，上一轮剥过 IPL 的
-    # 字节码会留在 build/inject/script 里，开场并不会恢复（2026-08-31 实测踩到）。
-    common = REPO / "build" / "inject_src" / "snr_common.lua"
-    if not common.exists():
-        sys.exit(f"缺 {common}（先跑 tools/inject_lua.py）")
-    text = common.read_text(encoding="utf-8")
-    if not args.no_fast_boot:
-        text, ok = strip_ipl(text)
-        if not ok:
-            sys.exit("未能定位 IPL 开场块——snr_common 结构变了，检查 IPL_BLOCK_* 锚点")
-        print("[testboot] 已剥离 IPL 开场（约省 28 秒/轮）")
-    else:
-        print("[testboot] 保留 IPL 开场")
-    # 引导末尾改指测试脚本。全文有 8 处 run(snr_mainmenu)，只有 main() 里那一处
-    # （最后一处）是引导交接，其余是暂停菜单的返回；只能换那一处，否则从暂停菜单
-    # 回主菜单也会掉进测试脚本。
-    if text.count(BOOT_HANDOFF) < 1:
-        sys.exit("未找到引导交接语句，snr_common 结构变了")
-    head, sep, tail = text.rpartition(BOOT_HANDOFF)
-    text = head + BOOT_HANDOFF.replace("snr_mainmenu", "snr_test") + tail
-    emit("snr_common.lua", text)
 
-    print(f"[testboot] 模式 {args.mode}"
-          + (f" scene={args.scene}" if args.mode == "scene" else ""))
-    ledger.write_text(json.dumps(emitted, ensure_ascii=False))
-    print("[testboot] 接着跑: uv run python tools/build_disc.py --stage stage,pack,disc")
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--mode", default="font", choices=_MODES)
+    ap.add_argument("--card", type=int, help="card 模式的卡号（答案自 data/dag.json 取）")
+    ap.add_argument("--scene", default="s1s_20", help="scene 模式的目标场景 ID")
+    ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
+    ap.add_argument("--hold", type=int, default=180, help="font/cutin 模式每页停留帧数")
+    ap.add_argument("--out", type=Path, default=OUT_DIR, help="层文件输出目录")
+    args = ap.parse_args()
+
+    result = generate(args.mode, args.out, scene=args.scene, card=args.card,
+                      hold=args.hold, no_cards=args.no_cards)
+    print(f"[testboot] 模式 {args.mode} -> {args.out}")
+    for rel in result["scripts"] + result["overlays"]:
+        print(f"[testboot]   {rel}")
 
 
 if __name__ == "__main__":

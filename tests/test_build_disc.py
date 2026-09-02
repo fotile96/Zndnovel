@@ -1,9 +1,20 @@
-"""build_disc 的封闭测试：成员树、缓存、发布断言。用迷你 databin 夹具。"""
+"""build_disc 的封闭测试：成员树、缓存、发布断言。用迷你 databin 夹具。
+
+2026-09-03 review 加固后追加了三组 stage_iso/stage_pack 级别的回归（对应
+Finding 1/2/3），其中涉及独立重编译 lua/final 的两组需要真 luac，标 local_assets、
+缺则 skip；其余仍是不碰真实资产的封闭测试。
+"""
 import json
+import os
+import shutil
+from pathlib import Path
 
 import pytest
 
 from tools.build_disc import assemble_stage, release_assertions
+from tools.layers import load_manifest
+
+LUAC = Path(os.environ.get("SNDL_LUAC") or "~/pyluadec-refactor/build/luac_sz4").expanduser()
 
 
 @pytest.fixture
@@ -70,10 +81,23 @@ def test_assemble_stage_refuses_missing_members_dir(tmp_path, mini):
 
 
 def test_release_assertion_rejects_unexpected_member(tmp_path, mini):
-    members = _members(tmp_path, {"script/snr_test.lua": b"PROBE"})
+    # ⚠ 同一处夹具不完整问题（2026-09-03 review「apply the same fixture
+    # asymmetry fix ... to its two siblings」）：只放 snr_test.lua 时 compiled
+    # 里没有 m.lua，逐字节核对循环会额外报一条"script/m.lua 不在本次编译产物
+    # 里"——之前用 any() 弱断言测不出来（子串匹配对哪条消息命中不敏感），换成
+    # 精确匹配整个列表就会现形。补上与 base 内容一致的 "script/m.lua": b"M"，
+    # 让 bad 恰好是这条测试真正要验证的那两条消息，不多不少。
+    members = _members(tmp_path, {"script/snr_test.lua": b"PROBE", "script/m.lua": b"M"})
     stage = assemble_stage(mini, members, tmp_path / "stage")
     bad = release_assertions(stage, mini, expected_new=set(), compiled=members / "script")
-    assert any("snr_test" in b for b in bad)
+    # 断言消息文本本身，不是子串——子串匹配对"这条检查被删掉但另一条检查恰好
+    # 也提到 snr_test"这类情形不敏感（这里两条检查确实都会命中 snr_test.lua，
+    # 但 any() 写法本该锁的是"至少一条检查真的抓住了它"，不是"字符串里出现过
+    # snr_test"这么松）。
+    assert bad == [
+        "封包树有未声明的成员 script/snr_test.lua（testboot 残留？）",
+        "封包树里有测试引导成员 script/snr_test.lua",
+    ]
 
 
 def test_release_assertion_accepts_declared_new_member(tmp_path, mini):
@@ -97,8 +121,132 @@ def test_release_assertion_accepts_declared_new_member(tmp_path, mini):
 
 
 def test_release_assertion_catches_script_byte_mismatch(tmp_path, mini):
+    # 这条的夹具本就完整：mini 只声明一个脚本成员（script/m.lua），members 里
+    # 已经放了它，compiled 不缺任何东西——不需要「两个 siblings」里的完整性
+    # 补丁（那个问题专属于夹具里同时出现"新增脚本 + 未提及的既有脚本"的情形，
+    # 这条没有新增脚本）。这里只把断言从子串收紧成精确消息，同一份 review 要求。
     members = _members(tmp_path, {"script/m.lua": b"ZH"})
     stage = assemble_stage(mini, members, tmp_path / "stage")
     (stage / "script" / "m.lua").write_bytes(b"TAMPERED")
     bad = release_assertions(stage, mini, expected_new=set(), compiled=members / "script")
-    assert any("m.lua" in b for b in bad)
+    assert bad == ["script/m.lua 与本次编译产物不一致"]
+
+
+def test_stage_pack_does_not_publish_to_dist(tmp_path, mini, monkeypatch):
+    """Finding 1 回归：stage_pack 不再往 build/dist/ 发布，只有 stage_iso 的发布
+    断言通过之后才发布。此前 pack 在 release 剖面末尾顺手同步一份到
+    build/dist/DATA.BIN——于是 `--profile release --stage pack` 单独跑一次，
+    不经过任何断言，就能把发布产物换掉；一次完整流程若在 iso 断言处失败，
+    dist/DATA.BIN 也早已在这一步被换成未经验证的新包。这里验证：pack 跑完，
+    一个本该是"发布产物"的全局位置（这里用 monkeypatch 换成假的 DIST 目录，
+    不碰真实 build/dist/）必须原封不动。
+    """
+    import tools.build_disc as bd
+
+    fake_dist = tmp_path / "fake_dist"
+    fake_dist.mkdir()
+    (fake_dist / "DATA.BIN").write_bytes(b"OLD-RELEASE-DATA-UNTOUCHED")
+    monkeypatch.setattr(bd, "DIST", fake_dist)
+
+    root = tmp_path / "root"
+    shutil.copytree(mini, root / "stage")
+
+    ctx = bd.BuildContext(profile="release", root=root, manifest={},
+                          switches={}, mode_opts={}, force=False)
+    bd.stage_pack(ctx)
+
+    assert (root / "DATA.BIN").exists(), "pack 本身仍要正常产出 profile 内部的 DATA.BIN"
+    assert (fake_dist / "DATA.BIN").read_bytes() == b"OLD-RELEASE-DATA-UNTOUCHED", \
+        "pack 阶段不该碰 build/dist/DATA.BIN——那是 iso 断言通过之后才做的事"
+
+
+@pytest.mark.local_assets
+@pytest.mark.skipif(not LUAC.exists(), reason=f"缺 {LUAC}")
+def test_stage_iso_catches_data_bin_packed_from_a_different_stage_tree(
+        tmp_path, mini, monkeypatch, capsys):
+    """Finding 2 回归：stage/ 在 pack 之后被重新装配过（典型场景：改了译文、
+    重跑了 lua→font→members→stage，但漏跑 pack——`stage_iso` 自己给的恢复指引
+    五个阶段名都会打这个字，是个容易犯的手滑），DATA.BIN 已经不对应当前这棵
+    stage 树。旧逻辑里 `stage_iso` 断言的是 `ctx.root/"stage"`、splice 的是
+    `ctx.root/"DATA.BIN"`，两者之间没有任何东西把它们锁在一起，断言会照常
+    通过；新的指纹核对必须抓住这一点。
+    """
+    import tools.build_disc as bd
+
+    monkeypatch.setattr(bd, "BASE", mini)
+    ctx = bd.BuildContext(profile="release", root=tmp_path / "root",
+                          manifest=load_manifest(), switches={}, mode_opts={},
+                          force=False)
+    root = ctx.root
+
+    final_dir = root / "lua" / "final"
+    final_dir.mkdir(parents=True)
+    (final_dir / "m.lua").write_text('print("v1")\n', encoding="utf-8")
+
+    members = root / "members"
+    (members / "script").mkdir(parents=True)
+    bd._compile_lua(final_dir / "m.lua", members / "script" / "m.lua", ctx)
+
+    stage_dir = root / "stage"
+    bd.assemble_stage(mini, members, stage_dir)
+    (root / "new_members.json").write_text("[]", encoding="utf-8")
+    bd.stage_pack(ctx)   # 记录的指纹对应 v1
+
+    # 模拟"lua/final 改了、重新装配了 stage，但漏跑 pack"：stage 树内容已经是
+    # v2，而 DATA.BIN 与它绑定的指纹记录仍停在 v1。
+    (final_dir / "m.lua").write_text('print("v2")\n', encoding="utf-8")
+    bd._compile_lua(final_dir / "m.lua", members / "script" / "m.lua", ctx)
+    bd.assemble_stage(mini, members, stage_dir)
+
+    with pytest.raises(SystemExit):
+        bd.stage_iso(ctx)
+    out = capsys.readouterr().out
+    assert "DATA.BIN 与当前 stage 树指纹不一致" in out, out
+
+
+@pytest.mark.local_assets
+@pytest.mark.skipif(not LUAC.exists(), reason=f"缺 {LUAC}")
+def test_stage_iso_catches_members_compiled_from_stale_lua_final(
+        tmp_path, mini, monkeypatch, capsys):
+    """Finding 3 回归（review 认为最尖锐的一条）：members/script（进而
+    stage/script）是编译旧版 lua/final 得到的，lua/final 后来又改了，但没有人
+    重新跑 members 阶段。旧逻辑拿 `members/script` 当 release_assertions 的
+    compiled 参照——但 stage/script 本就是从 members/script 逐字节拷过去的
+    （assemble_stage 干的事），拿它跟自己比，永远相同，测不出任何漂移。这里
+    先直接验证旧逻辑确实测不出来，再验证新的 stage_iso（改用独立重编译
+    lua/final 的结果当参照）真的抓住了。
+    """
+    import tools.build_disc as bd
+
+    monkeypatch.setattr(bd, "BASE", mini)
+    ctx = bd.BuildContext(profile="release", root=tmp_path / "root",
+                          manifest=load_manifest(), switches={}, mode_opts={},
+                          force=False)
+    root = ctx.root
+
+    final_dir = root / "lua" / "final"
+    final_dir.mkdir(parents=True)
+    (final_dir / "m.lua").write_text('print("v1")\n', encoding="utf-8")
+
+    members = root / "members"
+    (members / "script").mkdir(parents=True)
+    bd._compile_lua(final_dir / "m.lua", members / "script" / "m.lua", ctx)
+
+    stage_dir = root / "stage"
+    bd.assemble_stage(mini, members, stage_dir)
+    (root / "new_members.json").write_text("[]", encoding="utf-8")
+    bd.stage_pack(ctx)   # 指纹与这一版 stage 对应，Finding 2 那道闸这里会过
+
+    # lua/final 改了，但没有人重新跑 members——members/script、stage/script 仍是
+    # v1 的编译产物。
+    (final_dir / "m.lua").write_text('print("v2 - 已经改了")\n', encoding="utf-8")
+
+    old_bad = bd.release_assertions(stage_dir, mini, set(), members / "script")
+    assert old_bad == [], (
+        f"旧逻辑（拿 members/script 当参照）应当测不出这处漂移——两者是同一次"
+        f"assemble_stage 拷贝的两份副本，逐字节相同是同义反复；实际: {old_bad}")
+
+    with pytest.raises(SystemExit):
+        bd.stage_iso(ctx)
+    out = capsys.readouterr().out
+    assert "script/m.lua 与本次编译产物不一致" in out, out

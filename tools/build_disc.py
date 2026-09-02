@@ -11,6 +11,10 @@
 本身拒绝在 test 剖面运行。这就是本次改造的核心：此前两个剖面共用一棵
 `build/inject`/`build/stage`，2026-09-02 一次测试盘构建就把 `build/dist/DATA.BIN`
 换成了带探针的封包，只有 ISO 因未跑该阶段而幸免——现在这种事故结构上不可能发生。
+`build/dist/` 同样**只能由通过发布断言的 iso 阶段写入**（2026-09-03 review 加固）：
+`pack` 阶段只写 `build/<profile>/` 内部，不再顺手同步一份到 `build/dist/`——否则
+`--stage pack` 单独跑一次就能在不经过任何断言的情况下换掉发布产物，是同一类事故
+换了个阶段重新出现。
 
 阶段（`--stage` 逗号分隔，缺省 all；release 到 iso、test 到 disc，均不含 boot）：
   lua      译文注入 lua_scripts → 按剖面施加叠加层（release 层两剖面都施加，
@@ -25,12 +29,16 @@
            build/cache/gim/ 内容哈希缓存，--force 绕过）；字体拷入。
   stage    build/databin --APFS clone--> build/<profile>/stage，覆入 members，
            新成员按名排序位插入（assemble_stage）。
-  pack     databin pack stage → build/<profile>/DATA.BIN（release 另拷
-           build/dist/DATA.BIN）。
+  pack     databin pack stage → build/<profile>/DATA.BIN，记下这次打包对应的
+           stage 树指纹（build/<profile>/stage_fingerprint.txt）。**不碰
+           build/dist/**——那是发布产物，只能由通过发布断言的 iso 阶段写入。
   disc     刷新 build/<profile>/game/（首次自 assets/orig.iso 解出）+ 覆入
            DATA.BIN，供 PPSSPP 目录引导。
-  iso      仅 release：release_assertions 通过后 umdiso 就地替换 →
-           build/dist/game_zh.iso + provenance 副本；不过就拒绝出盘。
+  iso      仅 release：三道断言（stage 树指纹与 DATA.BIN 对应同一次 pack、
+           lua/final 独立重编译后与 stage/script 逐字节核对、成员集合与测试
+           引导成员检查）全过，才把 DATA.BIN 拷到 build/dist/、umdiso 就地
+           替换 → build/dist/game_zh.iso + provenance 副本；任一断言不过就
+           拒绝出盘，不写任何 build/dist/ 文件。
   boot     PPSSPP 引导冒烟 + 截图序列（opt-in，不在缺省阶段集合内）。
 
 不论这次跑了哪些阶段，结束时都会写 build/<profile>/provenance.json。
@@ -46,6 +54,7 @@ import plistlib
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -66,6 +75,15 @@ FONT_OUT = REPO / "build" / "font"     # build_font 产物，跨剖面共享
 
 FONT_SIZE_WARN = 1_195_092   # 原 tsukuminpro_e_17.pgf 大小，经验上限
 QUANT_MSE_WARN = 15.0        # 经验阈：>256 色烤字图落 256 色板的典型损耗在 5–10
+
+#: gim 编码缓存的版本戳。缓存键 = sha256(版本 ‖ png 字节 ‖ 模板 gim 字节)，覆盖
+#: 不到 tools/gimcodec.py 的编解码逻辑、quantize_for_template 的量化算法、或
+#: Pillow 版本本身——这三者任一变化都可能改变同一份 (png, 模板) 输入编出的字节，
+#: 但内容哈希键对它们视而不见。改了这三者中任何一个、可能影响编码输出时，把这个
+#: 数手动 +1：旧缓存条目从此在键空间里再也不会被命中，会被当作未命中重新编码。
+#: 不这样做的后果：改了编码器却忘了清缓存，687 张图会静默继续用旧编码器的产物，
+#: release_assertions 也查不出来——它只逐字节核对 script/*.lua，不比对任何 gim 成员。
+GIM_CACHE_VERSION = 1
 
 #: 测试引导（tools/testboot.py）注入的**新成员**，绝不能进发布盘。
 TESTBOOT_MEMBER = "script/snr_test.lua"
@@ -217,6 +235,24 @@ def _compile_lua(src: Path, dst: Path, ctx: BuildContext) -> None:
         die(f"{src.name} 编译产物头部非 PSP ABI（应为 {ctx.manifest['compiler']['header_hex']}）")
 
 
+def _compile_tree(src_dir: Path, out_dir: Path, ctx: BuildContext) -> None:
+    """把 src_dir 下全部 .lua 独立编译进 out_dir（同名 .lua，逐个调 _compile_lua）。
+
+    ⚠ 这是 release_assertions 的 compiled 参照的**唯一**正确来源，`stage_iso`
+    绝不能改传 `ctx.root/"members"/"script"`：那份目录本就是 `stage/script/*`
+    的拷贝来源（`assemble_stage`把 `members/` 逐字节拷进 `stage/`），拿它去跟
+    `stage/script/*` 比，比的是同一份字节抄了两遍，逐字节相同是同义反复，
+    测不出任何漂移——2026-09-03 review 实测复现：`--stage iso` 单独跑一次，
+    `members/script` 与 `stage/script` 双双停在上一轮的旧内容，逐字节比对
+    照样报"正常"，而实际打进 DATA.BIN 的是任意旧的字节码。这里把
+    `lua/final/*.lua`（唯一的源头真相）在断言现场重新编译一遍、产出一份与
+    `members/` 毫无瓜葛的第二份参照，"stage 里的字节码确实是编译当前
+    lua/final 源得到的"才成为一个有内容的断言。
+    """
+    for src in sorted(src_dir.glob("*.lua")):
+        _compile_lua(src, out_dir / src.name, ctx)
+
+
 def quantize_for_template(im: Image.Image, cap: int) -> Image.Image:
     """RGBA 烤字图 → P 模式、调色板 ≤cap（模板色板容量）。
 
@@ -240,14 +276,24 @@ def quantize_for_template(im: Image.Image, cap: int) -> Image.Image:
 
 
 def _encode_gim_cached(png: Path, tpl_path: Path, out: Path, force: bool,
-                       losses: list[tuple[float, str]], member: str) -> None:
-    """gim 编码，经 build/cache/gim/ 内容哈希缓存。--force 绕过缓存（仍会刷新它）。"""
-    key = hashlib.sha256(png.read_bytes() + tpl_path.read_bytes()).hexdigest()[:16]
+                       losses: list[tuple[float, str]], member: str) -> bool:
+    """gim 编码，经 build/cache/gim/ 内容哈希缓存。--force 绕过缓存（仍会刷新它）。
+
+    返回是否命中缓存。⚠ 量化损耗（perceptual_mse）只在**未命中、真正编码**时
+    计算——命中直接拷贝缓存里的字节，不解码回去验证。调用方必须把"缓存命中"与
+    "新编码"分开计数：损耗数字只覆盖新编码的那些，绝不能在全部命中时读成一句
+    骗人的『0 张有损耗』——那听起来像是"测过 587 张、一张都没损耗"，实际是
+    "一张都没测"。这是量化损耗保留为警告（而非硬失败）这条例外背后的前提：
+    警告必须诚实，不能在什么都没测的时候报出一个看着安心的数字。
+    """
+    key = hashlib.sha256(
+        f"v{GIM_CACHE_VERSION}\0".encode() + png.read_bytes() + b"\0" + tpl_path.read_bytes()
+    ).hexdigest()[:16]
     cache = CACHE_GIM / f"{key}.gim"
     out.parent.mkdir(parents=True, exist_ok=True)
     if not force and cache.exists():
         shutil.copyfile(cache, out)
-        return
+        return True
     tpl = Gim(tpl_path.read_bytes())
     im = Image.open(png)
     if tpl.image.fmt in (4, 5):    # index4/8
@@ -259,6 +305,7 @@ def _encode_gim_cached(png: Path, tpl_path: Path, out: Path, force: bool,
     out.write_bytes(blob)
     CACHE_GIM.mkdir(parents=True, exist_ok=True)
     cache.write_bytes(blob)
+    return False
 
 
 def stage_members(ctx: BuildContext) -> dict:
@@ -278,7 +325,7 @@ def stage_members(ctx: BuildContext) -> dict:
     members_dir.mkdir(parents=True)
 
     base_names = {json.loads(l)["name"] for l in
-                  (BASE / "manifest.jsonl").read_text().splitlines() if l}
+                  (BASE / "manifest.jsonl").read_text(encoding="utf-8").splitlines() if l}
     new_members: set[str] = set()
 
     final_dir = ctx.root / "lua" / "final"
@@ -294,7 +341,7 @@ def stage_members(ctx: BuildContext) -> dict:
     log(f"members: 编译 {n_lua} 个脚本")
 
     losses: list[tuple[float, str]] = []
-    n_gim = 0
+    n_gim = n_cached = 0
     for src_dir, prefix in ctx.manifest["gim"]["replace"]:
         root = REPO / "build" / src_dir
         if not root.is_dir():
@@ -308,8 +355,9 @@ def stage_members(ctx: BuildContext) -> dict:
             if member not in base_names:
                 die(f"{src_dir}/{png.relative_to(root)} 无对应封包成员 {member}——"
                     f"检查烤字工具输出或 layers/manifest.toml 的 [gim].replace 表")
-            _encode_gim_cached(png, BASE / member, members_dir / member, ctx.force,
-                              losses, member)
+            if _encode_gim_cached(png, BASE / member, members_dir / member, ctx.force,
+                                 losses, member):
+                n_cached += 1
             n_gim += 1
     for src_dir, prefix, tpl_member in ctx.manifest["gim"]["new"]:
         root = REPO / "build" / src_dir
@@ -322,14 +370,19 @@ def stage_members(ctx: BuildContext) -> dict:
             member = str(Path(prefix) / png.relative_to(root).with_suffix(".gim"))
             if member in base_names:
                 die(f"{member} 已是原包成员——layers/manifest.toml 的 [gim].new 表只管新增件")
-            _encode_gim_cached(png, BASE / tpl_member, members_dir / member, ctx.force,
-                              losses, member)
+            if _encode_gim_cached(png, BASE / tpl_member, members_dir / member, ctx.force,
+                                 losses, member):
+                n_cached += 1
             new_members.add(member)
             n_gim += 1
     losses.sort(reverse=True)
     over = [x for x in losses if x[0] > QUANT_MSE_WARN]
-    log(f"members: gim 编码 {n_gim} 张；有量化损耗 {len(losses)} 张，超阈"
-        f"({QUANT_MSE_WARN}) {len(over)} 张")
+    n_fresh = n_gim - n_cached
+    # ⚠ 损耗数字只覆盖"新编码"的 n_fresh 张——缓存命中的 n_cached 张没有被
+    # perceptual_mse 测过。两个数分开报，"0 张有损耗"才不会在全部命中时被
+    # 误读成"587 张全测过、一张都没损耗"（实际是一张都没测）。
+    log(f"members: gim {n_gim} 张（{n_fresh} 新编码，{n_cached} 缓存命中）；"
+        f"损耗仅覆盖新编码：有损耗 {len(losses)} 张，超阈({QUANT_MSE_WARN}) {len(over)} 张")
     for loss, member in losses[:5]:
         log(f"members:   最大损耗 MSE={loss:8.2f}  {member}")
 
@@ -377,7 +430,7 @@ def assemble_stage(base: Path, members: Path, stage_dir: Path) -> Path:
         shutil.rmtree(stage_dir)
     subprocess.run(["cp", "-Rc", str(base), str(stage_dir)], check=True)  # APFS clone，秒级
     manifest = [json.loads(l) for l in
-                (stage_dir / "manifest.jsonl").read_text().splitlines() if l]
+                (stage_dir / "manifest.jsonl").read_text(encoding="utf-8").splitlines() if l]
     names = {m["name"] for m in manifest}
     for f in sorted(Path(members).rglob("*")):
         if not f.is_file():
@@ -394,7 +447,7 @@ def assemble_stage(base: Path, members: Path, stage_dir: Path) -> Path:
     if order != sorted(order):
         die("文件表失序——引擎二分查找会失败，检查新成员插入逻辑")
     (stage_dir / "manifest.jsonl").write_text(
-        "".join(json.dumps(m, ensure_ascii=False) + "\n" for m in manifest))
+        "".join(json.dumps(m, ensure_ascii=False) + "\n" for m in manifest), encoding="utf-8")
     return stage_dir
 
 
@@ -407,16 +460,16 @@ def release_assertions(stage: Path, base: Path, expected_new: set[str],
     """
     bad: list[str] = []
     base_names = {json.loads(l)["name"] for l in
-                  (base / "manifest.jsonl").read_text().splitlines() if l}
+                  (base / "manifest.jsonl").read_text(encoding="utf-8").splitlines() if l}
     stage_names = {json.loads(l)["name"] for l in
-                   (stage / "manifest.jsonl").read_text().splitlines() if l}
+                   (stage / "manifest.jsonl").read_text(encoding="utf-8").splitlines() if l}
     allowed = base_names | expected_new
     for extra in sorted(stage_names - allowed):
         bad.append(f"封包树有未声明的成员 {extra}（testboot 残留？）")
     for missing in sorted(allowed - stage_names):
         bad.append(f"封包树缺声明的成员 {missing}")
-    if "script/snr_test.lua" in stage_names:
-        bad.append("封包树里有测试引导成员 script/snr_test.lua")
+    if TESTBOOT_MEMBER in stage_names:
+        bad.append(f"封包树里有测试引导成员 {TESTBOOT_MEMBER}")
     for p in sorted((stage / "script").glob("*.lua")):
         ref = Path(compiled) / p.name
         if not ref.exists():
@@ -424,6 +477,42 @@ def release_assertions(stage: Path, base: Path, expected_new: set[str],
         elif ref.read_bytes() != p.read_bytes():
             bad.append(f"script/{p.name} 与本次编译产物不一致")
     return bad
+
+
+def _stage_fingerprint(stage_dir: Path) -> str:
+    """整棵封包树的确定性哈希：按相对路径升序遍历全部文件，把「路径 + 内容」
+    一起喂进摘要（与 tools/layers.py::_tree_sha256 同一手法）。`stage_pack` 在
+    打包时记一份，`stage_iso` 在断言时重算一份核对——只有两者相同，才能确认
+    `iso` 阶段要 splice 的 `DATA.BIN` 真的是从**这一棵**、而不是某个更早、
+    后来又被重新 stage 过但没重新 pack 的树打出来的（2026-09-03 review：
+    `stage_iso` 断言的是 `ctx.root/"stage"`，splice 的却是 `ctx.root/"DATA.BIN"`，
+    此前两者之间没有任何东西把它们锁在一起——漏跑一次 pack，这两者就可能
+    互不相干，断言通过也不能说明 DATA.BIN 是"这次"这棵 stage 树打出来的）。
+    """
+    h = hashlib.sha256()
+    names = sorted(p.relative_to(stage_dir).as_posix()
+                   for p in stage_dir.rglob("*") if p.is_file())
+    for name in names:
+        h.update(name.encode("utf-8"))
+        h.update(b"\0")
+        h.update((stage_dir / name).read_bytes())
+        h.update(b"\n")
+    return h.hexdigest()
+
+
+def _check_stage_fingerprint(ctx: BuildContext, stage_dir: Path) -> list[str]:
+    """核对 `ctx.root/"DATA.BIN"` 确实是打包**这一棵** stage 树得到的。"""
+    fp_path = ctx.root / "stage_fingerprint.txt"
+    if not fp_path.exists():
+        return [f"缺 {fp_path}（先跑 pack 阶段——iso 需要核对 DATA.BIN 与当前 "
+                f"stage 树是否对应同一次打包）"]
+    recorded = fp_path.read_text(encoding="utf-8").strip()
+    current = _stage_fingerprint(stage_dir)
+    if current != recorded:
+        return ["DATA.BIN 与当前 stage 树指纹不一致——stage 阶段在上一次 pack 之后"
+                "被重新跑过（或这份 DATA.BIN 来自更早一次 pack），两者已经不对应"
+                "同一棵树。重新跑 `--stage pack` 用当前 stage 树重新打包再来。"]
+    return []
 
 
 def _load_new_members(ctx: BuildContext) -> set[str]:
@@ -440,10 +529,11 @@ def stage_stage(ctx: BuildContext) -> dict:
     if not members_dir.exists():
         die(f"缺 {members_dir}（先跑 members 阶段）")
     base_names = {json.loads(l)["name"] for l in
-                  (BASE / "manifest.jsonl").read_text().splitlines() if l}
+                  (BASE / "manifest.jsonl").read_text(encoding="utf-8").splitlines() if l}
     assemble_stage(BASE, members_dir, ctx.root / "stage")
     stage_names = {json.loads(l)["name"] for l in
-                  ((ctx.root / "stage") / "manifest.jsonl").read_text().splitlines() if l}
+                  ((ctx.root / "stage") / "manifest.jsonl").read_text(encoding="utf-8")
+                  .splitlines() if l}
     added = len(stage_names - base_names)
     member_files = sum(1 for f in members_dir.rglob("*") if f.is_file())
     replaced = member_files - added
@@ -454,18 +544,26 @@ def stage_stage(ctx: BuildContext) -> dict:
 # ---------- E 封包 ----------
 
 def stage_pack(ctx: BuildContext) -> dict:
+    """databin pack stage → root/DATA.BIN，并记下这次打包对应的 stage 树指纹。
+
+    ⚠ **不碰 build/dist/**（2026-09-03 review Finding 1）：此前这里在 release
+    剖面直接同步一份到 `build/dist/DATA.BIN`，于是 `--profile release --stage
+    pack` 单独跑一次——不经过 `stage_iso` 的任何断言——就会把发布产物换掉；
+    一次完整流程若在 `iso` 阶段的断言处失败，`dist/DATA.BIN` 也早已在这一步
+    被换成了未经验证的新包，只是 `game_zh.iso`（连同它的 provenance 副本）还
+    没跟上——这正是本任务要杜绝的"半更新的 build/dist/"状态，只是换了个阶段
+    重新出现。发布只能来自"断言通过之后"，因此只能是 `stage_iso` 的职责。
+    """
     stage_dir = ctx.root / "stage"
     if not (stage_dir / "manifest.jsonl").exists():
         die(f"缺 {stage_dir}（先跑 stage 阶段）")
+    fingerprint = _stage_fingerprint(stage_dir)
     out = ctx.root / "DATA.BIN"
     subprocess.run([sys.executable, str(REPO / "tools" / "databin.py"),
                     "pack", str(stage_dir), str(out)], check=True)
+    (ctx.root / "stage_fingerprint.txt").write_text(fingerprint, encoding="utf-8")
     log(f"pack: {out} ({out.stat().st_size} B)")
-    if ctx.profile == "release":
-        DIST.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(out, DIST / "DATA.BIN")
-        log(f"pack: 已同步 {DIST / 'DATA.BIN'}")
-    return {"DATA.BIN": str(out)}
+    return {"DATA.BIN": str(out), "stage_fingerprint": fingerprint}
 
 
 # ---------- F 盘目录 ----------
@@ -497,7 +595,7 @@ def stage_disc(ctx: BuildContext) -> dict:
 # ---------- F2 实机盘（ISO 就地替换，release only）----------
 
 def stage_iso(ctx: BuildContext) -> dict:
-    """把新 DATA.BIN 就地塞回原盘 → build/dist/game_zh.iso。
+    """发布断言全过后，把新 DATA.BIN 就地塞回原盘 → build/dist/game_zh.iso。
 
     实机（CFW）走 ISO，且固件的 isofs 比 PPSSPP 严格得多；故**不重建镜像**，
     只替换该文件并平移尾部，其余字节保持原样。机理见
@@ -506,25 +604,41 @@ def stage_iso(ctx: BuildContext) -> dict:
     ⚠ **发布闸**：ISO 是交到志愿者手里的那个东西，测试引导绝不能混进去。
     profile != release 直接拒绝——test 剖面的产物结构上到不了这里（各自独立
     输出树），但入口仍显式挡一道，报错要比「凭空找不到文件」更明确。
+
+    三道断言，2026-09-03 review 加固后全部相互独立、缺一不可：
+    ① `_check_stage_fingerprint`：`ctx.root/"DATA.BIN"` 确实打包自**这一棵**
+       stage 树，不是上一轮遗留、`pack` 被漏跑后还留在磁盘上的旧包（Finding 2）。
+    ② `release_assertions` 的 `compiled` 参照来自**独立重编译** `lua/final`
+       （`_compile_tree` 现编到一个临时目录），不是 `members/script`——后者与
+       `stage/script` 本就是同一次 `assemble_stage` 拷贝的两份副本，逐字节
+       相同是同义反复，测不出任何漂移（Finding 3）。
+    ③ `release_assertions` 自身的成员集合 / 测试引导成员两项检查。
+    只有这三道全过，才真的能说"这次要出的 DATA.BIN 就是编译当前 lua/final 源、
+    组装当前 stage 树打出来的那一份"——也只有这时才允许写 build/dist/（Finding 1：
+    发布只能是断言通过之后的动作，不能提前发生在 pack 阶段）。
     """
     if ctx.profile != "release":
         die("iso 阶段仅限 release 剖面——test 产物绝不能出现在 build/dist/")
 
     stage_dir = ctx.root / "stage"
-    members_script = ctx.root / "members" / "script"
+    final_dir = ctx.root / "lua" / "final"
     if not (stage_dir / "manifest.jsonl").exists():
         die(f"缺 {stage_dir}（先跑 stage 阶段）")
-    if not members_script.is_dir():
-        die(f"缺 {members_script}（先跑 members 阶段）")
+    if not final_dir.exists():
+        die(f"缺 {final_dir}（先跑 lua 阶段）")
 
     expected_new = _load_new_members(ctx)
-    bad = release_assertions(stage_dir, BASE, expected_new, members_script)
+    bad = _check_stage_fingerprint(ctx, stage_dir)
+    with tempfile.TemporaryDirectory() as td:
+        _compile_tree(final_dir, Path(td), ctx)
+        bad += release_assertions(stage_dir, BASE, expected_new, Path(td))
     if bad:
         for b in bad:
             log(f"iso: ✗ {b}")
         die("iso: 发布断言未过，拒绝出盘。跑 "
             "`--stage lua,font,members,stage,pack` 重建干净的封包树再来。")
-    log("iso: 发布断言通过（成员集合、脚本逐字节核对均正常，无测试引导成员）")
+    log("iso: 发布断言通过（stage 树指纹与 DATA.BIN 对应同一次 pack、成员集合、"
+        "脚本与独立重编译产物逐字节核对均正常，无测试引导成员）")
 
     if not ORIG_ISO.exists():
         die(f"缺 {ORIG_ISO}，无法产实机盘")
@@ -535,6 +649,7 @@ def stage_iso(ctx: BuildContext) -> dict:
     from tools.umdiso import DATA_BIN_PATH, replace, verify
 
     DIST.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, DIST / "DATA.BIN")     # Finding 1：只有闸过了才能发布
     out = DIST / "game_zh.iso"
     replace(str(ORIG_ISO), str(out), [(DATA_BIN_PATH, str(src))], log=log)
     if not verify(str(out), against=str(ORIG_ISO), log=log):

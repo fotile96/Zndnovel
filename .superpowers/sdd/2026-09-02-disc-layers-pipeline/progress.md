@@ -159,3 +159,18 @@ Task 7: fix round 1/5 (4 addressed, 0 open, 1 新 Minor; commits f8241f1..73f609
 Task 7: 控制器独立复现目录复用：第一次 card=103 后盘上有脚本+层，第二次 mainmenu 后只剩脚本，与该次返回值逐项相同；warnings 键在，card=103 一条告警。两闸均过。
 Task 7: minor (deferred，但已排入 Task 8 派工)：generate() 的 rmtree 只按子目录名 scripts/overlays 判归属，不校验 out_dir 是否真属本工具的产物树。仓库里恰有同名同构的 layers/scripts 与 layers/overlays（内含手写的 snr_finale.lua 与四个层文件，均已入库）。今日无调用方会踩，但 Task 8 正是要接第一个真实调用方，两棵树刻意平行同名，传错一次就静默删掉手写层。
 Task 7: complete (commits 3ae73b0..73f609f, review clean) — 7/7 testboot 测试，全库 1760 passed，两闸均过
+Task 8: dispatched (sonnet, agent ad710fa36436bb0bc), BASE 73f609f
+Task 8: implementer DONE_WITH_CONCERNS — commit 03fabf3（7 文件 +1028/-303），全库 1763 passed，三闸全过，成员逐件比对**含两个字体成员在内 0 处内容差异**（顺带用旧快照重打包对 DATA.BIN 字节与 sha256，亦相同）——carry-forward 4「字集格式会不会改变字体字节」由此实测闭合；六项转达全部落实；另自行发现并修掉 3 处缺陷（brief 自带的测试夹具在其自带的 release_assertions 下必然失败；assemble_stage 对缺失 members 目录静默 no-op；自己引入的 provenance 拷贝自相矛盾）。
+Task 8: 控制器独立复核：两闸均过；迁移守卫已除；ALWAYS 已接线；testboot 传 layers/ 时守卫生效且五个手写层文件完好；release members 树无 snr_test；provenance 记录双工具哈希、两个已施加层、808 替换 11 新增、inputs 含 lua_scripts。
+Task 8: Ruling: ISO 产出与否的指令冲突（brief Step 6 要求跑到 iso，我的派工说别产 ISO）——判定实施者照 brief 做是对的，不计为发现 — 理由：我那句话针对的是 Task 9 的模拟器验证，不是这一步的构建；产物落在已 gitignore 的 build/dist 下，可逆无害 — 若判错的代价：删掉一个本地文件。
+Task 8: task review (opus) — spec ✅ 合规，但 **5 Important + 10 Minor**，quality Needs fixes。五条全部指向同一个要害：发布闸并不成立它自称成立的那条性质。
+Task 8: Ruling: 五条 Important 全部必修 — 理由：①build/dist/DATA.BIN 在任何断言之前就发布（--stage pack 单跑即零断言出货，全量跑时 iso 处失败也已留下一个未验证的新档与一份变成谎言的 sidecar）；②断言查的是 stage 树、ISO 拼的是 DATA.BIN，两者无任何绑定，漏掉 pack 就会「断言一棵新树、拼一份旧档」；③脚本逐字节核对拿 stage/script 与它自己的拷贝源 members/script 相比，二者按构造必然相等——被删掉的 check_release_clean 当年是**独立重编译**来比的，那份独立性没了，于是 `--stage iso` 单跑会对着任意陈旧的字节码报「逐字节核对均正常」；④gim 缓存键只含 png 与模板，不含编码器本身，日后修好 gimcodec 会被静默旁路且无人比对 gim 成员字节；⑤缓存命中路径不算量化损耗却照样计入编码张数，于是第二次起每次都打印「编码 587 张；有量化损耗 0 张」这种自相矛盾的行——这正是全局约束唯一保留的告警通道被悄悄掐掉 — 若判错的代价：一轮修复，全部是加固不是改语义。
+Task 8: minor (deferred): release_assertions 硬编码 "script/snr_test.lua" 而非用同模块 347 行之上的 TESTBOOT_MEMBER 常量（已排入 fix 轮）。
+Task 8: minor (deferred): tests/test_build_disc.py 有两条断言只匹配文件名子串，删掉它们针对的分支照样通过（已排入 fix 轮）。
+Task 8: minor (deferred): assemble_stage 读写 manifest.jsonl 未显式 encoding，与模块内其余 I/O 不一致（已排入 fix 轮）。
+Task 8: minor (deferred): _write_provenance 的兜底路径不带 injected= 也不带 testboot 接线，故 --stage members 之后写出的 test 剖面 provenance 会漏掉生成的层与 snr_test 成员，且 members_stat 兜底成看着像事实的 {"replaced":0,"added":0} 而非「未知」。
+Task 8: minor (deferred): stage_members 对整个 [gim].replace 面目录缺失仍只 log 不 die——release 构建会因此得到一张图未汉化的盘，而 release_assertions 看不见 gim 成员。是本函数里最后一条静默降级路径（属沿用既有行为）。
+Task 8: minor (deferred): stage_font 在 --profile test 下也会写 build/release/charset.txt 并可能触发一次完整的 release stage_lua；内容确系 release 派生，但模块 docstring 的「两棵完全独立的树」并非字面为真，且日志会在 test 剖面横幅下打印属于另一剖面的注入行。
+Task 8: minor (deferred): 新逻辑里 _encode_gim_cached 的键组成与命中路径、_compile_lua 的 ABI 头校验、stage_font 的新鲜度判定、剖面隔离本身，均无测试覆盖；七个测试只覆盖两个模块级纯函数。
+Task 8: minor (deferred): tests/test_testboot.py 现在会写进仓库真实的 build/ 树（新守卫的必然后果），若测试被中途杀掉会残留 build/_test_testboot/。
+Task 8: 评审对「0 差异比对」的作用域界定（重要，记录备查）：它比的是成员名集合与同名成员字节，故覆盖了 808 个替换件含全部 gim 面；**测不到**的有四类——(a) 构建目录当时不存在的 [gim].replace 条目（新旧都不产出，比对对「这条是否被正确搬迁」完全盲）；(b) 缓存命中路径（比对时缓存是冷的，copyfile 那条分支从未被测）；(c) 任何不是成员字节的东西（故结构上不可能发现发布闸变弱或告警通道变哑）；(d) test 剖面（无迁移前对照物）。

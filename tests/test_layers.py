@@ -29,6 +29,12 @@ def test_replace_zero_hit_is_hard_failure():
     assert "命中 0" in str(e.value)
 
 
+def test_count_zero_is_hard_failure_not_silent_noop():
+    with pytest.raises(OverlayError) as e:
+        apply_op("hello\n", {"op": "replace", "count": 0, "find": "nope", "with": "x"})
+    assert "≥1" in str(e.value)
+
+
 def test_replace_all_occurrences_by_default():
     out = apply_op("a a a\n", {"op": "replace", "count": 3, "find": "a", "with": "b"})
     assert out == "b b b\n"

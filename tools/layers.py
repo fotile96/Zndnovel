@@ -33,6 +33,10 @@ def find_all(text: str, needle: str) -> list[int]:
 
 def select_indices(hits: list[int], count: int, occurrence) -> list[int]:
     """按 count 断言总命中数，按 occurrence 选出要作用的那几处。"""
+    # count=0 必须挡住：否则「锚点根本不存在」与「期望零命中」在数值上一样，
+    # 施加就成了静默 no-op——而 count 存在的全部理由正是抓这种漂移。
+    if count < 1:
+        raise OverlayError(f"count 必须 ≥1，收到 {count}——零命中的层等于没写")
     if len(hits) != count:
         raise OverlayError(
             f"锚点期望命中 {count} 处，实际命中 {len(hits)} 处——"

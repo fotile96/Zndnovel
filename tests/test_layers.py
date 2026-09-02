@@ -99,3 +99,151 @@ def test_ops_apply_in_order_and_see_previous_results():
     overlay = {"ops": [{"op": "replace", "find": "A", "with": "B"},
                        {"op": "replace", "find": "B", "with": "C"}]}
     assert apply_overlay("A\n", overlay) == "C\n"
+
+
+import tomllib
+from pathlib import Path
+
+from tools.layers import (REPO, check_ids, collect_ids, load_manifest, load_overlay,
+                          overlays_for)
+
+MINIMAL_MANIFEST = """
+[base]
+dir = "lua_scripts"
+ledger = "data/ledger.jsonl"
+ledger_extra = "data/ledger_extra.jsonl"
+[lane]
+dir = "pilot/lanes/opus/data"
+[compiler]
+luac = "~/pyluadec-refactor/build/luac_sz4"
+header_hex = "1b4c75615100010404040800"
+[overlays]
+order = ["alpha"]
+[gim]
+replace = [["card_zh", "card"]]
+new = [["finale_cards", "card", "card/crd_1_a.gim"]]
+[[fonts]]
+size = 17
+member = "pgf/A.pgf"
+"""
+
+ALPHA_OVERLAY = """
+target = "snr_common.lua"
+profile = "release"
+why = "测试用"
+[[ops]]
+op = "replace"
+find = "a"
+with = "b"
+"""
+
+
+def _mk_layers(tmp_path, manifest=MINIMAL_MANIFEST, overlays=None):
+    root = tmp_path / "layers"
+    (root / "overlays").mkdir(parents=True)
+    (root / "scripts").mkdir()
+    (root / "manifest.toml").write_text(manifest, encoding="utf-8")
+    for name, body in (overlays or {"alpha": ALPHA_OVERLAY}).items():
+        (root / "overlays" / f"{name}.toml").write_text(body, encoding="utf-8")
+    (root / "vms_ids.toml").write_text("", encoding="utf-8")
+    return root
+
+
+def test_load_manifest_reads_all_sections(tmp_path):
+    m = load_manifest(_mk_layers(tmp_path))
+    assert m["base"]["dir"] == "lua_scripts"
+    assert m["gim"]["replace"] == [["card_zh", "card"]]
+    assert m["fonts"][0]["member"] == "pgf/A.pgf"
+
+
+def test_unknown_top_level_key_is_hard_failure(tmp_path):
+    root = _mk_layers(tmp_path, manifest=MINIMAL_MANIFEST + '\n[bogus]\nx = 1\n')
+    with pytest.raises(SystemExit) as e:
+        load_manifest(root)
+    assert "bogus" in str(e.value)
+
+
+def test_overlay_missing_why_is_hard_failure(tmp_path):
+    bad = ALPHA_OVERLAY.replace('why = "测试用"', "")
+    root = _mk_layers(tmp_path, overlays={"alpha": bad})
+    with pytest.raises(SystemExit):
+        load_overlay(root / "overlays" / "alpha.toml")
+
+
+def test_overlay_bad_profile_is_hard_failure(tmp_path):
+    bad = ALPHA_OVERLAY.replace('profile = "release"', 'profile = "staging"')
+    root = _mk_layers(tmp_path, overlays={"alpha": bad})
+    with pytest.raises(SystemExit):
+        load_overlay(root / "overlays" / "alpha.toml")
+
+
+def test_order_must_list_every_overlay_file(tmp_path):
+    root = _mk_layers(tmp_path, overlays={"alpha": ALPHA_OVERLAY, "beta": ALPHA_OVERLAY})
+    with pytest.raises(SystemExit) as e:
+        load_manifest(root)
+    assert "beta" in str(e.value)
+
+
+def test_overlays_for_release_excludes_test_layers(tmp_path):
+    test_layer = ALPHA_OVERLAY.replace('profile = "release"', 'profile = "test"')
+    root = _mk_layers(tmp_path,
+                      manifest=MINIMAL_MANIFEST.replace('order = ["alpha"]',
+                                                        'order = ["alpha", "beta"]'),
+                      overlays={"alpha": ALPHA_OVERLAY, "beta": test_layer})
+    m = load_manifest(root)
+    assert [o["_name"] for o in overlays_for(m, root, "release", {})] == ["alpha"]
+    assert [o["_name"] for o in overlays_for(m, root, "test", {})] == ["alpha", "beta"]
+
+
+def test_switch_off_drops_the_layer(tmp_path):
+    sw = ALPHA_OVERLAY.replace('why = "测试用"', 'why = "测试用"\nswitch = "fast-boot"')
+    root = _mk_layers(tmp_path, overlays={"alpha": sw})
+    m = load_manifest(root)
+    assert overlays_for(m, root, "release", {}) != []
+    assert overlays_for(m, root, "release", {"fast-boot": False}) == []
+
+
+def test_collect_ids_finds_vms_and_msg():
+    assert collect_ids('vms(17300, "NONVOICE", "x")\nmsg(9001, "y")\n') == {17300, 9001}
+
+
+def test_collect_ids_ignores_non_call_digits():
+    assert collect_ids('local x = 17300\nxmsg(5, "y")\n') == set()
+
+
+def test_check_ids_rejects_collision_with_ledger(tmp_path):
+    root = _mk_layers(tmp_path)
+    (root / "scripts" / "s.lua").write_text('vms(100, "NONVOICE", "x")\n', encoding="utf-8")
+    man = load_manifest(root)
+    man["scripts"] = [{"file": "scripts/s.lua", "member": "script/s.lua",
+                       "profile": "release"}]
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "scripts/s.lua"\nvms = [[100, 200]]\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids={100})
+    assert "100" in str(e.value)
+
+
+def test_check_ids_rejects_id_outside_declared_range(tmp_path):
+    root = _mk_layers(tmp_path)
+    (root / "scripts" / "s.lua").write_text('vms(999, "NONVOICE", "x")\n', encoding="utf-8")
+    man = load_manifest(root)
+    man["scripts"] = [{"file": "scripts/s.lua", "member": "script/s.lua",
+                       "profile": "release"}]
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "scripts/s.lua"\nvms = [[100, 200]]\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "999" in str(e.value)
+
+
+def test_check_ids_rejects_overlapping_owner_ranges(tmp_path):
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "a"\nvms = [[100, 200]]\n'
+        '[[ranges]]\nowner = "b"\nvms = [[150, 250]]\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "重叠" in str(e.value)
+

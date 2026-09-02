@@ -112,3 +112,158 @@ def apply_overlay(text: str, overlay: dict) -> str:
             name = overlay.get("_name", "?")
             raise OverlayError(f"叠加层 {name} 第 {i} 个操作失败：{exc}") from None
     return text
+
+
+import tomllib
+
+LAYERS = REPO / "layers"
+PROFILES = ("release", "test")
+CARD_MSG_RESERVED = range(18001, 18196)   # oCard.show 动态 id = 18000 + 卡号（卡 1..195）
+
+_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts"}
+_OVERLAY_KEYS = {"target", "profile", "why", "switch", "ops"}
+
+
+def _read_toml(path: Path) -> dict:
+    if not path.exists():
+        raise OverlayError(f"缺 {path}")
+    with open(path, "rb") as f:
+        try:
+            return tomllib.load(f)
+        except tomllib.TOMLDecodeError as exc:
+            raise OverlayError(f"{path} 不是合法 TOML：{exc}") from None
+
+
+def load_overlay(path: Path) -> dict:
+    """读一个叠加层文件并校验。`_name` = 文件名去 .toml。"""
+    d = _read_toml(path)
+    unknown = set(d) - _OVERLAY_KEYS
+    if unknown:
+        raise OverlayError(f"{path.name} 有未知键 {sorted(unknown)}")
+    for key in ("target", "profile", "why"):
+        if not d.get(key):
+            raise OverlayError(f"{path.name} 缺 {key}（why 必须写清依据，不许留空）")
+    if d["profile"] not in PROFILES:
+        raise OverlayError(f"{path.name} 的 profile={d['profile']!r} 非法（只能 {PROFILES}）")
+    if not d.get("ops"):
+        raise OverlayError(f"{path.name} 没有任何 [[ops]]")
+    d["_name"] = path.stem
+    return d
+
+
+def load_manifest(root: Path = LAYERS) -> dict:
+    """读清单并校验：未知键报错；order 必须与 overlays/ 下的文件一一对应。"""
+    man = _read_toml(root / "manifest.toml")
+    unknown = set(man) - _MANIFEST_KEYS
+    if unknown:
+        raise OverlayError(f"manifest.toml 有未知键 {sorted(unknown)}")
+    for key in ("base", "lane", "compiler", "overlays"):
+        if key not in man:
+            raise OverlayError(f"manifest.toml 缺 [{key}]")
+    order = man["overlays"].get("order", [])
+    on_disk = sorted(p.stem for p in (root / "overlays").glob("*.toml"))
+    if sorted(order) != on_disk:
+        raise OverlayError(
+            f"manifest.toml 的 overlays.order 与 layers/overlays/ 下的文件不一致：\n"
+            f"  order  = {sorted(order)}\n  on disk = {on_disk}\n"
+            f"新加的层必须在 order 里排位置——施加顺序是语义的一部分")
+    man.setdefault("scripts", [])
+    man.setdefault("gim", {"replace": [], "new": []})
+    man.setdefault("fonts", [])
+    return man
+
+
+def overlays_for(manifest: dict, root: Path, profile: str, switches: dict) -> list[dict]:
+    """按 order 取该剖面要施加的层。release 层在两个剖面都施加；test 层只在 test。
+
+    switches: {开关名: bool}。带 switch 的层缺省施加，显式给 False 才关掉。
+    """
+    if profile not in PROFILES:
+        raise OverlayError(f"未知剖面 {profile!r}")
+    out = []
+    for name in manifest["overlays"]["order"]:
+        ov = load_overlay(root / "overlays" / f"{name}.toml")
+        if ov["profile"] == "test" and profile != "test":
+            continue
+        if "switch" in ov and switches.get(ov["switch"], True) is False:
+            continue
+        out.append(ov)
+    return out
+
+
+import re as _re
+
+#: 只认真正的调用：`vms(N,` / `msg(N,`。左侧的 (?<![A-Za-z0-9_]) 挡住 xmsg(/debagMsg( 之类。
+_ID_CALL_RE = _re.compile(r"(?<![A-Za-z0-9_])(?:vms|msg)\((\d+),")
+
+
+def collect_ids(text: str) -> set[int]:
+    """扫一段 lua（或叠加层的 with/text 字段）里出现的全部消息 id。"""
+    return {int(m.group(1)) for m in _ID_CALL_RE.finditer(text)}
+
+
+def _ranges_of(entry: dict, key: str) -> list[range]:
+    out = []
+    for pair in entry.get(key, []):
+        lo, hi = pair
+        if lo > hi:
+            raise OverlayError(f"区段 [{lo}, {hi}] 顺序颠倒（owner={entry.get('owner')}）")
+        out.append(range(lo, hi + 1))
+    return out
+
+
+def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
+    """id 登记检查：落在本层区段内、owner 区段两两不交、不与保留集相交、全局唯一。
+
+    保留集 = 账本 id ∪ [18001, 18195]（卡消息由引擎按 18000 + 卡号动态生成）。
+    test 层免于与保留集比对（探针沿用 9000 段，测试盘永不出货），但层间仍须不交。
+    """
+    reg = _read_toml(root / "vms_ids.toml")
+    owned: dict[str, list[range]] = {}
+    for entry in reg.get("ranges", []):
+        owner = entry.get("owner")
+        if not owner:
+            raise OverlayError("vms_ids.toml 有 [[ranges]] 缺 owner")
+        owned[owner] = _ranges_of(entry, "vms") + _ranges_of(entry, "card_msg")
+
+    seen: dict[int, str] = {}
+    for owner, rs in owned.items():
+        for r in rs:
+            for other, ors in owned.items():
+                if other <= owner:
+                    continue
+                for o in ors:
+                    if max(r.start, o.start) < min(r.stop, o.stop):
+                        raise OverlayError(
+                            f"id 区段重叠：{owner} 与 {other} 在 "
+                            f"[{max(r.start, o.start)}, {min(r.stop, o.stop) - 1}] 相交")
+            hit = sorted(set(r) & (ledger_ids | set(CARD_MSG_RESERVED)))
+            if hit:
+                raise OverlayError(
+                    f"{owner} 声明的区段撞上保留 id {hit[:5]}"
+                    f"（账本 1..17220 与卡消息 18001..18195 已占）")
+
+    for spec in manifest["scripts"]:
+        if spec.get("profile", "release") != "release":
+            continue
+        # spec["file"] 形如 "scripts/snr_finale.lua"，相对 layers/ 根。
+        # 用传进来的 root 而不是模块级 LAYERS——夹具测试要能指向 tmp_path。
+        text = (root / spec["file"]).read_text(encoding="utf-8")
+        _check_ids_of(spec["file"], text, owned, seen, ledger_ids)
+
+
+def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
+    ranges = owned.get(owner)
+    if ranges is None:
+        raise OverlayError(f"{owner} 没有在 layers/vms_ids.toml 登记 id 区段")
+    for i in sorted(collect_ids(text)):
+        if not any(i in r for r in ranges):
+            raise OverlayError(
+                f"{owner} 用了 id {i}，不在其声明的区段内——"
+                f"在 layers/vms_ids.toml 里扩段，或改用段内的 id")
+        if i in ledger_ids:
+            raise OverlayError(f"{owner} 的 id {i} 与账本冲突")
+        if i in seen:
+            raise OverlayError(f"id {i} 被 {seen[i]} 与 {owner} 同时使用")
+        seen[i] = owner
+

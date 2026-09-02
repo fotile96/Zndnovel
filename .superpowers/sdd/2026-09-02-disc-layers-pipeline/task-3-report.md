@@ -168,3 +168,181 @@ commit：`e95da15 feat: 字集抽取与构建取证`（brief 给的提交信息�
   确实落盘且可被 `json.load` 读回」这一路径。
 
 全部发现已在实现里处理或在此说明取舍；没有遗留未决的正确性问题。
+
+---
+
+## Fix round（task review 后的修复）
+
+Task review 判定 `provenance()` 有两个 Important 发现，均裁定必须修，且均源于 brief
+本身（不是我的转录引入的）。逐条处理如下。
+
+### Finding 1：inputs 从未哈希基座本身
+
+`inputs` 哈希了车道三文件、账本两文件、`layers/` 逐文件，唯独漏了
+`manifest["base"]["dir"]`（= `lua_scripts`）。设计稿 §6.6 的 `inputs` 示例把
+`"layers/**": "<逐文件 sha256>"` 与 `"lua_scripts": "<树 sha256>"` 列成两条不同的
+条目、两种不同的哈希策略——只实现了前者。后果：换反编译基座（`migrate_base.py`
+重跑）不改车道/账本任何一个字节，两次基座不同的构建在这份指纹里会算出完全相同的
+`inputs`，而这正是 provenance 存在的唯一理由（发现构建输入漂移）。
+
+**修复**：在 `_sha256` 旁新增 `_tree_sha256(root: Path) -> str`：按相对路径（`as_posix()`
+归一化，跨平台稳定）升序遍历 `root` 下全部 `*.lua`，把「路径 + 内容」一起喂进同一个
+`hashlib.sha256()`——路径与内容之间插一个空字节、逐文件之间插一个换行符，避免
+"上一条内容尾部" 与 "下一条路径头部" 拼接后产生歧义。目录不存在时返回 `"absent"`，
+与 `_sha256` 的既有约定一致（取证失败不阻断构建）。`provenance()` 里在 `layers/`
+逐文件哈希之后追加：
+
+```python
+base_dir = manifest["base"]["dir"]
+inputs[base_dir] = _tree_sha256(REPO / base_dir)
+```
+
+用 `manifest["base"]["dir"]` 同时做路径来源与 `inputs` 键，与既有 `ledger`/`ledger_extra`
+两条的写法一致（键取自 manifest 里配置的相对路径字符串，不硬编码字面量）。
+
+「路径必须入摘要」用真实语料验证过（非测试，自查用）：
+
+```
+$ uv run python -c "
+import tempfile
+from pathlib import Path
+from tools.layers import _tree_sha256
+with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+    d1, d2 = Path(d1), Path(d2)
+    (d1 / 'one.lua').write_text('same content', encoding='utf-8')
+    (d2 / 'two.lua').write_text('same content', encoding='utf-8')
+    print('same content, different name -> different hash:', _tree_sha256(d1) != _tree_sha256(d2))
+    print('stable across calls:', _tree_sha256(d1) == _tree_sha256(d1))
+    print('missing dir -> absent:', _tree_sha256(Path('/nonexistent')) == 'absent')
+"
+same content, different name -> different hash: True
+stable across calls: True
+missing dir -> absent: True
+```
+
+对真实 `lua_scripts/`（229 文件）跑 `_tree_sha256`：0.039s，确定性可复现。
+
+### Finding 2：工具哈希不认环境变量覆盖
+
+`ttf_pgf` 硬编码 `Path("/tmp/pgftool/ttf_pgf")`；`luac_sz4` 只读
+`manifest["compiler"]["luac"]`。两者都不认对应的环境变量覆盖，而这两个环境变量在
+本仓库是**已确立的既有惯例**：`tools/inject_lua.py:49`
+`LUAC = Path(os.environ.get("SNDL_LUAC", Path.home() / "pyluadec-refactor" / "build" / "luac_sz4"))`，
+`tools/build_font.py:33` `TTF_PGF = Path(os.environ.get("SNDL_TTF_PGF", "/tmp/pgftool/ttf_pgf"))`。
+危害：`/tmp` 下的文件重启即失，构建者用 `SNDL_TTF_PGF` 重新指到别处后，
+`provenance()` 依旧去查默认的 `/tmp/pgftool/ttf_pgf`——那份路径可能确实不存在，
+于是记成 `"absent"`；但工具明明被用了（构建成功了），provenance 却撒了谎。一份
+把「用过的工具」记成「不存在」的取证文件，比干脆不记这个字段更危险，因为它会被
+相信。
+
+**修复**：`provenance()` 里改为
+
+```python
+luac = Path(os.environ.get("SNDL_LUAC", manifest["compiler"]["luac"])).expanduser()
+ttf_pgf = Path(os.environ.get("SNDL_TTF_PGF", "/tmp/pgftool/ttf_pgf"))
+```
+
+`luac` 保留 `.expanduser()`（manifest 兜底路径 `~/pyluadec-refactor/build/luac_sz4`
+带 `~`）；`ttf_pgf` 不加 `.expanduser()`，逐字镜像 `build_font.py` 的写法（硬编码
+默认路径本身不含 `~`）。env 值优先、manifest/硬编码值兜底，与两个姊妹模块同一惯例，
+没有发明新写法。
+
+我在上一轮报告里已自曝 `ttf_pgf` 半边是个 Concern，但当时以「没有覆盖测试」为由
+判定优先级低、未修——review 指出这个理由不成立：与 `build_font.py` 的不一致是
+**现在就存在**的事实，不是假设的未来场景，`_sha256` 的「absent」兜底不让它抛异常，
+不代表这行为是对的。这次连同当时完全没提到的 `luac_sz4` 半边一并修。
+
+### 测试强化（回归钉子 + 补测原有盲区）
+
+`test_provenance_has_required_top_level_keys` 此前只查顶层键存在，`applied=[]`
+也从未让 `layers_applied` 那行列表推导式真正跑过一个非空 overlay dict——这正是
+Finding 1 能在原有测试全绿的情况下溜过去的原因：测试的浅层与缺陷的存活范围完全
+重合。新增 4 个测试（不改动 `test_provenance_has_required_top_level_keys` 本身，
+按 review 建议以 sibling test 形式追加）：
+
+- `test_provenance_inputs_include_lua_scripts_tree_and_lane_and_ledger_keys`——
+  Finding 1 的回归钉子：断言 `inputs` 含 `lua_scripts`、车道 `forward.jsonl`、
+  账本 `ledger.jsonl`/`ledger_extra.jsonl` 四个键。只查键存在，不比对具体哈希值
+  （`lua_scripts/` 真实内容会随仓库演进变化，钉哈希值本身就是脆测试）。
+- `test_provenance_tools_honours_env_overrides`——Finding 2 的回归钉子：用
+  `monkeypatch.setenv` 把 `SNDL_LUAC`/`SNDL_TTF_PGF` 指向 `tmp_path` 下两个自建的
+  假文件，断言 `prov["tools"]` 里的哈希等于对应假文件内容的 sha256（不是复用
+  被测模块的私有 `_sha256`，而是测试自己用 `hashlib` 独立算一遍期望值，避免
+  「用实现验证实现」）。
+- `test_provenance_layers_applied_reflects_real_overlay_dict`——用
+  `_mk_layers`/`ALPHA_OVERLAY` 经真实的 `load_overlay()` 产出一个 overlay dict
+  传给 `applied=[overlay]`，断言 `layers_applied` 渲染出
+  `[{"overlay": "alpha", "target": "snr_common.lua", "ops": 1}]`——不再用空列表
+  绕过这段逻辑。
+- `test_write_provenance_round_trips_through_json`（review 里的 optional cheap
+  项）：写入后 `json.loads` 读回，内容与原 dict 相等。
+
+`write_provenance` 补了一行中文文档字符串。
+
+### 自查发现（本轮修复自己引入、修复过程中发现并当场改正）
+
+`_tree_sha256` 第一版文档字符串里写了 `` `\0` `` / `` `\n` `` 想展示成字面转义
+记号，但函数本体是普通（非 raw）三引号字符串，Python 解析源文件时会把源码里的
+`\0` 再解释一次，变成真实空字节写进 `__doc__`。用
+`repr(_tree_sha256.__doc__)` 实测确认（`'...用 `\x00`\n    分隔路径与内容、`\n` ...'`
+——`\x00` 是真实空字节，不是我想要的字面文本）。这是文档而非行为缺陷（函数体里
+真正用来分隔的 `h.update(b"\0")`/`h.update(b"\n")` 是 bytes 字面量，从未受影响，
+四项行为验证——改名可见、可复现、缺目录返回 absent、非 `.lua` 文件被忽略——全部
+通过）。改法：把 `` `\0` ``/`` `\n` `` 记号改写成中文散文「一个空字节」「一个换行符」，
+彻底绕开转义歧义而不是设法把反斜杠数量配平。
+
+### TDD Evidence
+
+RED（`test_provenance_inputs_include_lua_scripts_tree_and_lane_and_ledger_keys`
+与 `test_provenance_tools_honours_env_overrides` 两个新测试先写、后实现）：
+
+```
+$ uv run pytest tests/test_layers.py -q -k "provenance"
+.FF..
+___ test_provenance_inputs_include_lua_scripts_tree_and_lane_and_ledger_keys ___
+>       assert "lua_scripts" in prov["inputs"]
+E       AssertionError: assert 'lua_scripts' in {'pilot/lanes/opus/data/forward.jsonl': '...', ...}
+_________________ test_provenance_tools_honours_env_overrides __________________
+>       assert prov["tools"]["luac_sz4"] == hashlib.sha256(fake_luac.read_bytes()).hexdigest()
+E       AssertionError: assert 'fbeae1f2d083...' == 'a8d50b34f7a9...'
+2 failed, 3 passed, 39 deselected in 1.00s
+```
+（第二个失败尤其说明问题：拿到的是这台机器上真实 `~/pyluadec-refactor/build/luac_sz4`
+的哈希，不是测试指定的假文件——证实修复前的实现完全无视 env override，不是"凑巧
+没测到"，是"确实没接线"。）
+
+GREEN：
+
+```
+$ uv run pytest tests/test_layers.py -q -k "provenance"
+.....
+5 passed, 39 deselected in 0.17s
+
+$ uv run pytest tests/test_layers.py -q
+............................................
+44 passed in 0.20s
+
+$ uv run pytest -q
+1724 passed, 4 skipped in 301.55s (0:05:01)
+```
+（44 = 前一轮 40 + 本轮新增 4；全库 1724 = 前一轮 1720 + 本轮新增 4，0 失败、
+skip 数不变——4 个 skip 是 `emu` 标记，本机无 PPSSPP 构建，与本次改动无关。）
+
+### Files changed（本轮）
+
+- `tools/layers.py`（+37/-3）：`import os`；新增 `_tree_sha256`；`provenance()`
+  接入基座树哈希与 `SNDL_LUAC`/`SNDL_TTF_PGF`；`write_provenance` 补文档字符串。
+- `tests/test_layers.py`（+53/-1，含头部 `import hashlib`/`import json` 与
+  `write_provenance` 的导入）：4 个新测试。
+
+commit：`979ab4a fix: provenance 补基座树哈希与工具路径环境变量覆盖`。
+
+### Concerns（更新）
+
+上一轮报告里的两条 Concerns 状态：
+
+- `ttf_pgf` 硬编码路径——**已解决**（本轮 Finding 2）。
+- `layers/` 全量递归哈希的成本随文件数增长——**未变**，仍然只是记录，不是问题
+  （设计把 `generated/` 放在 `build/test/` 而非 `layers/`，按现有设计不会失控）。
+
+无新增遗留 Concerns。

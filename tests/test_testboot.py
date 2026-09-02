@@ -1,31 +1,46 @@
 """testboot 生成器：产层文件，不再直接写字节码。"""
+import shutil
+
 import tomllib
 
 import pytest
 
-from tools.testboot import _MODES, generate
+from tools.testboot import _MODES, generate, REPO
 
 
-def test_mainmenu_mode_emits_test_script(tmp_path):
-    r = generate("mainmenu", tmp_path)
+@pytest.fixture
+def out_dir(tmp_path):
+    """generate() 现在会拒绝不在 build/ 之下的 out_dir（见 tools/testboot.py 的
+    守卫：判归属只看目录名，layers/scripts、layers/overlays 与本工具产物目录
+    同构同名，传错一次会静默删掉手写入库的层文件）。真实调用方永远传
+    build/<profile>/generated/ 这类路径，这里用仓库 build/ 下的一个按测试名
+    区分的临时子目录来匹配这条契约，测完清掉。"""
+    d = REPO / "build" / "_test_testboot" / tmp_path.name
+    d.mkdir(parents=True, exist_ok=True)
+    yield d
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def test_mainmenu_mode_emits_test_script(out_dir):
+    r = generate("mainmenu", out_dir)
     assert r["scripts"] == ["scripts/snr_test.lua"]
-    src = (tmp_path / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
     assert "gameSave.startMenuState = 2" in src
     assert 'run(cGetFileName("script", "snr_mainmenu"))' in src
 
 
-def test_scene_mode_targets_the_right_chapter_script(tmp_path):
-    generate("scene", tmp_path, scene="fin-30")
-    src = (tmp_path / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+def test_scene_mode_targets_the_right_chapter_script(out_dir):
+    generate("scene", out_dir, scene="fin-30")
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
     assert 'doScriptScene = "fin-30"' in src
     assert 'run(cGetFileName("script", "snr_finale"))' in src
 
 
-def test_card_mode_emits_short_circuit_overlay(tmp_path):
-    r = generate("card", tmp_path, card=103)
+def test_card_mode_emits_short_circuit_overlay(out_dir):
+    r = generate("card", out_dir, card=103)
     assert "overlays/card-short-circuit.toml" in r["overlays"]
     ov = tomllib.loads(
-        (tmp_path / "overlays" / "card-short-circuit.toml").read_text(encoding="utf-8"))
+        (out_dir / "overlays" / "card-short-circuit.toml").read_text(encoding="utf-8"))
     assert ov["target"] == "snr_crd_103.lua"
     assert ov["profile"] == "test"
     assert ov["ops"][0]["find"] == "oCard.selectCardObj()"
@@ -48,38 +63,49 @@ def test_card_mode_emits_short_circuit_overlay(tmp_path):
     assert r["warnings"] and "多步骤" in r["warnings"][0]
 
 
-def test_single_answer_card_has_no_warning(tmp_path):
-    r = generate("card", tmp_path, card=10)  # crd_10：1 处递卡、1 个答案
+def test_single_answer_card_has_no_warning(out_dir):
+    r = generate("card", out_dir, card=10)  # crd_10：1 处递卡、1 个答案
     assert r["warnings"] == []
 
 
-def test_generated_overlays_are_never_release(tmp_path):
+def test_generated_overlays_are_never_release(out_dir):
     # 驱动源是模块自己的模式表 _MODES，不是手写的三元组：新增一种会产 overlay 的
     # 模式时，这条测试自动跟着覆盖到，不必有人记得回来把它加进硬编码列表。
     for mode in _MODES:
         opts = {"card": 103} if mode == "card" else {}
-        r = generate(mode, tmp_path, **opts)
+        r = generate(mode, out_dir, **opts)
         for rel in r["overlays"]:
-            ov = tomllib.loads((tmp_path / rel).read_text(encoding="utf-8"))
+            ov = tomllib.loads((out_dir / rel).read_text(encoding="utf-8"))
             assert ov["profile"] == "test", f"{mode} 产出了 release 层——测试补丁绝不能出货"
 
 
-def test_generate_clears_stale_layers_from_previous_call(tmp_path):
+def test_generate_clears_stale_layers_from_previous_call(out_dir):
     """产物目录不是只增不减的：第二次调用必须先清掉第一次的残留，磁盘实况才会
     跟返回值一致。Task 8 的消费方按 glob 扫 overlays/*.toml 施加，一份调用方
     以为已经不存在的旧层会被悄悄套用到跟它毫不相干的下一次构建上。
     """
-    generate("card", tmp_path, card=103)
-    assert (tmp_path / "overlays" / "card-short-circuit.toml").exists()
+    generate("card", out_dir, card=103)
+    assert (out_dir / "overlays" / "card-short-circuit.toml").exists()
 
-    r2 = generate("mainmenu", tmp_path)
+    r2 = generate("mainmenu", out_dir)
     assert r2["overlays"] == []
 
-    on_disk = sorted(p.relative_to(tmp_path).as_posix()
-                     for p in tmp_path.rglob("*") if p.is_file())
+    on_disk = sorted(p.relative_to(out_dir).as_posix()
+                     for p in out_dir.rglob("*") if p.is_file())
     assert on_disk == sorted(r2["scripts"] + r2["overlays"])
 
 
-def test_unknown_mode_is_hard_failure(tmp_path):
+def test_unknown_mode_is_hard_failure(out_dir):
     with pytest.raises(SystemExit):
-        generate("frobnicate", tmp_path)
+        generate("frobnicate", out_dir)
+
+
+def test_generate_refuses_output_dir_outside_build(tmp_path):
+    """守卫本体（2026-09-03 carried-forward item 3）：out_dir 不在仓库 build/
+    之下就必须硬拒绝，不能走到"先清空再写"那一步——layers/scripts、
+    layers/overlays 与本工具的产物目录同构同名，传错一次会静默删掉手写入库的
+    层文件。这里故意用一个不在 build/ 之下的 tmp_path（pytest 给的临时目录，
+    与仓库 build/ 无关）来证明守卫真的拦得住，而不是"恰好从没传错过"。
+    """
+    with pytest.raises(SystemExit):
+        generate("mainmenu", tmp_path)

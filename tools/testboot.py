@@ -509,8 +509,20 @@ def generate(mode: str, out_dir: Path, **opts) -> dict:
     整洁：旧架构靠 emitted.json 记账 + 按名逐个还原做到这一点，2026-09-01 就因为
     某个模式没被账本记全、没被还原到，把 mainmenu 模式误跑成了上一轮遗留的 cutin
     探针。新架构没有账本，改用更简单也更彻底的"每次整个子目录重来"。
+
+    ⚠ 守卫：`out_dir` 必须在仓库的 `build/` 之下，否则拒绝——判归属只看目录名
+    （`scripts`/`overlays`）不看路径来源，而 `layers/scripts/`、`layers/overlays/`
+    与本工具产物目录同构同名，装着手写、入库的层文件（`snr_finale.lua` 等）。
+    调用方一旦传错 out_dir（比如手滑传成 `layers/` 而非 `build/test/generated/`），
+    上面那条"先清空再写"的契约会当场把它们静默删掉。2026-09-02 review 指出
+    "今日无调用方会踩，但 Task 8 正是要接第一个真实调用方"——这里就是那道闸。
     """
-    out_dir = Path(out_dir)
+    out_dir = Path(out_dir).resolve()
+    build_root = (REPO / "build").resolve()
+    if not out_dir.is_relative_to(build_root):
+        sys.exit(f"generate() 的 out_dir 必须在 {build_root} 之下，收到 {out_dir}——"
+                 f"本函数会清空 out_dir/scripts 与 out_dir/overlays，传错目录可能"
+                 f"静默删掉 layers/scripts、layers/overlays 里手写入库的层文件")
 
     # 先做完全部会 sys.exit 的校验与计算，一个字节都不碰磁盘；确认没有校验失败后
     # 才在下面一次性清空+写入——不让"清空了一半、写到一半就失败"的中间态出现。

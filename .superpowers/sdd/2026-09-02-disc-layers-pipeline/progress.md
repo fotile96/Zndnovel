@@ -140,3 +140,22 @@ Task 6: Ruling: 发现（charset 守卫只挡「缺文件 / 恰好 0 字节」�
 Task 6: minor (deferred): build() 的 docstring 说「6 个字」而同文件模块 docstring 说 7（实为 6 + s7f 递卡旁白 1）——已在 fix 轮附带订正。
 Task 6: minor (deferred): ALWAYS 目前是本模块视角下的死代码——build_font 自己不再引用，tools/layers.py 也尚未 import 它，要到接线任务才有消费者。
 Task 6: 待 Task 8 留意（评审提出的作用域边界）：本任务的逐字节比对固定了字集文件的**排序与格式**，故它证明不了「write_charset 产出的另一种等价但格式不同的字集会不会导致 PGF 字节布局不同」。接线时值得实测一次。
+Task 6: fix round 1/5 (1 addressed 三部分全中, 0 open; commits 61863ed..8c39932 + 3ae73b0)
+Task 6: 实施者两处「不照字面执行但更对」的偏离，评审复核后均判正确：①floor 用 len(set(ALWAYS))=472 而非 len(ALWAYS)=495——ALWAYS 有 23 个重复码位，495 会误拒一份合法的 ALWAYS-only 字集，472 才是评审自己的理由真正要求的数；②「6 改 7」未照字面改，因为两个数说的是不同范围（6 = 本次重构针对的结构性根因，7 = 事故总数含一处无关的陈旧性缺字），改为两数并存且互相交叉引用。
+Task 6: 评审顺带查证了 ttf_pgf 的 C 源（libpgf.c:246-256、ttfont_znd.c:184-187）：Load list 那行确实走 stderr；nucs==0 时 memset 全 65536 码位 = 5.3MB 全字库。实施者注释里的事实声明与源码逐条相符，且措辞如实标注为「实测/读源码确认」。
+Task 6: complete (commits f450584..3ae73b0, review clean) — 51/51 层测试，全库 1753 passed，两种字体逐字节不变，闸 230/230
+Task 6: 待 Task 8 注意（评审提出）：Part 2 的 floor 建立在「ALWAYS 无条件并入 charset_of 的每一份字集」这条前提上，而该前提目前**只在测试里成立**——生产链路尚无处把 build_font.ALWAYS 传给 charset_of，那正是 Task 8 stage_font 要接的线。接线时务必真的传 ALWAYS。
+Task 7: dispatched (sonnet, agent a86f01279762746cc), BASE 3ae73b0
+Task 7: implementer DONE — commits 0319e66 + f8241f1，5/5 testboot 测试，全库 1758 passed，两闸均过；自行发现并修掉 brief 第 7 处缺陷（_count_select_calls 对着纯净 lua_scripts 数，而 overlay 施加在注入后的源上——改用 _injected_source 在内存里取）；另发现一个**先前就存在**的设计缺陷：23 张卡的多处递卡各需不同答案，单值短路只填第一步、其后每步卡死。
+Task 7: 控制器独立复核：release 闸 230/230 exit 0；test 闸通过；make_test_boot.py 已 git mv（similarity 56%）；lua_scripts 未动；inject_src 仅剩一处解释性注释；实跑 card=103 生成的层能过 load_overlay，profile=test，多步警告响亮。
+Task 7: task review (sonnet) — spec ✅ 但 4 Important + 2 Minor，quality **Needs fixes**
+Task 7: Ruling: 发现 2（generate() 不清理 out_dir，跨模式调用会留下上一轮的层）**是本轮最重要的一条，必须修** — 理由：评审实测复现——先 card=103 再 mainmenu，后者返回 {"overlays": []} 却把 card-short-circuit.toml 留在盘上；而 Task 8 的消费方按 glob 扫目录、不信任返回值，于是一份陈旧的递卡短路会被静默施加到无关的测试构建上。这正是被删掉的 emitted.json 机制当年防的那类串味，且该工具 2026-09-01 已经因此把 mainmenu 模式跑成了 cutin 探针 — 若判错的代价：一次 rmtree 与一条目录复用测试。
+Task 7: Ruling: 发现 1（多步卡的告警只走 print 与 why 散文）成立，改为结构化 — 理由：评审找到了我要求它去找的第三条路——brief 强制的 5 个测试都不断言 generate() 返回字典的键集，故加一个 result["warnings"] 不与任何强制测试冲突，却让 Task 8、未来的测试、人类都能可编程地发现「这份产物是降级的」，而不必去解析散文或捕获 stdout — 若判错的代价：返回字典多一个键。
+Task 7: Ruling: 发现 3（count 修复本身无回归测试）成立 — 理由：本任务的头号贡献若被日后重构悄悄改回读纯净源，今天的套件全绿——因为两个源在全部 103 张卡上恰好相同；唯一兜底要等到某张卡真的分歧才生效 — 若判错的代价：两条断言。
+Task 7: Ruling: 发现 4（profile 钉子测试是枚举而非穷举，plan-mandated）成立，改为遍历模块自己的模式表 — 理由：三个手挑的模式里只有 card 真会产层，另两轮空转；日后新增产层模式若没人记得改这个元组，钉子就漏了 — 若判错的代价：测试多绕一层循环。
+Task 7: minor (deferred): data/dag.json 在一次 generate("card") 里被重复解析三次（card_answer、_count_select_calls 链、_dag_answers）；文件小，无正确性影响。
+Task 7: minor (deferred): 8 个模式里有 5 个（font/ruby/cutin/choices/map）无 pytest 覆盖，只有报告里的一次性冒烟记录——源自 brief 强制的测试文件内容。
+Task 7: fix round 1/5 (4 addressed, 0 open, 1 新 Minor; commits f8241f1..73f609f)
+Task 7: 控制器独立复现目录复用：第一次 card=103 后盘上有脚本+层，第二次 mainmenu 后只剩脚本，与该次返回值逐项相同；warnings 键在，card=103 一条告警。两闸均过。
+Task 7: minor (deferred，但已排入 Task 8 派工)：generate() 的 rmtree 只按子目录名 scripts/overlays 判归属，不校验 out_dir 是否真属本工具的产物树。仓库里恰有同名同构的 layers/scripts 与 layers/overlays（内含手写的 snr_finale.lua 与四个层文件，均已入库）。今日无调用方会踩，但 Task 8 正是要接第一个真实调用方，两棵树刻意平行同名，传错一次就静默删掉手写层。
+Task 7: complete (commits 3ae73b0..73f609f, review clean) — 7/7 testboot 测试，全库 1760 passed，两闸均过

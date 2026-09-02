@@ -462,24 +462,23 @@ def _injected_sources(manifest: dict, ledger_rows: list[dict]) -> dict[str, str]
     全部不同——这不是「层错了」，是比对的输入从一开始就文不对题。
 
     做法：复用 tools/inject_lua 已经在跑、已被信赖的按 (file,line) 替换逻辑
-    （`load_translations`/`inject_text`，直接 import，不重新实现一遍），在内存里
+    （`load_translations`/`inject_tree`，直接 import，不重新实现一遍），在内存里
     补上翻译。刻意**不**叠 inject_lua.main() 里那段槽 1 字体补丁
     （`FONT_SLOT1_FROM/TO`）：那一步已被 `layers/overlays/fonts.toml` 接管；两处
     都做，fonts 层的 `find` 锚点在注入后就找不到了（叠加引擎的 count 断言会当场
-    硬失败，不会静默叠两次）——inject_text() 本身不含字体补丁，只调它就自然绕开。
+    硬失败，不会静默叠两次）——inject_tree() 本身不含字体补丁，只调它就自然绕开。
+
+    ⚠ 2026-09-03（Task 8）：本函数原先自己重走一遍「按 (file,line) 分组 →
+    逐文件调 inject_text()」的循环，是 `inject_lua.inject_tree()` 定形前的产物
+    （当时该函数还不存在这个确切签名）。`tools/build_disc.py::stage_lua` 现在
+    正是靠 `inject_tree(base_dir, ledger_rows, zh, extra)` 这同一条路径产生
+    发布链路的注入结果——两处入参形状完全一致，之前「另起一份独立实现」的顾虑
+    （见 Task 4/5 台账）已经不成立，直接委托即可，不再维护第二份会漂移的循环。
     """
     from tools import inject_lua
     zh, extra = inject_lua.load_translations()
-    by_file: dict[str, dict[int, dict]] = {}
-    for row in ledger_rows:
-        by_file.setdefault(row["file"], {})[row["line"]] = row
     base = REPO / manifest["base"]["dir"]
-    out: dict[str, str] = {}
-    for f in sorted(base.glob("*.lua")):
-        stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
-                     ruby_merged=0)
-        out[f.name] = inject_lua.inject_text(f.stem, f.read_text(encoding="utf-8"),
-                                             by_file.get(f.stem, {}), zh, extra, stats)
+    out, _stats = inject_lua.inject_tree(base, ledger_rows, zh, extra)
     return out
 
 

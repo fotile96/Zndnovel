@@ -2,8 +2,22 @@ target  = "snr_common.lua"
 profile = "release"
 why     = """槽 0 = 正文 17px 中文字体；槽 1 = ruby/小字 9px。
 2026-08-31 游戏内实测：ruby 走槽 1，槽 1 原配日文字体的简体字与声调元音全是空白，
-不换就没有中文拼音注音。原先槽 0 由 migrate_base 重放、槽 1 由 inject_lua 改写，
-两处分居；现在合并到这一个层里。"""
+不换就没有中文拼音注音。
+
+槽 0：原先由 migrate_base 在换基座时重放，本次连同 FONT_PATCH 常量一并删除
+（tools/migrate_base.py）——这一半从今往后只有这一个来源，改动已完整生效。
+
+⚠ 槽 1：2026-09-03 复核更正一处此前写错的表述——槽 1 的改写**此刻仍由
+tools/inject_lua.py 的 FONT_SLOT1_FROM/TO 在译文注入期执行**（inject_lua.py 本身
+在这次改动里没有被碰）。这个层现在只在 tools/layers.py 的 `_injected_sources()`
+（专供 `check --compare-compiled` 用）里生效，且那里刻意绕过了 inject_lua 的
+main()、只调 inject_text()，好让这第二个 find 锚点在验证时还找得到。真正的发布
+链路（build_disc.py）目前仍是老路径：inject_lua.py 独立跑一遍，槽 1 已经被换过。
+等瘦身 inject_lua 的任务把 FONT_SLOT1_FROM/TO 删掉、build_disc 接入 layers/ 之后，
+这个层才真正独占槽 1 的改写权。**在那之前，两者不能对同一份源各跑一遍**——
+inject_lua 先跑过一次的话，这个层的第二个 find 就会因为锚点已被替换掉而命中 0
+次，被 count 断言拦下（是当场报错，不是静默叠两次；但走到这一步，恰恰说明发布
+链路还没有正确接上这个层，报错本身就是信号）。"""
 
 [[ops]]
 op   = "replace"

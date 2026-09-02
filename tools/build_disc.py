@@ -103,6 +103,20 @@ def stage_lua() -> None:
     （`build/inject_src`）但**不清字节码目录**，于是 `snr_test.lua` 会一直活着
     ——它不属于译文管线的产物，没人会覆盖它，也没人会删它。
     """
+    # ⚠ 迁移期 guard（2026-09-03，Task 4 review 追加）：这个函数还是老路径，
+    # 直接读 lua_scripts/、对 layers/ 一无所知。删除条件写在 die() 的信息里，
+    # 不要不看内容就删掉这几行。
+    die(
+        "build_disc.py 处于管线迁移中期，尚未接入 layers/。"
+        "lua_scripts/ 已纯净化（2026-09-02 commit f9b4b40）：槽 0 中文字体行、"
+        "主菜单谢幕直达项都已经从 lua_scripts/ 搬进 layers/overlays/*.toml，"
+        "这个文件还在直接读 lua_scripts/，对 layers/ 一无所知。"
+        "现在跑这条管线会静默产出一张退步的盘：槽 0 是日文字体、没有 encore "
+        "菜单入口，且不会有任何报错或警告——盘看起来正常，其实是错的。"
+        "等「build_disc 剖面化」任务把 layers/ 接进来后，删掉这段 guard 即可"
+        "（design doc §8 步骤 3：docs/superpowers/specs/"
+        "2026-09-02-disc-layers-pipeline-design.md）。"
+    )
     subprocess.run([sys.executable, str(REPO / "tools" / "inject_lua.py")], check=True)
     stray = INJECT / TESTBOOT_MEMBER
     if stray.exists():

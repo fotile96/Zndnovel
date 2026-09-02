@@ -1,4 +1,5 @@
 """local_assets：基座保真与全量编译。缺 luac_sz4 或原包解包镜像即整体 skip。"""
+import os
 import subprocess
 import sys
 import tempfile
@@ -6,12 +7,21 @@ from pathlib import Path
 
 import pytest
 
-from tools.layers import REPO, build_final_sources
+from tools.layers import REPO, build_final_sources, load_manifest
 from tools.luac_norm import compare_dirs
 
-LUAC = Path("~/pyluadec-refactor/build/luac_sz4").expanduser()
+_MANIFEST = load_manifest()
+# 与 tools/layers.py 的 provenance()/_compare_compiled() 同一惯例：SNDL_LUAC 覆盖
+# manifest 里的硬编码默认路径。少了这行的后果不是「测试也跳」那么温和——是反过来：
+# 在一台只靠 SNDL_LUAC 才找得到编译器的机器上，本文件这个全库最强的保真测试会
+# 判定「缺 luac」而 skip，CLI 的 `layers.py check --compare-compiled`（同样吃
+# SNDL_LUAC）却能正常跑——最该跑的测试反而没跑，且没有任何提示。
+LUAC = Path(os.environ.get("SNDL_LUAC") or "~/pyluadec-refactor/build/luac_sz4").expanduser()
 CORPUS = Path("~/pyluadec-refactor/corpus/final").expanduser()
 DATABIN_SCRIPT = REPO / "build" / "databin" / "script"
+# 头部签名已经在 layers/manifest.toml 的 [compiler] 里声明过一次，这里不重复写死
+# 第二份——两处一旦分叉（比如换了编译器版本），硬编码的这份不会跟着更新。
+PSP_LUAC_HEADER = bytes.fromhex(_MANIFEST["compiler"]["header_hex"])
 
 pytestmark = [
     pytest.mark.local_assets,
@@ -32,7 +42,7 @@ def _compile_all(sources: dict[str, str], out: Path) -> list[str]:
                               capture_output=True, text=True)
         if proc.returncode != 0:
             bad.append(f"{name}: {proc.stderr.strip()}")
-        elif dst.read_bytes()[:12] != bytes.fromhex("1b4c75615100010404040800"):
+        elif dst.read_bytes()[:12] != PSP_LUAC_HEADER:
             bad.append(f"{name}: 头非 PSP ABI")
         src.unlink()
     return bad

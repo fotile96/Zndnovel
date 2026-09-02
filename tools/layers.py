@@ -532,18 +532,45 @@ def main(argv=None) -> int:
 
 
 def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) -> int:
-    """把最终源编译一遍与参照目录逐字节比对。迁移期证明「层精确复现了手工改动」。"""
+    """把最终源编译一遍与参照目录逐字节比对。迁移期证明「层精确复现了手工改动」。
+
+    两处硬化（2026-09-03 复核发现，均属于本任务唯一验收判据不许静默放行的范畴）：
+
+    ①缺 luac 不再打印「跳过」后 `return 0`——退出码 0 正是自动化用来判断「闸通过」
+    的唯一信号，静默跳过会让这项本该是唯一验收判据的检查，在没装编译器的机器上
+    变成一个永远绿灯的空转。改为 `sys.exit`：硬失败，不给「看起来过了」的假象。
+
+    ②成员集合必须双向核对，不能只按 `sources` 里已有的名字去 `ref_dir` 里找。
+    旧写法只查「sources 的每个名字，ref_dir 里在不在」——如果 `build_final_sources`
+    因为清单写错漏收了一个成员（例如 `[[scripts]]` 的 `profile` 手滑写成
+    `"test"`，`snr_finale.lua` 就会在 release 剖面被悄悄跳过，见该函数第 441-442
+    行），`sources` 会比 `ref_dir` 少一个文件，而分母 `len(sources)` 也跟着变小——
+    "229/229 相同"照样打印、退出码照样 0，盘却丢了整个谢幕章。现在先把两个目录的
+    文件名集合各自对比一遍，任何一侧独有的名字都计入 `bad`，参与最终判定。
+    """
     import tempfile
     # 与 provenance() 同一惯例：SNDL_LUAC 覆盖 manifest 里的硬编码默认路径。
     luac = Path(os.environ.get("SNDL_LUAC") or manifest["compiler"]["luac"]).expanduser()
     if not luac.exists():
-        print(f"[layers] 跳过比对：缺 {luac}")
-        return 0
+        sys.exit(f"[layers] 缺 {luac}，--compare-compiled 无法比对——"
+                 f"这是迁移期唯一验收判据，不许静默跳过"
+                 f"（设 SNDL_LUAC 指到别处，或按 docs 装上编译器）")
+
+    ref_names = {p.name for p in Path(ref_dir).glob("*.lua")}
+    src_names = set(sources)
     bad = []
+    only_in_ref = sorted(ref_names - src_names)
+    only_in_src = sorted(src_names - ref_names)
+    if only_in_ref:
+        bad.append(f"参照目录有、新链路缺失（漏收了整份文件）: {only_in_ref}")
+    if only_in_src:
+        bad.append(f"新链路有、参照目录没有: {only_in_src}")
+
+    same = 0
     with tempfile.TemporaryDirectory() as td:
-        for name, text in sorted(sources.items()):
+        for name in sorted(src_names & ref_names):
             src = Path(td) / name
-            src.write_text(text, encoding="utf-8")
+            src.write_text(sources[name], encoding="utf-8")
             out = Path(td) / (name + ".luac")
             proc = subprocess.run([str(luac), "-s", "-o", str(out), str(src)],
                                   capture_output=True, text=True)
@@ -551,13 +578,13 @@ def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) ->
                 bad.append(f"{name} 编译失败: {proc.stderr.strip()}")
                 continue
             ref = ref_dir / name
-            if not ref.exists():
-                bad.append(f"参照目录缺 {name}")
-            elif ref.read_bytes() != out.read_bytes():
+            if ref.read_bytes() != out.read_bytes():
                 bad.append(f"{name} 与参照不一致")
+            else:
+                same += 1
     for b in bad:
         print(f"[layers] ✗ {b}")
-    print(f"[layers] 逐字节比对：{len(sources) - len(bad)}/{len(sources)} 相同")
+    print(f"[layers] 逐字节比对：{same}/{len(src_names | ref_names)} 相同")
     return 1 if bad else 0
 
 

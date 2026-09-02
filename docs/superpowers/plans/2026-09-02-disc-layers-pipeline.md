@@ -501,6 +501,16 @@ Expected: FAIL — `ImportError: cannot import name 'load_manifest'`
 
 - [ ] **Step 3: 写实现**
 
+> ⚠ **执行期勘误（2026-09-03，评审发现）**：下面这份 `check_ids` 的代码有两处缺陷，
+> 已在实施中修正，**以仓库里 `tools/layers.py` 的现状为准**，不要照抄本代码块：
+> ①`[[ranges]]` 缺 `profile` 字段，docstring 承诺的「test 层免于与保留集比对」从未实现，
+> 且 `manifest["scripts"]` 里的 test 条目被整段跳过——那是一次静默略过校验；
+> 修正为：`[[ranges]]` 加可选 `profile`（缺省 release），test 段免于保留集比对但
+> 仍参与两两不交检查，test 脚本照查自身区段与跨 owner 唯一。
+> ②`_check_ids_of` 里的两处内层检查会被更早的区段级检查抢先命中，属双保险而非死码，
+> 保留但加注释说明；并补一个 `seen` 真正能抓到的用例（同一 owner 被登记两次）。
+> 裁决与理由见 `.superpowers/sdd/2026-09-02-disc-layers-pipeline/progress.md`。
+
 追加到 `tools/layers.py`（放在 `apply_overlay` 之后）：
 
 ```python

@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run python
-"""译文注入：lua_scripts 原文源 + 定稿译文 → build/inject_src/*.lua → luac_sz4 → 字节码。
+"""译文注入：lua_scripts 纯净基座 + 定稿译文 → 注入后的 lua 源（文件名→文本）。
 
 锚定方式与 tools/build_ledger.py **共用同一组正则**（直接 import，杜绝口径漂移）：
 按 (file, line) 定位、在行内就地替换字符串参数，行号不变 → extra 轨的
@@ -10,18 +10,15 @@
   extra 轨   data/ledger_extra.jsonl  × forward_extra.jsonl            → 按 key
   literal=false 的 8 行：zh 存的是整个 lua 表达式，整参数替换而非包引号。
 
-编译器：pyluadec-refactor 的 build/luac_sz4——序列化宽度补丁（size_t=4）版
-vanilla Lua 5.1.5，在 arm64 宿主上直接产 PSP ABI 字节码（头 1B4C756151000104040408 00）。
-路径可用 SNDL_LUAC 覆盖。原包字节码是 stripped，故一律 -s。
+本模块只做纯注入：`inject_tree`/`inject_text` 不写盘、不编译、不依赖全局状态，
+是纯函数，好测。字体槽改写归 layers/overlays/fonts.toml；编译字节码与出盘归
+tools/build_disc.py；车道目录不再在本文件写死，随 layers/manifest.toml 的
+[lane].dir 走（`tools.layers.load_manifest()`）。命令行仅供调试，产物不直接出货。
 """
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -31,23 +28,12 @@ sys.path.insert(0, str(REPO))
 from tools.build_ledger import (  # noqa: E402
     PLOT_TITLE_RE, SAVEDATA_RE, SIMPLE_EXTRA, TR_LINE_RE, VMS_RE,
 )
+from tools.layers import load_manifest  # noqa: E402
 from tools.pipelib import read_jsonl  # noqa: E402
 from tools.resolve import resolve_map  # noqa: E402
 
 SRC = REPO / "lua_scripts"
-
-# 字体槽改写（源件只读，故在注入期做）。
-# 槽 0 的中文字体行早已写死在 lua_scripts/snr_common.lua:5007，这里只管槽 1：
-# 2026-08-31 游戏内探针实测——**ruby 注音走槽 1**，而槽 1 原配是日文
-# tsukuminpro_e_09.pgf，简体字与带声调拉丁元音（āáǎà）全部缺字，拼音 ruby 显示为
-# 空白。要让 `<汉字,pīn yīn>` 成立，槽 1 必须换成中文 9px 字体。
-FONT_SLOT1_FROM = 'fontLoad(1, "pgf/tsukuminpro_e_09.pgf")'
-FONT_SLOT1_TO = 'fontLoad(1, "pgf/LXGWWenKai-Regular-09.pgf")'
-OUT_SRC = REPO / "build" / "inject_src"
-OUT_BC = REPO / "build" / "inject" / "script"
-LANE = REPO / "pilot" / "lanes" / "opus" / "data"
-LUAC = Path(os.environ.get("SNDL_LUAC", Path.home() / "pyluadec-refactor" / "build" / "luac_sz4"))
-PSP_LUAC_HEADER = bytes.fromhex("1b4c75615100010404040800")
+DEFAULT_OUT = REPO / "build" / "release" / "lua" / "injected"
 
 
 # 紧邻的两组 ruby（中间一个字符都没有）。注意 `[^<>,]` 保证不会跨过别的标记。
@@ -80,9 +66,14 @@ def lua_quote(s: str) -> str:
 
 
 def load_translations() -> tuple[dict[int, str], dict[str, str]]:
-    zh = resolve_map(read_jsonl(LANE / "forward.jsonl"), read_jsonl(LANE / "patches.jsonl"))
+    """读车道当前生效译文。车道目录来自 layers/manifest.toml 的 [lane].dir，
+    不再是本文件写死的 LANE 常量：车道路径此前在 inject_lua / build_font /
+    migrate_base 三处硬编码，本函数是第一处收口，另两处不在本次瘦身范围。
+    """
+    lane = REPO / load_manifest()["lane"]["dir"]
+    zh = resolve_map(read_jsonl(lane / "forward.jsonl"), read_jsonl(lane / "patches.jsonl"))
     extra: dict[str, str] = {}
-    for row in read_jsonl(LANE / "forward_extra.jsonl"):
+    for row in read_jsonl(lane / "forward_extra.jsonl"):
         extra[row["key"]] = row["zh"]          # append-only：同 key 后行覆盖前行
     return zh, extra
 
@@ -163,60 +154,54 @@ def _sub_extra(body: str, m, group: int, key: str, extra: dict[str, str],
     return _replace_span(body, m.start(group), m.end(group), text_zh)
 
 
-def compile_bytecode(src_dir: Path, out_dir: Path) -> int:
-    if not LUAC.exists():
-        sys.exit(f"缺 32 位 luac: {LUAC}（pyluadec-refactor ./scripts/build_native.sh，"
-                 f"或设 SNDL_LUAC）")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    n = 0
-    for f in sorted(src_dir.glob("*.lua")):
-        dst = out_dir / f.name
-        proc = subprocess.run([str(LUAC), "-s", "-o", str(dst), str(f)],
-                              capture_output=True, text=True)
-        if proc.returncode != 0:
-            sys.exit(f"luac 失败 {f.name}: {proc.stderr.strip()}")
-        if dst.read_bytes()[:12] != PSP_LUAC_HEADER:
-            sys.exit(f"{dst.name} 头非 PSP ABI（luac 宽度不对）")
-        n += 1
-    return n
+def inject_tree(base_dir: Path, ledger_rows: list[dict], zh: dict[int, str],
+                extra: dict[str, str]) -> tuple[dict[str, str], dict]:
+    """注入整棵基座，返回 (文件名→注入后源, 统计)。行数与行号严格不变。
+
+    ⚠ 不做字体改写、不编译、不写盘——那些分别是 layers/overlays/fonts.toml 与
+    build_disc 的职责。本函数是纯函数，好测。
+    """
+    by_file: dict[str, dict[int, dict]] = {}
+    for row in ledger_rows:
+        by_file.setdefault(row["file"], {})[row["line"]] = row
+    stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
+                 ruby_merged=0)
+    out: dict[str, str] = {}
+    for f in sorted(Path(base_dir).glob("*.lua")):
+        out[f.name] = inject_text(f.stem, f.read_text(encoding="utf-8"),
+                                  by_file.get(f.stem, {}), zh, extra, stats)
+    return out, stats
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--no-compile", action="store_true", help="只产改写后的 lua 源")
-    ap.add_argument("--only", help="逗号分隔的文件 stem，仅注入这些（调试用）")
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
+                    help=f"注入后 lua 源写到这里（调试用；发布链路走 layers/ + "
+                         f"build_disc），默认 {DEFAULT_OUT}")
+    ap.add_argument("--only", help="逗号分隔的文件 stem，只把这些写盘"
+                                   "（调试用；统计仍覆盖全部文件）")
     args = ap.parse_args()
 
     zh, extra = load_translations()
     print(f"[inject] 译文 vms={len(zh)} extra={len(extra)}")
 
-    by_file: dict[str, dict[int, dict]] = {}
-    for row in read_jsonl(REPO / "data" / "ledger.jsonl"):
-        by_file.setdefault(row["file"], {})[row["line"]] = row
+    ledger_rows = read_jsonl(REPO / "data" / "ledger.jsonl")
+    out, stats = inject_tree(SRC, ledger_rows, zh, extra)
 
     only = set(args.only.split(",")) if args.only else None
-    if OUT_SRC.exists():
-        shutil.rmtree(OUT_SRC)
-    OUT_SRC.mkdir(parents=True)
-    stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
-                 font_slot1=0, ruby_merged=0)
-    for f in sorted(SRC.glob("*.lua")):
-        stem = f.stem
-        text = f.read_text(encoding="utf-8")
-        if only is None or stem in only:
-            text = inject_text(stem, text, by_file.get(stem, {}), zh, extra, stats)
-        if stem == "snr_common" and FONT_SLOT1_FROM in text:
-            text = text.replace(FONT_SLOT1_FROM, FONT_SLOT1_TO)
-            stats["font_slot1"] = 1
-        (OUT_SRC / f.name).write_text(text, encoding="utf-8")
+    args.out.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for name, text in out.items():
+        if only is not None and Path(name).stem not in only:
+            continue
+        (args.out / name).write_text(text, encoding="utf-8")
+        n += 1
+
     print(f"[inject] vms 替换 {stats['vms']}（缺译 {stats['vms_missing']}，"
           f"账本外 {stats['vms_unledgered']}）；extra 替换 {stats['extra']}"
           f"（缺译/留空 {stats['extra_missing']}）；ruby 合并 {stats['ruby_merged']} 次")
-
-    if not args.no_compile:
-        n = compile_bytecode(OUT_SRC, OUT_BC)
-        print(f"[inject] 编译 {n} 个字节码 → {OUT_BC}")
+    print(f"[inject] 写出 {n}/{len(out)} 个文件 → {args.out}")
 
 
 if __name__ == "__main__":

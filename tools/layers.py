@@ -216,20 +216,23 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
     """id 登记检查：落在本层区段内、owner 区段两两不交、不与保留集相交、全局唯一。
 
     保留集 = 账本 id ∪ [18001, 18195]（卡消息由引擎按 18000 + 卡号动态生成）。
-    test 层免于与保留集比对（探针沿用 9000 段，测试盘永不出货），但层间仍须不交。
+    `[[ranges]]` 可选 `profile`（缺省 "release"）。test 层（探针沿用 9000 段，
+    测试盘永不出货）免于与保留集比对，但两两不交、以及下面脚本扫描里的「全局
+    唯一」两道对 test 层同样生效——「免检」只免保留集这一项，不是整层放行。
     """
     reg = _read_toml(root / "vms_ids.toml")
-    owned: dict[str, list[range]] = {}
+    owned: dict[str, tuple[str, list[range]]] = {}
     for entry in reg.get("ranges", []):
         owner = entry.get("owner")
         if not owner:
             raise OverlayError("vms_ids.toml 有 [[ranges]] 缺 owner")
-        owned[owner] = _ranges_of(entry, "vms") + _ranges_of(entry, "card_msg")
+        profile = entry.get("profile", "release")
+        owned[owner] = (profile, _ranges_of(entry, "vms") + _ranges_of(entry, "card_msg"))
 
     seen: dict[int, str] = {}
-    for owner, rs in owned.items():
+    for owner, (profile, rs) in owned.items():
         for r in rs:
-            for other, ors in owned.items():
+            for other, (_, ors) in owned.items():
                 if other <= owner:
                     continue
                 for o in ors:
@@ -237,6 +240,8 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
                         raise OverlayError(
                             f"id 区段重叠：{owner} 与 {other} 在 "
                             f"[{max(r.start, o.start)}, {min(r.stop, o.stop) - 1}] 相交")
+            if profile == "test":
+                continue  # 探针沿用 9000 段，与账本/卡消息保留集大概率相交，故只查两两不交
             hit = sorted(set(r) & (ledger_ids | set(CARD_MSG_RESERVED)))
             if hit:
                 raise OverlayError(
@@ -244,8 +249,9 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
                     f"（账本 1..17220 与卡消息 18001..18195 已占）")
 
     for spec in manifest["scripts"]:
-        if spec.get("profile", "release") != "release":
-            continue
+        # 不再按 spec 的 profile 整体跳过——test 层脚本仍须落在自己声明的区段内、
+        # 且不与其他 owner 撞号；只是否与账本比对这一件事，由 owner 在 vms_ids.toml
+        # 里登记的 profile 决定（见 _check_ids_of）。
         # spec["file"] 形如 "scripts/snr_finale.lua"，相对 layers/ 根。
         # 用传进来的 root 而不是模块级 LAYERS——夹具测试要能指向 tmp_path。
         text = (root / spec["file"]).read_text(encoding="utf-8")
@@ -253,16 +259,26 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
 
 
 def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
-    ranges = owned.get(owner)
-    if ranges is None:
+    entry = owned.get(owner)
+    if entry is None:
         raise OverlayError(f"{owner} 没有在 layers/vms_ids.toml 登记 id 区段")
+    profile, ranges = entry
     for i in sorted(collect_ids(text)):
         if not any(i in r for r in ranges):
             raise OverlayError(
                 f"{owner} 用了 id {i}，不在其声明的区段内——"
                 f"在 layers/vms_ids.toml 里扩段，或改用段内的 id")
-        if i in ledger_ids:
+        # 二道防线，非死代码：release 层的整段已在上面按 profile 过滤后与保留集
+        # 比对过一次——若那道检查健在，落在段内的单个 id 不可能撞账本，这里到不了
+        # True 分支；留着是防那道检查将来被改坏时不至于连带丢了这层保护。test 层
+        # 的整段允许撞保留集（上面按 profile 跳过了），故对 test 层这里是真会命中
+        # 的分支，不是防御性代码。
+        if profile != "test" and i in ledger_ids:
             raise OverlayError(f"{owner} 的 id {i} 与账本冲突")
+        # 二道防线，非死代码：owner 区段两两不交对全部 profile 都生效（见上），
+        # 同一个数字 id 因此不可能落进两个不同 owner 的声明区段——这条真正防的
+        # 是同一个 owner 被 manifest["scripts"] 重复登记（同一文件两条 spec）
+        # 这类配置错误，而不是「跨 owner 撞号」（那种情况会先被区段不交挡住）。
         if i in seen:
             raise OverlayError(f"id {i} 被 {seen[i]} 与 {owner} 同时使用")
         seen[i] = owner

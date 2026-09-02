@@ -5,7 +5,9 @@
 """
 import pytest
 
-from tools.layers import OverlayError, apply_op, apply_overlay, find_all, select_indices
+from tools.layers import (OverlayError, apply_op, apply_overlay, check_ids, collect_ids,
+                          find_all, load_manifest, load_overlay, overlays_for,
+                          select_indices)
 
 
 def test_find_all_is_non_overlapping():
@@ -100,12 +102,6 @@ def test_ops_apply_in_order_and_see_previous_results():
                        {"op": "replace", "find": "B", "with": "C"}]}
     assert apply_overlay("A\n", overlay) == "C\n"
 
-
-import tomllib
-from pathlib import Path
-
-from tools.layers import (REPO, check_ids, collect_ids, load_manifest, load_overlay,
-                          overlays_for)
 
 MINIMAL_MANIFEST = """
 [base]
@@ -246,4 +242,54 @@ def test_check_ids_rejects_overlapping_owner_ranges(tmp_path):
     with pytest.raises(SystemExit) as e:
         check_ids(man, root, ledger_ids=set())
     assert "重叠" in str(e.value)
+
+
+def test_check_ids_test_profile_range_exempt_from_ledger(tmp_path):
+    # 探针沿用 9000 段——即便与账本相交，test 层也不因此报错。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "probe"\nprofile = "test"\nvms = [[9000, 9050]]\n',
+        encoding="utf-8")
+    check_ids(man, root, ledger_ids={9010})
+
+
+def test_check_ids_release_profile_range_not_exempt_from_ledger(tmp_path):
+    # 同一区段换成 release：不再免检，照样因撞账本报错——对照上一个测试。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "probe"\nprofile = "release"\nvms = [[9000, 9050]]\n',
+        encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids={9010})
+    assert "9010" in str(e.value)
+
+
+def test_check_ids_test_profile_owners_still_mutually_exclusive(tmp_path):
+    # 免于与保留集比对不等于免检——test 层之间仍须两两不交。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "a"\nprofile = "test"\nvms = [[9000, 9050]]\n'
+        '[[ranges]]\nowner = "b"\nprofile = "test"\nvms = [[9020, 9080]]\n',
+        encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "重叠" in str(e.value)
+
+
+def test_check_ids_rejects_same_owner_listed_twice_in_scripts(tmp_path):
+    # seen 字典真正防的场景：同一个 owner 被 manifest["scripts"] 重复登记
+    # （同一文件两条 spec）——跨不同 owner 撞号早被区段两两不交挡住，到不了这里。
+    root = _mk_layers(tmp_path)
+    (root / "scripts" / "s.lua").write_text('vms(100, "NONVOICE", "x")\n', encoding="utf-8")
+    man = load_manifest(root)
+    spec = {"file": "scripts/s.lua", "member": "script/s.lua", "profile": "release"}
+    man["scripts"] = [spec, dict(spec)]
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "scripts/s.lua"\nvms = [[100, 200]]\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "同时使用" in str(e.value)
 

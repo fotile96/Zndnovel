@@ -280,7 +280,7 @@ ord > 0x7F 的字符 ∪ `data/ledger*.jsonl` 的 jp 全字集 ∪ `build_font.A
 | `tools/inject_lua.py` | 保留 `inject_text`/`_inject_body`/`merge_adjacent_ruby`/`lua_quote`；新 `inject_tree(base, ledger, lane, out)`；删 `FONT_SLOT1_*`、`LANE`、`OUT_*`、`compile_bytecode`；CLI 仅调试 |
 | `tools/build_disc.py` | `--profile`；阶段改名 lua/font/members/stage/pack/disc/iso/boot；成员树重建；gim 缓存；发布断言；provenance；删 `GIM_SOURCES`/`NEW_GIM_SOURCES`/`FONTS`/`LUAC`/`FINALE_LUA`/`check_release_clean` |
 | `tools/make_test_boot.py` → `tools/testboot.py` | 纯生成器：`generate(mode, …) → build/test/generated/{overlays/*.toml, scripts/snr_test.lua}`；模板与扫描函数（`scan_cutins`/`scan_calls`/`story_route`/`card_answer`/`card_scene`/`scene_to_script`）原样保留；删 `LUAC`、直接写 `build/inject/script`、`emitted.json` 还原逻辑 |
-| `tools/build_font.py` | `build(charset_path, out_dir)`；删 `corpus_chars` 对车道的依赖（字集由 layers 算）；`ALWAYS` 保留并被 layers 引用 |
+| `tools/build_font.py` | `build(charset_path, out_dir)`；删 `corpus_chars` 对车道的依赖（字集由 layers 算）；`ALWAYS` 保留并被 layers 引用；`fonttools` 入 `pyproject.toml`（2026-09-02 实测 venv 里没有，`widen_latin` 当场 ImportError——此前靠什么环境跑通未留记录） |
 | `tools/migrate_base.py` | 删 `FONT_PATCH` 重放；加 `--check`：断言 `lua_scripts == corpus/final + add_tr_line_markers` |
 | `tools/luac_norm.py` | 加 `compare_dirs(a, b) -> (same, diff, err, names)` 供测试调用 |
 
@@ -405,6 +405,9 @@ gim 缓存命中/未中/`--force`）；`tests/test_testboot.py`（每种模式�
 4. 两个仓库外未版本化二进制：`~/pyluadec-refactor/build/luac_sz4`（8 月 11 日构建，三处硬编码、
    两种路径写法、仅 inject_lua 认 `SNDL_LUAC`）；`/tmp/pgftool/ttf_pgf`（重启即失）。哈希无记录。
 5. `build/inject` 无清单累积目录：无人清理，stage 照单全收；QA 图靠 `_` 前缀约定散在 16 个目录。
+   测试盘与发布盘共树的直接后果（2026-09-02 热修当晚实测）：为验证缺字跑了一次
+   `make_test_boot --mode scene` + `--stage stage,pack,disc`，`build/dist/DATA.BIN` 随即被
+   带测试引导的封包覆盖，只有 ISO 因未跑 iso 阶段而幸免；事后须再跑 `--stage lua,stage,pack` 复原。
 6. 发布闸盲区：不核对 stage/script 多余成员，不看 gim / pgf 面。
 7. 文档漂移：`zh-disc-pipeline` 「已知缺口」仍写 39 条漏译与槽 1 未换；`build_disc` 文件头写
    「v1 只注入既有成员」；`resolve.py` 称「下游只准读 final.jsonl」而 inject_lua 绕过它，

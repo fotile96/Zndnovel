@@ -79,14 +79,12 @@ def normalize(data: bytes) -> bytes:
     return bytes(r.d)
 
 
-def main() -> None:
-    if len(sys.argv) != 3:
-        sys.exit("用法: luac_norm.py <目录A> <目录B>   # 逐同名文件归一化后比对")
-    a, b = Path(sys.argv[1]), Path(sys.argv[2])
+def compare_dirs(a: Path, b: Path) -> tuple[int, int, int, list[str]]:
+    """逐同名 .lua 归一化后比对，返回 (相同, 不同, 解析失败, 有问题的文件名)。"""
     same = diff = err = 0
-    bad = []
-    for pa in sorted(a.glob("*.lua")):
-        pb = b / pa.name
+    bad: list[str] = []
+    for pa in sorted(Path(a).glob("*.lua")):
+        pb = Path(b) / pa.name
         if not pb.exists():
             continue
         try:
@@ -98,6 +96,14 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001
             err += 1
             bad.append(f"{pa.name}: {exc}")
+    return same, diff, err, bad
+
+
+def main() -> None:
+    if len(sys.argv) != 3:
+        sys.exit("用法: luac_norm.py <目录A> <目录B>   # 逐同名文件归一化后比对")
+    a, b = Path(sys.argv[1]), Path(sys.argv[2])
+    same, diff, err, bad = compare_dirs(a, b)
     print(f"归一化后相同 {same}；不同 {diff}；解析失败 {err}")
     for x in bad[:10]:
         print("   ", x)

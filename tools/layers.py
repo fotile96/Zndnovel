@@ -416,3 +416,151 @@ def write_provenance(prov: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(prov, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+
+def build_final_sources(profile: str = "release", switches: dict | None = None,
+                        root: Path = LAYERS, injected: dict[str, str] | None = None
+                        ) -> tuple[dict[str, str], list[dict], list[str]]:
+    """装配某剖面的最终 lua 源。
+
+    injected: 文件名 → 注入译文后的源。缺省时**读基座原文**（只验层用，不产盘）。
+    返回 (文件名→最终源, 施加的层, 新增成员名)。
+    """
+    manifest = load_manifest(root)
+    base = REPO / manifest["base"]["dir"]
+    # `injected is not None` 而非真值判断：调用方传一个**空字典**（比如某个剖面
+    # 恰好没有任何预注入文件）也该被当成「用这份 sources」，不该被当成「没传」
+    # 悄悄退回读基座原文——那会让传空字典的调用方拿到完全不同、他没预期的内容。
+    sources = dict(injected) if injected is not None else {
+        p.name: p.read_text(encoding="utf-8") for p in sorted(base.glob("*.lua"))}
+    applied = overlays_for(manifest, root, profile, switches or {})
+    for ov in applied:
+        target = ov["target"]
+        if target not in sources:
+            raise OverlayError(f"叠加层 {ov['_name']} 的 target={target} 不在基座里")
+        sources[target] = apply_overlay(sources[target], ov)
+    added = []
+    for spec in manifest["scripts"]:
+        if spec.get("profile", "release") == "test" and profile != "test":
+            continue
+        name = Path(spec["member"]).name
+        # 对称于上面「叠加层的 target 必须在基座里」——编外脚本反过来必须**不**在
+        # 基座里：撞名会静默覆盖一个真实基座文件，且没有任何层记录过这次覆盖。
+        if name in sources:
+            raise OverlayError(f"编外脚本 {spec['file']} 的成员名 {name} 与基座已有文件同名")
+        sources[name] = (root / spec["file"]).read_text(encoding="utf-8")
+        added.append(spec["member"])
+    return sources, applied, added
+
+
+def _injected_sources(manifest: dict, ledger_rows: list[dict]) -> dict[str, str]:
+    """基座 + 真译文注入（内存中，不落盘），专供 `check --compare-compiled` 用。
+
+    `build_final_sources(profile)` 缺省 `injected=None` 时读的是基座原文（未翻译）
+    ——这对纯层校验足够，因为叠加层的锚点一律是代码文本，不依赖翻译状态（见模块
+    docstring 的硬约束）。但 `--compare-compiled` 的比对目标是**真实发布链路**编出
+    的字节码：16749 条 vms 早被译文替换。拿未翻译的日文源去比，含对白的文件会
+    全部不同——这不是「层错了」，是比对的输入从一开始就文不对题。
+
+    做法：复用 tools/inject_lua 已经在跑、已被信赖的按 (file,line) 替换逻辑
+    （`load_translations`/`inject_text`，直接 import，不重新实现一遍），在内存里
+    补上翻译。刻意**不**叠 inject_lua.main() 里那段槽 1 字体补丁
+    （`FONT_SLOT1_FROM/TO`）：那一步已被 `layers/overlays/fonts.toml` 接管；两处
+    都做，fonts 层的 `find` 锚点在注入后就找不到了（叠加引擎的 count 断言会当场
+    硬失败，不会静默叠两次）——inject_text() 本身不含字体补丁，只调它就自然绕开。
+    """
+    from tools import inject_lua
+    zh, extra = inject_lua.load_translations()
+    by_file: dict[str, dict[int, dict]] = {}
+    for row in ledger_rows:
+        by_file.setdefault(row["file"], {})[row["line"]] = row
+    base = REPO / manifest["base"]["dir"]
+    out: dict[str, str] = {}
+    for f in sorted(base.glob("*.lua")):
+        stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
+                     ruby_merged=0)
+        out[f.name] = inject_lua.inject_text(f.stem, f.read_text(encoding="utf-8"),
+                                             by_file.get(f.stem, {}), zh, extra, stats)
+    return out
+
+
+def main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    c = sub.add_parser("check", help="校验清单与全部层（不产盘）")
+    c.add_argument("--profile", default="release", choices=PROFILES)
+    c.add_argument("--compare-compiled", metavar="DIR",
+                   help="把最终源编译后与该目录逐字节比对（迁移期的硬闸）")
+    d = sub.add_parser("diff", help="打印某层施加前后的 unified diff")
+    d.add_argument("name")
+    sub.add_parser("ids", help="只跑 id 登记检查")
+    args = ap.parse_args(argv)
+
+    from tools.pipelib import read_jsonl
+    manifest = load_manifest()
+    ledger_rows = read_jsonl(REPO / manifest["base"]["ledger"])
+    ledger_ids = {r["id"] for r in ledger_rows}
+
+    if args.cmd == "ids":
+        check_ids(manifest, LAYERS, ledger_ids)
+        print("[layers] id 登记检查通过 ✓")
+        return 0
+    if args.cmd == "diff":
+        import difflib
+        ov = load_overlay(LAYERS / "overlays" / f"{args.name}.toml")
+        before = (REPO / manifest["base"]["dir"] / ov["target"]).read_text(encoding="utf-8")
+        after = apply_overlay(before, ov)
+        sys.stdout.writelines(difflib.unified_diff(
+            before.splitlines(True), after.splitlines(True),
+            fromfile=f"base/{ov['target']}", tofile=f"{args.name}/{ov['target']}"))
+        return 0
+
+    check_ids(manifest, LAYERS, ledger_ids)
+    # --compare-compiled 是迁移期硬闸，比对目标是**真实发布链路**编出的字节码
+    # （译文已注入）；没有这一步，下面 build_final_sources 缺省的「读基座原文」
+    # 路径没法比出正确结果——见 _injected_sources 的 docstring。其余用途（纯
+    # check / diff / ids）不需要译文注入这个较重的依赖，仍走缺省快速路径。
+    injected = _injected_sources(manifest, ledger_rows) if args.compare_compiled else None
+    sources, applied, added = build_final_sources(args.profile, injected=injected)
+    print(f"[layers] {args.profile}: 施加 {len(applied)} 层"
+          f"（{', '.join(o['_name'] for o in applied)}），新增成员 {len(added)}")
+    if args.compare_compiled:
+        return _compare_compiled(sources, Path(args.compare_compiled), manifest)
+    print("[layers] 全部层命中 ✓")
+    return 0
+
+
+def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) -> int:
+    """把最终源编译一遍与参照目录逐字节比对。迁移期证明「层精确复现了手工改动」。"""
+    import tempfile
+    # 与 provenance() 同一惯例：SNDL_LUAC 覆盖 manifest 里的硬编码默认路径。
+    luac = Path(os.environ.get("SNDL_LUAC") or manifest["compiler"]["luac"]).expanduser()
+    if not luac.exists():
+        print(f"[layers] 跳过比对：缺 {luac}")
+        return 0
+    bad = []
+    with tempfile.TemporaryDirectory() as td:
+        for name, text in sorted(sources.items()):
+            src = Path(td) / name
+            src.write_text(text, encoding="utf-8")
+            out = Path(td) / (name + ".luac")
+            proc = subprocess.run([str(luac), "-s", "-o", str(out), str(src)],
+                                  capture_output=True, text=True)
+            if proc.returncode != 0:
+                bad.append(f"{name} 编译失败: {proc.stderr.strip()}")
+                continue
+            ref = ref_dir / name
+            if not ref.exists():
+                bad.append(f"参照目录缺 {name}")
+            elif ref.read_bytes() != out.read_bytes():
+                bad.append(f"{name} 与参照不一致")
+    for b in bad:
+        print(f"[layers] ✗ {b}")
+    print(f"[layers] 逐字节比对：{len(sources) - len(bad)}/{len(sources)} 相同")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+

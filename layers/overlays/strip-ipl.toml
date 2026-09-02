@@ -1,0 +1,11 @@
+target  = "snr_common.lua"
+profile = "test"
+switch  = "fast-boot"
+why     = """剥 IPL 开场：4 屏 logo 各淡入 120 帧 + keyWait 180 + 淡出 120 帧，
+合计约 28 秒，每轮测试都要白等。四个图层进块前后都是 alpha 0，整块删除不改变末态。
+`--no-fast-boot` 关掉本层即保留开场演出。"""
+
+[[ops]]
+op    = "delete_span"
+start = "    layerMoveAlpha(0, 100, 120)\n"
+end   = "    layerMoveAlpha(3, 0, 120)\n    wait(120)\n"

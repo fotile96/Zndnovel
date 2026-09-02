@@ -1,0 +1,12 @@
+target  = "snr_common.lua"
+profile = "test"
+why     = """引导交接改指测试脚本。全文 8 处 run(snr_mainmenu)，只有 main() 末尾
+那一处是引导交接，其余 7 处是暂停菜单的返回——换错了从暂停菜单回主菜单也会掉进
+测试脚本。故 count=8 钉住结构、occurrence=-1 只改最后一处。"""
+
+[[ops]]
+op         = "replace"
+count      = 8
+occurrence = -1
+find       = 'run(cGetFileName("script", "snr_mainmenu"))'
+with       = 'run(cGetFileName("script", "snr_test"))'

@@ -91,7 +91,9 @@ TESTBOOT_MEMBER = "script/snr_test.lua"
 INJECT_SRC = REPO / "build" / "inject_src"
 LUAC = REPO.parent / "pyluadec-refactor" / "build" / "luac_sz4"
 #: 谢幕章演出脚本的 canonical 源（新增成员 script/snr_finale.lua）。
-FINALE_LUA = REPO / "docs" / "finale" / "snr_finale.lua"
+#: 2026-09-02 起随 layers/ 改造移入——旧路径 docs/finale/snr_finale.lua 已 git mv。
+#: 本文件其余部分不属于本次改动范围（下一任务整体重写 build_disc.py 的剖面化）。
+FINALE_LUA = REPO / "layers" / "scripts" / "snr_finale.lua"
 
 
 def stage_lua() -> None:

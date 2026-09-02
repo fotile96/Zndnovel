@@ -18,4 +18,5 @@ dev = [
 testpaths = ["tests"]
 markers = [
     "emu: PPSSPP 活体模拟器测试（需本机构建与 tools/emu/fetch_testdata.sh 素材，缺则自动 skip）",
+    "local_assets: 依赖本机资产（luac_sz4 / build/databin），缺则自动 skip",
 ]

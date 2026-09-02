@@ -1,0 +1,16 @@
+target  = "snr_common.lua"
+profile = "release"
+why     = """槽 0 = 正文 17px 中文字体；槽 1 = ruby/小字 9px。
+2026-08-31 游戏内实测：ruby 走槽 1，槽 1 原配日文字体的简体字与声调元音全是空白，
+不换就没有中文拼音注音。原先槽 0 由 migrate_base 重放、槽 1 由 inject_lua 改写，
+两处分居；现在合并到这一个层里。"""
+
+[[ops]]
+op   = "replace"
+find = 'fontLoad(0, "pgf/tsukuminpro_e_17.pgf")'
+with = 'fontLoad(0, "pgf/LXGWWenKai-Regular.pgf")'
+
+[[ops]]
+op   = "replace"
+find = 'fontLoad(1, "pgf/tsukuminpro_e_09.pgf")'
+with = 'fontLoad(1, "pgf/LXGWWenKai-Regular-09.pgf")'

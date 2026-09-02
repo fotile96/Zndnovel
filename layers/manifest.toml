@@ -1,0 +1,35 @@
+[base]
+dir          = "lua_scripts"
+ledger       = "data/ledger.jsonl"
+ledger_extra = "data/ledger_extra.jsonl"
+
+[lane]
+dir = "pilot/lanes/opus/data"      # forward.jsonl / patches.jsonl / forward_extra.jsonl
+
+[compiler]
+luac       = "~/pyluadec-refactor/build/luac_sz4"   # 环境变量 SNDL_LUAC 覆盖
+header_hex = "1b4c75615100010404040800"
+
+[overlays]
+order = ["fonts", "encore-menu", "strip-ipl", "boot-handoff"]   # 文件名去 .toml，施加顺序
+
+[[scripts]]
+file    = "scripts/snr_finale.lua"
+member  = "script/snr_finale.lua"
+profile = "release"
+
+[gim]
+replace = [["card_zh", "card"], ["select_zh", "select"], ["select_voice_zh", "select"],
+           ["scene_zh", "scene"], ["plot_zh", "plot"], ["sysgim", "sysgim"],
+           ["sysgim_title_zh", "sysgim"], ["sysgim_note_zh", "sysgim"], ["sysgim_panel_zh", "sysgim"],
+           ["event_zh", "event"], ["cutin_zh", "cutin"], ["cutin_tut_zh", "cutin"],
+           ["mode_zh", ""], ["memory_thumb_zh", ""]]           # (build 产物目录, 成员前缀)
+new     = [["finale_cards", "card", "card/crd_1_a.gim"],
+           ["finale_menu", "sysgim", "sysgim/title_13_a.gim"]]  # + 模板成员
+
+[[fonts]]
+size = 17
+member = "pgf/LXGWWenKai-Regular.pgf"
+[[fonts]]
+size = 9
+member = "pgf/LXGWWenKai-Regular-09.pgf"

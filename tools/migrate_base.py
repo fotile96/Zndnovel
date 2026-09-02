@@ -38,10 +38,8 @@ DEST = REPO / "lua_scripts"
 LANE = REPO / "pilot" / "lanes" / "opus" / "data"
 DATA = REPO / "data"
 
-# 下游补丁：新基座上必须重放的改动（旧基座里是手工层）。
-# snr_s4_10_s 的地图判定修复不在此列——新基座已含等价修复（迁移指南 §4）。
-FONT_PATCH = ('fontLoad(0, "pgf/tsukuminpro_e_17.pgf")',
-              'fontLoad(0, "pgf/LXGWWenKai-Regular.pgf")')
+# 字体行重放已迁到 layers/overlays/fonts.toml（2026-09-02 起，基座纯净化）——
+# snr_s4_10_s 的地图判定修复同理不在此列：新基座已含等价修复（迁移指南 §4）。
 
 
 def content_key(row: dict) -> tuple:
@@ -162,6 +160,8 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", default=str(NEW_BASE), help="新语料目录")
     ap.add_argument("--apply", action="store_true", help="真正落盘（缺省只演练并报告）")
+    ap.add_argument("--check", action="store_true",
+                    help="只断言 lua_scripts == 语料 + tr_line 标记，不落盘")
     args = ap.parse_args()
     base = Path(args.base)
     if not base.is_dir():
@@ -172,6 +172,18 @@ def main() -> None:
     print(f"[migrate] 新基座 {len(src_files)} 文件 / 现有 {len(dst_files)} 文件")
     if {f.name for f in src_files} != {f.name for f in dst_files}:
         sys.exit("文件名集合不一致，拒绝迁移")
+
+    if args.check:
+        bad = []
+        for f in src_files:
+            text, _ = add_tr_line_markers(f.stem, f.read_text(encoding="utf-8"))
+            if text != (DEST / f.name).read_text(encoding="utf-8"):
+                bad.append(f.name)
+        if bad:
+            sys.exit(f"[migrate] 基座不纯净，{len(bad)} 个文件与「语料 + tr_line」不符：{bad[:5]}\n"
+                     f"  本地化改动应当是 layers/ 下的层，不该直接改 lua_scripts/")
+        print(f"[migrate] 基座纯净 ✓（{len(src_files)} 文件 == 语料 + tr_line 标记）")
+        return
 
     # --- 对账：新旧账本 ---
     old_ledger = list(read_jsonl(DATA / "ledger.jsonl"))
@@ -260,11 +272,6 @@ def main() -> None:
     marks = 0
     for f in src_files:
         text = f.read_text(encoding="utf-8")
-        if f.name == "snr_common.lua":
-            if FONT_PATCH[0] not in text:
-                sys.exit(f"字体补丁锚点未找到，无法重放: {FONT_PATCH[0]}")
-            text = text.replace(*FONT_PATCH)
-            print(f"[migrate] 重放字体补丁 → {f.name}")
         text, n = add_tr_line_markers(f.stem, text)
         marks += n
         (DEST / f.name).write_text(text, encoding="utf-8")

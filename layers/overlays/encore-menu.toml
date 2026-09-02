@@ -1,0 +1,123 @@
+target  = "snr_mainmenu.lua"
+profile = "release"
+why     = """
+依据 docs/finale/mainmenu-entry-plan.md（机制测绘）与
+docs/ops/finale-stage-impl-2026-09-02.md（落地记录，L845 硬编码 11→#layerKeyCur、
+共享循环 6 处 layerKey3→layerKeyCur 的定案）。commits a9533a0（8 处改动落地）与
+653b0ad（层 198 常驻方案证伪回退，snr_common 零改动、snr_mainmenu 净变化收窄）。
+七个操作把「卡 140∧144」新增第五种菜单形态：L1 表加 layerKey4（12 项，插入
+finale 于 section7 之后）与 title_14_a 的宽 117/高 68；绘制函数新增 elseif 分支
+（工作层同步 layerLoad 直载 title_14_a——层 198 常驻已证伪，见 CLAUDE.md「已知坑」）；
+CIRCLE 分发插 finale 项（doScriptScene=fin-10 → run snr_finale）；原「卡140∧¬144」
+分支补 l0_0.layerKeyCur = l0_0.layerKey3，让菜单尾部三处共享重绘调用（L845 循环
+上界、两处 layerKey3[l1_1]/[l1_0] 各 3 处）改用 layerKeyCur 而非写死 layerKey3——
+无 144 时走 layerKey3（11 项，原版面逐字保留），有 144 时走 layerKey4（12 项）。
+⚠ op4 的锚点「elseif l1_0 == l0_1.library then」在基座里命中 2 次（形态 2 与
+形态 2+140 两个 CIRCLE 分发块共享这行文本，缩进相同）——用 count=2、occurrence=-1
+钉住「最后一处」而非改锚点本身：真正要接续的是 section7 那条 CIRCLE 分支（其后
+紧跟 library 分支），只有形态 2+140 的那一份具备 section7，是 occurrence=-1 命中的
+那处；形态 2（无 140）的 library 分支前面没有 section7 分发，不应该、也从未被
+今日的手工改动触碰。
+"""
+
+[[ops]]
+op   = "replace"
+find = '''
+local l0_0 = {layerNumber = {bg = 0, logo = 1, menu = 2}, layerKey0 = {"title_02_a", "title_05_a", "title_06_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey1 = {"title_03_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey2 = {"title_03_a", "title_04_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey3 = {"title_03_a", "title_04_a", "title_13_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerWidth = {title_02_a = 102, title_03_a = 88, title_04_a = 119, title_05_a = 67, title_06_a = 75, title_07_a = 102, title_08_a = 101, title_09_a = 116, title_10_a = 132, title_11_a = 127, title_12_a = 116, title_13_a = 117}, layerHeight = {title_02_a = 72, title_03_a = 70, title_04_a = 68, title_05_a = 62, title_06_a = 59, title_07_a = 32, title_08_a = 40, title_09_a = 34, title_10_a = 36, title_11_a = 40, title_12_a = 34, title_13_a = 67}}
+'''
+with = '''
+local l0_0 = {layerNumber = {bg = 0, logo = 1, menu = 2}, layerKey0 = {"title_02_a", "title_05_a", "title_06_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey1 = {"title_03_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey2 = {"title_03_a", "title_04_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey3 = {"title_03_a", "title_04_a", "title_13_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerKey4 = {"title_03_a", "title_04_a", "title_13_a", "title_14_a", "title_05_a", "title_06_a", "title_07_a", "title_08_a", "title_09_a", "title_10_a", "title_11_a", "title_12_a"}, layerWidth = {title_02_a = 102, title_03_a = 88, title_04_a = 119, title_05_a = 67, title_06_a = 75, title_07_a = 102, title_08_a = 101, title_09_a = 116, title_10_a = 132, title_11_a = 127, title_12_a = 116, title_13_a = 117, title_14_a = 117}, layerHeight = {title_02_a = 72, title_03_a = 70, title_04_a = 68, title_05_a = 62, title_06_a = 59, title_07_a = 32, title_08_a = 40, title_09_a = 34, title_10_a = 36, title_11_a = 40, title_12_a = 34, title_13_a = 67, title_14_a = 68}}
+'''
+
+[[ops]]
+op     = "insert_before"
+anchor = '''
+        else
+            l0_1 = {story = 1, fragment = 2, section7 = 3, library = 4, option = 5, save = 6, load = 7, novel = 8, scene = 9, cg = 10, music = 11}
+'''
+text   = '''
+        elseif gameSave.myCard[144].hold == 1 then
+            -- finale entry (card 144 = e2f digest, sole grant point e2f-complete)
+            l0_1 = {story = 1, fragment = 2, section7 = 3, finale = 4, library = 5, option = 6, save = 7, load = 8, novel = 9, scene = 10, cg = 11, music = 12}
+            l0_0.layerKeyCur = l0_0.layerKey4
+            for l1_3 = 1, #l0_0.layerKey4, 1 do
+                if l1_3 == l0_1.finale then
+                    -- no resident source layer: slots below 200 are wiped by cInitGame, so load direct
+                    layerLoad(l0_0.layerNumber.menu + l1_3, cGetFileName("sysgim", "title_14_a"))
+                else
+                    layerCopy(l0_0.layerNumber.menu + l1_3, layerName[l0_0.layerKey4[l1_3]])
+                end
+                l0_2(l0_0.layerNumber.menu + l1_3, l0_0.layerKey4[l1_3])
+                if l1_3 == l0_1.story then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.story, 210, 104)
+                elseif l1_3 == l0_1.fragment then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.fragment, 190, 131)
+                elseif l1_3 == l0_1.section7 then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.section7, 194, 158)
+                elseif l1_3 == l0_1.finale then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.finale, 194, 185)
+                elseif l1_3 == l0_1.library then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.library, 205, 212)
+                elseif l1_3 == l0_1.option then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.option, 215, 241)
+                elseif l1_3 == l0_1.save then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.save, 48, 145)
+                elseif l1_3 == l0_1.load then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.load, 330, 142)
+                elseif l1_3 == l0_1.novel then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.novel, 353, 185)
+                elseif l1_3 == l0_1.scene then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.scene, 335, 207)
+                elseif l1_3 == l0_1.cg then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.cg, 340, 223)
+                elseif l1_3 == l0_1.music then
+                    layerPosition(l0_0.layerNumber.menu + l0_1.music, 352, 243)
+                end
+                if l0_1.novel <= l1_3 then
+                    layerVisible(l0_0.layerNumber.menu + l1_3, false)
+                end
+            end
+            l0_3(l0_0.layerNumber.menu + 1, l0_0.layerKey4[1])
+'''
+
+[[ops]]
+op     = "insert_after"
+anchor = '''
+            l0_1 = {story = 1, fragment = 2, section7 = 3, library = 4, option = 5, save = 6, load = 7, novel = 8, scene = 9, cg = 10, music = 11}
+'''
+text   = '''
+            l0_0.layerKeyCur = l0_0.layerKey3
+'''
+
+[[ops]]
+op         = "insert_before"
+count      = 2
+occurrence = -1
+anchor = '''
+                        elseif l1_0 == l0_1.library then
+'''
+text   = '''
+                        elseif l1_0 == l0_1.finale then
+                            cInitGame()
+                            switchScreen(0, "", 60)
+                            doScriptScene = "fin-10"
+                            run(cGetFileName("script", "snr_finale"))
+                            quit()
+'''
+
+[[ops]]
+op   = "replace"
+find = 'for l1_7 = 1, 11, 1 do'
+with = 'for l1_7 = 1, #l0_0.layerKeyCur, 1 do'
+
+[[ops]]
+op    = "replace"
+count = 3
+find  = 'l0_0.layerKey3[l1_1]'
+with  = 'l0_0.layerKeyCur[l1_1]'
+
+[[ops]]
+op    = "replace"
+count = 3
+find  = 'l0_0.layerKey3[l1_0]'
+with  = 'l0_0.layerKeyCur[l1_0]'

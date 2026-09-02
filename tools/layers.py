@@ -288,3 +288,85 @@ def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
             raise OverlayError(f"id {i} 被 {seen[i]} 与 {owner} 同时使用")
         seen[i] = owner
 
+
+import hashlib
+import json
+import subprocess
+from datetime import datetime, timezone
+
+#: lua 双引号字面串。`[^"\\\n]|\\.` 让转义引号留在串内，换行则终止——注释里的字不算。
+_LUA_STR_RE = _re.compile(r'"((?:[^"\\\n]|\\.)*)"')
+
+
+def charset_of(sources: list[str], ledger_jp: list[str], always: list[int]) -> list[int]:
+    """字集 = 最终源的字面串 ∪ 账本 jp ∪ 常驻表，过滤到 BMP 可见区。
+
+    保留账本 jp 是「宁滥勿缺」：未译面仍要渲染日文，且这样今日字集恒为新字集的
+    子集，字体只会变大不会漏字。
+    """
+    chars: set[int] = set(always)
+    for src in sources:
+        for lit in _LUA_STR_RE.findall(src):
+            chars.update(ord(c) for c in lit)
+    for jp in ledger_jp:
+        chars.update(ord(c) for c in jp)
+    return sorted(c for c in chars if 0x20 <= c <= 0xFFFF)
+
+
+def write_charset(codes: list[int], path: Path) -> None:
+    """写 ttf_pgf 要的码位表：一行一个四位小写十六进制。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(f"{c:04x}\n" for c in codes), encoding="utf-8")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "absent"
+
+
+def _git(*args: str) -> str:
+    try:
+        return subprocess.run(["git", *args], cwd=REPO, capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except Exception:                     # noqa: BLE001 — 取证失败不该阻断构建
+        return ""
+
+
+def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
+               scripts_added: list[str], members: dict, outputs: dict) -> dict:
+    """构建取证：输入与工具的哈希、git 状态、本次施加的层。"""
+    lane = REPO / manifest["lane"]["dir"]
+    inputs = {}
+    for rel in ("forward.jsonl", "patches.jsonl", "forward_extra.jsonl"):
+        inputs[str((lane / rel).relative_to(REPO))] = _sha256(lane / rel)
+    for key in ("ledger", "ledger_extra"):
+        p = REPO / manifest["base"][key]
+        inputs[manifest["base"][key]] = _sha256(p)
+    for p in sorted(root.rglob("*")):
+        if p.is_file():
+            # 用 root.parent 而不是 REPO：真实调用里 root=LAYERS=REPO/"layers"，
+            # 两者等价；但测试传的是 tmp_path 下的层根，不在 REPO 子树内，
+            # relative_to(REPO) 会当场 ValueError——取证函数不该因为调用方是
+            # 测试夹具就崩溃，键的相对基准应随 root 自己走。
+            inputs[str(p.relative_to(root.parent))] = _sha256(p)
+    luac = Path(manifest["compiler"]["luac"]).expanduser()
+    return {
+        "profile": profile,
+        "built_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "git": {"head": _git("rev-parse", "HEAD"),
+                "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
+                "dirty": [l[3:] for l in _git("status", "--short").splitlines()]},
+        "inputs": inputs,
+        "tools": {"luac_sz4": _sha256(luac),
+                  "ttf_pgf": _sha256(Path("/tmp/pgftool/ttf_pgf"))},
+        "layers_applied": [{"overlay": o["_name"], "target": o["target"],
+                            "ops": len(o["ops"])} for o in applied],
+        "scripts_added": scripts_added,
+        "members": members,
+        "outputs": outputs,
+    }
+
+
+def write_provenance(prov: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(prov, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+

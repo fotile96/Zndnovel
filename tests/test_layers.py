@@ -5,9 +5,9 @@
 """
 import pytest
 
-from tools.layers import (OverlayError, apply_op, apply_overlay, check_ids, collect_ids,
-                          find_all, load_manifest, load_overlay, overlays_for,
-                          select_indices)
+from tools.layers import (OverlayError, apply_op, apply_overlay, charset_of, check_ids,
+                          collect_ids, find_all, load_manifest, load_overlay, overlays_for,
+                          provenance, select_indices, write_charset)
 
 
 def test_find_all_is_non_overlapping():
@@ -305,4 +305,49 @@ def test_check_ids_rejects_bad_range_profile(tmp_path):
     with pytest.raises(SystemExit) as e:
         check_ids(man, root, ledger_ids=set())
     assert "staging" in str(e.value)
+
+
+def test_charset_takes_non_ascii_from_string_literals_only():
+    src = 'vms(1, "NONVOICE", "谢幕")\n-- 注释里的字不算：飨\nlocal x = 1\n'
+    codes = charset_of([src], ledger_jp=[], always=[])
+    assert ord("谢") in codes and ord("幕") in codes
+    assert ord("飨") not in codes
+
+
+def test_charset_handles_escaped_quotes_inside_literal():
+    codes = charset_of([r'vms(1, "NONVOICE", "他说\"好\"的字：甲")' + "\n"],
+                       ledger_jp=[], always=[])
+    assert ord("甲") in codes
+
+
+def test_charset_includes_ledger_jp_and_always():
+    codes = charset_of([], ledger_jp=["彩野"], always=[ord("★")])
+    assert ord("彩") in codes and ord("★") in codes
+
+
+def test_charset_filters_to_bmp_printable():
+    codes = charset_of(['vms(1, "X", "a\U0001F600b")' + "\n"], ledger_jp=[], always=[])
+    assert 0x1F600 not in codes           # PGF charmap 只到 BMP
+    assert all(0x20 <= c <= 0xFFFF for c in codes)
+
+
+def test_charset_is_sorted_and_unique():
+    codes = charset_of(['vms(1, "X", "乙甲甲")' + "\n"], ledger_jp=[], always=[])
+    assert codes == sorted(set(codes))
+
+
+def test_write_charset_format_matches_ttf_pgf_expectation(tmp_path):
+    p = tmp_path / "ucs.txt"
+    write_charset([0x20, 0x4E00], p)
+    assert p.read_text() == "0020\n4e00\n"
+
+
+def test_provenance_has_required_top_level_keys(tmp_path):
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    prov = provenance("release", man, root, applied=[], scripts_added=[],
+                      members={"replaced": 1, "added": 2}, outputs={})
+    assert set(prov) >= {"profile", "built_at", "git", "inputs", "tools",
+                         "layers_applied", "scripts_added", "members", "outputs"}
+    assert prov["members"] == {"replaced": 1, "added": 2}
 

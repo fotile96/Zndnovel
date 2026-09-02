@@ -349,3 +349,191 @@ Task 7 完成：`tools/testboot.py` 已是纯生成器，`generate()` 是唯一�
 用全库穷举 + 真实 overlay 施加验证过；顺带发现并妥善处理（告警而非静默、不
 擅自拦截以免与既定验收测试冲突）一个更早就存在的"多步骤大谜题短路不完整"限制；
 两道闸与全仓库测试改造前后结果一致。
+
+## Fix round 1（回应 review 的 4 项 Important 发现）
+
+Review 结论：rename、接口、count 缺陷修复三项均独立复核通过——`_injected_source()`
+被逐行比对过 `tools/layers.py` 自己的 `_injected_sources()`（闸背后那个函数），
+判定是结构忠实的复现而非"看起来像"；8 个模板/扫描函数逐字节复核全部存活；
+`multi_step` 探测器不会误报，因为 `build_dag.py` 在源头就把 answers 去重了。
+warn-vs-fail 的判断被认可为正确——这是个既有 bug、brief 指定的验收测试要求
+card=103 必须成功、产物是 QA 工具而不是出货产品，硬失败不是正确选项。
+
+同时给了 4 项 Important 发现，裁决全部要修。逐条处理如下。
+
+### Finding 1：告警要有结构化通道，不能只有 print()
+
+**改法**：`generate()` 返回值新增 `warnings` 键（list，缺省空），承载与 print
+同源的告警文本（重构为单一 `msg` 变量，print/`why` 字段/`warnings` 三处引用
+同一份文本，不再各自维护一份相近但不完全相同的措辞）。`print()` 与 `why` 字段
+原样保留，这是新增不是替换。
+
+### Finding 2：`generate()` 不清 `out_dir`，旧层会在磁盘上存活
+
+**改法**：重排 `generate()` 内部顺序——先做完 `_render_mode()` 与 card 模式的全部
+校验/计算（一个字节都不碰磁盘，任何 `sys.exit` 都在这一步之前触发完），确认
+不会失败后，才在函数末尾一次性 `shutil.rmtree()` 清空 `out_dir/scripts`、
+`out_dir/overlays`（只清这两个，不碰 `out_dir` 里其他内容——若调用方把 `out_dir`
+指到一个还放着别的东西的目录，那些东西不受影响），再写入本次产物。这样磁盘
+只经过"旧的没了、新的写齐"一次跳变，不会有"清了一半、写到一半失败"的中间态，
+调用后 `scripts/`、`overlays/` 的磁盘实况与返回值严格一致。
+
+`generate()` docstring 新增"契约"段落说明这一保证；模块顶部 docstring 同步一句。
+
+### Finding 3：count 修复没有回归测试
+
+**改法**：`test_card_mode_emits_short_circuit_overlay` 新增
+`assert ov["ops"][0]["count"] == 10` 与 `assert ov["ops"][0]["with"] == "133"`，
+并加注释说明这两条具体保护什么。
+
+**诚实说明（没有回避 review 原话里一个站不住脚的推论）**：review 的原文说
+"a future refactor reverting to the pristine source would leave the suite fully
+green, because the two sources coincide for all 103 cards today"——这句话在字面
+意义上其实同时说明了这两条断言**不能**单独证明"count 是照哪份源算的"：既然
+crd_103 在 lua_scripts/ 原文与译文注入后的源里 count 恰好都是 10（已用全库
+103 个文件穷举验证，见 Task 7 首次实施时的记录），一次把 `_count_select_calls`
+悄悄改回读 `lua_scripts/` 的回归，对 crd_103 这一个用例产出的 count 数值不会
+变——这两条断言对**这一种特定回归**其实不构成充分的独立验证，真正保证"count
+照哪份源算"这件事本身的，是 `_injected_source`/`short_circuit_card` 的实现
+机制，不是这条测试。
+
+但这两条断言仍然值得加，且已用故障注入验证了它们的真实保护范围——这不是它们
+"完全没用"，而是"用处比 review 原文那句话字面暗示的更窄"：此前 `find`/`target`/
+`profile` 之外的字段完全不受保护，`count`/`with` 算错、算漏、甚至互换都会全绿
+通过。已实测验证：临时把 `with = "{answer}"` 改成 `with = "{answer + 1}"`
+（模拟"答案算错了 1"这类具体错误），断言在这里报
+`AssertionError: assert '134' == '133'`，而不是静默放行；改回后恢复绿。这才是
+这两条断言实际钉住的东西——把它写进了测试文件的注释里，不让下一个读到这条
+测试的人继承 review 原文里那个不完全准确的因果推论。
+
+### Finding 4：profile 钉子测试枚举不穷尽
+
+**改法**：`test_generated_overlays_are_never_release` 改为遍历
+`tools.testboot._MODES`（模块自己的模式表，8 个）而不是手写的三元组（原来只
+覆盖 3 个），`card` 模式补最小必需的 `card=103`，其余模式用缺省 opts。新增一种
+会产 overlay 的模式时，这条测试自动跟着覆盖到。
+
+## TDD 证据
+
+RED（Finding 1 + 2，回退 tools/testboot.py 到 review 前的版本、保留新测试）：
+```
+$ git stash push -- tools/testboot.py
+$ uv run pytest tests/test_testboot.py -v
+tests/test_testboot.py::test_mainmenu_mode_emits_test_script PASSED
+tests/test_testboot.py::test_scene_mode_targets_the_right_chapter_script PASSED
+tests/test_testboot.py::test_card_mode_emits_short_circuit_overlay FAILED
+tests/test_testboot.py::test_single_answer_card_has_no_warning FAILED
+tests/test_testboot.py::test_generated_overlays_are_never_release PASSED
+tests/test_testboot.py::test_generate_clears_stale_layers_from_previous_call FAILED
+tests/test_testboot.py::test_unknown_mode_is_hard_failure PASSED
+
+test_card_mode_emits_short_circuit_overlay:
+    assert r["warnings"] and "多步骤" in r["warnings"][0]
+E   KeyError: 'warnings'
+
+test_single_answer_card_has_no_warning:
+    assert r["warnings"] == []
+E   KeyError: 'warnings'
+
+test_generate_clears_stale_layers_from_previous_call:
+    assert on_disk == sorted(r2["scripts"] + r2["overlays"])
+E   AssertionError: assert ['overlays/ca...snr_test.lua'] == ['scripts/snr_test.lua']
+E     + 'overlays/card-short-circuit.toml'（call 1 的残留，call 2 没清掉）
+
+3 failed, 4 passed in 0.47s
+$ git stash pop   # 恢复修复
+```
+
+GREEN（修复后）：
+```
+$ uv run pytest tests/test_testboot.py -v
+tests/test_testboot.py::test_mainmenu_mode_emits_test_script PASSED
+tests/test_testboot.py::test_scene_mode_targets_the_right_chapter_script PASSED
+tests/test_testboot.py::test_card_mode_emits_short_circuit_overlay PASSED
+tests/test_testboot.py::test_single_answer_card_has_no_warning PASSED
+tests/test_testboot.py::test_generated_overlays_are_never_release PASSED
+tests/test_testboot.py::test_generate_clears_stale_layers_from_previous_call PASSED
+tests/test_testboot.py::test_unknown_mode_is_hard_failure PASSED
+7 passed in 0.45s
+```
+
+Finding 3 的故障注入验证（临时改 `with = "{answer + 1}"`，验证断言真的会抓，
+而不只是摆设）：
+```
+$ (patch: with  = "{answer}"  ->  with  = "{answer + 1}")
+$ uv run pytest tests/test_testboot.py::test_card_mode_emits_short_circuit_overlay -v
+>       assert ov["ops"][0]["with"] == "133"
+E       AssertionError: assert '134' == '133'
+1 failed in 0.11s
+$ (revert)
+$ uv run pytest tests/test_testboot.py -q
+7 passed in 0.50s
+```
+
+Finding 4 的覆盖面验证：
+```
+modes covered by new _MODES-driven test: 8 ('font', 'scene', 'ruby', 'card', 'cutin', 'mainmenu', 'choices', 'map')
+modes covered by old hardcoded tuple: 3 (mainmenu, card, scene)
+```
+逐模式实跑确认只有 card 产 overlay（其余 7 个 `overlays=[]`），新测试对全部
+8 个都做了这层校验，不再只覆盖旧三元组挑中的那 3 个。
+
+Finding 2 的 CLI 端到端复现（与 review 描述的场景一致：连续跑几个模式进同一个
+缺省输出目录）：
+```
+$ uv run python tools/testboot.py --mode card --card 103 --out /tmp/x
+--- files after call 1 ---
+/tmp/x/overlays/card-short-circuit.toml
+/tmp/x/scripts/snr_test.lua
+$ uv run python tools/testboot.py --mode mainmenu --out /tmp/x
+--- files after call 2 ---
+/tmp/x/scripts/snr_test.lua        # overlays/ 已被清空，不再残留
+```
+
+## 两道闸（修复后）
+
+```
+$ uv run python tools/layers.py check --profile release --compare-compiled \
+      .superpowers/sdd/2026-09-02-disc-layers-pipeline/gate-baseline-script
+[layers] release: 施加 2 层（fonts, encore-menu），新增成员 1
+[layers] 逐字节比对：230/230 相同
+exit=0
+
+$ uv run python tools/layers.py check --profile test
+[layers] test: 施加 4 层（fonts, encore-menu, strip-ipl, boot-handoff），新增成员 1
+[layers] 全部层命中 ✓
+exit=0
+```
+
+`lua_scripts/` 只读核对：`git status --short lua_scripts/` 全程为空。
+
+## 全量测试（修复后）
+
+```
+$ uv run pytest -q
+1760 passed, 4 skipped in 303.84s (0:05:03)
+exit=0
+```
+
+（基线 1753 → 首次实施 1758 → 本轮修复 1760，恰好等于新增的 2 条测试
+`test_single_answer_card_has_no_warning`、`test_generate_clears_stale_layers_from_previous_call`；
+跳过数 4 不变，无既有测试变红。）
+
+## 文件改动（fix round 1）
+
+- `tools/testboot.py`：`generate()` 内部重排（校验前置、写盘收尾、先清后写）；
+  新增 `warnings` 返回键；`import shutil`；模块与函数 docstring 同步更新契约。
+- `tests/test_testboot.py`：`test_card_mode_emits_short_circuit_overlay` 新增
+  `count`/`with`/`warnings` 三条断言；新增
+  `test_single_answer_card_has_no_warning`；`test_generated_overlays_are_never_release`
+  改为遍历 `_MODES`；新增 `test_generate_clears_stale_layers_from_previous_call`。
+
+## 结论（fix round 1）
+
+4 项 Important 发现全部处理：结构化 `warnings` 通道已加（Finding 1）；
+`generate()` 现在每次调用都会先校验、再一次性清空+重写它拥有的两个子目录，
+磁盘实况与返回值严格一致，用 CLI 复现了 review 描述的原始场景确认修复生效
+（Finding 2）；count/with 补了回归断言，并用故障注入验证了断言的真实抓取
+范围，同时如实记录了这两条断言无法单独证明"count 照哪份源算"这件事（Finding 3）；
+profile 钉子测试改由模块自身的模式表驱动，覆盖面从 3/8 变成 8/8（Finding 4）。
+两道闸与相关既有测试套件复核通过，全量测试见上。

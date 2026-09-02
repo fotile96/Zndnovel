@@ -346,3 +346,152 @@ commit：`979ab4a fix: provenance 补基座树哈希与工具路径环境变量�
   （设计把 `generated/` 放在 `build/test/` 而非 `layers/`，按现有设计不会失控）。
 
 无新增遗留 Concerns。
+
+---
+
+## Fix round 2（re-review 后：空串环境变量崩溃）
+
+Re-review 判定上一轮的两个 Important 发现均已妥善解决，测试强化也确认真正能
+拦住 Finding 1（删掉 `lua_scripts` 那一行、`assert "lua_scripts" in prov["inputs"]`
+会确定性失败）。同时指出**上一轮修复自己引入**的一个新 Important 缺陷。
+
+### Finding：空串环境变量覆盖让 `provenance()` 崩溃
+
+`export SNDL_LUAC=` 或 `SNDL_TTF_PGF=`（shell 手滑把变量设成空串，而不是不设）
+不等于「没设」——`os.environ.get(key, default)` 的双参数形式只看键在不在
+`os.environ` 里，键存在但值是空串时依旧拿到 `""`，不会落到 `default`。
+`Path("").expanduser()` 归一化成 `PosixPath('.')`（当前工作目录），这是一个
+**存在的目录**，于是上一轮收紧前的 `_sha256` 用 `path.exists()` 当守卫，`.`
+直接通过，然后在 `path.read_bytes()` 上以 `IsADirectoryError: [Errno 21] Is a
+directory: '.'` 崩溃。上一轮修复之前这两个环境变量根本没被读取，这个输入是
+惰性的；接入之后这条路径变成了活的、会崩的。这正撞上本任务的硬约束：
+provenance 是取证性质，不该自己把构建搞崩。
+
+**修复**（`tools/layers.py`）：
+
+```python
+luac = Path(os.environ.get("SNDL_LUAC") or manifest["compiler"]["luac"]).expanduser()
+ttf_pgf = Path(os.environ.get("SNDL_TTF_PGF") or "/tmp/pgftool/ttf_pgf")
+```
+
+单参数 `os.environ.get(key)`（不设时返回 `None`）配合 `or default`：`None`
+与 `""` 都是假值，统一落到默认值；任何非空字符串（包括看起来"数字化"的 `"0"`
+这种边缘输入，它作为字符串本身非空、依然真值）照常被采纳为覆盖路径——这与
+`tools/inject_lua.py`、`tools/build_font.py` 的既有惯例只有这一处「双参数
+get」→「get-or」的差异，其余逻辑（env 优先、manifest/硬编码兜底）不变。
+
+### `_sha256` 的守卫要不要收紧：我的判断与理由
+
+Review 把这个问题留给我判断，不是强制项。我选择收紧，从 `path.exists()` 改成
+`path.is_file()`，理由：
+
+**为什么收紧**：
+1. `_sha256` 现在的全部四个调用点（车道三文件、账本两文件、`layers/` 逐文件、
+   `luac`/`ttf_pgf` 两个工具路径）在"正确配置"的前提下，期望输入永远是文件，
+   从来不是目录——收紧对任何一条现有正确调用**零行为变化**，只改变"传进来一个
+   目录"这种本就是错误输入时的表现：从崩溃变成 `"absent"`。
+2. 函数名与既有邻居 `_tree_sha256` 的分工已经隐含了这层契约——`_sha256` 管单
+   文件，`_tree_sha256` 管目录树；一个自称管"单文件"的函数,对目录的正确反应
+   应该是"这不是我的输入类型"（=absent），而不是让 OS 级别的 `IsADirectoryError`
+   从 `read_bytes()` 里泄出来。
+3. 这不是凭空加固：这次事故是「目录被 exists() 误判为可读文件」这条具体路径
+   踩中的，且踩中的原因（空串 env var → `Path("")` → `.`）不是唯一能产生
+   "目录路径传进 _sha256" 的方式——manifest 里 `compiler.luac` 本身被手滑配置
+   成目录、或未来新调用点传入一个目录变量，都会撞上同一个 `IsADirectoryError`。
+   只在 `provenance()` 里堵这一个入口（`or default`）只堵死了本次具体成因，
+   `_sha256` 本身仍是雷；收紧守卫是在函数自己的契约边界上一次性堵掉整类问题。
+
+**为什么可能不该收紧（我认为不成立，但记录下来）**：
+一个直觉的反对理由是"这会掩盖真实的配置错误"——比如 `manifest.toml` 把
+`compiler.luac` 真的错填成一个目录路径，收紧前 `provenance()` 会当场崩溃、
+错误显眼；收紧后会静默记成 `"absent"`，问题被延后发现。我认为这个反对不成立：
+`_sha256`/`provenance()` 从来不是这类配置错误的第一道防线——`luac_sz4` 真正
+被使用的地方是编译步骤（`subprocess.run([str(luac), ...])`，在 Task 4/8 的
+`build_disc.py` 里），一个指向目录的可执行文件路径在那里一样会立刻失败，且
+失败信号来自"实际尝试执行它"这个更貼近问题本质的地方，不会因为 provenance
+这边把它悄悄记成 absent 就被掩盖到构建成功。而 provenance 自己的既定角色
+（本任务的约束原文）就是"取证失败不该阻断构建"——用这条约束去衡量，一个
+从未被设计成校验关卡的函数，不应该因为收紧前的偶然行为（对目录会崩）而被
+误当成校验关卡来仰赖。
+
+结论：收紧，且确认对现有测试与真实调用点零影响（见下方 GREEN 结果与
+`_sha256` 直接验证）。
+
+### 测试
+
+新增 `test_provenance_treats_empty_env_override_as_unset`：分别在
+（a）两个变量完全不设、（b）两个变量都设成空串 两种条件下调用 `provenance()`，
+断言两次返回的 `tools` 字段相等。没有硬编码期望哈希值——用"相对 baseline 相等"
+而不是"等于某个绝对哈希"，好处两点：不依赖本机是否真的装有 `luac_sz4`/
+`ttf_pgf`（两种机器都能确定性通过）；且如果修复只是让代码不崩但退化成误报的
+`"absent"`（例如只做了 `_sha256` 的收紧、没做 `provenance()` 里的 `or` 修复），
+这里也会因为空串结果与 baseline（工具其实在默认路径上、能算出真实哈希）不一致
+而被拦下——不是只测"不崩"，是测"崩溃前后行为一致"。
+
+对 `_sha256` 的收紧也做了直接验证（非测试用例，自查用）：
+
+```
+$ uv run python -c "
+from pathlib import Path
+from tools.layers import _sha256
+print('directory ->', _sha256(Path('.')))
+print('missing file ->', _sha256(Path('/nonexistent/nope.bin')))
+print('real file ->', _sha256(Path('pyproject.toml'))[:16], '...')
+"
+directory -> absent
+missing file -> absent
+real file -> c87786616ca34bd1 ...
+```
+
+### TDD Evidence
+
+RED（先写测试、跑通显示与 review 描述完全一致的崩溃）：
+
+```
+$ uv run pytest tests/test_layers.py -q -k "empty_env"
+>       with_empty = provenance("release", man, root, applied=[], scripts_added=[],
+                                members={}, outputs={})
+tools/layers.py:391: in provenance
+    "tools": {"luac_sz4": _sha256(luac),
+tools/layers.py:324: in _sha256
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "absent"
+...
+self = PosixPath('.'), mode = 'rb', ...
+E       IsADirectoryError: [Errno 21] Is a directory: '.'
+1 failed, 44 deselected in 0.75s
+```
+
+GREEN：
+
+```
+$ uv run pytest tests/test_layers.py -q -k "empty_env"
+.
+1 passed, 44 deselected in 0.09s
+
+$ uv run pytest tests/test_layers.py -q
+.............................................
+45 passed in 0.27s
+
+$ uv run pytest -q
+1725 passed, 4 skipped in 300.30s (0:05:00)
+```
+（45 = 上一轮 44 + 本轮新增 1；全库 1725 = 上一轮 1724 + 1，0 失败、skip 数
+不变，与本次改动无关的 4 个 `emu` 标记跳过照旧。）
+
+### Files changed（本轮）
+
+- `tools/layers.py`（+15/-2）：`_sha256` 加文档字符串、守卫从 `exists()` 收紧到
+  `is_file()`；`provenance()` 里两处 `os.environ.get(key, default)` 改成
+  `os.environ.get(key) or default`，注释说明空串与未设的等价性。
+- `tests/test_layers.py`（+27）：`test_provenance_treats_empty_env_override_as_unset`。
+
+commit：`af552fe fix: provenance 空串环境变量覆盖导致 IsADirectoryError`。
+
+### Concerns
+
+无新增遗留 Concerns。已知的、明确不归本任务处理的相邻问题：`tools/build_font.py:39`
+与 `tools/inject_lua.py:49` 的 `SNDL_TTF_PGF`/`SNDL_LUAC` 读取用的是同一个双参数
+`os.environ.get(key, default)` 写法，同样会在变量被设成空串时产生一个指向 `.`
+或 home 目录的怪路径——是否也会像本次一样崩溃取决于各自下游怎么用这个路径
+（当前未逐一核实）。这是 review 判定的既有缺陷，明确划给 Task 5/6（分别拥有
+这两个文件），本任务未触碰这两个文件。

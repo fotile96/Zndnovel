@@ -174,3 +174,9 @@ Task 8: minor (deferred): stage_font 在 --profile test 下也会写 build/relea
 Task 8: minor (deferred): 新逻辑里 _encode_gim_cached 的键组成与命中路径、_compile_lua 的 ABI 头校验、stage_font 的新鲜度判定、剖面隔离本身，均无测试覆盖；七个测试只覆盖两个模块级纯函数。
 Task 8: minor (deferred): tests/test_testboot.py 现在会写进仓库真实的 build/ 树（新守卫的必然后果），若测试被中途杀掉会残留 build/_test_testboot/。
 Task 8: 评审对「0 差异比对」的作用域界定（重要，记录备查）：它比的是成员名集合与同名成员字节，故覆盖了 808 个替换件含全部 gim 面；**测不到**的有四类——(a) 构建目录当时不存在的 [gim].replace 条目（新旧都不产出，比对对「这条是否被正确搬迁」完全盲）；(b) 缓存命中路径（比对时缓存是冷的，copyfile 那条分支从未被测）；(c) 任何不是成员字节的东西（故结构上不可能发现发布闸变弱或告警通道变哑）；(d) test 剖面（无迁移前对照物）。
+Task 8: fix round 1/5 (5 addressed + 3 cheap 全中, 0 open, 2 新 Minor; commits 03fabf3..5e1adde)
+Task 8: 控制器独立复核：两闸仍过；DIST 只剩 stage_iso 一个写点且在断言之后；断言路径确实把 lua/final 现编到 tempdir 再比。
+Task 8: 评审对两条 caveat 的界定（记录备查）：①Finding 2 的指纹锁的是「当前 stage 树 == 上次成功 pack 前那一刻的树」，之所以能推出「DATA.BIN 出自这棵树」是因为 ctx.root/DATA.BIN 全模块只有 stage_pack 一个写者；单独把 DATA.BIN 换掉而不动 stage/ 仍能过——超出 Finding 2 所问范围。②Finding 3 的独立性只到 lua/final 为止；若 lua/final 本身相对上游（lua_scripts + ledger + 层）陈旧，members 与现编产物同源同旧、照样相等——本轮无任何东西防更上游的陈旧。
+Task 8: complete (commits 73f609f..5e1adde, review clean) — 全库 1766 passed，test_build_disc 10/10（含 2 个真跑而非 skip 的 local_assets），三闸全过
+Task 8: **候选：合并前应修（点给最终评审）**：tests/test_build_disc.py:163-204 与 :207-252 两个新 local_assets 回归测试只 monkeypatch 了 BASE，没 patch DIST 与 ORIG_ISO（同轮的 Finding-1 测试是 patch 了的）。本机两个真实资产都在，故这两个测试是真跑不是 skip。当前代码下守卫会先抛 SystemExit，安全；但一旦守卫日后回归，重跑这两个「本该抓住回归」的测试反而会覆盖真实的 build/dist/DATA.BIN，并把一个 9 字节的玩具封包拼进真实 orig.iso 的副本当作 game_zh.iso——测试在最需要它的时刻毁掉发布产物。两行 monkeypatch 即可。
+Task 8: minor (deferred): stage_iso 里 DIST/DATA.BIN 的拷贝发生在 ISO 拼接与结构自检**之前**；若拼接或自检失败，dist 下会短暂出现「新 DATA.BIN + 旧 ISO + 旧 sidecar」的不一致（可自愈、可检测，且严格优于修复前的「零断言就发布」）。

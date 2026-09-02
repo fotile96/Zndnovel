@@ -3,11 +3,14 @@
 这些测试不碰真实语料，只验引擎语义：五种操作、count/occurrence 的每种失败
 路径、多行逐字匹配与缩进保真。真语料上的命中由 tests/test_layers_corpus.py 守。
 """
+import hashlib
+import json
+
 import pytest
 
 from tools.layers import (OverlayError, apply_op, apply_overlay, charset_of, check_ids,
                           collect_ids, find_all, load_manifest, load_overlay, overlays_for,
-                          provenance, select_indices, write_charset)
+                          provenance, select_indices, write_charset, write_provenance)
 
 
 def test_find_all_is_non_overlapping():
@@ -350,4 +353,52 @@ def test_provenance_has_required_top_level_keys(tmp_path):
     assert set(prov) >= {"profile", "built_at", "git", "inputs", "tools",
                          "layers_applied", "scripts_added", "members", "outputs"}
     assert prov["members"] == {"replaced": 1, "added": 2}
+
+
+def test_provenance_inputs_include_lua_scripts_tree_and_lane_and_ledger_keys(tmp_path):
+    # Finding 1 的回归钉子：inputs 曾经只哈希账本与车道三文件，唯独漏了基座本身——
+    # 换基座（如 migrate_base.py 重跑）不会反映在指纹里。这里只断言键存在，不比对
+    # 具体哈希值，因为 lua_scripts/ 的真实内容会随仓库演进变化。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    prov = provenance("release", man, root, applied=[], scripts_added=[],
+                      members={}, outputs={})
+    assert "lua_scripts" in prov["inputs"]
+    assert "pilot/lanes/opus/data/forward.jsonl" in prov["inputs"]
+    assert "data/ledger.jsonl" in prov["inputs"]
+    assert "data/ledger_extra.jsonl" in prov["inputs"]
+
+
+def test_provenance_tools_honours_env_overrides(tmp_path, monkeypatch):
+    # Finding 2 的回归钉子：/tmp 下的 ttf_pgf 重启即失，luac_sz4 是仓库外二进制，
+    # 两者都要能用 SNDL_TTF_PGF / SNDL_LUAC 重新指向——否则「文件不存在」被记成
+    # "absent"，而实际构建明明用了别处的那一份，取证就成了误导而非证据。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    fake_luac = tmp_path / "fake_luac"
+    fake_luac.write_bytes(b"fake luac binary")
+    fake_ttf = tmp_path / "fake_ttf_pgf"
+    fake_ttf.write_bytes(b"fake ttf_pgf binary")
+    monkeypatch.setenv("SNDL_LUAC", str(fake_luac))
+    monkeypatch.setenv("SNDL_TTF_PGF", str(fake_ttf))
+    prov = provenance("release", man, root, applied=[], scripts_added=[],
+                      members={}, outputs={})
+    assert prov["tools"]["luac_sz4"] == hashlib.sha256(fake_luac.read_bytes()).hexdigest()
+    assert prov["tools"]["ttf_pgf"] == hashlib.sha256(fake_ttf.read_bytes()).hexdigest()
+
+
+def test_provenance_layers_applied_reflects_real_overlay_dict(tmp_path):
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    overlay = load_overlay(root / "overlays" / "alpha.toml")
+    prov = provenance("release", man, root, applied=[overlay], scripts_added=[],
+                      members={}, outputs={})
+    assert prov["layers_applied"] == [{"overlay": "alpha", "target": "snr_common.lua", "ops": 1}]
+
+
+def test_write_provenance_round_trips_through_json(tmp_path):
+    p = tmp_path / "provenance.json"
+    write_provenance({"profile": "release", "members": {"replaced": 1}}, p)
+    assert json.loads(p.read_text(encoding="utf-8")) == {"profile": "release",
+                                                          "members": {"replaced": 1}}
 

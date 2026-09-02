@@ -291,6 +291,7 @@ def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
 
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 
@@ -323,6 +324,28 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "absent"
 
 
+def _tree_sha256(root: Path) -> str:
+    """给一整棵目录树算确定性哈希：按相对路径升序遍历 `*.lua`，把「路径 + 内容」
+    一起喂进摘要，不存在则按 `_sha256` 的约定返回 "absent"（取证失败不阻断构建）。
+
+    路径必须入摘要，不能只喂内容——否则一次纯改名（字节不变，换反编译基座时
+    常见）在这份指纹里完全隐身，而改名同样是必须被看见的输入变化。逐条记录
+    用一个空字节隔开路径与内容、一个换行符隔开不同文件，避免拼接后前一条的
+    内容尾部与后一条的路径头部产生歧义。
+    """
+    if not root.exists():
+        return "absent"
+    h = hashlib.sha256()
+    names = sorted(p.relative_to(root).as_posix()
+                   for p in root.rglob("*.lua") if p.is_file())
+    for name in names:
+        h.update(name.encode("utf-8"))
+        h.update(b"\0")
+        h.update((root / name).read_bytes())
+        h.update(b"\n")
+    return h.hexdigest()
+
+
 def _git(*args: str) -> str:
     try:
         return subprocess.run(["git", *args], cwd=REPO, capture_output=True,
@@ -348,7 +371,16 @@ def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
             # relative_to(REPO) 会当场 ValueError——取证函数不该因为调用方是
             # 测试夹具就崩溃，键的相对基准应随 root 自己走。
             inputs[str(p.relative_to(root.parent))] = _sha256(p)
-    luac = Path(manifest["compiler"]["luac"]).expanduser()
+    # 基座本身也要入指纹——换反编译基座（migrate_base.py 重跑）不改车道/账本，
+    # 但改的正是「哪些 lua 字节被编译进盘」，漏了它两次不同基座的构建会指纹撞车。
+    base_dir = manifest["base"]["dir"]
+    inputs[base_dir] = _tree_sha256(REPO / base_dir)
+    # SNDL_LUAC / SNDL_TTF_PGF：与 tools/inject_lua.py、tools/build_font.py 同一惯例
+    # （环境变量覆盖，manifest / 硬编码默认路径兜底）。ttf_pgf 平时活在 /tmp 下，
+    # 重启即失，构建者常须重新指到别处；不认这个环境变量，"absent" 记的就是假话——
+    # 工具明明被用了，取证却说它不在。
+    luac = Path(os.environ.get("SNDL_LUAC", manifest["compiler"]["luac"])).expanduser()
+    ttf_pgf = Path(os.environ.get("SNDL_TTF_PGF", "/tmp/pgftool/ttf_pgf"))
     return {
         "profile": profile,
         "built_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
@@ -357,7 +389,7 @@ def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
                 "dirty": [l[3:] for l in _git("status", "--short").splitlines()]},
         "inputs": inputs,
         "tools": {"luac_sz4": _sha256(luac),
-                  "ttf_pgf": _sha256(Path("/tmp/pgftool/ttf_pgf"))},
+                  "ttf_pgf": _sha256(ttf_pgf)},
         "layers_applied": [{"overlay": o["_name"], "target": o["target"],
                             "ops": len(o["ops"])} for o in applied],
         "scripts_added": scripts_added,
@@ -367,6 +399,7 @@ def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
 
 
 def write_provenance(prov: dict, path: Path) -> None:
+    """把 `provenance()` 的返回值落盘成带缩进的 UTF-8 JSON（中文原样，不转义）。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(prov, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

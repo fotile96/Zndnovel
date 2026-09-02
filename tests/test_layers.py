@@ -428,3 +428,37 @@ def test_provenance_treats_empty_env_override_as_unset(tmp_path, monkeypatch):
 
     assert with_empty["tools"] == baseline["tools"]
 
+
+def test_build_font_reads_charset_file_not_lane(tmp_path, monkeypatch):
+    """build() 的字集必须来自参数指定的文件——车道依赖已经拆掉了。"""
+    import tools.build_font as bf
+    ucs = tmp_path / "ucs.txt"
+    ucs.write_text("0020\n4e00\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
+    (tmp_path / "fake_ttf_pgf").write_text("#!/bin/sh\ntouch \"$2\"\n", encoding="utf-8")
+    (tmp_path / "fake_ttf_pgf").chmod(0o755)
+    monkeypatch.setattr(bf, "widen_latin", lambda ttf, out: (calls.append(out), ttf)[1])
+    out = bf.build(ucs, tmp_path / "out", sizes=(17,))
+    assert out and out[0].name == "lxgw17.pgf"
+    assert not hasattr(bf, "corpus_chars"), "corpus_chars 应当已删除（字集改由 layers 算）"
+
+
+def test_build_font_rejects_missing_or_empty_charset(tmp_path, monkeypatch):
+    """字集文件缺失/为空必须硬失败——2026-09-03 实测 ttf_pgf 遇到这种输入不报错，
+    而是静默退化成渲染整个字库（43478 字形、5.3MB），exit code 仍是 0、pgf 仍会
+    落盘，比漏几个字严重得多（正是模块开头那次引擎崩溃的原样复现），不能放行。
+    """
+    import tools.build_font as bf
+    monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
+    (tmp_path / "fake_ttf_pgf").write_text("#!/bin/sh\ntouch \"$2\"\n", encoding="utf-8")
+    (tmp_path / "fake_ttf_pgf").chmod(0o755)
+
+    missing = tmp_path / "missing.txt"
+    with pytest.raises(SystemExit):
+        bf.build(missing, tmp_path / "out1", sizes=(17,))
+
+    empty = tmp_path / "empty.txt"
+    empty.write_text("", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        bf.build(empty, tmp_path / "out2", sizes=(17,))

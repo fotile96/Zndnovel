@@ -1,14 +1,16 @@
 #!/usr/bin/env -S uv run python
-"""按语料裁剪字库并产 PGF——`docs/ops/pgf-font-research-2026-08-31.md` 生产管线第 1–3 步。
+"""按给定字集产 PGF——`docs/ops/pgf-font-research-2026-08-31.md` 生产管线第 1–3 步。
 
 为什么必须裁剪（2026-08-31 实机取证）：全字库 43478 字形的 17px PGF 有 5.3MB，
 是原成员 tsukuminpro_e_17.pgf（1.2MB）的 4.4 倍，装进 DATA.BIN 后游戏
 `sceFontOpenUserMemory(addr=0, size=-1)` 连报 169 次——引擎的字体缓冲装不下，
 拿到空指针，正文改用后备渲染。裁到语料实需字集后体积回落，问题即消失。
 
-字集 = 译文全字集 ∪ 原文残留字（未译面仍要显示日文）∪ ASCII ∪ 全角形 ∪
-CJK 标点 ∪ 假名 ∪ 拼音声调元音 ∪ 游戏控制符。宁滥勿缺：漏一个字游戏里就是
-一个豆腐块，而每字成本只有几十字节。
+字集不再由本模块自己算：2026-09-02 缺字事故（谢幕章 6 字 + s7f 递卡旁白 1 字，
+共 7 处空白）的根因正是旧版 `corpus_chars()` 只看译文车道与消息账本，编外的
+谢幕章源（`layers/scripts/snr_finale.lua`）不在它的视野里。字集现由
+`tools/layers.py` 从 release 剖面的最终源（基座 + 全部层 + 编外脚本）机械算出，
+本模块只管拿一份字集文件产 PGF——谁都藏不住了。
 """
 from __future__ import annotations
 
@@ -21,10 +23,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from tools.pipelib import read_jsonl  # noqa: E402
-from tools.resolve import resolve_map  # noqa: E402
-
-LANE = REPO / "pilot" / "lanes" / "opus" / "data"
 # 逐尺寸的字体源：正文用 Regular（比例拉丁更好看），
 # 9px 的 ruby/小字槽用 Mono——拉丁步进统一为半角 500/1000，
 # 而 Regular 是变宽（j=301、ā=575），注音串宽度不可预测。
@@ -36,7 +34,12 @@ TTF_DEFAULT = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
 # 需要把拉丁步进撑成全角的尺寸（只有 ruby/小字槽需要，正文槽保持比例拉丁）
 WIDEN_SIZES = {9}
 OUT = REPO / "build" / "font"
-TTF_PGF = Path(os.environ.get("SNDL_TTF_PGF", "/tmp/pgftool/ttf_pgf"))
+# 用 `or` 不用 os.environ.get(key, default) 的双参数形式：后者只看键在不在
+# os.environ 里，`export SNDL_TTF_PGF=`（值设成空串）时键是在的，拿到 ""——
+# Path("").expanduser() 会归一化成当前目录 `.`，一个真实存在的目录，
+# 后续 `.exists()` 判断会被这个假阳性骗过去（同款惯例见 tools/layers.py::provenance
+# 与 tools/inject_lua.py，均已按此修过）。空串在此语义上等于没设。
+TTF_PGF = Path(os.environ.get("SNDL_TTF_PGF") or "/tmp/pgftool/ttf_pgf")
 
 # 语料之外必须常驻的码位（游戏控制符/版式符/可能的动态拼接）
 ALWAYS = (
@@ -50,25 +53,6 @@ ALWAYS = (
     + [ord(c) for c in "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńňǹḿ"]   # 拼音声调
     + [ord(c) for c in "™©®°±×÷§¶†‡"]
 )
-
-
-def corpus_chars() -> set[int]:
-    """译文 ∪ 原文 的全字集。原文也要——未译面（如 39 条 tr_line 缺口）仍渲染日文。"""
-    chars: set[int] = set()
-
-    def eat(s: str | None) -> None:
-        if s:
-            chars.update(ord(c) for c in s)
-
-    zh = resolve_map(read_jsonl(LANE / "forward.jsonl"), read_jsonl(LANE / "patches.jsonl"))
-    for v in zh.values():
-        eat(v)
-    for row in read_jsonl(LANE / "forward_extra.jsonl"):
-        eat(row.get("zh"))
-    for name in ("ledger.jsonl", "ledger_extra.jsonl"):
-        for row in read_jsonl(REPO / "data" / name):
-            eat(row.get("jp"))
-    return chars
 
 
 PINYIN_CHARS = ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -170,39 +154,59 @@ def embolden_diacritics(font, glyf, target_h: int = DIACRITIC_TARGET_H,
     return n
 
 
+def build(charset_path: Path, out_dir: Path, sizes=(17, 9), ruby_size=None) -> list[Path]:
+    """按给定字集文件产 PGF。字集由 tools/layers.py 从 release 最终源算出。
+
+    ⚠ 不再自己算字集：2026-09-02 的缺字事故就是因为它只看车道与账本，
+    编外的谢幕章源不在视野里，6 个字进了盘却没有字形。
+    """
+    if not TTF_PGF.exists():
+        sys.exit(f"缺 ttf_pgf: {TTF_PGF}（见 docs/ops/pgf-font-research-2026-08-31.md 重建；"
+                 f"或设 SNDL_TTF_PGF）")
+    # ⚠ 缺字集文件/空字集文件不是「少几个字」那种量级的问题：2026-09-03 实测，
+    # ttf_pgf 收到不存在或空的字集文件时，既不报错也不空手而归——它会静默退化成
+    # 渲染整个字库（43478 字形、5,319,396 字节），exit code 仍是 0、输出文件仍会
+    # 落盘，下面 `proc.returncode != 0 or not out.exists()` 那道闸完全看不出来。
+    # 这正是模块 docstring 开头那次引擎崩溃（字体缓冲装不下 5.3MB）的原样复现，
+    # 比漏几个字严重得多，必须在喂给 ttf_pgf 之前自己挡住。
+    if not charset_path.exists() or charset_path.stat().st_size == 0:
+        sys.exit(f"字集文件缺失或为空: {charset_path}"
+                 f"（ttf_pgf 遇到这种输入会静默退化成全字库 5.3MB，撑爆引擎字体缓冲，"
+                 f"不是变小而是更危险，不能放行）")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    made = []
+    for size in sizes:
+        ttf = TTF_BY_SIZE.get(size, TTF_DEFAULT)
+        if not ttf.exists():
+            sys.exit(f"缺字体源: {ttf}")
+        if size in WIDEN_SIZES:
+            ttf = widen_latin(ttf, out_dir / f"_widened{size:02d}.ttf")
+        render = ruby_size if (size in WIDEN_SIZES and ruby_size) else size
+        out = out_dir / f"lxgw{size:02d}.pgf"
+        proc = subprocess.run([str(TTF_PGF), str(ttf), str(out), str(charset_path),
+                               str(render)], capture_output=True, text=True)
+        if proc.returncode != 0 or not out.exists():
+            sys.exit(f"ttf_pgf 失败({size}px): {proc.stdout[-500:]} {proc.stderr[-500:]}")
+        print(f"[font] {size}px(渲染 {render}px) <- {ttf.name} -> {out} "
+              f"({out.stat().st_size:,} B)")
+        made.append(out)
+    return made
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--charset", type=Path, default=REPO / "build" / "release" / "charset.txt",
+                    help="字集文件（tools/layers.py 的 write_charset 产物，"
+                         "一行一个四位小写十六进制码位）")
+    ap.add_argument("--out", type=Path, default=OUT, help="输出目录（默认 build/font）")
     ap.add_argument("--sizes", default="17,9", help="像素尺寸，逗号分隔")
     ap.add_argument("--ruby-size", type=int, default=None,
                     help="ruby/小字槽的实际渲染像素（默认同 9）——声调符在 9px 下只有 1px，调大可提升辨识度，代价是注音变宽")
     args = ap.parse_args()
 
-    if not TTF_PGF.exists():
-        sys.exit(f"缺 ttf_pgf: {TTF_PGF}（见 docs/ops/pgf-font-research-2026-08-31.md 重建；"
-                 f"或设 SNDL_TTF_PGF）")
-
-    codes = sorted(corpus_chars() | set(ALWAYS))
-    codes = [c for c in codes if 0x20 <= c <= 0xFFFF]   # PGF charmap 只到 BMP
-    OUT.mkdir(parents=True, exist_ok=True)
-    ucs = OUT / "ucs.txt"
-    ucs.write_text("".join(f"{c:04x}\n" for c in codes))
-    print(f"[font] 字集 {len(codes)} 码位 -> {ucs}")
-
-    for size_s in args.sizes.split(","):
-        size = int(size_s)
-        ttf = TTF_BY_SIZE.get(size, TTF_DEFAULT)
-        if not ttf.exists():
-            sys.exit(f"缺字体源: {ttf}")
-        if size in WIDEN_SIZES:
-            ttf = widen_latin(ttf, OUT / f"_widened{size:02d}.ttf")
-        render = args.ruby_size if (size in WIDEN_SIZES and args.ruby_size) else size
-        out = OUT / f"lxgw{size:02d}.pgf"
-        proc = subprocess.run([str(TTF_PGF), str(ttf), str(out), str(ucs), str(render)],
-                              capture_output=True, text=True)
-        if proc.returncode != 0 or not out.exists():
-            sys.exit(f"ttf_pgf 失败({size}px): {proc.stdout[-500:]} {proc.stderr[-500:]}")
-        print(f"[font] {size}px(渲染 {render}px) <- {ttf.name} -> {out} ({out.stat().st_size:,} B)")
+    sizes = tuple(int(s) for s in args.sizes.split(","))
+    build(args.charset, args.out, sizes=sizes, ruby_size=args.ruby_size)
 
 
 if __name__ == "__main__":

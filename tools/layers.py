@@ -321,7 +321,15 @@ def write_charset(codes: list[int], path: Path) -> None:
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "absent"
+    """单文件 sha256；不是「存在的普通文件」一律 "absent"，不抛异常。
+
+    用 `is_file()` 不用 `exists()`：两者对目录的判断不同——`exists()` 对一个
+    目录也返回真，而 `read_bytes()` 在目录上会以 IsADirectoryError 崩溃。这不是
+    假设性场景：SNDL_LUAC/SNDL_TTF_PGF 被设成空串时，`Path("").expanduser()`
+    正是归一化成当前目录 `.`（一个存在的目录），曾经在 provenance() 里当场炸穿
+    这里的 `path.exists()` 守卫。
+    """
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
 
 
 def _tree_sha256(root: Path) -> str:
@@ -379,8 +387,13 @@ def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
     # （环境变量覆盖，manifest / 硬编码默认路径兜底）。ttf_pgf 平时活在 /tmp 下，
     # 重启即失，构建者常须重新指到别处；不认这个环境变量，"absent" 记的就是假话——
     # 工具明明被用了，取证却说它不在。
-    luac = Path(os.environ.get("SNDL_LUAC", manifest["compiler"]["luac"])).expanduser()
-    ttf_pgf = Path(os.environ.get("SNDL_TTF_PGF", "/tmp/pgftool/ttf_pgf"))
+    # 用 `or` 不用 `os.environ.get(key, default)` 的双参数形式：后者只看键在不在
+    # os.environ 里，`export SNDL_LUAC=`（值设成空串，shell 手滑常见）时键是在的，
+    # 拿到的是 ""——传给 Path().expanduser() 会归一化成当前目录 `.`，一个真实存在
+    # 的目录，与"没设"该有的兜底行为不一致。空串在此语义上等于没设，`or` 让两者
+    # 统一落到同一个默认值。
+    luac = Path(os.environ.get("SNDL_LUAC") or manifest["compiler"]["luac"]).expanduser()
+    ttf_pgf = Path(os.environ.get("SNDL_TTF_PGF") or "/tmp/pgftool/ttf_pgf")
     return {
         "profile": profile,
         "built_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),

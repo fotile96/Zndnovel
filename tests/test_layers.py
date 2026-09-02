@@ -402,3 +402,29 @@ def test_write_provenance_round_trips_through_json(tmp_path):
     assert json.loads(p.read_text(encoding="utf-8")) == {"profile": "release",
                                                           "members": {"replaced": 1}}
 
+
+def test_provenance_treats_empty_env_override_as_unset(tmp_path, monkeypatch):
+    # Finding（Important，本轮修复）：`export SNDL_LUAC=` / `SNDL_TTF_PGF=`（shell 手滑
+    # 设成空串）不等于「没设」——os.environ.get(key, default) 只看键在不在 os.environ
+    # 里，键存在但值是空串时仍会拿到 ""，`Path("").expanduser()` 归一化成
+    # `PosixPath('.')`，那是个存在的目录：不空串的兜底逻辑被跳过，_sha256 直接在
+    # read_bytes() 上崩成 IsADirectoryError——provenance 是取证，不该被这种输入崩掉。
+    #
+    # 用「空串结果 == 完全不设时的结果」而不是硬编码期望哈希值来断言：这样测试不
+    # 依赖本机是否真的装了 luac_sz4 / ttf_pgf，两台机器（有工具 / 没工具）都能跑，
+    # 且如果修复只让它不崩但退化成误报的 "absent"（工具其实在默认路径上），
+    # 这里也会因为跟 baseline 不一致而抓到。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    monkeypatch.delenv("SNDL_LUAC", raising=False)
+    monkeypatch.delenv("SNDL_TTF_PGF", raising=False)
+    baseline = provenance("release", man, root, applied=[], scripts_added=[],
+                          members={}, outputs={})
+
+    monkeypatch.setenv("SNDL_LUAC", "")
+    monkeypatch.setenv("SNDL_TTF_PGF", "")
+    with_empty = provenance("release", man, root, applied=[], scripts_added=[],
+                            members={}, outputs={})
+
+    assert with_empty["tools"] == baseline["tools"]
+

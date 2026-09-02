@@ -293,3 +293,16 @@ def test_check_ids_rejects_same_owner_listed_twice_in_scripts(tmp_path):
         check_ids(man, root, ledger_ids=set())
     assert "同时使用" in str(e.value)
 
+
+def test_check_ids_rejects_bad_range_profile(tmp_path):
+    # vms_ids.toml 的 [[ranges]] 也要挡非法 profile，跟 load_overlay 对 profile 的
+    # 校验同规格——错字应该报「非法」，不该被悄悄当成某一种已知剖面处理。
+    root = _mk_layers(tmp_path)
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "probe"\nprofile = "staging"\nvms = [[9000, 9050]]\n',
+        encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "staging" in str(e.value)
+

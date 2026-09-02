@@ -227,6 +227,9 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
         if not owner:
             raise OverlayError("vms_ids.toml 有 [[ranges]] 缺 owner")
         profile = entry.get("profile", "release")
+        if profile not in PROFILES:
+            raise OverlayError(f"vms_ids.toml 里 {owner} 的 profile={profile!r} 非法"
+                               f"（只能 {PROFILES}）")
         owned[owner] = (profile, _ranges_of(entry, "vms") + _ranges_of(entry, "card_msg"))
 
     seen: dict[int, str] = {}
@@ -268,11 +271,13 @@ def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
             raise OverlayError(
                 f"{owner} 用了 id {i}，不在其声明的区段内——"
                 f"在 layers/vms_ids.toml 里扩段，或改用段内的 id")
-        # 二道防线，非死代码：release 层的整段已在上面按 profile 过滤后与保留集
-        # 比对过一次——若那道检查健在，落在段内的单个 id 不可能撞账本，这里到不了
-        # True 分支；留着是防那道检查将来被改坏时不至于连带丢了这层保护。test 层
-        # 的整段允许撞保留集（上面按 profile 跳过了），故对 test 层这里是真会命中
-        # 的分支，不是防御性代码。
+        # release 层：二道防线，非死代码。owner 整段已在上面按 profile 过滤后与
+        # 保留集比对过一次——若那道检查健在，落在段内的单个 id 不可能撞账本，这里
+        # 到不了 True 分支；留着是防那道检查将来被改坏时不至于连带丢了这层保护。
+        # test 层：`profile != "test"` 这个前置条件不是防御性冗余，而是让 range 级
+        # 豁免真正生效的必要条件——去掉它，test 层刚被允许撞账本的区段会在这里被
+        # 逐 id 重新比对一遍，等于把上面放行的豁免原样撤销。此分支同样到不了
+        # True，但那是这行代码故意做到的，不是巧合，也不是"留了个用不上的检查"。
         if profile != "test" and i in ledger_ids:
             raise OverlayError(f"{owner} 的 id {i} 与账本冲突")
         # 二道防线，非死代码：owner 区段两两不交对全部 profile 都生效（见上），

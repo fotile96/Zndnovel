@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -154,25 +155,69 @@ def embolden_diacritics(font, glyf, target_h: int = DIACRITIC_TARGET_H,
     return n
 
 
+#: write_charset() 唯一会产出的行形状：四位小写十六进制，无注释无空行。
+#: 比 ttf_pgf 自己的 load_ucs_list()（/tmp/pgftool/libpgf.c）宽松得多的解析器
+#: 严格得多——它只要首字节不是 '#'/'\n'/'\r'/NUL 就计入返回的行数 i，哪怕
+#: sscanf("%x") 什么都没解析出来（ucs 留在初值 0）。两边"合规"标准不同是刻意的：
+#: 这里从严，能拦下的坏文件更多；真正兜底两边分歧的是 build() 里的第三道检查
+#: （比对 ttf_pgf 自报的 N）。
+_UCS_LINE_RE = re.compile(r"^[0-9a-f]{4}$")
+#: ttf_pgf 把这行打到 **stderr**（不是 stdout——2026-09-03 用 subprocess 分流实测
+#: 确认过，用 2>&1 在终端里看不出区别，容易记错）。
+_LOAD_LIST_RE = re.compile(r"Load list from .* : (\d+)")
+
+
+def _read_charset(charset_path: Path) -> tuple[int, list[int]]:
+    """按 write_charset() 的格式解析字集文件。
+
+    返回 (物理行数, 成功解析出的码位列表)。两者之差就是不合规行数——空行、
+    注释、位数或大小写不对。这一步只是从严的第一道防线；ttf_pgf 自己的解析器
+    不会拒绝这些形状怪异的行（见 `_UCS_LINE_RE` 的注释），所以文件"看似能读"
+    不代表 ttf_pgf 读到的就是同一批码位，真正兜底的是 build() 里第三道检查。
+    """
+    lines = charset_path.read_text(encoding="utf-8").splitlines()
+    codes = [int(line, 16) for line in lines if _UCS_LINE_RE.fullmatch(line)]
+    return len(lines), codes
+
+
 def build(charset_path: Path, out_dir: Path, sizes=(17, 9), ruby_size=None) -> list[Path]:
     """按给定字集文件产 PGF。字集由 tools/layers.py 从 release 最终源算出。
 
-    ⚠ 不再自己算字集：2026-09-02 的缺字事故就是因为它只看车道与账本，
-    编外的谢幕章源不在视野里，6 个字进了盘却没有字形。
+    ⚠ 不再自己算字集：2026-09-02 缺字事故（共 7 处空白，见模块开头段）里，
+    「编外的谢幕章源不在视野里」这一条根因单独造成了其中 6 字——这正是
+    corpus_chars() 必须删除的原因。
     """
     if not TTF_PGF.exists():
         sys.exit(f"缺 ttf_pgf: {TTF_PGF}（见 docs/ops/pgf-font-research-2026-08-31.md 重建；"
                  f"或设 SNDL_TTF_PGF）")
-    # ⚠ 缺字集文件/空字集文件不是「少几个字」那种量级的问题：2026-09-03 实测，
-    # ttf_pgf 收到不存在或空的字集文件时，既不报错也不空手而归——它会静默退化成
-    # 渲染整个字库（43478 字形、5,319,396 字节），exit code 仍是 0、输出文件仍会
-    # 落盘，下面 `proc.returncode != 0 or not out.exists()` 那道闸完全看不出来。
-    # 这正是模块 docstring 开头那次引擎崩溃（字体缓冲装不下 5.3MB）的原样复现，
-    # 比漏几个字严重得多，必须在喂给 ttf_pgf 之前自己挡住。
-    if not charset_path.exists() or charset_path.stat().st_size == 0:
-        sys.exit(f"字集文件缺失或为空: {charset_path}"
-                 f"（ttf_pgf 遇到这种输入会静默退化成全字库 5.3MB，撑爆引擎字体缓冲，"
-                 f"不是变小而是更危险，不能放行）")
+    if not charset_path.exists():
+        sys.exit(f"缺字集文件: {charset_path}")
+    # ⚠ 「文件存在且字节数非零」不足以说明字集是好的：2026-09-03 复核实测，
+    # 一份全空白/全注释、或被截断到只剩几行的字集文件，ttf_pgf 同样会静默
+    # 退化——libpgf.c::load_ucs_list() 返回的有效行数 i 一旦是 0，调用方
+    # ttfont_znd.c::main() 就 `memset(ucs_list, 1, 65536*4)`，把全部 65536 个
+    # 码位标记为"要"，渲染出 43478 字形、5,319,396 字节的全字库；就算 i 不为 0
+    # 但只有寥寥几个，产物是一份体积正常、看着人畜无害、实则漏掉几乎全部字符
+    # 的 pgf——两种情况 exit code 都是 0、pgf 都会落盘，「返回码非零或输出不
+    # 存在」那道闸都看不出来。下面三道检查依次堵这三种情形。
+    total_lines, codes = _read_charset(charset_path)
+    # 第一道：一个合规码位都没解析出来——最严重的情形，等价于空/缺文件。
+    if not codes:
+        sys.exit(f"字集文件解析出 0 个码位: {charset_path}"
+                 f"（读到 {total_lines} 行，没有一行是合规的四位十六进制）——"
+                 f"ttf_pgf 遇到这种输入会静默退化成全字库 5.3MB，撑爆引擎字体缓冲")
+    # 第二道：下限不是拍脑袋定的——ALWAYS 无条件并入 charset_of()（tools/layers.py）
+    # 算出的每一份字集，是任何合法字集都必然包含的最小公共集合，字数低于它只能是
+    # 截断或损坏。用 set() 去重而不是直接 len(ALWAYS)：ALWAYS 列表本身有 23 个
+    # 重复码位（如全角括号，同时出现在手写符号串与 range(0xFF01,0xFF5F) 里），
+    # charset_of() 最终经 `set(always) | ...` 去重成 472 个而非 495 个——用未去重
+    # 的 495 当下限会把一份恰好只含 ALWAYS、不多不少的合法字集也拒掉，是过严
+    # 而非过宽，与这里"宁滥勿缺"的方向正好相反。
+    min_codes = len(set(ALWAYS))
+    if len(codes) < min_codes:
+        sys.exit(f"字集文件只解析出 {len(codes)} 个码位（读到 {total_lines} 行）: "
+                 f"{charset_path}——少于 ALWAYS 常驻表去重后的 {min_codes} 个，"
+                 f"任何合法字集都不可能比这更小，判定为截断或损坏")
     out_dir.mkdir(parents=True, exist_ok=True)
     made = []
     for size in sizes:
@@ -187,6 +232,21 @@ def build(charset_path: Path, out_dir: Path, sizes=(17, 9), ruby_size=None) -> l
                                str(render)], capture_output=True, text=True)
         if proc.returncode != 0 or not out.exists():
             sys.exit(f"ttf_pgf 失败({size}px): {proc.stdout[-500:]} {proc.stderr[-500:]}")
+        # 第三道：前两道检查只看我们自己解析出的码位数，堵不住"文件本身没问题，
+        # 但 ttf_pgf 实际读到的和我们以为的不一样"这种分歧（比如它的宽松解析器
+        # 把我们判定为不合规、没计入 codes 的行也算了进去）。ttf_pgf 会在 stderr
+        # 自报"Load list from ... : N"，直接拿来跟 len(codes) 对账；找不到这行
+        # 本身也当失败处理——output 格式变了，沉默地不比对不是通过，是失明。
+        m = _LOAD_LIST_RE.search(proc.stderr)
+        if not m:
+            sys.exit(f"ttf_pgf({size}px) 没打印「Load list from ...: N」，"
+                     f"无法核对它实际读到几个码位——输出格式可能变了，不能假装通过\n"
+                     f"stdout: {proc.stdout[-300:]}\nstderr: {proc.stderr[-300:]}")
+        loaded = int(m.group(1))
+        if loaded != len(codes):
+            sys.exit(f"ttf_pgf({size}px) 实际读到 {loaded} 个码位，"
+                     f"与我们解析出的 {len(codes)} 个不一致: {charset_path}——"
+                     f"两边对这份字集的理解分歧了，不能放行")
         print(f"[font] {size}px(渲染 {render}px) <- {ttf.name} -> {out} "
               f"({out.stat().st_size:,} B)")
         made.append(out)

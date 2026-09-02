@@ -429,15 +429,28 @@ def test_provenance_treats_empty_env_override_as_unset(tmp_path, monkeypatch):
     assert with_empty["tools"] == baseline["tools"]
 
 
+def _fake_ttf_pgf(path, honest=True):
+    """造一个假 ttf_pgf：touch 输出文件；`honest=True` 时还在 stderr 打印与真实
+    libpgf.c::load_ucs_list() 同形的「Load list from ... : N」（N 用 `wc -l` 数
+    第三个参数——字集文件——的实际行数），供 build() 第三道核对使用；`honest=False`
+    时只 touch、什么都不打印，用于测试"ttf_pgf 没吐这行"的失败分支。
+    """
+    body = "#!/bin/sh\ntouch \"$2\"\n"
+    if honest:
+        body += "n=$(wc -l < \"$3\" | tr -d ' ')\necho \"Load list from $3 : $n\" >&2\n"
+    path.write_text(body, encoding="utf-8")
+    path.chmod(0o755)
+
+
 def test_build_font_reads_charset_file_not_lane(tmp_path, monkeypatch):
     """build() 的字集必须来自参数指定的文件——车道依赖已经拆掉了。"""
     import tools.build_font as bf
+    codes = sorted(set(bf.ALWAYS))     # 真实场景的字集从不会小到踩中下限检查
     ucs = tmp_path / "ucs.txt"
-    ucs.write_text("0020\n4e00\n", encoding="utf-8")
+    ucs.write_text("".join(f"{c:04x}\n" for c in codes), encoding="utf-8")
     calls = []
     monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
-    (tmp_path / "fake_ttf_pgf").write_text("#!/bin/sh\ntouch \"$2\"\n", encoding="utf-8")
-    (tmp_path / "fake_ttf_pgf").chmod(0o755)
+    _fake_ttf_pgf(tmp_path / "fake_ttf_pgf")
     monkeypatch.setattr(bf, "widen_latin", lambda ttf, out: (calls.append(out), ttf)[1])
     out = bf.build(ucs, tmp_path / "out", sizes=(17,))
     assert out and out[0].name == "lxgw17.pgf"
@@ -451,8 +464,7 @@ def test_build_font_rejects_missing_or_empty_charset(tmp_path, monkeypatch):
     """
     import tools.build_font as bf
     monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
-    (tmp_path / "fake_ttf_pgf").write_text("#!/bin/sh\ntouch \"$2\"\n", encoding="utf-8")
-    (tmp_path / "fake_ttf_pgf").chmod(0o755)
+    _fake_ttf_pgf(tmp_path / "fake_ttf_pgf")
 
     missing = tmp_path / "missing.txt"
     with pytest.raises(SystemExit):
@@ -462,3 +474,72 @@ def test_build_font_rejects_missing_or_empty_charset(tmp_path, monkeypatch):
     empty.write_text("", encoding="utf-8")
     with pytest.raises(SystemExit):
         bf.build(empty, tmp_path / "out2", sizes=(17,))
+
+
+def test_build_font_rejects_whitespace_only_charset(tmp_path, monkeypatch):
+    """review 发现的近似漏网案例之一：全空白字集文件字节数非零（`st_size==2`），
+    旧的「exists() and size>0」守卫会放行，但一个合规码位都解析不出来——ttf_pgf
+    对这种输入的行为与真正的空文件完全一样（静默退化成全字库），必须一并挡住。
+    这里不需要 ttf_pgf 真的跑起来：Part 1（0 个码位）在进 subprocess 循环之前
+    就该拦下，TTF_PGF 只要指向一个存在的文件（内容不重要，反正不会被执行）。
+    """
+    import tools.build_font as bf
+    monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
+    (tmp_path / "fake_ttf_pgf").write_text("", encoding="utf-8")   # 内容无关，不会被跑
+
+    whitespace_only = tmp_path / "whitespace.txt"
+    whitespace_only.write_text("\n\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        bf.build(whitespace_only, tmp_path / "out", sizes=(17,))
+
+
+def test_build_font_rejects_truncated_charset(tmp_path, monkeypatch):
+    """review 发现的近似漏网案例之二：字集被截断到只剩 5 个合规码位——旧守卫
+    （只查存在且非空）完全放行，ttf_pgf 会照单全收产出一份体积正常、看着
+    人畜无害、实则漏掉几乎全部字符的 pgf，正是 2026-09-02 那次事故的失败模式
+    本身。下限用 ALWAYS 去重后的码位数：任何合法字集都不可能比这更小。
+    """
+    import tools.build_font as bf
+    monkeypatch.setattr(bf, "TTF_PGF", tmp_path / "fake_ttf_pgf")
+    (tmp_path / "fake_ttf_pgf").write_text("", encoding="utf-8")   # 内容无关，不会被跑
+
+    truncated = tmp_path / "truncated.txt"
+    five = sorted(set(bf.ALWAYS))[:5]
+    assert len(five) < len(set(bf.ALWAYS)), "夹具本身必须确实小于下限，否则这条测试没测到东西"
+    truncated.write_text("".join(f"{c:04x}\n" for c in five), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        bf.build(truncated, tmp_path / "out", sizes=(17,))
+
+
+def test_build_font_rejects_ttf_pgf_load_count_mismatch(tmp_path, monkeypatch):
+    """第三道检查：字集文件本身合规（过了前两道），但 ttf_pgf 自报读到的码位数
+    与我们解析出的不一致——两边对"同一份"字集的理解分了岔，必须当场硬失败，
+    不能因为文件"看着没问题"就放行。"""
+    import tools.build_font as bf
+    codes = sorted(set(bf.ALWAYS))
+    ucs = tmp_path / "ucs.txt"
+    ucs.write_text("".join(f"{c:04x}\n" for c in codes), encoding="utf-8")
+    fake = tmp_path / "fake_ttf_pgf"
+    # 故意报一个明显对不上的数字，模拟"ttf_pgf 读到的和我们数的不一样"
+    fake.write_text(
+        "#!/bin/sh\ntouch \"$2\"\necho \"Load list from $3 : 999999\" >&2\n",
+        encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setattr(bf, "TTF_PGF", fake)
+    with pytest.raises(SystemExit):
+        bf.build(ucs, tmp_path / "out", sizes=(17,))
+
+
+def test_build_font_rejects_when_load_list_line_missing(tmp_path, monkeypatch):
+    """第三道检查的另一半：ttf_pgf 完全没打印「Load list from ...: N」（输出格式
+    变了，或者压根没走到那一步）——找不到就当失败处理，不能因为"抓不到就放过"。
+    """
+    import tools.build_font as bf
+    codes = sorted(set(bf.ALWAYS))
+    ucs = tmp_path / "ucs.txt"
+    ucs.write_text("".join(f"{c:04x}\n" for c in codes), encoding="utf-8")
+    fake = tmp_path / "fake_ttf_pgf"
+    _fake_ttf_pgf(fake, honest=False)     # touch 但什么都不往 stderr 打印
+    monkeypatch.setattr(bf, "TTF_PGF", fake)
+    with pytest.raises(SystemExit):
+        bf.build(ucs, tmp_path / "out", sizes=(17,))

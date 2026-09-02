@@ -91,7 +91,12 @@ function unitNode(u) {
 
 function rowNode(ln) {
   const row = document.createElement('div');
-  row.className = 'row' + (ln.revised ? ' rev' : '') + (ln.pending ? ' pend' : '');
+  // `mech_only`＝这行挨过的全部改动只是 v19 C1 罗马音化（全库一半的"已改动"都是
+  // 它）。不给琥珀底、不算进「只看修订」，只留一个灰色空心 ○ 说明它动过——
+  // 展开批注面照样看得到那几步。
+  const mech = !!ln.mech_only;
+  row.className = 'row' + (ln.revised && !mech ? ' rev' : '') + (mech ? ' mech' : '')
+    + (ln.pending ? ' pend' : '');
   row.dataset.id = ln.id;
   const nAnn = ln.history.length + ln.decisions.length;
   // 有未清关修改时，右栏显示的是**改后**的文字（划掉现值），因为读的人想看的
@@ -103,7 +108,9 @@ function rowNode(ln) {
     : `<div class="zh${ln.zh ? '' : ' empty'}">${ln.zh ? fmt(ln.zh) : '（未翻译）'}</div>`;
   row.innerHTML =
     `<div class="no mono" title="${nAnn ? nAnn + ' 条修订/裁决记录' : ''}点击展开／编辑">`
-    + `${ln.pending ? '<span class="pen">✎</span>' : (ln.revised ? '<span class="dot">●</span>' : '')}`
+    + `${ln.pending ? '<span class="pen">✎</span>'
+      : mech ? '<span class="mdot" title="全部改动只是片假名→罗马音">○</span>'
+      : ln.revised ? '<span class="dot">●</span>' : ''}`
     + `${ln.id}</div>`
     + `<div class="jp">${fmt(ln.jp)}</div>` + zhCell;
   row.querySelector('.no').onclick = () => toggleAnn(row, ln);
@@ -351,7 +358,9 @@ function onFind() {
     else if (e.key === 'n') {
       S.filtered = !S.filtered;
       $('#stream').classList.toggle('filtered', S.filtered);
-      $('#more').textContent = S.filtered ? '（只显示有修订记录的行）' : '继续往下滚以载入下一单元…';
+      $('#more').textContent = S.filtered
+        ? '（只显示有实质修订的行；仅片假名→罗马音的不算）'
+        : '继续往下滚以载入下一单元…';
     }
   });
 })();

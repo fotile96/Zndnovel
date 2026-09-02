@@ -359,6 +359,13 @@ class Reader:
                 "c1_rename": is_c1_rename(prev, cur_zh),
             })
             prev = cur_zh
+        decisions = [
+            {"seg": d["seg"], "verdict": d.get("verdict"),
+             "chosen_channel": d.get("chosen_channel"),
+             "reason_code": d.get("reason_code") or "",
+             "note": (d.get("note") or "").strip(), "ts": d.get("ts")}
+            for d in self.decisions.get(cid, [])
+        ]
         return {
             "id": cid, "jp": led.get("jp", ""), "zh": zh,
             "voice": led.get("voice"), "file": led.get("file"), "func": led.get("func"),
@@ -370,14 +377,15 @@ class Reader:
             "history": history,
             "c1_hidden": sum(1 for h in history if h["c1_rename"]),
             "revised": bool(pats),
+            # 这一行的**全部**痕迹都是机械的：patch 步全是 C1 罗马音化，且没人
+            # 在这里停下来裁过。列表页据此把行级"已改动"降级成弱标记，并让
+            # 「只看修订」跳过它——全库 7817 个有 patch 的行里 3863 行（49%）
+            # 是这种，不降级的话"已改动"这个信号有一半是噪音。
+            # 只降**显示**：`revised` 与 `history` 都照实给，展开照样看得到那几步。
+            "mech_only": (bool(history) and not decisions
+                          and all(h["c1_rename"] for h in history)),
             "pending": self._pending_payload(cid, led.get("jp", ""), zh),
-            "decisions": [
-                {"seg": d["seg"], "verdict": d.get("verdict"),
-                 "chosen_channel": d.get("chosen_channel"),
-                 "reason_code": d.get("reason_code") or "",
-                 "note": (d.get("note") or "").strip(), "ts": d.get("ts")}
-                for d in self.decisions.get(cid, [])
-            ],
+            "decisions": decisions,
         }
 
     def _pending_payload(self, cid, jp, zh):

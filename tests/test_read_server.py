@@ -429,6 +429,60 @@ def test_history_marks_and_counts_c1_steps(tmp_path):
     assert len(ln["history"]) == 2, "折叠的那一步仍要留在 history 里，只是打了标"
 
 
+# ---- 7b. 纯机械改名的行：列表页降级，不算"已改动" ----
+# 折叠修订史只解决了展开之后的事；列表页的琥珀底 + ● 仍认 `revised = 有 patch`，
+# 于是全库 7817 个"已改动"里有 3863 行（49%）除了 C1 罗马音化什么都没挨过，
+# 「只看修订」筛出来一半是噪音。`mech_only` 把这批行降级——但只降级显示，
+# `revised` 与 `history` 都不改写，展开照样看得到那几步。
+
+def _c1_repo(tmp_path):
+    """把替身仓库改造成 C1 场景：
+    10 = 只有一步 C1 改名；20 = C1 之后又真改了一刀；21 = 只有 C1，但另有人裁记录。"""
+    repo = _mini(tmp_path)
+    lane = repo / "pilot" / "lanes" / "opus" / "data"
+    write_jsonl(lane / "forward.jsonl", [
+        {"id": i, "zh": ("【ユウイチ】「唔」" if i in (10, 20, 21) else f"首译{i}"),
+         "batch": 1, "backend": "cc", "model": "m", "ctx": "x",
+         "glossary_v": 1, "ts": "t0"} for i in (10, 11, 20, 21, 99)
+    ])
+    write_jsonl(lane / "patches.jsonl", [
+        {"id": 10, "zh": "【Yuichi】「唔」", "reason": "recall", "glossary_v": 19, "ts": "t1"},
+        {"id": 20, "zh": "【Yuichi】「唔」", "reason": "recall", "glossary_v": 19, "ts": "t1"},
+        {"id": 20, "zh": "【Yuichi】「唔——」", "reason": "polish", "glossary_v": 20, "ts": "t2"},
+        {"id": 21, "zh": "【Yuichi】「唔」", "reason": "recall", "glossary_v": 19, "ts": "t1"},
+    ])
+    write_jsonl(repo / "pilot" / "polish" / "segA" / "decisions.jsonl", [
+        {"id": 21, "verdict": "keep", "chosen_channel": None, "reason_code": "维持",
+         "note": "看过了，维持原译", "ts": "t3"},
+    ])
+    return Reader(repo=repo)
+
+
+def test_pure_c1_line_is_demoted_but_history_intact(tmp_path):
+    ln = _c1_repo(tmp_path)._line_payload(10)
+    assert ln["mech_only"] is True, "全部改动只是 C1 机械改名，列表页不该当作已改动"
+    assert ln["revised"] is True, "改过就是改过——事实不改写，只改显示"
+    assert len(ln["history"]) == 1 and ln["c1_hidden"] == 1
+
+
+def test_real_revision_after_c1_is_not_demoted(tmp_path):
+    """C1 之后又真改了一刀——一步实质改动就足以让整行留在"已改动"里。"""
+    ln = _c1_repo(tmp_path)._line_payload(20)
+    assert ln["mech_only"] is False and ln["revised"] is True
+
+
+def test_human_decision_keeps_a_c1_only_line_marked(tmp_path):
+    """有人裁记录＝有人在这行停下来看过，哪怕文本只挨了机械改名也不降级。"""
+    ln = _c1_repo(tmp_path)._line_payload(21)
+    assert ln["decisions"] and ln["mech_only"] is False
+
+
+def test_untouched_line_is_not_mech_only(reader):
+    """没有 patch 的行不能因为"没有非 C1 步"被判成机械改名——`all([])` 为真的坑。"""
+    ln = reader._line_payload(10)
+    assert ln["revised"] is False and ln["mech_only"] is False
+
+
 @pytest.mark.parametrize("jp,old,new,frag", [
     # 原文没有说话人、译文却凭空多出一个——只比旧译会漏掉这一种（6060 实测）
     ("……なんてね。", "……开玩笑的。", "编【直哉】「骗你的」", "有无与原文不符"),

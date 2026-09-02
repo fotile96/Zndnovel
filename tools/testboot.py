@@ -13,7 +13,9 @@
   out_dir/scripts/snr_test.lua              测试引导脚本（新增成员 script/snr_test.lua）
   out_dir/overlays/card-short-circuit.toml  仅 card 模式：把递卡调用换成正确答案
 落到 out_dir（CLI 缺省 build/test/generated/），由 build_disc 在静态 test 层之后
-按文件名序施加（Task 8 接线）。
+按文件名序施加（Task 8 接线）。返回值另带 `warnings`（已知会让产物在测试盘上
+表现异常的告警，缺省空列表）。每次调用都会先清空 out_dir 下 scripts/、overlays/
+两个子目录再写入，调用后磁盘内容与返回值严格一致，不会有上一轮的残留。
 
 八种模式（--mode）：
   font     字体/ruby 探针：用 fontPrint 逐槽画样本串、用 msg 走正文管线画 ruby，
@@ -31,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -494,14 +497,26 @@ def generate(mode: str, out_dir: Path, **opts) -> dict:
     """产测试层：scripts/snr_test.lua + 需要时的参数化叠加层。
 
     产物落 out_dir（CLI 缺省 build/test/generated/），由 build_disc 在静态 test 层
-    之后按文件名序施加。返回 {"scripts": [...], "overlays": [...]}（均为相对
-    out_dir 的路径），供调用方（测试、build_disc）核对产出。
+    之后按文件名序施加。返回 {"scripts": [...], "overlays": [...], "warnings": [...]}
+    ——前两者是相对 out_dir 的路径；warnings 是已知会让产物在测试盘上表现异常的
+    告警（目前只有 card 模式的多步骤大谜题一种来源），缺省空列表，供调用方（测试、
+    build_disc）核对产出、也让未来的调用方能以结构化方式感知"这份产物是打了折扣
+    的"，不必解析 print() 或截获 stdout。
+
+    ⚠ 契约：每次调用都会先清空 out_dir 下**本工具拥有**的两个子目录
+    （scripts/、overlays/——不碰 out_dir 里其他内容）再写入，因此调用后这两个
+    子目录的磁盘实况与返回值严格一致，不会有上一轮遗留的文件。这不是可有可无的
+    整洁：旧架构靠 emitted.json 记账 + 按名逐个还原做到这一点，2026-09-01 就因为
+    某个模式没被账本记全、没被还原到，把 mainmenu 模式误跑成了上一轮遗留的 cutin
+    探针。新架构没有账本，改用更简单也更彻底的"每次整个子目录重来"。
     """
     out_dir = Path(out_dir)
-    src = _render_mode(mode, **opts)          # 未知 mode 在这里已 sys.exit，不会往下走
-    (out_dir / "scripts").mkdir(parents=True, exist_ok=True)
-    (out_dir / "scripts" / "snr_test.lua").write_text(src, encoding="utf-8")
-    result = {"scripts": ["scripts/snr_test.lua"], "overlays": []}
+
+    # 先做完全部会 sys.exit 的校验与计算，一个字节都不碰磁盘；确认没有校验失败后
+    # 才在下面一次性清空+写入——不让"清空了一半、写到一半就失败"的中间态出现。
+    src = _render_mode(mode, **opts)          # 未知 mode / 缺 card 在这里已 sys.exit
+    result = {"scripts": ["scripts/snr_test.lua"], "overlays": [], "warnings": []}
+    overlay_text = None
 
     if mode == "card":
         card = opts["card"]                  # _render_mode 已确认非空，这里必然存在
@@ -522,13 +537,13 @@ def generate(mode: str, out_dir: Path, **opts) -> dict:
         multi_step = count > 1 and n_answers > 1
         warn = ""
         if multi_step:
-            warn = (f"\n⚠ 本卡 {count} 处递卡对应 {n_answers} 个不同答案 "
-                    f"{_dag_answers(card)}——短路只填得了第一步的 {answer}，"
-                    f"之后每一步都会卡死。QA 请手动过牌，不要用这份 overlay。")
-            print(f"[testboot] ⚠ crd_{card} 是多步骤谜题：{count} 处递卡对应 "
-                  f"{n_answers} 个不同答案，短路只填第一步、之后每步都会卡死"
-                  f"——这类卡请手动过牌，不要拿这份 overlay 给 QA 用")
-        ov = f'''target  = "snr_crd_{card}.lua"
+            msg = (f"crd_{card} 是多步骤谜题：{count} 处递卡对应 {n_answers} 个"
+                  f"不同答案 {_dag_answers(card)}，短路只填得了第一步的 {answer}，"
+                  f"之后每一步都会卡死。QA 请手动过牌，不要用这份 overlay。")
+            result["warnings"].append(msg)
+            warn = f"\n⚠ {msg}"
+            print(f"[testboot] ⚠ {msg}")
+        overlay_text = f'''target  = "snr_crd_{card}.lua"
 profile = "test"
 why     = """递卡短路：卡片谜题要玩家从持有卡里挑出正确卡才推进剧情，QA 时不想
 翻页找答案。把 `{SELECT_CALL}` 换成 data/dag.json 记录的正确答案卡 {answer}——
@@ -544,8 +559,18 @@ count = {count}
 find  = "{SELECT_CALL}"
 with  = "{answer}"
 '''
+
+    # 校验全过，从这里开始才真正碰磁盘：先清空本工具拥有的两个子目录，
+    # 再一次性写完本次产物——磁盘从此刻起只经过"旧的没了、新的写齐"这一次跳变，
+    # 不会停在两者之间。
+    shutil.rmtree(out_dir / "scripts", ignore_errors=True)
+    shutil.rmtree(out_dir / "overlays", ignore_errors=True)
+    (out_dir / "scripts").mkdir(parents=True, exist_ok=True)
+    (out_dir / "scripts" / "snr_test.lua").write_text(src, encoding="utf-8")
+    if overlay_text is not None:
         (out_dir / "overlays").mkdir(parents=True, exist_ok=True)
-        (out_dir / "overlays" / "card-short-circuit.toml").write_text(ov, encoding="utf-8")
+        (out_dir / "overlays" / "card-short-circuit.toml").write_text(
+            overlay_text, encoding="utf-8")
         result["overlays"].append("overlays/card-short-circuit.toml")
         print(f"[testboot] 递卡短路 {count} 处 → 答案卡 {answer}"
               f"，场景 {card_scene(card) or '(未知)'}")

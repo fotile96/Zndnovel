@@ -91,3 +91,52 @@ Task 3: minor (deferred): write_provenance 无中文 docstring、无测试（同
 Task 3: minor (deferred): _git 的 dirty 列表对重命名（R old -> new）会渲染成一整串，纯展示文本无消费者。
 Task 3: minor (deferred): tools/layers.py 第三次在文件中部 import（hashlib/json/subprocess/datetime），与 Task 1/2 同一模式，已累计三次。
 Ruling: SDD 工作区的 *.md（progress.md / task-N-brief / task-N-report）按 CLAUDE.md「开发规约」以 `git add -f` 入库，且**计划完成后不删除工作区** — 理由：CLAUDE.md 明文规定这些是不可再生的执行状态与证据须入库携带，而 subagent-driven-development 技能的收尾步骤要求 `rm -rf` 工作区；用户指令优先于技能。review-*.diff 仍按规约忽略（可由 git 历史一键再生） — 若判错的代价：仓库多出若干 KB 的执行台账，与既往 15 个 SDD 计划的做法一致。
+Task 3: fix round 1/5 (2 addressed + 测试加强 addressed, 1 new Important——修复自身引入：SNDL_LUAC/SNDL_TTF_PGF 设为空串时 os.environ.get 返回 ""，Path("").expanduser() 成 "."，_sha256 越过 exists() 守卫在 read_bytes() 抛 IsADirectoryError，provenance 整个崩掉而非回退；commits 75fc980..979ab4a)
+Task 3: 跨任务转达：同一空串脆弱性**先前就存在**于 tools/build_font.py:39 与 tools/inject_lua.py:49 的同款惯例里（本次是忠实照抄了一个潜伏缺陷）。Task 5（inject_lua）与 Task 6（build_font）派工时须一并带上。
+Task 3: fix round 2/5 (1 addressed, 0 open；顺带把 _sha256 守卫从 exists() 收紧为 is_file()，全调用点已审计无行为变化; commits 787e563..af552fe)
+Task 3: complete (commits 8c45f38..0f69caf, review clean) — tests/test_layers.py 45/45，全库 1725 passed
+Task 4: 硬闸基线已由控制器在派工前捕获（build/stage/script 的 230 个字节码 = 迁移前手工改动编出来的样子），两份：/tmp/layers_baseline/script 与工作区内 gate-baseline-script/（后者防 /tmp 被清）。校验锚：snr_mainmenu.lua sha256 9269b5cb…、snr_common.lua 77335b90…、snr_finale.lua 3ee694cd…；snr_mainmenu 字节码内含 title_14_a 常量 2 处（encore 改动在场的证据）。
+Ruling: 基线由控制器捕获而非留给实施者的 Step 1 — 理由：Task 4 一旦把 lua_scripts/snr_mainmenu.lua 还原成纯净基座，任何一次 inject/build 都会用不含 encore 的源覆盖 build/stage/script，基线随即永久丢失且无法再生（那是手工改动的编译产物）；先捕获成本近零，丢了则整个硬闸失去参照 — 若判错的代价：多占 6MB 磁盘。
+Task 4: dispatched (sonnet, agent a285f171cfcdcd9fb), BASE 0f69caf
+Task 4: implementer DONE — commit f9b4b40，硬闸 230/230，55/55 层测试，全库 1730 passed；自行发现并修掉 brief 两处缺陷（op4 锚点实为 2 处命中不是 1 处；闸按 brief 写法永不可能过，因基线是「已注入译文」的构建而 build_final_sources 不注入——补 _injected_sources 复用 inject_lua）
+Task 4: 控制器独立复核（不依赖实施者报告）：硬闸 230/230；migrate_base --check 基座纯净 229；luac_norm 归一化后相同 229 / 不同 0；build_ledger --check OK；lua_scripts 仅两文件改动。
+Task 4: task review (opus) — spec ✅ 合规、task quality **Approved**，但 4 Important + 8 Minor
+Task 4: Ruling: 发现 1（闸可以「不闸而报成功」）成立，必须硬化 — 理由：这是全计划唯一的验收判据，缺 luac 时 print 后 return 0 正是全局约束禁止的静默略过（且系 brief 原文）；单向比对则让「[[scripts]] 写错 profile 导致 snr_finale 掉出 release」表现为 229/229 通过、盘里整章消失 — 若判错的代价：两处 sys.exit 与一个集合断言。
+Task 4: Ruling: 发现 2（fonts.toml 的 why 谎称槽 1 已从 inject_lua 合并过来）成立，必须改 — 理由：inject_lua.py:209-211 至今仍在改写槽 1，本次只搬走了 migrate_base 的槽 0 重放；why 是这条边唯一的持久记录，写错会让下一个维护者朝错误方向排查 — 若判错的代价：一句话的措辞。
+Task 4: Ruling: 发现 3（op4 的 occurrence 选择在仓库内无锚）成立，补断言 — 理由：/tmp 基线一清、gate-baseline-script 又在 gitignore 目录内，唯一能区分「装进了哪个菜单形态」的证据就消失了；而装错形态是逐字节比对永远抓不到的缺陷 — 若判错的代价：一条断言。
+Task 4: Ruling: 发现 4（本 commit 到 Task 8 之间 build_disc 会产出静默降级的盘）——不只记录，要加**响亮的守卫** — 理由：spec §9 只说「期间不出盘」，而实况是跑了也不报错，只是盘里字体退回日文、encore 消失；本仓库同时有其他会话在工作，几个任务的窗口期里踩中的代价是一张看不出问题的坏盘 — 若判错的代价：Task 8 重写 build_disc 时删掉这 5 行守卫。
+Task 4: minor (deferred): test 剖面的源从不编译（test_base_fidelity 只覆盖 release），strip-ipl/boot-handoff 只做子串断言。
+Task 4: minor (deferred): 基座纯净性只在本机资产齐备时才强制（test_migrate_base_check_passes 会 skip），换机器则无人守住这条本任务确立的不变式；入库一份逐文件哈希清单可做成常开守卫。
+Task 4: minor (deferred): 字体成员名在 manifest.toml 与 fonts.toml 各写一份、无交叉校验；改一处漏一处 = 打进 A 字体却加载 B，游戏内静默空白。
+Task 4: minor (deferred): _injected_sources 每文件新建 stats 并丢弃；inject_lua 本就只 print 不硬失败，故未丢硬闸，但部分未译会表现为难懂的「与参照不一致」而非缺译计数。
+Task 4: minor (deferred): 「luac 编译 + 校 PSP ABI 头」现已在三处重复（tools/layers.py、tests/test_base_fidelity.py、tools/inject_lua.py）。
+Task 4: 跨任务转达（Task 5 必读）：inject_lua.py:209-211 的槽 1 改写与 layers/overlays/fonts.toml 的第二条 op 现在是**同一处改动的两个实现**。Task 5 删掉 inject_lua 那段的同时，fonts.toml 才真正独占该行；两者若同时作用于同一份源，第二条 op 会零命中并硬失败。
+Task 4: 跨任务转达（Task 8 必读）：本轮给 build_disc.stage_lua 加了「管线迁移中，layers/ 尚未接线」的响亮守卫；Task 8 重写该文件时删除它。
+Task 4: fix round 1/5 (4 addressed, 0 open；4 Minor 新增，均不入循环; commits f9b4b40..a054ac5)
+Task 4: 控制器独立复核硬化后的闸三态：正常 230/230 exit 0；参照少一文件 exit 1 且指名 snr_finale.lua；参照多一文件 exit 1 且报「漏收了整份文件」。双向都真会失败。
+Task 4: 守卫爆炸半径已查明并**判定为正确形状**：guard 只挡含 "lua" 的 stage（含缺省 all），不挡 gim/font/stage/pack/disc/iso/boot。这恰是想要的——被挡住的是「用未接线的源重新生成」，而 build/stage 与 build/inject 里现存的是迁移前的正确产物，仍可直接出盘。
+Task 4: minor (deferred): fonts.toml:15 称「发布链路仍是老路径、inject_lua 独立跑一遍」，但同一 commit 的 guard 已让 build_disc 到不了那行——描述的代码路径在 guard 解除前是死的。
+Task 4: minor (deferred): tools/layers.py:546 与报告里「见该函数第 441-442 行」的行号引用差一行（实为 442-443）。
+Task 4: minor (deferred): tests/test_base_fidelity.py:19 仍硬编码 luac 兜底路径，而同文件 :24 已从 manifest 取 header_hex——自定的去重原则只用在了相邻两个常量中的一个。
+Task 4: minor (deferred): tools/build_disc.py:378-379 的恢复指引仍推荐 `--stage lua,gim,font,stage,pack`，该命令现在会撞上迁移守卫（失败仍响亮，不静默）。
+Task 4: complete (commits 0f69caf..a054ac5, review clean) — 硬闸 230/230，基座 229/229，56/56 层测试，全库 1731 passed
+Task 5: dispatched (sonnet, agent aaec47f7c4c932ca8), BASE a054ac5
+Task 5: implementer DONE — commit f450584，11/11 注入测试（本模块史上第一批），全库 1747 passed，闸仍 230/230；自行发现并补掉 brief 缺陷（Step 3 让删 LANE 却没说 load_translations 此后如何找车道目录，照做必 NameError 并打断闸——改从 layers/manifest.toml 的 [lane].dir 取，顺带收口了三处硬编码之一）
+Task 5: 控制器独立复核：闸 230/230 exit 0；两个 import 序（inject_lua→layers、layers→inject_lua）均可导入，无循环。
+Task 5: task review (sonnet) — spec ✅、task quality **Approved**，0 Critical / 0 Important / 8 Minor。无需 fix 轮。
+Task 5: complete (commits a054ac5..f450584, review clean)
+Task 5: minor (deferred): inject_lua 模块级 import layers、layers 函数内 import inject_lua——当前两序均可，但两端都没有注释说明这层安排的脆弱性；日后有人把 layers 里那句提到模块级即双双不可导入（失败响亮，非静默）。
+Task 5: minor (deferred): load_translations 无负路径测试；manifest 有 [lane] 但缺 dir 键时抛裸 KeyError 而非专门信息，而该函数现在在硬闸调用链上。
+Task 5: minor (deferred): tests/test_inject_lua.py 的 _stats() 仍带 font_slot1=0 残留键，与同文件另一条断言「font_slot1 not in stats」隐含的形状不一致。
+Task 5: minor (deferred): SRC 与 main() 里的 ledger 路径仍硬编码，而同一份 manifest 已有 [base].dir/[base].ledger——车道路径收口了，这两处没有，半步。
+Task 5: minor (deferred): tools/layers.py::_injected_sources 仍复制了 inject_tree 的遍历与聚合循环而非直接调用它。
+Task 5: **需处理的 Minor（已排入 Task 6 派工）**：layers/overlays/fonts.toml 的 why 在 Task 4 修复轮里刚被改成描述「槽 1 此刻仍由 inject_lua 执行」，而 Task 5 恰好删掉了那段代码——该 why 现在又是假的。这是本计划第三次出现「散文与代码不符」，必须改。
+Task 5: 跨任务转达（Task 7 必读）：tools/make_test_boot.py 有 4 处（287/449/462/502-504）硬编码 build/inject_src，而 inject_lua 缺省已不再产出该目录；无任何测试覆盖，失败响亮不静默。
+Task 6: dispatched (sonnet, agent a9fb3d558b6cbf194), BASE f450584
+Task 6: implementer DONE — commits 834a438 + 5b6cb75，47/47 层测试，全库 1749 passed；17px 与 9px 两种字体用现役字集重编均与现役逐字节相同；闸 230/230；自行发现并修掉 brief 第 6 处缺陷（build() 从不校验 charset_path，缺文件/空文件时 ttf_pgf 退出码 0 却静默产出 5.3MB 全字库——正是撑爆引擎字体缓冲的那个失败态）；另按令修掉 os.environ.get 两参陷阱与 fonts.toml 的 why。
+Task 6: 控制器独立复核：闸 230/230 exit 0；corpus_chars 已删、ALWAYS 尚在且可导入（495 项）；build/font 三个现役文件哈希未变。
+Task 6: task review (sonnet) — spec ✅ 但 1 Important + 2 Minor
+Task 6: Ruling: 发现（charset 守卫只挡「缺文件 / 恰好 0 字节」，挡不住纯空白与截断）成立，必须扩到内容层 — 理由：评审用真实 ttf_pgf 复现了两个近失：纯空白文件 st_size=2 绕过守卫、ttf_pgf 报 Load list : 0 后照样产 5.3MB 全字库；截断文件更产出一个 8KB 的「看着很正常」的字体，静默缺掉表外全部字形——这正是 09-02 那七个空白字的成因。守卫的错误信息自称挡「空」，实现却只数字节，比它承诺的窄 — 若判错的代价：多解析一次字集文件与一条 stdout 断言。
+Task 6: minor (deferred): build() 的 docstring 说「6 个字」而同文件模块 docstring 说 7（实为 6 + s7f 递卡旁白 1）——已在 fix 轮附带订正。
+Task 6: minor (deferred): ALWAYS 目前是本模块视角下的死代码——build_font 自己不再引用，tools/layers.py 也尚未 import 它，要到接线任务才有消费者。
+Task 6: 待 Task 8 留意（评审提出的作用域边界）：本任务的逐字节比对固定了字集文件的**排序与格式**，故它证明不了「write_charset 产出的另一种等价但格式不同的字集会不会导致 PGF 字节布局不同」。接线时值得实测一次。

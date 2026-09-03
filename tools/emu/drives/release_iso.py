@@ -2,8 +2,10 @@
 """发布 ISO 原版开机链：完整 IPL 四屏 → 免责/自动存档告知 → 初始形态标题菜单。
 
 引导 build/dist/game_zh.iso 本体（不是目录盘），无任何测试引导。
-期望：00 帧在 IPL/告知屏；02 帧标题菜单为初始三项（Prologue / load / option）
-——即 startMenuState=0，flag 未被预开；ERROR 日志与原盘同源（0 或 1 条 HLE 噪声）。
+期望：`wait_game` 的 35 秒静置早已放过完整 IPL 四屏与免责/自动存档告知，00 帧
+落地时已是标题画面（不是 IPL/告知屏——文件名 `00_ipl.png` 是历史遗留，实况见此）；
+02 帧标题菜单为初始三项（Prologue / load / option）——即 startMenuState=0，
+flag 未被预开；ERROR 日志与原盘同源（0 或 1 条 HLE 噪声）。
 """
 import asyncio
 

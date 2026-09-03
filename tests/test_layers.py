@@ -310,6 +310,72 @@ def test_check_ids_rejects_bad_range_profile(tmp_path):
     assert "staging" in str(e.value)
 
 
+def test_check_ids_rejects_unregistered_id_inside_overlay_text(tmp_path):
+    # 叠加层用 insert_before 的 text 字段塞进一条 vms() 调用，没有在 vms_ids.toml
+    # 登记任何 overlays/alpha.toml 的区段——必须跟脚本文本一样被挡住。
+    overlay = """
+target = "snr_common.lua"
+profile = "release"
+why = "测试用"
+[[ops]]
+op = "insert_before"
+anchor = "a"
+text = 'vms(500, "NONVOICE", "x")\\n'
+"""
+    root = _mk_layers(tmp_path, overlays={"alpha": overlay})
+    man = load_manifest(root)
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids=set())
+    assert "overlays/alpha.toml" in str(e.value)
+    assert "没有在" in str(e.value)
+
+
+def test_check_ids_rejects_overlay_id_colliding_with_ledger(tmp_path):
+    # 即便区段登记了，落在段内的 id 撞上账本仍要报错——与脚本文本同规格。
+    overlay = """
+target = "snr_common.lua"
+profile = "release"
+why = "测试用"
+[[ops]]
+op = "replace"
+find = "a"
+with = 'vms(150, "NONVOICE", "x")\\n'
+"""
+    root = _mk_layers(tmp_path, overlays={"alpha": overlay})
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "overlays/alpha.toml"\nvms = [[100, 200]]\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        check_ids(man, root, ledger_ids={150})
+    assert "150" in str(e.value)
+
+
+def test_check_ids_accepts_registered_in_range_overlay_id(tmp_path):
+    # 正面用例：登记了 overlays/alpha.toml 的区段，id 落在段内、不撞账本——放行。
+    overlay = """
+target = "snr_common.lua"
+profile = "release"
+why = "测试用"
+[[ops]]
+op = "insert_after"
+anchor = "a"
+text = 'vms(150, "NONVOICE", "x")\\n'
+"""
+    root = _mk_layers(tmp_path, overlays={"alpha": overlay})
+    man = load_manifest(root)
+    (root / "vms_ids.toml").write_text(
+        '[[ranges]]\nowner = "overlays/alpha.toml"\nvms = [[100, 200]]\n', encoding="utf-8")
+    check_ids(man, root, ledger_ids=set())
+
+
+def test_check_ids_overlay_without_ids_needs_no_registry_entry(tmp_path):
+    # 反面对照：ALPHA_OVERLAY（find="a"/with="b"，不含任何 vms(/msg( 调用）不必
+    # 在 vms_ids.toml 登记 overlays/alpha.toml——这正是现行四个叠加层的实况。
+    root = _mk_layers(tmp_path)   # 默认 overlays={"alpha": ALPHA_OVERLAY}
+    man = load_manifest(root)
+    check_ids(man, root, ledger_ids=set())
+
+
 def test_charset_takes_non_ascii_from_string_literals_only():
     src = 'vms(1, "NONVOICE", "谢幕")\n-- 注释里的字不算：飨\nlocal x = 1\n'
     codes = charset_of([src], ledger_jp=[], always=[])

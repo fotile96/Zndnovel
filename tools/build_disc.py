@@ -308,6 +308,33 @@ def _encode_gim_cached(png: Path, tpl_path: Path, out: Path, force: bool,
     return False
 
 
+def _require_bake_face(ctx: BuildContext, root: Path, src_dir: str) -> bool:
+    """`build/<src_dir>/`（某个烤字面的源 PNG 目录）缺失时该怎么办。
+
+    release 剖面：硬失败。`release_assertions` 看不到这种缺失——它比对的是
+    `new_members.json`，而那份记录本就是在这里"跳过整面"之后才写出的，缺失的
+    成员干脆不会出现在期望集合里，全部发布闸都测不出来。志愿者拿到的盘不允许
+    带着某个烤字面完全空缺发布。
+
+    test 剖面：日志告警后跳过整面——test 剖面允许只烤过部分面就走查其余阶段
+    （`--stage members,stage,pack,iso` 这类局部重跑很常见），这是合法状态。
+
+    返回 True 表示调用方应当跳过整面（只有 test 剖面会走到这个分支——release
+    分支永远经 `die()` 退出，不会返回）。
+    """
+    if root.is_dir():
+        return False
+    if ctx.profile == "release":
+        die(f"release 剖面：{src_dir}/ 不存在——先跑生成 build/{src_dir}/ 的 "
+            f"tools/bake_*.py（在候选脚本源码里搜 out_dir(\"{src_dir}\") 定位具体是"
+            f"哪一个；也可查 layers/manifest.toml 里 [gim] 表旁的注释），"
+            f"产出 PNG 后重跑 members 阶段——release 盘不允许带着某个烤字面"
+            f"完全空缺发布")
+    log(f"members: test 剖面：{src_dir}/ 不存在，跳过整面（部分烤字面缺失在 "
+        f"test 剖面是合法状态）")
+    return True
+
+
 def stage_members(ctx: BuildContext) -> dict:
     """成员树：先清空再重建。编译 lua/final → members/script/；gim 按
     layers/manifest.toml 的 [gim] 两表（replace/new）编码（经缓存）→
@@ -344,8 +371,7 @@ def stage_members(ctx: BuildContext) -> dict:
     n_gim = n_cached = 0
     for src_dir, prefix in ctx.manifest["gim"]["replace"]:
         root = REPO / "build" / src_dir
-        if not root.is_dir():
-            log(f"members: {src_dir}/ 不存在，跳过整面")
+        if _require_bake_face(ctx, root, src_dir):
             continue
         for png in sorted(root.rglob("*.png")):
             if png.name.startswith("_"):
@@ -361,8 +387,7 @@ def stage_members(ctx: BuildContext) -> dict:
             n_gim += 1
     for src_dir, prefix, tpl_member in ctx.manifest["gim"]["new"]:
         root = REPO / "build" / src_dir
-        if not root.is_dir():
-            log(f"members: {src_dir}/ 不存在，跳过整面（新增件，先跑对应 bake 工具）")
+        if _require_bake_face(ctx, root, src_dir):
             continue
         for png in sorted(root.rglob("*.png")):
             if png.name.startswith("_"):

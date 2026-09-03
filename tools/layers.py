@@ -215,9 +215,16 @@ def _ranges_of(entry: dict, key: str) -> list[range]:
 def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
     """id 登记检查：落在本层区段内、owner 区段两两不交、不与保留集相交、全局唯一。
 
+    覆盖两类来源：`manifest["scripts"]` 里的脚本文件，以及
+    `manifest["overlays"]["order"]` 里每个叠加层 ops 的 `with`/`text` 字段——
+    叠加层插入的文本一样可能含 `vms(`/`msg(` 调用，必须与脚本文本同等对待
+    （设计 §6.3；否则可以绕开 check_ids 塞进未登记甚至撞账本的 id）。owner 键为
+    `f"overlays/{name}.toml"`。**不含任何 id 的叠加层不必在 vms_ids.toml 登记**——
+    只有叠加层确实引入了 id，才会因缺注册而报「未登记区段」。
+
     保留集 = 账本 id ∪ [18001, 18195]（卡消息由引擎按 18000 + 卡号动态生成）。
     `[[ranges]]` 可选 `profile`（缺省 "release"）。test 层（探针沿用 9000 段，
-    测试盘永不出货）免于与保留集比对，但两两不交、以及下面脚本扫描里的「全局
+    测试盘永不出货）免于与保留集比对，但两两不交、以及下面扫描里的「全局
     唯一」两道对 test 层同样生效——「免检」只免保留集这一项，不是整层放行。
     """
     reg = _read_toml(root / "vms_ids.toml")
@@ -259,6 +266,17 @@ def check_ids(manifest: dict, root: Path, ledger_ids: set[int]) -> None:
         # 用传进来的 root 而不是模块级 LAYERS——夹具测试要能指向 tmp_path。
         text = (root / spec["file"]).read_text(encoding="utf-8")
         _check_ids_of(spec["file"], text, owned, seen, ledger_ids)
+
+    for name in manifest["overlays"]["order"]:
+        ov = load_overlay(root / "overlays" / f"{name}.toml")
+        # with（replace/replace_span）与 text（insert_before/insert_after）是叠加层
+        # 里唯一可能携带新增剧情文本、进而携带 vms(/msg( 调用的字段；find/anchor/
+        # start/end 只是定位用的既有代码片段，不必扫。
+        blob = "\n".join(str(op[key]) for op in ov.get("ops", [])
+                         for key in ("with", "text") if key in op)
+        if not collect_ids(blob):
+            continue   # 未引入任何 id 的叠加层无需在 vms_ids.toml 登记
+        _check_ids_of(f"overlays/{name}.toml", blob, owned, seen, ledger_ids)
 
 
 def _check_ids_of(owner: str, text: str, owned, seen, ledger_ids) -> None:
@@ -463,10 +481,13 @@ def _injected_sources(manifest: dict, ledger_rows: list[dict]) -> dict[str, str]
 
     做法：复用 tools/inject_lua 已经在跑、已被信赖的按 (file,line) 替换逻辑
     （`load_translations`/`inject_tree`，直接 import，不重新实现一遍），在内存里
-    补上翻译。刻意**不**叠 inject_lua.main() 里那段槽 1 字体补丁
-    （`FONT_SLOT1_FROM/TO`）：那一步已被 `layers/overlays/fonts.toml` 接管；两处
-    都做，fonts 层的 `find` 锚点在注入后就找不到了（叠加引擎的 count 断言会当场
-    硬失败，不会静默叠两次）——inject_tree() 本身不含字体补丁，只调它就自然绕开。
+    补上翻译。真正的不变量：`inject_tree()` 不触碰任何一条 `fontLoad` 行（槽 0、
+    槽 1 皆不碰）——两个字体槽的改写权完整、唯一地属于
+    `layers/overlays/fonts.toml`（`FONT_SLOT1_FROM/TO` 那段曾经存在的槽 1 补丁
+    已随「inject_lua 收缩为纯注入」整段删除）。这正是 fonts 层能在注入之后仍精确
+    命中的原因：它的 `find` 锚点是两行原始 `fontLoad(...)` 字面量，若 inject_tree()
+    改过其中任何一行，锚点就会命中 0 次，叠加引擎的 count 断言会当场硬失败
+    （不会静默错位或叠两次）。
 
     ⚠ 2026-09-03（Task 8）：本函数原先自己重走一遍「按 (file,line) 分组 →
     逐文件调 inject_text()」的循环，是 `inject_lua.inject_tree()` 定形前的产物
@@ -542,8 +563,10 @@ def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) ->
     ②成员集合必须双向核对，不能只按 `sources` 里已有的名字去 `ref_dir` 里找。
     旧写法只查「sources 的每个名字，ref_dir 里在不在」——如果 `build_final_sources`
     因为清单写错漏收了一个成员（例如 `[[scripts]]` 的 `profile` 手滑写成
-    `"test"`，`snr_finale.lua` 就会在 release 剖面被悄悄跳过，见该函数第 441-442
-    行），`sources` 会比 `ref_dir` 少一个文件，而分母 `len(sources)` 也跟着变小——
+    `"test"`，`snr_finale.lua` 就会在 release 剖面被 `build_final_sources` 里
+    `if spec.get("profile", "release") == "test" and profile != "test": continue`
+    那条判断悄悄跳过——行号会随文件改动漂移，故这里引判断本身的文本而不是行号），
+    `sources` 会比 `ref_dir` 少一个文件，而分母 `len(sources)` 也跟着变小——
     "229/229 相同"照样打印、退出码照样 0，盘却丢了整个谢幕章。现在先把两个目录的
     文件名集合各自对比一遍，任何一侧独有的名字都计入 `bad`，参与最终判定。
     """

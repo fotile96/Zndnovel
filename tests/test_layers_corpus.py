@@ -102,7 +102,7 @@ def test_overlay_targets_all_exist_in_base(manifest):
         assert (base / ov["target"]).exists(), f"{name} 的 target 不在基座里"
 
 
-def test_injected_sources_translates_and_skips_old_font_patch(manifest, ledger_rows):
+def test_injected_sources_translates_and_leaves_font_lines_untouched(manifest, ledger_rows):
     """`_injected_sources` 是本任务在 brief 之外新增的（tools/layers.py）：CLI 的
     `check --compare-compiled` 拿它给 `build_final_sources` 供真译文，因为比对
     目标是真实发布链路编出的字节码（译文早已注入），`build_final_sources` 缺省
@@ -110,9 +110,11 @@ def test_injected_sources_translates_and_skips_old_font_patch(manifest, ledger_r
     被判「不一致」，而这不是层写错了。
 
     这里钉两件事：①真的翻译了（重头故事章节 snr_s1_10_s 与基座原文不再相同）；
-    ②刻意不重放 tools/inject_lua.py 里那段槽 1 字体补丁（FONT_SLOT1_FROM/TO）
-    ——那一步已转交 layers/overlays/fonts.toml；两处都做的话，fonts 层的
-    `find` 锚点在注入后就找不到了（叠加引擎按 count 断言硬失败，不会静默叠两次）。
+    ②`inject_tree()` 不触碰 `fontLoad` 的槽 0、槽 1 任何一行——两个字体槽的改写权
+    完整属于 `layers/overlays/fonts.toml`（曾经存在于 tools/inject_lua.py 的槽 1
+    补丁 `FONT_SLOT1_FROM/TO` 已随「inject_lua 收缩为纯注入」整段删除，不是「刻意
+    绕开」，是那段代码已经不存在了）。若 inject_tree() 改过其中任何一行，fonts 层
+    的 `find` 锚点在注入后就会找不到、按 count 断言当场硬失败，不会静默叠两次。
     """
     from tools.layers import _injected_sources
 
@@ -123,4 +125,5 @@ def test_injected_sources_translates_and_skips_old_font_patch(manifest, ledger_r
     pristine = (base / "snr_s1_10_s.lua").read_text(encoding="utf-8")
     assert injected["snr_s1_10_s.lua"] != pristine
 
+    assert 'fontLoad(0, "pgf/tsukuminpro_e_17.pgf")' in injected["snr_common.lua"]
     assert 'fontLoad(1, "pgf/tsukuminpro_e_09.pgf")' in injected["snr_common.lua"]

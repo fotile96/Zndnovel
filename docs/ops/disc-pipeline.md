@@ -122,13 +122,17 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
    vms   = [[17500, 17500]]
    ```
 
-   ⚠ **现状缺口**：`layers.py check`（`check_ids()`）目前只扫描 `manifest.toml` 的
-   `[[scripts]]` 里登记的独立脚本文件（如 `snr_finale.lua`）用了哪些 id，**不扫描叠加层
-   `ops[].text`/`with` 字段里新引入的 id**——`vms_ids.toml` 的登记在这条路径上目前只是
-   文档与人工纪律，不是自动闸。要让它变成真闸，仿照
-   `tests/test_layers_corpus.py::test_finale_ids_are_inside_declared_range` 的写法给新层加
-   一条真语料测试：装配出 `sources["snr_novel.lua"]`、`collect_ids()` 扫一遍、断言落在
-   `vms_ids.toml` 声明的区段内。新增覆盖新增文本的层时建议同时补这条测试。
+   `layers.py check`（`check_ids()`）现在同时扫描两类来源：`manifest.toml` 的
+   `[[scripts]]` 里登记的独立脚本文件（如 `snr_finale.lua`），以及
+   `manifest.toml` 的 `[overlays].order` 列出的**每个叠加层** `ops[].text`/`with`
+   字段里新引入的 id——两者用同一套区段/两两不交/撞账本判定，登记键分别是脚本的
+   `file` 路径与 `f"overlays/{层名}.toml"`。**不含任何 id 的叠加层不必登记**（现有
+   四个层——`fonts`/`encore-menu`/`strip-ipl`/`boot-handoff`——都不含 id，登记与否
+   对它们是无操作）；一旦某层的 `text`/`with` 里出现 `vms(`/`msg(` 调用而
+   `vms_ids.toml` 没有对应 `owner = "overlays/<层名>.toml"` 的 `[[ranges]]`，
+   `check_ids()` 会硬失败。仍建议仿照
+   `tests/test_layers_corpus.py::test_finale_ids_are_inside_declared_range` 的写法给
+   引入新 id 的层加一条真语料测试作为文档化证据，但拦截本身不再依赖它。
 
 4. **`layers.py check`**：
 
@@ -160,6 +164,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | id 登记检查（`check_ids`） | `layers.py check` / `build_disc.py` 的 `lua` 阶段 | 编外脚本用到的 vms/卡消息 id 越出自己声明的区段、与账本或卡消息保留段（`18001..18195`）冲突、不同所有者声明的区段互相重叠 |
 | 字体新鲜度比对 | `build_disc.py` 的 `font` 阶段 | 字集变化（新增本地化文本、编外脚本改了用字）后忘记重建字体，导致新增字符在成片渲染成空白；比对的是字集**内容**而非文件字节数，避免「凑巧同大小」的假阴性 |
 | gim 成员对应检查 | `build_disc.py` 的 `members` 阶段 | 烤字工具产出的 PNG 在 `manifest.toml` 的 `[gim]` 两表里找不到对应封包成员——多半是烤字面写错了目标目录名，或成员名拼写与原包不一致 |
+| 烤字面完整性（`_require_bake_face`） | `build_disc.py` 的 `members` 阶段 | release 剖面下某个 `build/<face>/` 目录整个不存在（对应 bake 工具没跑过）——硬失败，不允许发布盘缺整面烤字；test 剖面日志告警后跳过整面（局部走查合法） |
 | 封包表有序性 | `build_disc.py` 的 `stage` 阶段（`assemble_stage`，`bisect` 插入） | 新增成员插入位置破坏「成员名严格升序」——引擎二分查找找不到、字体/新图直接不生效（2026-08-31 曾实测三次插入位置对照实验，见 `zh-disc-pipeline-2026-08-31.md`） |
 | stage 树指纹核对 | `build_disc.py` 的 `iso` 阶段 | `build/<profile>/DATA.BIN` 不是从**当前**这棵 stage 树打出来的（例如重新跑过 `stage` 但漏跑 `pack`），防止发布一份与「当前源码状态」对不上的旧包 |
 | 独立重编译逐字节核对 | `build_disc.py` 的 `iso` 阶段 | `stage/script/*.lua` 与译文管线**独立重新编译** `lua/final/*.lua` 的结果不一致——不查特征串，直接拿译文管线产物当基准整体比对，测试引导无论改了什么，只要与管线产物不一致就会被抓住 |
@@ -176,22 +181,27 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
   的施加顺序排在这层之前、动过了同一段代码。锚点只能是代码文本不是巧合——可译文本会被
   译文替换，行号会随基座迁移漂移，两者都不配当锚点。
 - **id 撞号**：`check_ids` 的报错文本会指出具体是哪一类——「与账本冲突」「与保留段
-  `18001..18195` 相交」「两个 owner 的区段重叠」「同一个 id 被两个 owner 同时使用」。
-  处理方式都是去 `layers/vms_ids.toml` 改区段，不要去改冲突的另一侧（账本 id 是已发布的
-  已读标记锚点，绝不能挪）。若是叠加层引入的新 id（而非 `[[scripts]]` 里的编外脚本），
-  记住上文第 3 步的缺口：`check_ids` 不会自动扫到它，撞号要么在真语料测试里手写断言
-  抓出来，要么游戏内测试时才会现形（同一 id 两处 `vms` 调用会互相覆盖已读标记与文本）。
+  `18001..18195` 相交」「两个 owner 的区段重叠」「同一个 id 被两个 owner 同时使用」「没有
+  在 layers/vms_ids.toml 登记 id 区段」。处理方式都是去 `layers/vms_ids.toml` 改/加区段，
+  不要去改冲突的另一侧（账本 id 是已发布的已读标记锚点，绝不能挪）。`check_ids` 同时扫描
+  `[[scripts]]` 里的编外脚本与每个叠加层 `ops[].text`/`with` 字段新引入的 id（登记键
+  `f"overlays/{层名}.toml"`）——两者受同一套检查，叠加层不再是这道闸的盲区。
 - **字体过期**：`build_disc.py --stage font` 报「字集有变化或字体产物缺失，需要重建，
   但缺 ttf_pgf」——去 `docs/ops/pgf-font-research-2026-08-31.md` 按其生产管线装
   `ttf_pgf`（或设 `SNDL_TTF_PGF` 指到已有安装），然后重跑同一条命令即可，脚本会自己
   判断需要重建还是复用现役字体，不需要手工删 `build/font/`。
-- **成员集合不符**（`iso` 阶段 `release_assertions` 报「封包树有未声明的成员」或
-  「封包树缺声明的成员」）：前者多半是上一轮 test 剖面的产物混进了 release 的
-  `build/release/`（结构上不该发生，若发生了检查是不是手动改过 `build/` 下的文件）；
-  后者多半是 `manifest.toml` 新加了 `[[scripts]]`/`[gim].new` 条目但没有先跑对应的
-  `tools/bake_*.py` 产出源文件，`members` 阶段那一整面会被跳过（日志会打「不存在，跳过
-  整面」），到 `iso` 阶段发布断言才被追认为「缺声明的成员」。补跑 bake 工具、重跑
-  `--stage members,stage,pack,iso` 即可。
+- **成员集合不符**（`iso` 阶段 `release_assertions` 报「封包树有未声明的成员」）：多半是
+  上一轮 test 剖面的产物混进了 release 的 `build/release/`（结构上不该发生，若发生了检查
+  是不是手动改过 `build/` 下的文件）。
+- **烤字面整个缺失**（`members` 阶段硬失败，报「release 剖面：`<face>/` 不存在」）：
+  `manifest.toml` 新加了 `[[scripts]]`/`[gim].new`/`[gim].replace` 条目、或某个既有 face
+  目录被误删，但没有先跑对应的 `tools/bake_*.py` 产出源文件。**这不是在 `iso` 阶段才
+  发现的**——`_require_bake_face` 在 release 剖面下于 `members` 阶段就直接 `die()`，
+  不会走到发布断言那一步（旧行为是 `members` 悄悄打日志跳过整面、`release_assertions`
+  测不出这个缺失，缺整面烤字的 release 盘能一路放行；这道差距已经堵上）。补跑
+  `tools/bake_*.py`（缺哪个 face 就搜该工具源码里的 `out_dir("<face>")` 定位是哪一个），
+  重跑 `--stage members,stage,pack,iso` 即可。test 剖面仍然允许局部烤字面缺失，只告警
+  跳过整面，便于分阶段走查。
 
 ## 验证
 

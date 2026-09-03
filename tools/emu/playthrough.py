@@ -6,8 +6,8 @@
 （软渲染 + 无随机源，实测可复现）。
 
 用法:
-  uv run python tools/emu/playthrough.py --disc build/game --out build/emu/zh
-  uv run python tools/emu/playthrough.py --disc build/game_orig --out build/emu/jp
+  uv run python tools/emu/playthrough.py --disc build/release/game --out build/emu/release
+  uv run python tools/emu/playthrough.py --disc build/test/game --out build/emu/test
 """
 from __future__ import annotations
 

@@ -174,6 +174,12 @@ def test_stage_iso_catches_data_bin_packed_from_a_different_stage_tree(
     import tools.build_disc as bd
 
     monkeypatch.setattr(bd, "BASE", mini)
+    # 这条测试预期在 stage_iso 的指纹核对处就 SystemExit；DIST/ORIG_ISO 指向真
+    # 实的 build/dist/ 与 assets/orig.iso 只在"该守卫哪天失灵、代码真的往下
+    # 跑到发布阶段"时才会被摸到——但那正是本机会真被写坏发布产物/真实 ISO 的
+    # 时候，必须重定向到 tmp_path，不能指望前面的断言不失手。
+    monkeypatch.setattr(bd, "DIST", tmp_path / "dist")
+    monkeypatch.setattr(bd, "ORIG_ISO", tmp_path / "nonexistent.iso")
     ctx = bd.BuildContext(profile="release", root=tmp_path / "root",
                           manifest=load_manifest(), switches={}, mode_opts={},
                           force=False)
@@ -219,6 +225,11 @@ def test_stage_iso_catches_members_compiled_from_stale_lua_final(
     import tools.build_disc as bd
 
     monkeypatch.setattr(bd, "BASE", mini)
+    # 同 Finding 2 的测试：只 monkeypatch BASE 不够，DIST/ORIG_ISO 仍指向真实
+    # build/dist/ 与 assets/orig.iso；一旦前面的守卫哪天失灵，测试会真的往
+    # 发布阶段跑并写坏它们，必须重定向。
+    monkeypatch.setattr(bd, "DIST", tmp_path / "dist")
+    monkeypatch.setattr(bd, "ORIG_ISO", tmp_path / "nonexistent.iso")
     ctx = bd.BuildContext(profile="release", root=tmp_path / "root",
                           manifest=load_manifest(), switches={}, mode_opts={},
                           force=False)
@@ -250,3 +261,52 @@ def test_stage_iso_catches_members_compiled_from_stale_lua_final(
         bd.stage_iso(ctx)
     out = capsys.readouterr().out
     assert "script/m.lua 与本次编译产物不一致" in out, out
+
+
+def test_require_bake_face_dies_on_release_when_face_dir_missing(tmp_path, capsys):
+    """Must-fix 3：release 剖面下某个烤字面（build/<face>/）完全没跑过 bake 工具时，
+    stage_members 过去只打一行「不存在，跳过整面」日志就继续——release_assertions
+    看不见这个缺失（它比对 new_members.json，而那份记录正是在这次跳过之后才写的），
+    于是缺了某整面烤字的 release 盘能一路通过全部发布闸。`_require_bake_face` 是从
+    stage_members 里抽出来的决策点：不依赖真实资产（databin/luac/PNG）就能单测。
+    """
+    import tools.build_disc as bd
+
+    ctx = bd.BuildContext(profile="release", root=tmp_path / "root", manifest={},
+                          switches={}, mode_opts={}, force=False)
+    missing = tmp_path / "build" / "card_zh"
+    assert not missing.exists()
+
+    with pytest.raises(SystemExit) as e:
+        bd._require_bake_face(ctx, missing, "card_zh")
+    msg = str(e.value)
+    assert "card_zh" in msg
+    assert "release" in msg
+
+
+def test_require_bake_face_logs_and_skips_on_test_profile(tmp_path, capsys):
+    """对照：同样缺失的烤字面，test 剖面允许部分烤字面缺失，只告警跳过整面，
+    不硬失败——这是 test 剖面局部走查（`--stage members,stage,pack,iso`）的合法状态。
+    """
+    import tools.build_disc as bd
+
+    ctx = bd.BuildContext(profile="test", root=tmp_path / "root", manifest={},
+                          switches={}, mode_opts={}, force=False)
+    missing = tmp_path / "build" / "card_zh"
+
+    assert bd._require_bake_face(ctx, missing, "card_zh") is True
+    out = capsys.readouterr().out
+    assert "card_zh" in out
+    assert "test" in out
+
+
+def test_require_bake_face_returns_false_when_dir_exists(tmp_path):
+    """正面对照：目录存在时两个剖面都不该触发跳过或失败。"""
+    import tools.build_disc as bd
+
+    present = tmp_path / "build" / "card_zh"
+    present.mkdir(parents=True)
+    for profile in ("release", "test"):
+        ctx = bd.BuildContext(profile=profile, root=tmp_path / "root", manifest={},
+                              switches={}, mode_opts={}, force=False)
+        assert bd._require_bake_face(ctx, present, "card_zh") is False

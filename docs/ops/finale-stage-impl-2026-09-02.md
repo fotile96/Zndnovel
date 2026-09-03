@@ -1,5 +1,8 @@
 # 谢幕章演出实施与模拟器验证台账（2026-09-02）
 
+> ⚠ **已被 `docs/ops/disc-pipeline.md` 取代**（2026-09-02 管线规范化）。本文保留为历史
+> 记录：其中的实测数据与故障机理仍然有效，但**命令与目录结构已过时**，不要照抄。
+
 交接书 `docs/finale/handoff-stage-impl.md` 的执行记录。分支 `feat/finale-stage`，
 共 6 个实施 commit（title_14_a 无小注定稿 → snr_finale 白入修正 → make_test_boot
 fin- 支持 → build_disc 集成 → 主菜单 8 处 → 层 198 证伪回退）。

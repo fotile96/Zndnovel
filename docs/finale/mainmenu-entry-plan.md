@@ -11,6 +11,11 @@
 > title_14_a 在 `l0_4` 卡 144 分支里**绘制期同步 layerLoad 直载工作层**，snr_common
 > 零改动，§6.8 的常驻层记账作废。小注按 2026-09-01 裁定 E22 整体不烤（§5 的小注段
 > 作废）。其余按本方案逐字落地并模拟器验证，见 docs/ops/finale-stage-impl-2026-09-02.md。
+>
+> **追记（2026-09-02 管线规范化）**：本节 §2.1/2.2 描述的 8 处手工改动，实现已成
+> `layers/overlays/encore-menu.toml`（叠加层，锚点=代码文本，施加于装配期而非手改
+> `lua_scripts/`）；`snr_finale.lua` 的 canonical 源同期迁至 `layers/scripts/snr_finale.lua`。
+> 命令面现行说明见 `docs/ops/disc-pipeline.md`。
 
 ## 0. 结论速览
 

@@ -47,6 +47,10 @@ skeleton/                       翻译骨架（git tag skeleton-v1 冻结）：c
                                 + 合并版 cards.{jp,zh}.yaml + anchors.yaml（120 条伏笔锚点定译）
 glossary/                       术语层：glossary.v1..v6.yaml（append-only，最高版为现行）+ active.json + speakers.json
                                 + style.md（风格与润色尺度）+ voices/ 7 份角色口调表
+layers/                         本地化改动层（基座只读，一切改动落在这里）：manifest.toml（清单：
+                                基座/账本/车道/编译器路径、overlays 施加顺序、编外脚本、gim 面映射、
+                                字体成员）+ vms_ids.toml（id 区段登记）+ overlays/*.toml（叠加操作，
+                                锚点=代码文本）+ scripts/*.lua（编外新增整篇脚本，如 snr_finale.lua）
 pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12，不钉精确版；deps: pillow/pyyaml）
 ```
 
@@ -54,7 +58,11 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 这些 lua 是反编译产物。**2026-08-31 已换基座**：来源从旧 pyluadec 产物改为 `~/pyluadec-refactor/corpus/final/`（`tools/migrate_base.py` 执行，迁移依据与验收见 `docs/ops/decompiler-base-migration-2026-08-31.md`）。新基座**每个文件重编译后与游戏原始字节码逐字节相同**（229/229，仅 `linedefined/lastlinedefined` 行号字段不同——`tools/luac_norm.py` 归零后比对可复验）；旧基座 0/229。
 
-当前形态与约定：（1）局部名是 `l<depth>_<reg>` 型（如 `l1_2`），**不再是 v0/p0**；顶层函数名（`scene_*`、`card_*`）与旧基座逐名相同，是跨基座唯一稳定锚；（2）`snr_common.lua` 的字体 0 已换成 `pgf/LXGWWenKai-Regular.pgf`（迁移时自动重放，`FONT_PATCH`）；字体槽 1 的中文化不在源里，由 `tools/inject_lua.py` 在注入期改写；（3）164 个文件带 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等），由 `migrate_base.py` 的 `add_tr_line_markers()` 机械重生成，规则已对旧基座验证 678/678 复现。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
+**`lua_scripts/` 是只读纯净基座，与原始字节码逐字节等价**（`luac_norm` 229/229，由
+`tests/test_base_fidelity.py` 钉住）；**一切本地化改动是 `layers/` 下的层，绝不直接改基座**。
+层如何装配、四类改动各自的落点与命令、加一个新层的完整走查，见 `docs/ops/disc-pipeline.md`。
+
+当前形态与约定：（1）局部名是 `l<depth>_<reg>` 型（如 `l1_2`），**不再是 v0/p0**；顶层函数名（`scene_*`、`card_*`）与旧基座逐名相同，是跨基座唯一稳定锚；（2）`snr_common.lua` 里两个字体槽在基座上仍是原版 `pgf/tsukuminpro_e_{17,09}.pgf`（基座纯净，不含字体补丁）——两槽的中文化都不在源里，由 `layers/overlays/fonts.toml` 这一个层统一改写为 `pgf/LXGWWenKai-Regular{,-09}.pgf`（`tools/inject_lua.py` 现在只做纯译文注入，不碰字体行）；（3）164 个文件带 `-- tr_line:N` 注释，标记"嵌在结构调用里的可译文本"（场景标题、`oCard.show` 提示语等），由 `migrate_base.py` 的 `add_tr_line_markers()` 机械重生成，规则已对旧基座验证 678/678 复现。**修改脚本时保持这些约定**；`vms()` 的消息编号绝对不要改动（见下）。
 
 ⚠ **行号不是稳定锚**：`data/ledger*.jsonl` 的 `line` 字段与 extra 轨的 `文件:行号` 键都随基座变化，换基座必须整体重生成并重挂译文（迁移脚本已代劳；重挂靠 `(file, kind, jp)→zh` 唯一映射，实测 791 组 0 冲突）。
 
@@ -122,13 +130,16 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
   - s6：サクラからの手紙 → 図書室 → 『True Color』（s6s_150_sel 需卡 103 大谜题解锁）→ 中庭の雪完结。多 GAMEOVER。
   - s7：**无 `_s`**，只有 s7f（主菜单直入）＝现实层高潮章（重演坠楼日）+ 第一次 staff roll。
   - s8：s8s 仅 5 场（僕の言葉→フェンスの向こう側→誰も見たことのない夕焼け）；s8f=黎明结局 + 五年后 + 第二次 staff roll。
-  - 谢幕章（encore，2026-09-02 本地化新增·编外）：`docs/finale/snr_finale.lua`（canonical 源
-    **刻意不入 lua_scripts/**——build_ledger 会把中文正文当 jp 源收账，打破「缺译 0」闸；
-    由 build_disc.stage_lua 编译为新成员 script/snr_finale.lua）。场景 fin-10..50，主菜单
-    encore 项直达（卡 144 门控，`snr_mainmenu` 第 5 形态），**绝不进 storyRoute**；
-    vms 17300–17481 + 卡消息 18201–18207 已实测冻结。谢幕卡 crd_201..207 与菜单图
-    title_14_a 经 build_disc `NEW_GIM_SOURCES` 进包（模板 crd_1_a/title_13_a）。
-    实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md。
+  - 谢幕章（encore，2026-09-02 本地化新增·编外）：canonical 源在 `layers/scripts/snr_finale.lua`
+    ——编外脚本刻意不入 `lua_scripts/`（那是只读基座，混入中文正文会打破基座与原始字节码的
+    逐字节等价）；由 `layers/manifest.toml` 的 `[[scripts]]` 登记，`build_disc.py` 的 `lua`
+    阶段经 `tools/layers.py::build_final_sources` 装配为新成员 `script/snr_finale.lua`。场景
+    fin-10..50，主菜单 encore 项直达（卡 144 门控，`snr_mainmenu` 第 5 形态，改动落在
+    `layers/overlays/encore-menu.toml`），**绝不进 storyRoute**；vms 17300–17481 + 卡消息
+    18201–18207 已实测冻结（登记见 `layers/vms_ids.toml`）。谢幕卡 crd_201..207 与菜单图
+    title_14_a 经 `layers/manifest.toml` 的 `[gim].new` 表进包（模板 crd_1_a/title_13_a）。
+    实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md（已被 docs/ops/disc-pipeline.md
+    取代为现行命令面，历史记录仍有效）。
   - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。
   - e2s：千秋（多年后）的调查——**只有对方半边的电话/拜访独白**（老教师/筑紫(きくちゃん)/护士/雪乃生父/酒吧老板/彩野母）；e2f：雪乃弥留之际"编纂"的if 幸福线（标题回收章）。
 - GAMEOVER/COMPLETE/TIMEOVER 都进 `comStorySceneEnd` 三选单（回 Story/去 Fragment/回菜单）。
@@ -171,6 +182,10 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 - **环境**：uv 管理的项目 venv。新会话先 `uv sync`；跑脚本 `uv run python ...`；加依赖 `uv add <pkg>`。`pyproject.toml`/`uv.lock` 入库，`.venv/` 已 gitignore。**只设下限 `>=3.12` 且不入 `.python-version`**：钉死精确版会让云端环境（Ubuntu 24.04 自带 3.12）必须联网下载托管解释器，且 root 建环境／非 root 跑会话的归属问题随之而来；3.12/3.13/3.14 全测已验证等价。`tools/extract_*.py` 保持纯 stdlib（系统 python3 也能直接跑）。LLM API key 走 `.env`（已 gitignore）或环境变量，绝不入库。
 - **原始资产只读**：`lua_scripts/`、`png/` 不就地修改。注入/回写类输出先落 `build/`（gitignore）；确需改原件时走分支，游戏内验证后再合并。
+- **层纪律**：新增本地化文本 → 建叠加层（`layers/overlays/*.toml`）+ 在 `layers/vms_ids.toml`
+  登记 id 段；改谢幕章 → 改 `layers/scripts/snr_finale.lua`；要测试捷径（跳 IPL、直入场景、
+  全解锁主菜单等）→ `build_disc.py --profile test --mode …`；永远不要手改 `lua_scripts/`。
+  加层后先 `tools/layers.py check` 过闸再出盘，完整走查见 `docs/ops/disc-pipeline.md`。
 - **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。
 - **commit**：Claude 在每个自洽工作单元完成并自检通过后直接本地提交，无需逐次确认；一个逻辑变更一个 commit，工具代码与翻译数据分开提交。**push 仅在用户明示时执行**；如建远端必须 private（仓库含版权游戏素材，不得公开）。
@@ -202,7 +217,11 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 数场景/文本量：`grep -c '^scene_' lua_scripts/snr_s1_10_s.lua`；`grep -c 'vms(' lua_scripts/*.lua`。
 - 手工核对某章调度器：读文件末尾的 `main = function()`（`doScriptScene` 状态机）。
 - 解包/回封游戏资源包：`python3 tools/databin.py unpack assets/DATA.BIN build/databin`、`pack build/databin build/DATA.new.BIN`（`assets/` 为本机 gitignore 资产，不入库；回封无压缩，顺序按 manifest.jsonl 行序 = 原封包序）。
-- 产实机盘：`uv run python tools/build_disc.py --stage iso` → `build/dist/game_zh.iso`（就地替换 `assets/orig.iso` 里的 DATA.BIN）；单独用工具则 `python3 tools/umdiso.py replace <原iso> <新iso> /PSP_GAME/USRDIR/DATA.BIN <新DATA.BIN>`，改完必 `verify --against <原iso>` 看差异区间。
+- 产实机盘：先 `uv run python tools/layers.py check --profile release` 过闸（秒级，不产盘），
+  再 `uv run python tools/build_disc.py`（缺省 `--profile release --stage all`，跑到 `iso` 止）
+  → `build/dist/game_zh.iso`（就地替换 `assets/orig.iso` 里的 DATA.BIN；发布断言不过拒绝出盘）；
+  单独用工具则 `python3 tools/umdiso.py replace <原iso> <新iso> /PSP_GAME/USRDIR/DATA.BIN <新DATA.BIN>`，
+  改完必 `verify --against <原iso>` 看差异区间。剖面/层/阶段全貌见 `docs/ops/disc-pipeline.md`。
 - 读 novel 页图前先旋转：`python3 -c "from PIL import Image; Image.open(p).rotate(-90, expand=True).save(out)"`。
 - 图片均为 PSP 480×272 逻辑分辨率素材；改图（烤字 png）进游戏 = 量化到模板色板容量后
   `uv run python tools/gimcodec.py encode <原包同名模板.gim> <烤字.png> <out.gim>`，再经 databin.py 回封。

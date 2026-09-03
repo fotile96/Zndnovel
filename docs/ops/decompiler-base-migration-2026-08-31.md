@@ -1,5 +1,8 @@
 # 反编译语料基座迁移（2026-08-31）
 
+> ⚠ **已被 `docs/ops/disc-pipeline.md` 取代**（2026-09-02 管线规范化）。本文保留为历史
+> 记录：其中的实测数据与故障机理仍然有效，但**命令与目录结构已过时**，不要照抄。
+
 `lua_scripts/` 的来源从旧 pyluadec 产物换成 `~/pyluadec-refactor/corpus/final/`。
 执行工具 `tools/migrate_base.py`（可重跑，缺省只演练）。上游迁移指南见
 `~/pyluadec-refactor/docs/runbooks/zndnovel-naming-migration.md`。

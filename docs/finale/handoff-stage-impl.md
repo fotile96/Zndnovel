@@ -35,7 +35,7 @@ DATA.BIN／ISO，在模拟器与实机上从主菜单进入、全章跑通回到
 | 资产 | 位置 | 状态 |
 |---|---|---|
 | 谢幕章文稿 v2 | docs/finale/draft-finale-v2.md | **定稿**（文字层改动须回到发起人） |
-| 演出脚本 | docs/finale/snr_finale.lua | 初版，未测 |
+| 演出脚本 | layers/scripts/snr_finale.lua | 初版，未测 |
 | 七张卡面 PNG | build/finale_cards/（`tools/bake_finale_cards.py` 一键再生） | 成品，零溢出 |
 | 菜单图 title_14_a | docs/finale/assets/title_14_a.png（源）＋ build/finale_menu/（成品，`tools/bake_finale_menu.py` 再生） | 成品；**小注文案 pending，见待办 1** |
 | 主菜单改动方案 | docs/finale/mainmenu-entry-plan.md | 方案定稿，未实施 |

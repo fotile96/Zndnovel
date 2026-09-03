@@ -191,3 +191,13 @@ Task 9: 剖面隔离实证：三次 test 剖面构建（mainmenu / 手改 no144 
 Task 9: `--profile release --stage iso`：发布断言通过（指纹/成员集合/独立重编译逐字节/无测试成员），产出 ISO sha256 与本轮之前逐字节相同（f5c5f1c5ad01…）。release_iso.py：原版 IPL 链走完，35 秒处已是初始三项标题（Prologue/load/option，flag 未预开），三次 CIRCLE 进序章、中文题词烤图正常；ERROR 1 条同源噪声。
 Task 9: Ruling: 本任务由控制器直接执行、不派任务评审 — 理由：用户明示「直接在本 session 检查现状然后做完」；产物是六个驾驶脚本 + 一段文档，无产品代码路径变化，交由最终整分支评审覆盖 — 若判错的代价：驾驶脚本若有瑕疵会在最终评审被抓，且它们不进盘。
 Task 9: 附带发现（非缺陷）：release_iso.py 的 35 秒等待已越过 IPL，00 帧截到的是标题而非 IPL 屏；不影响所验断言（初始形态菜单），docstring 已如实描述帧含义。
+Task 9: complete (commits d5a4508..9863be5, 控制器直接执行，无任务评审——见上条裁决)
+Task 10: dispatched (sonnet, agent a85086525134663fb), BASE 9863be5
+Task 10: implementer DONE — commit 5ae9460（9 文件 +395/-10）：新 docs/ops/disc-pipeline.md；CLAUDE.md 三处 + 一处相邻的陈旧槽位描述订正；四份旧 ops 文档加取代横幅（zh-disc-pipeline 另加缺口已修注记）；两份 finale 文档路径改指 layers/scripts。Step 5 全绿：1766 passed；layers check release/test 均过；migrate_base --check 纯净；build_ledger --check OK；grep 无过时引用。
+Task 10: **候选：合并前应修（点给最终评审）**：实施者写文档时发现 `tools/layers.py::check_ids()` 只扫 manifest.scripts 里的编外脚本，**不扫叠加层 with/text 字段里出现的 vms/msg id**——设计 §6.3 明写两者都扫，Task 2 评审也曾以 ⚠ 标出。对本计划的驱动用例（novel 入口提示 = 一个带新 vms 的叠加层）这是直接漏洞：新层的 id 不会被登记检查。文档已如实写明该局限而非掩盖。
+Task 10: task review (sonnet) — spec ✅、quality **Approved**，0 Critical / 0 Important / 2 Minor；评审对新文档与 CLAUDE.md 里每条命令、旗标、阶段名、闸描述逐一对照真实工具与源码，全部相符。
+Task 10: minor (deferred): zh-disc-pipeline-2026-08-31.md 新加注记写「39 条漏译已修」并指向 release 文档，而后者标题写「41 条」（两个数是不同时点的口径），未注明差异来源。
+Task 10: minor (deferred): tools/migrate_base.py 模块 docstring 仍写「snr_common 字体行要在新基座上重打」，与 CLAUDE.md 新表述（字体行归 fonts.toml 层）矛盾——本任务被禁止碰 tools/*.py，留给最终 fix 波。
+Task 10: complete (commits 9863be5..5ae9460, review clean)
+Task 9: 说明：本任务由控制器直接执行，未写 task-9-report.md；证据在本台账 Task 9 各行与 docs/ops/finale-stage-impl-2026-09-02.md 的「2026-09-03 复验」节。
+全部 10 个任务完成。进入最终整分支评审。

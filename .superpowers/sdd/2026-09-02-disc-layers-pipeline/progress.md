@@ -180,3 +180,14 @@ Task 8: 评审对两条 caveat 的界定（记录备查）：①Finding 2 的指
 Task 8: complete (commits 73f609f..5e1adde, review clean) — 全库 1766 passed，test_build_disc 10/10（含 2 个真跑而非 skip 的 local_assets），三闸全过
 Task 8: **候选：合并前应修（点给最终评审）**：tests/test_build_disc.py:163-204 与 :207-252 两个新 local_assets 回归测试只 monkeypatch 了 BASE，没 patch DIST 与 ORIG_ISO（同轮的 Finding-1 测试是 patch 了的）。本机两个真实资产都在，故这两个测试是真跑不是 skip。当前代码下守卫会先抛 SystemExit，安全；但一旦守卫日后回归，重跑这两个「本该抓住回归」的测试反而会覆盖真实的 build/dist/DATA.BIN，并把一个 9 字节的玩具封包拼进真实 orig.iso 的副本当作 game_zh.iso——测试在最需要它的时刻毁掉发布产物。两行 monkeypatch 即可。
 Task 8: minor (deferred): stage_iso 里 DIST/DATA.BIN 的拷贝发生在 ISO 拼接与结构自检**之前**；若拼接或自检失败，dist 下会短暂出现「新 DATA.BIN + 旧 ISO + 旧 sidecar」的不一致（可自愈、可检测，且严格优于修复前的「零断言就发布」）。
+Task 9: 用户指出「Task 9 卡住」，实况是**从未派工**（无 agent、无报告、无 drives 目录）；按用户指示改由控制器在本 session 直接执行。
+Task 9: Ruling: brief Step 2 让 menu/library/no_card144/finale_full 四个驾驶脚本跑在 **release** 盘上，但它们全都依赖全解锁存档（195 卡 + startMenuState=2 + 卡 144），旧架构靠 make_test_boot 往共用的 build/game 里打补丁才做到；新架构 release 盘干净无探针、开机是初始三项菜单，这四个脚本在 release 盘上根本进不了要验的界面。裁定：四个脚本跑在 `--profile test --mode mainmenu` 产的 test 盘上，release 盘由 release_iso.py 走原版开机链验证 — 理由：这正是剖面分离后的正确分工，brief 是按旧共树写的 — 若判错的代价：无，验的界面完全相同，只是引导对象换到了本就该承载探针的剖面。
+Task 9: 驾驶脚本收纳时统一了底座（_common.py：--disc/--out 参数、等运行态、VRAM 截图、ERROR 汇总），六个脚本按键与时序逐字保留；缺省 --disc 为各自该用的盘（test 盘 / 发布 ISO）。
+Task 9: menu.py / library.py 在 test 盘跑通，各 ERROR 1 条 = ILLEGAL_THID sceKernelWaitThreadEnd(0)，与 08-31/09-01 记录的原盘同源 HLE 噪声一致。
+Task 9: finale_full.py 在 test 盘跑通：光标 5 步定位 encore（frac 0.17→0.35 与校准一致），p010 进 fin-10，p020–p180 谢幕五场画面依次出现（含 p170 千秋递卡、p180 黎明），p190 起已是 Story 模式（放学后的约定）——即谢幕章在 ~180 句处结束并回主菜单，其后 CIRCLE 溢出进 Story，与 2026-09-02 那次全章运行形态相同；ERROR 1 条同源噪声。
+Task 9: no_card144.py：patch build/test/lua/final/snr_test.lua 加 myCard[144].hold=-1 后 `--stage members,stage,pack,disc`，00 帧回到原版 11 项版面（无 encore），CIRCLE 后 library 子列四项正常——版面回归成立。按 4 次 down 后光标停在 library 而非 option，属 1.0s 间隔下一次按键未吃到的驾驭时序问题，不影响所验断言。
+Task 9: glyph.py 在 `--profile test --mode scene --scene fin-10` 盘上：p05「啥」、p11「颁 … 奖」字形正常，IPL 已剥（14 秒进场景），ERROR 0 条。
+Task 9: 剖面隔离实证：三次 test 剖面构建（mainmenu / 手改 no144 / scene fin-10）期间，build/dist/game_zh.iso sha256 前缀 f5c5f1c5ad013d66 始终不变（与 Task 8 记录一致），build/release/DATA.BIN mtime 停在本轮 release 重建的 09:37。
+Task 9: `--profile release --stage iso`：发布断言通过（指纹/成员集合/独立重编译逐字节/无测试成员），产出 ISO sha256 与本轮之前逐字节相同（f5c5f1c5ad01…）。release_iso.py：原版 IPL 链走完，35 秒处已是初始三项标题（Prologue/load/option，flag 未预开），三次 CIRCLE 进序章、中文题词烤图正常；ERROR 1 条同源噪声。
+Task 9: Ruling: 本任务由控制器直接执行、不派任务评审 — 理由：用户明示「直接在本 session 检查现状然后做完」；产物是六个驾驶脚本 + 一段文档，无产品代码路径变化，交由最终整分支评审覆盖 — 若判错的代价：驾驶脚本若有瑕疵会在最终评审被抓，且它们不进盘。
+Task 9: 附带发现（非缺陷）：release_iso.py 的 35 秒等待已越过 IPL，00 帧截到的是标题而非 IPL 屏；不影响所验断言（初始形态菜单），docstring 已如实描述帧含义。

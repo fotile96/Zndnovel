@@ -302,10 +302,11 @@ base 计数用 `xori t5,s0,1` + `addu`。
 `17 * msg_col + (17 * v17 - 5 * v18) / 2 + 4`）；P = 4 → 再把 a514 `21 30 46 02`
 （addu a2,s2,a2）改 `00 00 00 00`（nop）。
 
-**C. 不跳过空格**（`font_draw_string` 0x5808）：`04 00 85 14`（bne a0,a1,loc_581C）改
-`04 00 00 10`（b loc_581C），延迟槽 `move a1,a0` 照旧把字码送进 `sceFontGetCharInfo`。
-空格字形 w=h=0，膨胀循环因 bitmapHeight=0 跳过，只推进 advance；两份字体都含 U+0020。
-反编译已见 `if (v23 == 32)` 分支消失。原 5810–5818 三字成为死代码。
+**C. 空格推进**（`font_draw_string` 0x5810 起三字；初版"bne→b 不跳过空格"已作废，见 §7.6）：
+跳过路径原为 `addiu s5,2; b loc_5AAC; lhu a0,0x40(s5)`，改成 `addiu s6,s6,5; b loc_5A5C;
+move a0,zero`——空格仍不进字形路径，但笔位 s6 先加 RUBY_PITCH_PX=5 px，再跳到 loc_5A5C
+（那里做 s5+=2 取下一字、a0=0 使 advance 累加 0、随后换行检查）。常数 5 与
+`build_font.RUBY_PITCH_PX` 由 tests/test_eboot_patch.py 钉在一起。
 
 **字体侧配套**：P = 4 → 完全不 widen（Mono 天然 500 → 截断成 4 px，空格同），
 `DIACRITIC_MAX_W` 降到 ≈400；P = 5 → 字母与空格步进撑到 556/1000，`MAX_W` ≈ 500。
@@ -339,3 +340,19 @@ ruby-p5 层追加第四条——文件偏移 0x735F0 的条目 `f8a40000 0400000
 
 顺带证实了 §3 的"第 5 行起停滞"：探针 K3 初版三行超出 4 行，消息永远结束不了，
 CIRCLE 推不动，后续页全部丢失——校验器必须把"每页 ≤ 4 行"当硬错误。
+
+### 7.6 落地实测二：空格不能走字形路径（同日第六次补记）
+
+中和重定位后 ruby 出现了，但凡含 ASCII 空格的串都在空格处截断（`jì yì`→`jì`、
+`トゥルー カラー`→`トゥルー`，连 base `Ｔｒｕｅ Ｃｏｌｏｒ` 也只剩 `True`）。读 PPSSPP
+`sceFontGetCharInfo`：字形 advance≠0 时它会以 `bitmapWidth×bitmapHeight` 调游戏登记的
+分配回调（`sceFontNewLib` 参数里的 `sub_50BC` → `heap16_alloc`）——空格是 0×0，
+`sceKernelAllocMemoryBlock` 拿到 size 0 失败、回调返回 0，后续整串中断。真 libfont 走的是
+同一套回调协议，没理由更宽容。于是 C 段改为"跳过但推进"（§7.4 现文），空格宽度由引擎
+常数决定而非字体：一个半角空格 = 5 px = 1 单位，与居中估算一致；ruby 里的空格在两份
+字体里都不再触碰 sceFont。复验：`jì yì`/`cǎi yě`/`トゥルー カラー` 完整，`Ｔｒｕｅ Ｃｏｌｏｒ`
+的 base 空格也按 5 px 推进（base 本不该含空格，校验器列为警告）。
+
+另两条实测观察：①相邻两个单字宽注音（`<哐,kuāng><咚,dōng>`）各 25 px 压在 17 px 格上，
+彼此重叠约 8 px——校验器应对"相邻 ruby 组的注音区间重叠"告警；②语料外汉字在
+PPSSPP 里渲染成 `_`（alt char），探针页用的天干地支正好演示了这一点。

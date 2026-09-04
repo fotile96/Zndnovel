@@ -5,7 +5,10 @@ A. msg_layout_step 0xA4DC 起 11 字：base/ruby 两条 strcat 分支合流，ru
    宽度单位——1–2 字节 UTF-8（半角字母、声调元音、空格）1 单位，3–4 字节（汉字、
    假名、全角）2 单位；base 仍按字符数计（用于列推进）。
 B. 0xA508 一字：估宽常数 9→5（sll 3 → sll 2），起点 x = 17·col + (17·nb − 5·units)/2 + 4。
-C. font_draw_string 0x5808 一字：bne→b，ASCII 空格不再跳过、按 PGF advance 推进。
+C. font_draw_string 0x5810 三字：ASCII 空格仍不走字形路径（走了会让 sceFontGetCharInfo 以
+   0 字节调游戏的分配回调，heap16_alloc(0) 失败后整串中断——PPSSPP HLE 实测如此，真
+   libfont 同一套回调机制），但跳过时把笔位 s6 推进 5 px（= build_font.RUBY_PITCH_PX，
+   tests/test_eboot_patch.py 钉住两者一致），再跳到 loc_5A5C 走"下一字符 + 换行检查"。
 D. 重定位表：A 段把 a4f8 的 `jal strcat_` 换成了 `subu`，但 PRX 重定位表里 a4f8 那条
    R_MIPS_26 仍在，装载器会往新指令的低 26 位加基址（实测变成 `subu s4,v1,t4`，砸 s4，
    ruby 全部消失、fastmem 下宿主崩溃）——把该条目类型改成 R_MIPS_NONE(0)。a4e8 的
@@ -33,10 +36,10 @@ from = "c0 30 12 00"
 to   = "80 30 12 00"
 
 [[patches]]
-va   = "0x5808"
-note = "C 不跳过空格：bne a0,a1,loc_581C → b loc_581C"
-from = "04 00 85 14"
-to   = "04 00 00 10"
+va   = "0x5810"
+note = "C 空格：仍跳过字形路径，但笔位推进 RUBY_PITCH_PX=5 px（addiu s6,s6,5；b loc_5A5C；a0=0）"
+from = "02 00 b5 26 a5 00 00 10 40 00 a4 96"
+to   = "05 00 d6 26 91 00 00 10 25 20 00 00"
 
 [[patches]]
 off  = "0x735F0"

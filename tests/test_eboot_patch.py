@@ -129,7 +129,8 @@ def test_real_layers_apply_on_registered_source():
     tail = out[img.offset(0x66462, 34):img.offset(0x66462, 34) + 34]
     assert tail.rstrip(b"\0").decode() == "〈《「『【‘“（≪≦"
     assert out[img.offset(0xA508, 4):img.offset(0xA508, 4) + 4] == bytes.fromhex("80301200")
-    assert out[img.offset(0x5808, 4):img.offset(0x5808, 4) + 4] == bytes.fromhex("04000010")
+    assert out[img.offset(0x5810, 12):img.offset(0x5810, 12) + 12] == bytes.fromhex("0500d626910000102520 0000".replace(" ", ""))
+    assert out[img.offset(0x5808, 4):img.offset(0x5808, 4) + 4] == bytes.fromhex("04008514")   # bne 保持原样
     assert len(out) == len(data)
 
 
@@ -148,3 +149,14 @@ def test_patch_must_give_exactly_one_of_va_or_off(tmp_path):
     root = _layers(tmp_path, a=HEAD + '[[patches]]\nva = "0x1000"\noff = "0x10"\nfrom = "41"\nto = "42"\n')
     with pytest.raises(SystemExit):
         ep.load_layers(["a"], root)
+
+
+def test_ruby_layer_space_advance_matches_font_pitch():
+    """ruby-p5 层 C 段把空格笔位推进写死为 addiu s6,s6,P；P 必须等于 build_font.RUBY_PITCH_PX，
+    否则字体与引擎对"一个半角空格多宽"意见不一，居中估算与实际错位。"""
+    from tools import build_font
+    layer = ep.load_layer(REPO / "layers" / "eboot" / "ruby-p5.toml")
+    c = next(p for p in layer["patches"] if p.note.startswith("C"))
+    word = int.from_bytes(c.after[:4], "little")
+    assert word >> 26 == 9 and (word >> 16) & 0x1F == 22 and (word >> 21) & 0x1F == 22   # addiu s6,s6,imm
+    assert word & 0xFFFF == build_font.RUBY_PITCH_PX

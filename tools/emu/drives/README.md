@@ -15,6 +15,8 @@
 | `finale_full.py` | 谢幕全章 fin-10..50 跑通回主菜单（约 15 分钟） | `--profile test --mode mainmenu` | p010..p350 每 10 句一帧；end* 回主菜单 |
 | `glyph.py` | 直入场景逐句截图；缺省验 fin-10 的 7 个曾缺字 | `--profile test --mode scene --scene fin-10` | p05「啥」、p11「颁…奖」有字形 |
 | `release_iso.py` | 发布 ISO 完整 IPL 开机链、标题初始形态 | `--profile release`（到 iso） | 02 帧 Prologue/load/option 三项 |
+| `font_probe.py` | 字体/ruby/禁则探针逐页截图（`testboot.py` 的 `FONT_PAGES`，含 K1–K4/R1） | `--profile test --mode font` | K 帧标点悬挂/提前换行；R1 帧注音居中不裁 |
+| `regtrace.py` | 断点 + 寄存器/内存转储 + 单步（研究 EBOOT 补丁用，见 `docs/ops/eboot-hacking-runbook.md` §5.6） | 同上 | 命中断点后逐条打印寄存器 |
 
 跑法：
 

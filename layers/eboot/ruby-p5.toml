@@ -1,0 +1,35 @@
+why = """ruby（<base,ruby> 注音）居中公式与空格处理改成"半角等宽 5 px"模型，
+配 build_font 把拼音字母/空格步进撑到 5 px 的 9 px Mono 字体。三段（细节、原字节
+反证与反编译核对见 docs/ops/eboot-kinsoku-research-2026-09-04.md §7.4）：
+A. msg_layout_step 0xA4DC 起 11 字：base/ruby 两条 strcat 分支合流，ruby 计数改为
+   宽度单位——1–2 字节 UTF-8（半角字母、声调元音、空格）1 单位，3–4 字节（汉字、
+   假名、全角）2 单位；base 仍按字符数计（用于列推进）。
+B. 0xA508 一字：估宽常数 9→5（sll 3 → sll 2），起点 x = 17·col + (17·nb − 5·units)/2 + 4。
+C. font_draw_string 0x5808 一字：bne→b，ASCII 空格不再跳过、按 PGF advance 推进。
+效果：拼音精确居中；全角 ruby 每字误差 0.5 px；`<哐,kuāng>` 在 col 0 起点 0 不再被裁；
+crd_6 与 s5s 的六组全角 ruby 不需改写。⚠ Allegrex 无整数 mul，advance 按 >>6 截断。"""
+profile = "release"
+
+[[patches]]
+va   = "0xA4DC"
+note = "A 单位计数：movn 选缓冲、sltiu t4,v0,3 判字节数、movz 清零、subu/addu 计数"
+from = """
+    06 00 00 16 25 20 80 02 25 20 a0 02 29 45 00 0c
+    25 28 a0 03 e6 ff 00 10 01 00 31 26 29 45 00 0c
+    25 28 a0 03 e2 ff 00 10 01 00 52 26"""
+to   = """
+    25 20 a0 02 0b 20 90 02 03 00 4c 2c 29 45 00 0c
+    25 28 a0 03 fe ff 8c 25 0a 60 10 00 23 90 4c 02
+    01 00 0d 3a e2 ff 00 10 21 88 2d 02"""
+
+[[patches]]
+va   = "0xA508"
+note = "B 常数 K=5：sll a2,s2,3 → sll a2,s2,2"
+from = "c0 30 12 00"
+to   = "80 30 12 00"
+
+[[patches]]
+va   = "0x5808"
+note = "C 不跳过空格：bne a0,a1,loc_581C → b loc_581C"
+from = "04 00 85 14"
+to   = "04 00 00 10"

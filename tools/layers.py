@@ -120,7 +120,7 @@ LAYERS = REPO / "layers"
 PROFILES = ("release", "test")
 CARD_MSG_RESERVED = range(18001, 18196)   # oCard.show 动态 id = 18000 + 卡号（卡 1..195）
 
-_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts"}
+_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot"}
 _OVERLAY_KEYS = {"target", "profile", "why", "switch", "ops"}
 
 
@@ -170,6 +170,20 @@ def load_manifest(root: Path = LAYERS) -> dict:
     man.setdefault("scripts", [])
     man.setdefault("gim", {"replace": [], "new": []})
     man.setdefault("fonts", [])
+    # [eboot]：引擎二进制补丁层（tools/eboot_patch.py）。可选；给了就必须完整，
+    # 且 order 与 layers/eboot/ 下的文件一一对应——与 overlays.order 同一条纪律。
+    eb = man.get("eboot")
+    if eb is not None:
+        missing = {"source", "sha256", "iso_path", "order"} - set(eb)
+        if missing:
+            raise OverlayError(f"manifest.toml [eboot] 缺 {sorted(missing)}")
+        eb_dir = root / "eboot"
+        on_disk = sorted(p.stem for p in eb_dir.glob("*.toml")) if eb_dir.exists() else []
+        if sorted(eb["order"]) != on_disk:
+            raise OverlayError(
+                f"manifest.toml 的 eboot.order 与 layers/eboot/ 下的文件不一致：\n"
+                f"  order  = {sorted(eb['order'])}\n  on disk = {on_disk}")
+    man.setdefault("eboot", None)
     return man
 
 
@@ -548,7 +562,30 @@ def main(argv=None) -> int:
     if args.compare_compiled:
         return _compare_compiled(sources, Path(args.compare_compiled), manifest)
     print("[layers] 全部层命中 ✓")
+    _check_eboot(manifest, args.profile)
     return 0
+
+
+def _check_eboot(manifest: dict, profile: str) -> None:
+    """[eboot] 层的闸：层文件本身合法、区间不重叠；本机若有纯净源，再核对源指纹与
+    每条补丁的原字节锚点。源不在（云端/无资产环境）只告警不失败——那里本来也出不了盘。"""
+    from tools import eboot_patch
+    cfg = manifest.get("eboot")
+    if not cfg:
+        return
+    patches = eboot_patch.load_layers(cfg["order"], profile=profile)
+    src = REPO / cfg["source"]
+    if not src.exists():
+        print(f"[layers] ⚠ eboot 源 {src} 不在本机，跳过锚点核对（层文件本身已校验）")
+        return
+    data = src.read_bytes()
+    if eboot_patch.sha256(data) != cfg["sha256"]:
+        raise OverlayError(f"{src} 的 sha256 与 manifest [eboot].sha256 不符——不是登记的纯净源")
+    bad = [r for r in eboot_patch.check(data, patches) if r["state"] != "pristine"]
+    if bad:
+        raise OverlayError("eboot 补丁锚点在纯净源上不匹配: " +
+                           ", ".join(f"{r['layer']}@{r['va']:#x}={r['state']}" for r in bad))
+    print(f"[layers] eboot: {len(patches)} 条补丁锚点在纯净源上全部命中 ✓")
 
 
 def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) -> int:

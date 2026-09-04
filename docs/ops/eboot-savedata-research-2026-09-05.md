@@ -312,6 +312,74 @@ nups/numparams/is_vararg/maxstacksize 各 1。
    须走层），收益最大（线程 blob 从整份脚本降到单场景），但改变了 229 个脚本的结构，
    与"基座逐字节等价"的纪律相悖，仅作备案。
 
+## 8a. 扩容方案的具体依据（同日补记，回答"当年搬 bss 尾部到底搬错了什么"）
+
+### bss 尾部到底有什么
+
+用 `tools/eboot_relscan.py scan --range 0x390D10 0x39DCE0` 把重定位表里指向存档结构之后
+53200 B（raw 0x2B5890..0x2C2860）的引用全部数出来：218 处 LO16 站点、30 个目标、分属 12
+个以上函数，且**没有任何 R_MIPS_32 数据指针**指向这里或存档结构。按归属：
+
+| IDA 地址（raw = −0xDB480） | 大小 | 内容 | 谁在用 |
+|---|---|---|---|
+| 0x390D10..0x390D1F | 0x10 | 存档对话框状态：活动/出错/错误码/重试码 | `savedata_dialog_tick`、`savedata_init`、0xCD28 |
+| 0x390D20/30/40 | 3×0x10 | 三张 icon 的 PspUtilitySavedataFileData（heap16 指针+长度） | `savedata_init`、各 `savedata_req_*` |
+| 0x390D50 | 0x14 | newData（icon + 标题指针 0x390D60） | 同上 |
+| 0x390D68 / 0x390DE8 | 2×0x80 | `savedataTitle()` 两参缓冲 | `lua_savedataTitle`、persist、listsave |
+| 0x390E68..0x3911E7 | 0x380 | 无重定位引用（疑为 SFO detail 类的备用缓冲或填充） | — |
+| 0x3911E8 / 0x391210 / 0x391234 | ≈0x70 | DATA.BIN / SOUND.BIN ×2 三个封包描述符 | `sub_EC8`、`pack_*`、`sub_1AE8` |
+| 0x391258 / 0x39125C | 8 | 文件装载线程 id、忙标志 | 同上 |
+| 0x391260 | 0x79E0 | 装载器表（`sub_EC8` 开机 memset） | 同上 |
+| 0x398C40..0x398C49 | 0x10 | 装载器状态字 | 同上、`font_lib_init`、`main_loop` |
+| 0x398C50 | 3×0x50 | config.lua 的 libfontModule / bootScript / selectButtonScript 路径 | `lua_register_natives` |
+| 0x398D40..0x398D48 | 0xC | mpeg 句柄/缓冲 | `sub_B444`（影片初始化） |
+| 0x398DC8 | 0x40F0 | mpeg/mp4 工作区（`sub_B444` memset） | 影片播放函数族 0xB5B0/0xBB10/0xBE74 |
+| 0x39CEB8..0x39CEBA | 3 | 影片状态标志 | 同上、`main_loop` |
+| 0x39CEBC | 4 | errno 式出错码（`sub_175A4` 包装 I/O 调用时回填） | Lua 库、0x5179C 族 |
+| 0x39CEC0..0x39DCDF | 0xE20 | SAS（音效混音）状态，bss 最后一个对象 | 0x54420 起 37 处 |
+
+结论：尾部不是"一小块"，而是封包装载器、影片解码工作区、混音器状态等**九个子系统的活动
+数据**，引用散在几十个函数里，其中影片/装载器的表还被 memset 整块清零。**把它们整体后移**
+需要改 218 处引用外加所有 memset 长度，任何一处漏改都表现为"某个子系统偶尔用到旧地址"——
+这正是当年"不确定漏搬/多搬"的根源。而存档结构本身只被 4 个函数、38 处 LO16 站点引用。
+
+### 推荐做法：搬存档结构，不搬尾部（`eboot_relscan.py move-plan`）
+
+- 位移取 0x10000 的整数倍，则每处引用只改 **lui 的立即数**，`%lo` 立即数与重定位表一字
+  不动（装载器仍按 HI16/LO16 加基址）。干跑结果：**35 个 lui 字**（`gamedata_persist_or_apply`
+  32、`savedata_req_listload_game` 1、`savedata_req_listsave_game` 2）——线程区之前的字段
+  只加位移，之后的字段再加 Δ；无任何 lui 同时服务两侧或结构内外（脚本会断言）。
+- 常量 0x63268（memset 长度、dataBufSize、dataSize）有三处物化，都是 `lui r,6 ; addiu r,0x3268`：
+  lui 在 0x7350、0xCAA0、0xCB64，改成新尺寸的高半即可（Δ = 0x40000 时 6 → 0xA）。
+- ELF 头 PH1.p_memsz（文件偏移 0x68）：0x2C2860 → 新结构末。Δ = 0x40000 时新结构落在
+  raw 0x2D2628..0x375890，bss 共增 716 KB（含 65 KB 对齐间隙与 406 KB 废弃的旧结构）。
+- 旧结构区域不再被任何代码引用（scan 可复核），可顺手让 `savedata_init` 把它填 0xEE 作
+  探针：跑一遍存/读档若旧区域被写过即说明漏改。
+- 代价：存档文件变长 Δ、与原版/旧版存档互不兼容（读旧档时 unpersist 会读到错位数据）；
+  内存少 716 KB（见下）。
+
+### 内存预算（扩 bss 会不会挤到别的东西）
+
+用户区 0x08800000..0x0A000000（24 MB，PARAM.SFO 无 MEMSIZE 大内存标志）。实测（PPSSPP，
+s2s_10 场景内快照 heap16 块表 IDA 0x257D60 与 sbrk 指针 IDA 0x1DB4B8/BC/C0）：
+
+| 区段 | 地址 | 大小 | 说明 |
+|---|---|---|---|
+| 模块（text+data+bss） | 0x08804000..0x08B342A0 | 3.19 MB | bss 末 = PH1.p_memsz |
+| `UserSbrk`（newlib 堆） | 0x08B35000..0x08F35000 | 4 MB 固定（`.data` 0x6CD80 = `sce_newlib_heap_kb` 4096） | `sub_109E0` 在第一次 malloc 时 `sceKernelAllocPartitionMemory(2,"UserSbrk",LowAligned,…)`，**紧跟模块之后、低地址对齐分配**，扩 bss 后会自动后移；Lua 状态机住在这里，场景内只用了 636 KB |
+| 空隙 | 0x08F35000..0x09676B00 | **≈7.3 MB** | 扩 bss 的余地 |
+| heap16（`sceKernelAllocMemoryBlock` type High） | 0x09676B00..0x0A000000 | 9.5 MB，244–252 块 | 字体、层像素、封包索引、音频等，自顶向下 |
+
+所以 +716 KB 绰绰有余；影片播放（`sub_B444` 的 mpeg 工作区）与最重场景的峰值未测，落地前
+用同一探针在 OP 播放中再快照一次即可。
+
+### 备选
+
+- **只加边界检查**：`pluto_writer_membuf` 里比较 pos 与上限，超限停写——存档不崩但读档必坏，
+  只值得作为扩容方案的兜底而非替代。
+- **整体后移尾部再原地扩容**：改 218 处 + memset 长度，收益与搬结构相同、风险高一个量级，不推荐。
+- **不改引擎**：拆脚本 / 独立新增脚本，线程 blob 只含当前文件；本项目现状（71%）不需要扩容。
+
 ## 9. 附带发现
 
 - `savedataTitle` 两参各 128 B 缓冲无检查：现译文最长 61 B（`plotTitle` 39 B、章节名 41 B），安全。

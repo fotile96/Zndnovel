@@ -346,9 +346,16 @@ nups/numparams/is_vararg/maxstacksize 各 1。
 ### 推荐做法：搬存档结构，不搬尾部（`eboot_relscan.py move-plan`）
 
 - 位移取 0x10000 的整数倍，则每处引用只改 **lui 的立即数**，`%lo` 立即数与重定位表一字
-  不动（装载器仍按 HI16/LO16 加基址）。干跑结果：**35 个 lui 字**（`gamedata_persist_or_apply`
-  32、`savedata_req_listload_game` 1、`savedata_req_listsave_game` 2）——线程区之前的字段
-  只加位移，之后的字段再加 Δ；无任何 lui 同时服务两侧或结构内外（脚本会断言）。
+  不动（装载器仍按 HI16/LO16 加基址）。干跑结果：结构被 **40 处 LO16 站点、22 个目标**引用，
+  归 **37 个 lui 字**（`gamedata_persist_or_apply` 34、`savedata_req_listload_game` 1、
+  `savedata_req_listsave_game` 2）——线程区之前的字段只加位移，之后的字段再加 Δ；无任何 lui
+  同时服务两侧或结构内外（脚本会断言）。
+- ⚠ 扫描器第一版只回溯"未被改写的 lui 寄存器"，漏掉了两处 **`lui + addu 索引`** 的循环访问
+  （0x721C `lbu` / 0x753C `sb`，BGM 标志字节 +0x63260，各自的 lui 在 0x7204 / 0x7518），
+  IDA 的列表同样漏掉（它显示成 `+0x390000` 的基址算术）。少改这两个字的后果很隐蔽：存档写出的
+  BGM 标志落到废弃的旧区域、读档时 BGM 恢复错——正是"漏搬一个变量"的典型形态。现版扫描器
+  让 addu/or/move 传播 lui 值后才找齐；任何搬迁清单都必须**用三种独立方法（寄存器流扫描、
+  IDA 列表、运行时 0xEE 毒化探针）互相印证**，不能只信一种。
 - 常量 0x63268（memset 长度、dataBufSize、dataSize）有三处物化，都是 `lui r,6 ; addiu r,0x3268`：
   lui 在 0x7350、0xCAA0、0xCB64，改成新尺寸的高半即可（Δ = 0x40000 时 6 → 0xA）。
 - ELF 头 PH1.p_memsz（文件偏移 0x68）：0x2C2860 → 新结构末。Δ = 0x40000 时新结构落在

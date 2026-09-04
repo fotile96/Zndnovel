@@ -85,18 +85,29 @@ class Elf:
                 insn = self.word(r_off)
                 rs = (insn >> 21) & 31
                 lo = s16(insn & 0xFFFF)
-                hi = lui_at = None
+                # 32 个寄存器各自"当前持有哪条 lui 的高半字"：lui 赋值；addu/or/move 由持有 lui 的
+                # 源寄存器传播（lui+index 的数组/循环访问）；其它写入即作废
+                regs: list[tuple[int, int] | None] = [None] * 32
                 a = max(0, r_off - 4 * 400)
                 while a < r_off:
                     w = self.word(a)
-                    if (w >> 26) == 0x0F and ((w >> 16) & 31) == rs:
-                        hi, lui_at = w & 0xFFFF, a
-                    elif written_reg(w) == rs and rs != 0:
-                        hi = lui_at = None
+                    op = w >> 26
+                    if op == 0x0F:
+                        regs[(w >> 16) & 31] = (w & 0xFFFF, a)
+                    elif op == 0 and (w & 0x3F) in (0x20, 0x21, 0x25):      # add/addu/or
+                        rd, s1, s2 = (w >> 11) & 31, (w >> 21) & 31, (w >> 16) & 31
+                        src = [regs[x] for x in (s1, s2) if regs[x] is not None]
+                        regs[rd] = src[0] if len(src) == 1 else None
+                    else:
+                        wr = written_reg(w)
+                        if wr is not None and wr != 0:
+                            regs[wr] = None
                     a += 4
-                if hi is None:
+                    regs[0] = None
+                if regs[rs] is None:
                     nolui.append(r_off)
                     continue
+                hi, lui_at = regs[rs]
                 refs.append({"kind": "LO16", "at": r_off, "X": ((hi << 16) + lo) & 0xFFFFFFFF,
                              "ab": ab, "lui": lui_at})
             elif typ == 2:                     # R_MIPS_32

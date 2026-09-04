@@ -131,3 +131,20 @@ def test_real_layers_apply_on_registered_source():
     assert out[img.offset(0xA508, 4):img.offset(0xA508, 4) + 4] == bytes.fromhex("80301200")
     assert out[img.offset(0x5808, 4):img.offset(0x5808, 4) + 4] == bytes.fromhex("04000010")
     assert len(out) == len(data)
+
+
+def test_file_offset_patch_targets_bytes_outside_load_segments(tmp_path):
+    """off= 补丁打在段外字节（如重定位表）：不经 VA 换算，直接按文件偏移定位。"""
+    # 0x58 落在程序头之后、PT_LOAD 内容（0x60）之前的补零区——段外字节
+    root = _layers(tmp_path, a=HEAD + '[[patches]]\noff = "0x58"\nfrom = "00 00 00 00"\nto = "01 02 03 04"\n')
+    patches = ep.load_layers(["a"], root)
+    src = _elf(b"ABCDEFGH")
+    assert src[0x58:0x5C] == b"\0\0\0\0"
+    out, report = ep.apply(src, patches)
+    assert out[0x58:0x5C] == b"\x01\x02\x03\x04" and report[0]["where"] == "off 0x58"
+
+
+def test_patch_must_give_exactly_one_of_va_or_off(tmp_path):
+    root = _layers(tmp_path, a=HEAD + '[[patches]]\nva = "0x1000"\noff = "0x10"\nfrom = "41"\nto = "42"\n')
+    with pytest.raises(SystemExit):
+        ep.load_layers(["a"], root)

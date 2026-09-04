@@ -319,3 +319,23 @@ crd_6 与 s5s 六组不需任何补空格或改写。校验器规则不变：配
 **实机风险点**：C 依赖真·libfont 对 0×0 字形的 `sceFontGetCharGlyphImage_Clip` 返回 0
 （PPSSPP 的 HLE 已确认无害）；若实机报错会让整串 ruby 消失。验证顺序：PPSSPP HLE →
 PPSSPP `DisableHLEFlags=1` 跑随盘 libfont.prx → 实机。
+
+### 7.5 落地实测：重定位陷阱（同日第五次补记）
+
+三段补丁经 `tools/eboot_patch.py` 打进 EBOOT、走 test 盘探针（`--mode font`，新增
+K1–K4/R1 页）后：禁则表**一次通过**（`，：……」≫——` 悬挂到第 26 格起、`（≦` 在
+第 25 格前换行，截图 `build/emu/drives/font_probe/p22–p24`），但 ruby 全部消失，且
+PPSSPP 开 fastmem 时宿主 SIGSEGV。条件断点 + 单步（`/tmp/ruby_step2.py`，走 WS
+`cpu.stepInto/stepOver` 广播）抓到现场：a4f8 处执行的是 `subu s4,v1,t4`，不是写进
+文件的 `subu s2,s2,t4`——**PRX 重定位表里 a4f8 那条 R_MIPS_26（原 `jal strcat_`）
+仍在，装载器把基址 >>2 加进了新指令的低 26 位**，rd/rs 字段全变，s4（ruby 缓冲指针）
+被砸成 1，strcat 往地址 1 写，ruby 串永远为空。
+
+处理：`eboot_patch.py` 增加 `off =` 文件偏移补丁（重定位表不在任何 PT_LOAD 段里），
+ruby-p5 层追加第四条——文件偏移 0x735F0 的条目 `f8a40000 04000000` → `f8a40000 00000000`
+（类型 R_MIPS_26 → R_MIPS_NONE；a4e8 那条保留，因为那个字仍是 jal）。扫描确认 B、C、
+禁则表区间没有其他重定位条目。教训写进 tools/eboot_patch.py 的模块注释与 CLAUDE.md：
+**替换带重定位条目的字（jal/j、lui/addiu 对、绝对地址数据）必须同时处理该条目。**
+
+顺带证实了 §3 的"第 5 行起停滞"：探针 K3 初版三行超出 4 行，消息永远结束不了，
+CIRCLE 推不动，后续页全部丢失——校验器必须把"每页 ≤ 4 行"当硬错误。

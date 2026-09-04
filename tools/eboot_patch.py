@@ -14,6 +14,7 @@
     profile = "release"          # release：两剖面都打；test：只在 test 剖面打
     [[patches]]
     va   = "0x663E0"             # ELF 内虚拟地址（PRX 型 ELF 基址 0；装载后 +0x08804000）
+    # 或 off = "0x735F0"         # 文件偏移——只给不在任何 PT_LOAD 段里的字节用（如重定位表）
     from = "e3 80 81 …"          # 原字节（锚点）。其长度就是补丁区间长度
     to   = "…"                   # 新字节（十六进制），长度必须与 from 相同；或
     str  = '…'                   # UTF-8 字符串 + NUL，零填充到 from 的长度（与 to 二选一）
@@ -21,6 +22,13 @@
 
 VA → 文件偏移由 ELF 程序头（PT_LOAD）换算，不硬编码 0xC0。源文件指纹由
 layers/manifest.toml 的 [eboot].sha256 钉住，不符拒绝施加。
+
+⚠ 重定位陷阱（2026-09-04 实测踩中）：PRX 型 ELF 装载时按重定位表改写带
+R_MIPS_26（jal/j）、HI16/LO16（lui/addiu）等条目的字。**把这类地址上的指令换成别的
+指令，装载器照样往新字里加基址**——a4f8 原是 `jal strcat_`，换成 `subu s2,s2,t4`
+后在实机/模拟器里变成 `subu s4,v1,t4`，砸了 s4。凡替换了带重定位条目的字，
+必须同时把该条目改成 R_MIPS_NONE（类型字节 0），用 `off =` 打在重定位表上；
+条目定位见 docs/ops/eboot-kinsoku-research-2026-09-04.md §7.5。
 
 用法：
     python3 tools/eboot_patch.py check  <eboot.elf>            # 逐补丁报 pristine/applied/mismatch
@@ -40,7 +48,7 @@ REPO = Path(__file__).resolve().parent.parent
 EBOOT_LAYERS = REPO / "layers" / "eboot"
 
 _LAYER_KEYS = {"why", "profile", "patches"}
-_PATCH_KEYS = {"va", "from", "to", "str", "note"}
+_PATCH_KEYS = {"va", "off", "from", "to", "str", "note"}
 PROFILES = ("release", "test")
 
 
@@ -51,10 +59,15 @@ class PatchError(SystemExit):
 @dataclass(frozen=True)
 class Patch:
     layer: str
-    va: int
+    va: int                 # -1 表示按文件偏移（off）定位
     before: bytes
     after: bytes
     note: str
+    off: int = -1           # 文件偏移（重定位表等段外字节）
+
+    @property
+    def where(self) -> str:
+        return f"off {self.off:#x}" if self.va < 0 else f"{self.va:#x}"
 
     @property
     def size(self) -> int:
@@ -96,9 +109,10 @@ def load_layer(path: Path) -> dict:
         unknown = set(p) - _PATCH_KEYS
         if unknown:
             raise PatchError(f"{path}: patches[{i}] 有未知键 {sorted(unknown)}")
-        for k in ("va", "from"):
-            if k not in p:
-                raise PatchError(f"{path}: patches[{i}] 缺 {k}")
+        if "from" not in p:
+            raise PatchError(f"{path}: patches[{i}] 缺 from")
+        if ("va" in p) == ("off" in p):
+            raise PatchError(f"{path}: patches[{i}] 必须恰好给 va 或 off 之一")
         if ("to" in p) == ("str" in p):
             raise PatchError(f"{path}: patches[{i}] 必须恰好给 to 或 str 之一")
         before = parse_hex(p["from"])
@@ -115,8 +129,9 @@ def load_layer(path: Path) -> dict:
                 raise PatchError(f"{path}: patches[{i}] str 连 NUL 共 {len(body)} B，"
                                  f"超过区间 {len(before)} B")
             after = body + b"\0" * (len(before) - len(body))
-        patches.append(Patch(layer=path.stem, va=_parse_va(p["va"]), before=before,
-                             after=after, note=str(p.get("note", ""))))
+        patches.append(Patch(layer=path.stem, va=_parse_va(p["va"]) if "va" in p else -1,
+                             before=before, after=after, note=str(p.get("note", "")),
+                             off=_parse_va(p["off"]) if "off" in p else -1))
     if not patches:
         raise PatchError(f"{path}: 没有任何补丁")
     return {"_name": path.stem, "why": raw["why"], "profile": profile, "patches": patches}
@@ -139,10 +154,12 @@ def load_layers(order: list[str], root: Path | None = None, profile: str = "rele
         if layer["profile"] == "test" and profile != "test":
             continue
         out.extend(layer["patches"])
-    spans = sorted((p.va, p.va + p.size, p.layer) for p in out)
-    for (a0, a1, la), (b0, _b1, lb) in zip(spans, spans[1:]):
-        if b0 < a1:
-            raise PatchError(f"补丁区间重叠: {la} [{a0:#x},{a1:#x}) 与 {lb} 起于 {b0:#x}")
+    for key in ("va", "off"):
+        spans = sorted((getattr(p, key), getattr(p, key) + p.size, p.layer)
+                       for p in out if getattr(p, key) >= 0)
+        for (a0, a1, la), (b0, _b1, lb) in zip(spans, spans[1:]):
+            if b0 < a1:
+                raise PatchError(f"补丁区间重叠({key}): {la} [{a0:#x},{a1:#x}) 与 {lb} 起于 {b0:#x}")
     return out
 
 
@@ -186,11 +203,16 @@ def check(data: bytes, patches: list[Patch]) -> list[dict]:
     img = Image(data)
     out = []
     for p in patches:
-        off = img.offset(p.va, p.size)
+        if p.va >= 0:
+            off = img.offset(p.va, p.size)
+        else:
+            off = p.off
+            if off + p.size > len(data):
+                raise PatchError(f"文件偏移 {off:#x}+{p.size} 超出文件长度 {len(data)}")
         cur = data[off:off + p.size]
         state = "pristine" if cur == p.before else "applied" if cur == p.after else "mismatch"
         out.append({"layer": p.layer, "va": p.va, "offset": off, "size": p.size,
-                    "state": state, "note": p.note, "current": cur})
+                    "state": state, "note": p.note, "current": cur, "where": p.where})
     return out
 
 
@@ -201,8 +223,8 @@ def apply(data: bytes, patches: list[Patch]) -> tuple[bytes, list[dict]]:
     if bad:
         lines = []
         for r in bad:
-            p = next(p for p in patches if p.va == r["va"] and p.layer == r["layer"])
-            lines.append(f"  {r['layer']} @ {r['va']:#x} (文件偏移 {r['offset']:#x}): 期望原字节\n"
+            p = next(p for p in patches if p.where == r["where"] and p.layer == r["layer"])
+            lines.append(f"  {r['layer']} @ {r['where']} (文件偏移 {r['offset']:#x}): 期望原字节\n"
                          f"    {_hexdump(p.before[:24])}{'…' if p.size > 24 else ''}\n"
                          f"  实际\n    {_hexdump(r['current'][:24])}{'…' if p.size > 24 else ''}")
         raise PatchError("补丁锚点不匹配（源不是纯净 EBOOT，或与别的改动冲突）：\n" + "\n".join(lines))
@@ -244,7 +266,7 @@ def main(argv=None) -> int:
 
     if args.cmd == "show":
         for p in patches:
-            print(f"{p.layer:12} {p.va:#08x} {p.size:4} B  {p.note}")
+            print(f"{p.layer:12} {p.where:>12} {p.size:4} B  {p.note}")
         return 0
     data = args.elf.read_bytes() if args.cmd == "check" else args.src.read_bytes()
     if args.cmd == "apply" and not args.no_hash and sha256(data) != cfg["sha256"]:
@@ -252,7 +274,7 @@ def main(argv=None) -> int:
                          f"不是登记的纯净源，拒绝施加")
     if args.cmd == "check":
         for r in check(data, patches):
-            print(f"{r['state']:9} {r['layer']:12} {r['va']:#08x} {r['size']:4} B  {r['note']}")
+            print(f"{r['state']:9} {r['layer']:12} {r['where']:>12} {r['size']:4} B  {r['note']}")
         return 0
     out, report = apply(data, patches)
     args.dst.parent.mkdir(parents=True, exist_ok=True)

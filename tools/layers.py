@@ -584,7 +584,7 @@ def _check_eboot(manifest: dict, profile: str) -> None:
     bad = [r for r in eboot_patch.check(data, patches) if r["state"] != "pristine"]
     if bad:
         raise OverlayError("eboot 补丁锚点在纯净源上不匹配: " +
-                           ", ".join(f"{r['layer']}@{r['va']:#x}={r['state']}" for r in bad))
+                           ", ".join(f"{r['layer']}@{r['where']}={r['state']}" for r in bad))
     print(f"[layers] eboot: {len(patches)} 条补丁锚点在纯净源上全部命中 ✓")
 
 

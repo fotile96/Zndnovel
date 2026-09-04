@@ -17,6 +17,7 @@
 | `release_iso.py` | 发布 ISO 完整 IPL 开机链、标题初始形态 | `--profile release`（到 iso） | 02 帧 Prologue/load/option 三项 |
 | `font_probe.py` | 字体/ruby/禁则探针逐页截图（`testboot.py` 的 `FONT_PAGES`，含 K1–K4/R1） | `--profile test --mode font` | K 帧标点悬挂/提前换行；R1 帧注音居中不裁 |
 | `regtrace.py` | 断点 + 寄存器/内存转储 + 单步（研究 EBOOT 补丁用，见 `docs/ops/eboot-hacking-runbook.md` §5.6） | 同上 | 命中断点后逐条打印寄存器 |
+| `save_probe.py` | 直入场景 → SQUARE 暂停菜单 → 「保存」→ 在 Pluto 序列化完成处断住，读出 gameSave/mainThread blob 真实大小并转储 406120 B 存档结构（`tools/pluto_size.py parse-dump` 解析） | `--profile test --mode scene --scene <id>` | 打印 `mainThread blob = N B / 327680 B`；05 帧是 PPSSPP 存档对话框 |
 
 跑法：
 

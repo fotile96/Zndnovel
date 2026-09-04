@@ -254,6 +254,39 @@ def _compile_lua(src: Path, dst: Path, ctx: BuildContext) -> None:
         die(f"{src.name} 编译产物头部非 PSP ABI（应为 {ctx.manifest['compiler']['header_hex']}）")
 
 
+def _check_save_size(script_dir: Path, ctx: BuildContext) -> None:
+    """存档序列化容量闸（tools/pluto_size.py）。
+
+    引擎存档时用 Pluto 把整个 mainThread 协程写进存档结构里 0x50000 B 的定长区——协程栈上
+    挂着正在运行的章节脚本的主 chunk 闭包，Pluto 会把它的整棵 Proto 树（全部指令 + 常量，
+    即整份脚本）都写进去；写入回调逐字节拷贝、无边界检查，超容量即溢出砸坏后续字段乃至
+    别的全局（docs/ops/eboot-savedata-research-2026-09-05.md）。原版最大的 s1s 章已占 78%，
+    把 vms 翻倍的双语版正是这样崩的。这里按刚编出的字节码逐个估算"它作为 mainThread 时
+    的 blob 大小"，release 超容量即拒绝出盘，test 只告警。
+    """
+    from tools import pluto_size as ps
+    rows: list[tuple[int, str]] = []
+    for f in sorted(script_dir.glob("*.lua")):
+        try:
+            _, est, _ = ps.estimate_file(f)
+        except ValueError as e:
+            die(f"members: {f.name} 字节码解析失败：{e}")
+        rows.append((est.total + ps.DEFAULT_EXTRA, f.name))
+    if not rows:
+        return
+    rows.sort(reverse=True)
+    worst, name = rows[0]
+    log(f"members: 存档线程 blob 估算最大 {worst} B / {ps.THREAD_CAP} B"
+        f"（{100 * worst / ps.THREAD_CAP:.1f}%，{name}）")
+    over = [(t, n) for t, n in rows if t > ps.THREAD_CAP]
+    if over:
+        detail = "、".join(f"{n} {t} B" for t, n in over[:5])
+        if ctx.profile == "release":
+            die(f"members: 脚本超过存档线程 blob 容量 {ps.THREAD_CAP} B：{detail}——"
+                f"存档时会溢出（`uv run python tools/pluto_size.py estimate --members {script_dir}`）")
+        log(f"members: ⚠ 脚本超过存档线程 blob 容量：{detail}")
+
+
 def _compile_tree(src_dir: Path, out_dir: Path, ctx: BuildContext) -> None:
     """把 src_dir 下全部 .lua 独立编译进 out_dir（同名 .lua，逐个调 _compile_lua）。
 
@@ -385,6 +418,7 @@ def stage_members(ctx: BuildContext) -> dict:
             new_members.add(member)
         n_lua += 1
     log(f"members: 编译 {n_lua} 个脚本")
+    _check_save_size(members_dir / "script", ctx)
 
     losses: list[tuple[float, str]] = []
     n_gim = n_cached = 0

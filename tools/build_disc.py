@@ -203,9 +203,13 @@ def stage_font(ctx: BuildContext) -> dict:
         not (FONT_OUT / f"lxgw{f['size']:02d}.pgf").exists() for f in font_members)
     stale = (not ucs_path.exists()
              or ucs_path.read_text(encoding="utf-8") != charset_path.read_text(encoding="utf-8"))
+    # 配方戳：步进/声调加粗等不改字集却改产物的参数变了，也必须重建（build_font.RECIPE）
+    recipe_path = FONT_OUT / "recipe.txt"
+    recipe_stale = (not recipe_path.exists()
+                    or recipe_path.read_text(encoding="utf-8") != build_font.RECIPE)
 
     rebuilt = False
-    if stale or fonts_missing:
+    if stale or fonts_missing or recipe_stale:
         if not build_font.TTF_PGF.exists():
             die(f"字集有变化或字体产物缺失，需要重建，但缺 ttf_pgf: {build_font.TTF_PGF}"
                 f"（见 docs/ops/pgf-font-research-2026-08-31.md 重建；或设 SNDL_TTF_PGF）。"
@@ -214,9 +218,10 @@ def stage_font(ctx: BuildContext) -> dict:
         sizes = tuple(sorted(f["size"] for f in font_members))
         build_font.build(charset_path, FONT_OUT, sizes=sizes)
         shutil.copyfile(charset_path, ucs_path)
+        recipe_path.write_text(build_font.RECIPE, encoding="utf-8")
         rebuilt = True
-        log(f"font: 字集 {len(codes)} 码位，{'字体缺失' if fonts_missing else '字集变化'}"
-            f"——已重建 {sizes}")
+        why = "字体缺失" if fonts_missing else "字集变化" if stale else "配方变化"
+        log(f"font: 字集 {len(codes)} 码位，{why}——已重建 {sizes}")
     else:
         log(f"font: 字集 {len(codes)} 码位，未变——复用现役 {FONT_OUT}")
     return {"charset_codes": len(codes), "rebuilt": rebuilt}

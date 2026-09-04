@@ -3,8 +3,10 @@
 
 为什么必须裁剪（2026-08-31 实机取证）：全字库 43478 字形的 17px PGF 有 5.3MB，
 是原成员 tsukuminpro_e_17.pgf（1.2MB）的 4.4 倍，装进 DATA.BIN 后游戏
-`sceFontOpenUserMemory(addr=0, size=-1)` 连报 169 次——引擎的字体缓冲装不下，
-拿到空指针，正文改用后备渲染。裁到语料实需字集后体积回落，问题即消失。
+`sceFontOpenUserMemory(addr=0, size=-1)` 连报 169 次，裁到语料实需字集后问题即消失。
+归因更正（2026-09-04 逆向 EBOOT，docs/ops/eboot-kinsoku-research-2026-09-04.md §6.2）：
+size=-1 是 `pack_file_size` 的"索引与散文件都没找到"返回值，不是缓冲不够；当时的
+封包状态已不可复核。裁剪字集仍然必要（内存与加载时间），只是理由不是那一条。
 
 字集不再由本模块自己算：2026-09-02 缺字事故（谢幕章 6 字 + s7f 递卡旁白 1 字，
 共 7 处空白）的根因正是旧版 `corpus_chars()` 只看译文车道与消息账本，编外的
@@ -32,8 +34,17 @@ TTF_BY_SIZE = {
     9: REPO / "third_party" / "LXGWWenKaiMono-Regular.ttf",
 }
 TTF_DEFAULT = REPO / "third_party" / "LXGWWenKai-Regular.ttf"
-# 需要把拉丁步进撑成全角的尺寸（只有 ruby/小字槽需要，正文槽保持比例拉丁）
+# 需要把拉丁步进撑成整数像素的尺寸（只有 ruby/小字槽需要，正文槽保持比例拉丁）
 WIDEN_SIZES = {9}
+#: ruby 槽的半角步进（px）。引擎 ruby 居中公式的估宽常数已由 layers/eboot/ruby-p5.toml
+#: 从 9 改成 5，且 font_draw_string 的推进是 advanceH>>6 **截断成整数像素**——所以拼音
+#: 字母与空格的步进必须正好是整数 px：5/9 em = 556/1000（原 Mono 500 会截成 4 px）。
+#: 全角字符仍是 1000（9 px），引擎按 2 单位估宽。
+RUBY_PITCH_PX = 5
+RUBY_FONT_PX = 9
+#: 字体配方版本戳：影响 PGF 产物但不改变字集的参数（步进、声调加粗）变了就改这里，
+#: build_disc.stage_font 据此强制重建——字集不变时它原本只看 ucs.txt 有没有变。
+RECIPE = "lxgw17-regular-proportional / lxgw09-mono-pitch5-diacritic500 / 2026-09-04"
 OUT = REPO / "build" / "font"
 # 用 `or` 不用 os.environ.get(key, default) 的双参数形式：后者只看键在不在
 # os.environ 里，`export SNDL_TTF_PGF=`（值设成空串）时键是在的，拿到 ""——
@@ -61,14 +72,15 @@ PINYIN_CHARS = ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 def widen_latin(ttf: Path, out: Path) -> Path:
-    """派生一份 TTF：把拼音/拉丁码位的步进撑成全角（em），字形在框内居中。
+    """派生一份 TTF：把拼音/拉丁码位与空格的步进撑成 RUBY_PITCH_PX 像素（P=5 → 556/1000 em），
+    字形在框内居中。
 
-    为什么必须这么做（2026-08-31 游戏内像素实测）：ruby 的居中由 C 侧 stub 计算，
-    实测规律是**按「每个注音字符占一个全角步进」估算宽度**——半角拉丁实际只占半格，
-    于是整串注音左偏（Regular −13.5px、Mono −10.0px），而全角假名（−2.0）与全角
-    拉丁（+3.5）都基本居中。补空格反而更糟：空格计入字符数、起点继续左移，
-    3 个空格时注音已被屏幕左缘截断（实测 −20.5 / −22.5）。
-    唯一的解是让拼音字母的步进 = 全角步进，这里在字体层做掉。
+    来龙去脉：2026-08-31 游戏内实测发现引擎按"每个 ruby 字符 9 px"估宽居中，半角拼音
+    整串左偏，于是当时把字母撑成全角 1000。2026-09-04 逆向 EBOOT 后改了引擎侧
+    （layers/eboot/ruby-p5.toml：估宽常数 9→5、半角/全角按 1/2 单位计数、空格不再跳过），
+    字母只需撑到 5 px 即可精确居中，注音紧凑得多；步进必须是整数像素，因为引擎推进
+    时 advanceH>>6 截断（Mono 天然 500 = 4.5 px 会走成 4 px）。空格一并撑到同一步进，
+    这样多音节拼音的词距与居中估算一致。数字/标点不在此列（ruby 里不该出现）。
     """
     from fontTools.ttLib import TTFont
 
@@ -78,24 +90,27 @@ def widen_latin(ttf: Path, out: Path) -> Path:
     hmtx = font["hmtx"]
     glyf = font.get("glyf")
     widened = 0
-    for ch in PINYIN_CHARS:
+    target = round(upm * RUBY_PITCH_PX / RUBY_FONT_PX)      # 556 @ upm 1000
+    for ch in PINYIN_CHARS + " ":
         name = cmap.get(ord(ch))
         if name is None:
             continue
         adv, lsb = hmtx[name]
-        if adv >= upm:
+        if adv == target:
             continue
         ink = 0
         if glyf is not None and name in glyf:
             g = glyf[name]
             ink = (g.xMax - g.xMin) if g.numberOfContours else 0
-        # 字形在全角框内水平居中：新 lsb = (em - 墨宽)/2 − 原墨迹起点偏移
-        hmtx[name] = (upm, int((upm - (ink or adv)) / 2))
+        # 字形在步进框内水平居中：FreeType 会把轮廓平移到 xMin == lsb，
+        # 故 lsb = (步进 − 墨宽)/2 即居中；空格无墨迹，lsb 无关紧要。
+        hmtx[name] = (target, int((target - ink) / 2))
         widened += 1
     bolded = embolden_diacritics(font, glyf)
     out.parent.mkdir(parents=True, exist_ok=True)
     font.save(str(out))
-    print(f"[font] 派生 ruby 字体: 步进撑全角 {widened} 个，声调加粗 {bolded} 个 -> {out.name}")
+    print(f"[font] 派生 ruby 字体: 步进撑到 {target}/{upm} em（{RUBY_PITCH_PX}px@{RUBY_FONT_PX}px）"
+          f" {widened} 个，声调加粗 {bolded} 个 -> {out.name}")
     return out
 
 
@@ -105,7 +120,8 @@ def widen_latin(ttf: Path, out: Path) -> Path:
 # 二/四声 139 units=1.25px、三声 160 units=1.44px。1px ≈ 111 units。
 DIACRITIC_Y_MIN = 520      # 高于此的轮廓视为声调（'a' 本体 yMax=486、'i' 含点 495）
 DIACRITIC_TARGET_H = 250   # 目标纵向尺寸 ≈ 2.2px @9px
-DIACRITIC_MAX_W = 700      # 横向上限（步进已是 1000，留边距）
+DIACRITIC_MAX_W = 500      # 横向上限：步进 556、字母墨迹约 400 居中，相邻字母墨迹间距约 156，
+                           # 声调 ≤ 500 居中后离邻字墨迹仍有 28 units，不相碰
 DIACRITIC_LIFT = 40        # 放大后整体再上移，拉开与字母本体的距离
 
 

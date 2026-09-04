@@ -184,7 +184,10 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - **原始资产只读**：`lua_scripts/`、`png/` 不就地修改。注入/回写类输出先落 `build/`（gitignore）；确需改原件时走分支，游戏内验证后再合并。
 - **层纪律**：新增本地化文本 → 建叠加层（`layers/overlays/*.toml`）+ 在 `layers/vms_ids.toml`
   登记 id 段；改谢幕章 → 改 `layers/scripts/snr_finale.lua`；要测试捷径（跳 IPL、直入场景、
-  全解锁主菜单等）→ `build_disc.py --profile test --mode …`；永远不要手改 `lua_scripts/`。
+  全解锁主菜单等）→ `build_disc.py --profile test --mode …`；改引擎行为（禁则表、ruby 算式等
+  EBOOT 二进制）→ `layers/eboot/<名>.toml` 字节补丁层 + `manifest.toml` 的 `[eboot].order`
+  登记（源 `assets/EBOOT.dec.elf` 是 PPSSPP dump 的解密 EBOOT，指纹钉在 manifest；
+  `tools/eboot_patch.py`）；永远不要手改 `lua_scripts/`。
   加层后先 `tools/layers.py check` 过闸再出盘，完整走查见 `docs/ops/disc-pipeline.md`。
 - **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。

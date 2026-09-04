@@ -58,6 +58,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 改谢幕章台词/演出 | `layers/scripts/snr_finale.lua` | 直接改文件，再 `build_disc.py` |
 | 新增本地化文本（选项按钮、地图点名、系统提示等新文案） | 新建 `layers/overlays/<名>.toml`；在 `manifest.toml` 的 `[overlays].order` 排位；若引入新的 `vms`/`msg` 数字 id，在 `vms_ids.toml` 登记区段 | `uv run python tools/layers.py check` 过闸后 `build_disc.py` |
 | 测试捷径（跳 IPL、直入场景、全解锁主菜单等） | 不改任何文件——`tools/testboot.py` 在 test 剖面按 `--mode` 现场生成 | `build_disc.py --profile test --mode {font,scene,ruby,card,cutin,mainmenu,choices,map} [--scene ID] [--card N]` |
+| 改引擎行为（EBOOT 二进制：禁则表、ruby 算式等） | 新建 `layers/eboot/<名>.toml`（原字节锚点 + 新字节/字符串，`why` 必填）；在 `manifest.toml` 的 `[eboot].order` 排位。源是 PPSSPP dump 的解密 EBOOT `assets/EBOOT.dec.elf`（版权物不入库，指纹钉在 `[eboot].sha256`；取得步骤见 `docs/ops/eboot-kinsoku-research-2026-09-04.md` §1） | `uv run python tools/eboot_patch.py check assets/EBOOT.dec.elf` / `layers.py check` 过闸后 `build_disc.py`（`eboot` 阶段） |
 
 烤字图（卡面/选项/系统 UI 等新增或替换的 PNG）不在上表——那条链路是「先跑对应
 `tools/bake_*.py` 产 `build/<面>_zh/*.png`」，再由 `manifest.toml` 的 `[gim].replace`/`[gim].new`
@@ -74,8 +75,9 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | `members` | `build/<profile>/members/`：先清空再重建。编译 `lua/final/*.lua`（校 PSP ABI 头）；gim 按 `manifest.toml` 的 `[gim]` 两表编码（经 `build/cache/gim/` 内容哈希缓存，`--force` 绕过）；字体拷入 |
 | `stage` | `build/databin` --APFS clone--> `build/<profile>/stage`，覆入 members，新成员按名排序位插入（引擎二分查找依赖有序性） |
 | `pack` | `databin pack stage` → `build/<profile>/DATA.BIN`，记下这次打包对应的 stage 树指纹到 `build/<profile>/stage_fingerprint.txt`。**不碰 `build/dist/`**——发布产物只能由通过发布断言的 `iso` 阶段写入 |
-| `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN`，供 PPSSPP 目录引导 |
-| `iso` | 仅 release：三道断言全过，才把 `DATA.BIN` 拷到 `build/dist/`、`umdiso` 就地替换 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
+| `eboot` | 按 `manifest.toml` 的 `[eboot]` 给解密引擎 ELF 施加 `layers/eboot/*.toml` 的字节补丁（`tools/eboot_patch.py`：逐补丁核对原字节锚点，幂等，任一不中整体失败）→ `build/<profile>/EBOOT.BIN`。没有 `[eboot]` 节则空转，盘里沿用原加密 EBOOT |
+| `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN` 与（有 `[eboot]` 时）`EBOOT.BIN`，供 PPSSPP 目录引导 |
+| `iso` | 仅 release：三道断言（有 `[eboot]` 时四道）全过，才把 `DATA.BIN`/`EBOOT.BIN` 拷到 `build/dist/`、`umdiso` 就地替换两个文件 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
 | `boot` | PPSSPP 引导冒烟 + 截图序列，opt-in，不在缺省阶段集合内 |
 
 不论这次跑了哪些阶段，结束时都会写 `build/<profile>/provenance.json`。
@@ -170,6 +172,8 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 独立重编译逐字节核对 | `build_disc.py` 的 `iso` 阶段 | `stage/script/*.lua` 与译文管线**独立重新编译** `lua/final/*.lua` 的结果不一致——不查特征串，直接拿译文管线产物当基准整体比对，测试引导无论改了什么，只要与管线产物不一致就会被抓住 |
 | 成员集合与测试引导成员检查 | `build_disc.py` 的 `iso` 阶段（`release_assertions`） | 封包树里出现未声明的成员（测试引导残留）、或缺了 manifest 声明的新增成员、或混入了 `script/snr_test.lua`——志愿者拿到的盘绝不能带测试探针 |
 | `--profile != release` 拒绝 `iso` | `build_disc.py` 的 `iso` 阶段入口 | test 剖面的产物结构上到不了 `build/dist/`，但入口仍显式挡一道，报错比「凭空找不到文件」更明确 |
+| EBOOT 源指纹与补丁锚点 | `layers.py check`、`build_disc.py` 的 `eboot` 阶段 | 拿来打补丁的不是登记的纯净解密 EBOOT（sha256 不符）、或某条补丁的原字节锚点不中（源换了、与别的补丁冲突、区间重叠）——静默打错一个字节就是一份行为未知的引擎 |
+| EBOOT 重算核对（断言④） | `build_disc.py` 的 `iso` 阶段 | 要出盘的 `build/release/EBOOT.BIN` 与「对纯净源重新施加当前 `layers/eboot`」的结果不一致——`eboot` 阶段漏跑拿到旧产物、或层改了产物没跟上 |
 | `migrate_base.py --check` | 独立命令，建议随 `pytest` 一起跑 | 基座本身被意外改动（手滑改了 `lua_scripts/` 原件），让「基座=纯净等价」这条全局假设失守 |
 
 ## 故障排查

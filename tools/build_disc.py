@@ -32,13 +32,17 @@
   pack     databin pack stage → build/<profile>/DATA.BIN，记下这次打包对应的
            stage 树指纹（build/<profile>/stage_fingerprint.txt）。**不碰
            build/dist/**——那是发布产物，只能由通过发布断言的 iso 阶段写入。
+  eboot    按 layers/manifest.toml [eboot] 给解密引擎 ELF（assets/，版权物不入库，
+           指纹钉在 manifest）施加 layers/eboot/*.toml 的字节补丁 →
+           build/<profile>/EBOOT.BIN（tools/eboot_patch.py；无 [eboot] 节则空转）。
   disc     刷新 build/<profile>/game/（首次自 assets/orig.iso 解出）+ 覆入
-           DATA.BIN，供 PPSSPP 目录引导。
+           DATA.BIN 与（若有）EBOOT.BIN，供 PPSSPP 目录引导。
   iso      仅 release：三道断言（stage 树指纹与 DATA.BIN 对应同一次 pack、
            lua/final 独立重编译后与 stage/script 逐字节核对、成员集合与测试
-           引导成员检查）全过，才把 DATA.BIN 拷到 build/dist/、umdiso 就地
-           替换 → build/dist/game_zh.iso + provenance 副本；任一断言不过就
-           拒绝出盘，不写任何 build/dist/ 文件。
+           引导成员检查；有 [eboot] 时第四道：EBOOT.BIN 与「对登记的纯净源
+           重新施加当前层」逐字节相同）全过，才把 DATA.BIN/EBOOT.BIN 拷到
+           build/dist/、umdiso 就地替换 → build/dist/game_zh.iso + provenance
+           副本；任一断言不过就拒绝出盘，不写任何 build/dist/ 文件。
   boot     PPSSPP 引导冒烟 + 截图序列（opt-in，不在缺省阶段集合内）。
 
 不论这次跑了哪些阶段，结束时都会写 build/<profile>/provenance.json。
@@ -593,6 +597,49 @@ def stage_pack(ctx: BuildContext) -> dict:
 
 # ---------- F 盘目录 ----------
 
+# ---------- E2 引擎补丁 ----------
+
+def stage_eboot(ctx: BuildContext) -> dict:
+    """按 manifest [eboot] 给解密 EBOOT 打补丁 → build/<profile>/EBOOT.BIN。
+
+    源是 PPSSPP dump 出的解密 PRX 型 ELF（取得步骤：
+    docs/ops/eboot-kinsoku-research-2026-09-04.md §1），版权物、不入库，指纹钉在
+    manifest，不符拒绝。补丁本体在 layers/eboot/*.toml（tools/eboot_patch.py：
+    原字节锚点 + 新字节，幂等，锚点不中整体失败）。没有 [eboot] 节则空转，
+    盘里沿用原加密 EBOOT。
+    """
+    from tools import eboot_patch
+
+    cfg = ctx.manifest.get("eboot")
+    if not cfg:
+        log("eboot: manifest 无 [eboot] 节，跳过（沿用原 EBOOT.BIN）")
+        return {"skipped": True}
+    src = REPO / cfg["source"]
+    if not src.exists():
+        die(f"缺 {src}（解密 EBOOT；取得步骤见 docs/ops/eboot-kinsoku-research-2026-09-04.md §1）")
+    data = src.read_bytes()
+    if eboot_patch.sha256(data) != cfg["sha256"]:
+        die(f"{src} 的 sha256 与 manifest [eboot].sha256 不符——不是登记的纯净源，拒绝施加")
+    patches = eboot_patch.load_layers(cfg["order"], profile=ctx.profile)
+    out, _report = eboot_patch.apply(data, patches)
+    dst = ctx.root / "EBOOT.BIN"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(out)
+    log(f"eboot: {len(patches)} 条补丁（{', '.join(cfg['order'])}）→ {dst}（{len(out)} B）")
+    return {"EBOOT.BIN": str(dst), "patches": len(patches), "sha256": eboot_patch.sha256(out)}
+
+
+def _expected_eboot(cfg: dict) -> bytes:
+    """对登记的纯净源重新施加当前层——stage_iso 断言④与 stage_disc 共用的独立重算。"""
+    from tools import eboot_patch
+
+    pristine = (REPO / cfg["source"]).read_bytes()
+    if eboot_patch.sha256(pristine) != cfg["sha256"]:
+        die(f"{cfg['source']} 的 sha256 与 manifest [eboot].sha256 不符")
+    out, _ = eboot_patch.apply(pristine, eboot_patch.load_layers(cfg["order"], profile="release"))
+    return out
+
+
 def stage_disc(ctx: BuildContext) -> dict:
     game = ctx.root / "game"
     if not (game / "PSP_GAME").exists():
@@ -614,6 +661,12 @@ def stage_disc(ctx: BuildContext) -> dict:
         die(f"缺 {src}（先跑 pack 阶段）")
     shutil.copyfile(src, game / "PSP_GAME" / "USRDIR" / "DATA.BIN")
     log(f"disc: DATA.BIN 已覆入 {game}")
+    if ctx.manifest.get("eboot"):
+        eboot = ctx.root / "EBOOT.BIN"
+        if not eboot.exists():
+            die(f"缺 {eboot}（先跑 eboot 阶段）")
+        shutil.copyfile(eboot, game / "PSP_GAME" / "SYSDIR" / "EBOOT.BIN")
+        log(f"disc: EBOOT.BIN（已补丁）已覆入 {game}")
     return {"game": str(game)}
 
 
@@ -673,10 +726,26 @@ def stage_iso(ctx: BuildContext) -> dict:
 
     from tools.umdiso import DATA_BIN_PATH, replace, verify
 
+    pairs = [(DATA_BIN_PATH, str(src))]
+    cfg = ctx.manifest.get("eboot")
+    if cfg:
+        # 断言④：要出盘的 EBOOT.BIN 必须逐字节等于「对登记的纯净源重新施加当前
+        # layers/eboot」的结果——与 lua 的独立重编译核对同一思路，防止 eboot 阶段
+        # 漏跑后拿旧产物、或层改了产物没跟上。
+        eboot = ctx.root / "EBOOT.BIN"
+        if not eboot.exists():
+            die(f"缺 {eboot}（先跑 eboot 阶段）")
+        if eboot.read_bytes() != _expected_eboot(cfg):
+            die("iso: EBOOT.BIN 与当前 layers/eboot 重新施加纯净源的结果不一致——重跑 eboot 阶段")
+        log("iso: 断言④通过（EBOOT.BIN 与层重算结果逐字节相同）")
+        pairs.append((cfg["iso_path"], str(eboot)))
+
     DIST.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, DIST / "DATA.BIN")     # Finding 1：只有闸过了才能发布
+    if cfg:
+        shutil.copyfile(ctx.root / "EBOOT.BIN", DIST / "EBOOT.BIN")
     out = DIST / "game_zh.iso"
-    replace(str(ORIG_ISO), str(out), [(DATA_BIN_PATH, str(src))], log=log)
+    replace(str(ORIG_ISO), str(out), pairs, log=log)
     if not verify(str(out), against=str(ORIG_ISO), log=log):
         die("iso: 结构自检未过")
     log(f"iso: {out}（{out.stat().st_size} B）")
@@ -741,6 +810,8 @@ def _write_provenance(ctx: BuildContext, results: dict[str, dict]) -> None:
         members_stat = {"replaced": 0, "added": 0}
 
     outputs = {"DATA.BIN": _hash_or_absent(ctx.root / "DATA.BIN")}
+    if ctx.manifest.get("eboot"):
+        outputs["EBOOT.BIN"] = _hash_or_absent(ctx.root / "EBOOT.BIN")
     if ctx.profile == "release":
         outputs["game_zh.iso"] = _hash_or_absent(DIST / "game_zh.iso")
 
@@ -767,10 +838,10 @@ def _write_provenance(ctx: BuildContext, results: dict[str, dict]) -> None:
 
 # ---------- CLI ----------
 
-STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "disc", "iso", "boot"]
+STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "eboot", "disc", "iso", "boot"]
 STAGES = {"lua": stage_lua, "font": stage_font, "members": stage_members,
-          "stage": stage_stage, "pack": stage_pack, "disc": stage_disc,
-          "iso": stage_iso, "boot": stage_boot}
+          "stage": stage_stage, "pack": stage_pack, "eboot": stage_eboot,
+          "disc": stage_disc, "iso": stage_iso, "boot": stage_boot}
 #: 缺省 all 时各剖面跑到哪一站——均不含 boot（opt-in）。
 DEFAULT_STOP = {"release": "iso", "test": "disc"}
 

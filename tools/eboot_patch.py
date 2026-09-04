@@ -122,10 +122,11 @@ def load_layer(path: Path) -> dict:
     return {"_name": path.stem, "why": raw["why"], "profile": profile, "patches": patches}
 
 
-def load_layers(order: list[str], root: Path = EBOOT_LAYERS, profile: str = "release"
+def load_layers(order: list[str], root: Path | None = None, profile: str = "release"
                 ) -> list[Patch]:
     """按 order 读层、按剖面筛选，并拒绝任何区间重叠（施加顺序在重叠时会决定结果，
-    那是隐式语义，宁可不允许）。"""
+    那是隐式语义，宁可不允许）。root 缺省在调用时才取 EBOOT_LAYERS，测试可 monkeypatch。"""
+    root = root or EBOOT_LAYERS
     if profile not in PROFILES:
         raise PatchError(f"未知剖面 {profile!r}")
     on_disk = sorted(p.stem for p in root.glob("*.toml"))

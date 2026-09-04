@@ -310,3 +310,67 @@ def test_require_bake_face_returns_false_when_dir_exists(tmp_path):
         ctx = bd.BuildContext(profile=profile, root=tmp_path / "root", manifest={},
                               switches={}, mode_opts={}, force=False)
         assert bd._require_bake_face(ctx, present, "card_zh") is False
+
+
+# ---------------------------------------------------------------------------
+# eboot 阶段：无 [eboot] 节空转；有则在登记的纯净源上施加 layers/eboot 并落 EBOOT.BIN
+# ---------------------------------------------------------------------------
+
+def _mini_elf(payload: bytes, vaddr: int = 0x1000) -> bytes:
+    import struct
+    phoff, phentsize, off = 52, 32, 0x60
+    hdr = (b"\x7fELF" + bytes([1, 1, 1, 0]) + b"\0" * 8
+           + struct.pack("<HHIIIIIHHHHHH", 0xFFA0, 8, 1, 0, phoff, 0, 0, 52, phentsize, 1, 40, 0, 0))
+    ph = struct.pack("<8I", 1, off, vaddr, vaddr, len(payload), len(payload), 7, 0x10)
+    return (hdr + ph).ljust(off, b"\0") + payload
+
+
+def _ctx(tmp_path, manifest):
+    from tools.build_disc import BuildContext
+    return BuildContext(profile="release", root=tmp_path / "out", manifest=manifest,
+                        switches={}, mode_opts={})
+
+
+def test_stage_eboot_skips_without_manifest_section(tmp_path):
+    from tools.build_disc import stage_eboot
+    assert stage_eboot(_ctx(tmp_path, {"eboot": None})) == {"skipped": True}
+    assert not (tmp_path / "out" / "EBOOT.BIN").exists()
+
+
+def test_stage_eboot_applies_registered_layers(tmp_path, monkeypatch):
+    import hashlib
+
+    from tools import eboot_patch
+    from tools.build_disc import stage_eboot
+
+    src = tmp_path / "EBOOT.dec.elf"
+    src.write_bytes(_mini_elf(b"ABCDEFGH"))
+    layers_root = tmp_path / "eboot_layers"
+    layers_root.mkdir()
+    (layers_root / "x.toml").write_text(
+        'why = "测试"\nprofile = "release"\n[[patches]]\nva = "0x1002"\nfrom = "43 44"\nto = "63 64"\n',
+        encoding="utf-8")
+    monkeypatch.setattr(eboot_patch, "EBOOT_LAYERS", layers_root)
+    cfg = {"source": str(src), "sha256": hashlib.sha256(src.read_bytes()).hexdigest(),
+           "iso_path": "/PSP_GAME/SYSDIR/EBOOT.BIN", "order": ["x"]}
+    res = stage_eboot(_ctx(tmp_path, {"eboot": cfg}))
+    out = (tmp_path / "out" / "EBOOT.BIN").read_bytes()
+    assert out[0x60:0x68] == b"ABcdEFGH" and res["patches"] == 1
+
+
+def test_stage_eboot_rejects_unregistered_source(tmp_path, monkeypatch):
+    from tools import eboot_patch
+    from tools.build_disc import stage_eboot
+
+    src = tmp_path / "EBOOT.dec.elf"
+    src.write_bytes(_mini_elf(b"ABCDEFGH"))
+    layers_root = tmp_path / "eboot_layers"
+    layers_root.mkdir()
+    (layers_root / "x.toml").write_text(
+        'why = "测试"\nprofile = "release"\n[[patches]]\nva = "0x1002"\nfrom = "43 44"\nto = "63 64"\n',
+        encoding="utf-8")
+    monkeypatch.setattr(eboot_patch, "EBOOT_LAYERS", layers_root)
+    cfg = {"source": str(src), "sha256": "0" * 64,
+           "iso_path": "/PSP_GAME/SYSDIR/EBOOT.BIN", "order": ["x"]}
+    with pytest.raises(SystemExit):
+        stage_eboot(_ctx(tmp_path, {"eboot": cfg}))

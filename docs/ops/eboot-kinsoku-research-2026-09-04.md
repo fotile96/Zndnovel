@@ -110,3 +110,85 @@ Python 里复制一份，必须与引擎逐格一致；运行时拼接的动态�
 **C. 改代码判定**（把 strstr 改成 Unicode 区段判断）：无必要，A 的容量已足够。
 
 推荐 A + 一个轻量校验器（B 的"校验"部分：≤4 行、≤500 B、悬挂 ≥3 格时告警）。
+
+## 6. ruby 语法与字体槽 1 的具体机制（同日补记）
+
+### 6.1 解析（`msg_layout_step` 0xA45C 起）
+
+- 触发条件是**半角** `<`（0x3C，单字节）；随后逐字读入，遇**半角** `,` 切到 ruby 段
+  （逗号本身不入串；再遇逗号仍是切换、也不入串，故 `<a,b,c>` = base `a` + ruby `bc`），
+  遇**半角** `>` 结束。全角 `＜，＞` 不触发。
+- base 与 ruby 各累进到一个 **100 字节栈缓冲**（`strcat` 无长度检查）：base 或 ruby
+  ≥ 100 字节（≈34 个汉字）会砸栈。组内的 `_n`/`_r` 不被识别，按字面画出。
+- 缺 `>` 时游标一路读过正文缓冲末尾（无边界检查，接着是 backlog 槽），直到撞见
+  `>`，多半崩溃——**注入前必须校验 `<…,…>` 配对**（现语料 51 组全部配对）。
+- 字符计数 `n_base`/`n_ruby` 按"字符个数"（多字节算 1）。
+- 整组在**一帧内**画完（不逐字打字机），随后 `col += n_base`。**这条路径没有任何
+  换行/禁则/第 4 行检查**：组起点若在 col ≥ 25 就画到悬挂区，跨行也不折。校验器规则：
+  `col + n_base ≤ 25`。
+
+### 6.2 落点（`font_draw_string` = EBOOT 0x5698，两槽共用）
+
+| 项 | 公式 | 说明 |
+|---|---|---|
+| base | 槽 0，`x = 17·col + 4`，`y = 26·line + 10` | 整串一次画，串内按 PGF `advanceH>>6` 推进（LXGW 17px 汉字/全角 = 17，与格宽一致） |
+| ruby | 槽 1，`x = 17·col + (17·n_base − 9·n_ruby)/2 + 4`，`y = 26·line + 1` | 按"每个 ruby 字符 9 px"居中；`build_font.widen_latin` 把拼音字母步进撑成 9 px 正是为了让此式成立 |
+| 字形行 | `y_top = y + (maxAscender>>6) − bitmapTop + 1` | `maxAscender` 来自 PGF 头 0xD4（`sceFontGetFontInfo` 的 `maxGlyphAscenderI`），`bitmapTop` 来自字形头 |
+| 字形列 | `x_left = x + pen + bitmapLeft + 1` | |
+| 空格 | ASCII 0x20 **直接跳过、不推进** | 拼音里不能用半角空格；U+3000 现不在字集里（`build_font.ALWAYS` 无此码位） |
+| 裁剪 | `sceFontGetCharGlyphImage_Clip(font, ch, img, 0, 0, bufW, bufH)` | 负坐标只被裁掉，不会写坏内存 |
+| 描边 | 从 text 层回读字形 4bpp 像素，3×3 膨胀 OR 进 outline 层 | 合成时 outline 层先贴、text 层后贴，各配一种颜色 |
+
+字体槽：`font_slots_4x300`（0x28FF88，**4 槽 × 300 B**，`sceFontNewLib` 的 `numFonts=4`）；
+`fontLoad(slot, name)` 只把 `disc0:/PSP_GAME/USRDIR/<name>` 整文件读进 `heap16`
+（`sceKernelAllocMemoryBlock`）并记下 ptr/len，真正的 `sceFontOpenUserMemory` 在
+**第一次绘制时**惰性发生。Lua 侧 13 处 `cfontPrint` 全用槽 0，**槽 1 只有 ruby 用**。
+文件查找：先在 DATA.BIN 索引里按去掉前缀后的路径 `strcmp` 二分（60 B/项：名 52 + 大小 +
+偏移），查不到再回退 `sceIoOpen` 真实路径——即引擎也能从光盘散文件读资源。
+
+> 顺带更正：2026-08-31 大字库失败时看到的 `sceFontOpenUserMemory(addr=0, size=-1)`
+> 中的 `-1` 是 `pack_file_size` 的"索引与散文件都没找到"返回值，不是缓冲不够；分配
+> 失败会走 `NG! sceKernelAllocMemoryBlock` 分支且 size 仍是文件长度。当时封包状态已不可
+> 复核，但 build_font.py 开头段"引擎字体缓冲装不下"的归因不成立，裁剪字集仍然是对的
+> （内存与加载时间），只是理由要改。
+
+### 6.3 实际量度（`tools/pgf_inspect.py` 读 PGF 头与字形头）
+
+| 字体 | maxAscender（>>6） | 代表字形 top/h | 引擎落点（行内 0 起） |
+|---|---|---|---|
+| 原 tsukuminpro_e_09（槽 1） | 7.906（7） | ア 7/8、ト 8/9 | ruby 行 2–9 |
+| 原 tsukuminpro_e_17（槽 0） | 14.953（14） | 妖 15/17 | 正文行 10–26 |
+| lxgw09（LXGW WenKai Mono，widen 后） | 9.000（9） | k 7/8、ā 8/9、g 5/7、妖 8/9 | ruby 行 3/4–11（g 到 12） |
+| lxgw17（LXGW WenKai） | 16.000（16） | 妖 14/16、哐 13/15 | 正文行 13–28 |
+
+结论：新字体整体**下沉 2–3 px**（ruby +2、正文 +3），ruby 与正文仍相邻不重叠，第 4 行
+底到 106 < 层高 111，不越界；但正文底部伸进下一行 0–2 行，与下一行 ruby 的描边相碰
+1–2 px。若要复原原版落点，只需把两份 PGF 头 0xD4 的 `maxAscender` 改回原值
+（09 → 7.906，17 → 14.953；引擎不用 descender），正文落点即回到 11–26（差 1 px 来自
+LXGW 字形 top 14 vs 原 15），ruby 回到 2–9。这与 `pgf-font-research` 文档"后补丁头部
+对齐原值"的预案一致，现在有了精确依据。
+
+步进：lxgw09 的 advance 表只有 3 个值——9.0（汉字、全角、被 widen 的拉丁/拼音）、
+4.5（未 widen 的 ASCII 数字与标点）、0（零宽）；lxgw17 汉字/全角恒 17.0、拉丁比例宽
+（a 9.75、A 11.5）。字集：两份字体各 3386 字形，拼音声调元音 30 个**全部在册**
+（`ALWAYS` 表保证），`kuāng/哐/妖/咚/啪/扑/Ｓｔｏｒｙ` 均有字。
+
+### 6.4 语料里的 ruby 与已知隐患
+
+- 51 组：4 组标题菜单 `<Ｓｔｏｒｙ,故事>` 类（全角拉丁 base 5–8 字 + 2–3 字中文 ruby），
+  47 组单字拼音（ruby 2–5 字符，无空格）。
+- **5 组起点在 col 0 且 ruby 比 base 宽**（id 11141/11148/11151/11153/11274：`<咚,dōng>`
+  x=−6、`<哐,kuāng>` x=−10）：按 6.2 公式起点为负，`k` 整个被左缘裁掉、只剩 `uāng`。
+  出路三选一：管线不让这类组落在 col 0（前面垫一个字或调整断行）、改用双字 base、
+  或补丁引擎把 ruby 起点钳到 ≥0。
+- 右侧无此问题：col 24 的 5 字 ruby 到 x=443，仍在 512 宽的层内、480 宽的屏内。
+- 校验器应加的规则：`<…,…>` 配对；base/ruby < 100 字节；`col + n_base ≤ 25`；
+  ruby 不含半角空格；起点 `17·col + (17·n_base − 9·n_ruby)/2 + 4 ≥ 0`。
+
+### 6.5 模拟器与实机的字体差异
+
+PPSSPP 对 `sceFont_Library` 一律 HLE（`Core/HLE/HLE.cpp` 的 `g_moduleMeta`），本作随盘的
+`module/libfont.prx`（游戏用 `sceKernelLoadModule` 显式加载，`sceLibFont` 的 8 个导入由它
+解析）在模拟器里根本不执行，字形栅格化走 PPSSPP 自己的 `Core/Font/PGF.cpp`。要在模拟器
+里跑真·libfont.prx 做保真对照，ppsspp.ini 设 `DisableHLEFlags = 1`（bit0 = sceFont）。
+拼音 ruby 的 1:1 像素辨识度最终仍以实机为准。

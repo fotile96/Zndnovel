@@ -39,6 +39,14 @@
 - 三套地址：**IDA/ELF VA**（基址 0）；**文件偏移 = VA + 0xC0**（PH0 offset 0xC0，vaddr 0，
   只对 PT_LOAD 内容成立，重定位表等段外字节用文件偏移）；**运行时 = VA + 0x08804000**
   （PPSSPP 调试器、断点、`cpu.getReg` 看到的都是这个）。
+- ⚠ **bss 对象（段 1，IDA 的 seg042 `0x6DA40..0x3302A0`）例外**（2026-09-05 实测踩到）：
+  IDA 解析指向 bss 的 `lui/addiu` 对（重定位 addr_base=1）时把段基址 0x6DA40 加了两次，
+  IDB 里 `dword_3251E8`/`unk_32DAA8`/`byte_1DD341` 这类名字的地址都比链接时 VA **高
+  0x6DA40**；`MEMORY[0x390D10]` 这种反编译里的裸地址是同一回事（越过了 IDA 段尾）。
+  换算：**运行时 = IDA 地址 − 0x6DA40 + 0x08804000**（存档结构 IDA 0x32DAA8 → 链接
+  VA 0x2C0068 → 运行时 0x08AC4068）。判据：读 SceUtilitySavedataParam（IDA 0x3251E8）
+  的 size 字段必须是 1536、+0x3C 必须是 `NPJH50279`——`tools/emu/drives/save_probe.py`
+  开场就这么自检。代码与 rodata（段 0）不受影响，`patch`/`eboot_patch.py` 的 VA 照旧。
 - 随盘 `module/libfont.prx`（`assets/`/`build/eboot/libfont.dec.prx`）是 Sony sceLibFont，
   游戏用 `sceKernelLoadModule` 显式装载并从它导入 8 个 `sceFont*`；PPSSPP 对它一律 HLE
   （`Core/HLE/HLE.cpp` 的 `g_moduleMeta`），要跑真模块设 ini `DisableHLEFlags = 1`（bit0）。
@@ -87,6 +95,16 @@ MCP 工具的脾气（实测）：
 | 0x1124 / 0x1248 / 0x1380 | `pack_index_lookup` / `pack_file_size` / `pack_read_async` | DATA.BIN 索引 60 B/项 strcmp 二分；找不到回退散文件 |
 | 0x1EF0 / 0x2F40 | `layer_create(w,h)` / `layer_blit_color` | 正文层 512×111 贴 (0,165)，名牌 192×22 贴 (0,142) |
 | 0x65280–0x652B0 | `sceFontGetFontInfo` … `sceFontGetCharInfo` | 导入桩（`jr ra; nop`），NID 见研究记录 §6.2 |
+| 0x64F60–0x65590 | 全部 198 个导入桩 | 已按 NID 命名（`/tmp` 脚本解析 `.lib.stub` + PPSSPP HLE 表，见存档研究 §1） |
+
+存档管线（2026-09-05，`docs/ops/eboot-savedata-research-2026-09-05.md`）：`lua_runListSave`
+0x6CF8（置 `byte_257D55` 并 yield）→ `script_step` 0x5CCC → `savedata_req_listsave_game`
+0xCB1C → `gamedata_persist_or_apply(1)` 0x6E78（Pluto 持久化 `gameSave` 表 + `mainThread`
+协程进存档结构 IDA 0x32DAA8/0x63268 B）→ `sceUtilitySavedataInitStart`；每帧
+`savedata_dialog_tick` 0x6F8。Pluto：`pluto_persist` 0x39D00、`pluto_persist_value`
+0x39A08、`pluto_persistthread` 0x39498、`pluto_persistproto` 0x390C8、写入回调
+`pluto_writer_membuf` 0x5FF8（无边界检查）。系统数据：`systemdata_persist_apply_config`
+0x6314（缓冲 IDA 0x3262A0/0x7804 B，后半是 msg 已读位图 `msg_read_flag_set` 0x9B58）。
 
 版面常数：格 17 px、行距 26 px、25 格/行、4 行/消息（第 5 行起停滞）、ruby 起点
 `17·col + (17·nb − 5·units)/2 + 4`（P=5 来自 `build_font.RUBY_PITCH_PX`）。
@@ -229,6 +247,9 @@ uv run python tools/emu/drives/regtrace.py --bp 0xA4DC --cond "s0 == 1" \
 - 补丁层：`layers/eboot/kinsoku.toml`、`layers/eboot/ruby-p5.toml`；工具 `tools/eboot_patch.py`
 - 校验器：`tools/msg_layout_check.py`（`--show <id>` 看版面）
 - 字体：`tools/build_font.py`（`RUBY_PITCH_PX`、`RECIPE`）、`tools/pgf_inspect.py`
-- 模拟器：`tools/emu/drives/{font_probe,regtrace}.py`、`tools/emu/client.py`、
+- 模拟器：`tools/emu/drives/{font_probe,regtrace,save_probe}.py`、`tools/emu/client.py`、
   `docs/ops/ppsspp-local-setup-2026-08-31.md`
+- 存档：`docs/ops/eboot-savedata-research-2026-09-05.md`（Pluto 序列化机制、存档结构布局、
+  容量与实测）、`tools/pluto_size.py`（字节码估算 / 转储解析；`build_disc.py` members 阶段
+  的容量闸）、`tools/emu/drives/save_probe.py`（实测 blob 大小并转储存档结构）
 - 管线：`docs/ops/disc-pipeline.md`（eboot 阶段、各道闸）

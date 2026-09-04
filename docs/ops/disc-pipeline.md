@@ -173,6 +173,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 成员集合与测试引导成员检查 | `build_disc.py` 的 `iso` 阶段（`release_assertions`） | 封包树里出现未声明的成员（测试引导残留）、或缺了 manifest 声明的新增成员、或混入了 `script/snr_test.lua`——志愿者拿到的盘绝不能带测试探针 |
 | `--profile != release` 拒绝 `iso` | `build_disc.py` 的 `iso` 阶段入口 | test 剖面的产物结构上到不了 `build/dist/`，但入口仍显式挡一道，报错比「凭空找不到文件」更明确 |
 | EBOOT 源指纹与补丁锚点 | `layers.py check`、`build_disc.py` 的 `eboot` 阶段 | 拿来打补丁的不是登记的纯净解密 EBOOT（sha256 不符）、或某条补丁的原字节锚点不中（源换了、与别的补丁冲突、区间重叠）——静默打错一个字节就是一份行为未知的引擎 |
+| 消息窗排版校验（`tools/msg_layout_check.py`） | `layers.py check`（硬失败）、`build_disc.py` 的 `lua` 阶段（release 硬失败，test 只告警） | 译文在引擎里会出可见故障：整条消息排到第 5 行（引擎停滞、消息永远结束不了）、文本 ≥ 500 B（缓冲写穿）、注音组缺 `>`/超 100 B（读穿/砸栈）、注音组越过第 25 格或起点为负（被裁）；另告警悬挂到第 3 格、注音重叠、非拼音半角 ruby 等排版难看项。`--show <id>` 打印模拟版面 |
 | EBOOT 重算核对（断言④） | `build_disc.py` 的 `iso` 阶段 | 要出盘的 `build/release/EBOOT.BIN` 与「对纯净源重新施加当前 `layers/eboot`」的结果不一致——`eboot` 阶段漏跑拿到旧产物、或层改了产物没跟上 |
 | `migrate_base.py --check` | 独立命令，建议随 `pytest` 一起跑 | 基座本身被意外改动（手滑改了 `lua_scripts/` 原件），让「基座=纯净等价」这条全局假设失守 |
 

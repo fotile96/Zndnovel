@@ -555,7 +555,9 @@ def main(argv=None) -> int:
     # （译文已注入）；没有这一步，下面 build_final_sources 缺省的「读基座原文」
     # 路径没法比出正确结果——见 _injected_sources 的 docstring。其余用途（纯
     # check / diff / ids）不需要译文注入这个较重的依赖，仍走缺省快速路径。
-    injected = _injected_sources(manifest, ledger_rows) if args.compare_compiled else None
+    # 消息窗排版校验要看**译文**，故 check 现在总是先做内存注入（几秒），不再只在
+    # --compare-compiled 时注入；层锚点是代码文本，注入与否都命中。
+    injected = _injected_sources(manifest, ledger_rows)
     sources, applied, added = build_final_sources(args.profile, injected=injected)
     print(f"[layers] {args.profile}: 施加 {len(applied)} 层"
           f"（{', '.join(o['_name'] for o in applied)}），新增成员 {len(added)}")
@@ -563,7 +565,18 @@ def main(argv=None) -> int:
         return _compare_compiled(sources, Path(args.compare_compiled), manifest)
     print("[layers] 全部层命中 ✓")
     _check_eboot(manifest, args.profile)
+    _check_msg_layout(sources, hard=True)
     return 0
+
+
+def _check_msg_layout(sources: dict[str, str], hard: bool) -> None:
+    """消息窗排版闸（tools/msg_layout_check.py）：错误 = 引擎会出可见故障（第 5 行停滞、
+    缓冲写穿、注音读穿/越界/被裁），hard=True 时硬失败；警告只打印。"""
+    from tools import msg_layout_check as mlc
+    findings, stats = mlc.check_sources(sources)
+    print(mlc.format_report(findings, stats, limit=8))
+    if stats["errors"] and hard:
+        raise OverlayError(f"消息窗排版校验有 {stats['errors']} 处错误（见上），拒绝放行")
 
 
 def _check_eboot(manifest: dict, profile: str) -> None:

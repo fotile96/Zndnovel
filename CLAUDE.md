@@ -216,6 +216,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 ## 常用操作（现阶段）
 
 - 三件套分析产物已归档在 `analysis/`（DAG 快照 / 卡片谜题表 / 全量文本摘要），lua 改动后用 `tools/extract_{dag,crd,text}.py` 重跑（前两个输出到 stdout，text 直接写 `analysis/text_digest/`）。查剧情/查结构**优先读 analysis/ 而不是原始 lua**。
+- 消息窗排版校验：`uv run python tools/msg_layout_check.py --profile release`（按引擎规则逐格模拟每条 msg 文本：25 格×4 行、禁则表、ruby 公式、500 B 缓冲；`--show <id>` 看单条版面）。`layers.py check` 与 `build_disc.py` 的 `lua` 阶段已内置，release 有错误即拒绝。
 - 通读全书定稿：`uv run python tools/read_server.py` 开 Web UI（逐行摊开原文/首译/修订史/批注，人读）；`uv run python tools/export_read.py` 导出 `work/out/read.md`（约 40 万字符，每条译文一行、无原文与批注，喂给长上下文模型一次读完）。两者共用同一条路线序。
 - 数场景/文本量：`grep -c '^scene_' lua_scripts/snr_s1_10_s.lua`；`grep -c 'vms(' lua_scripts/*.lua`。
 - 手工核对某章调度器：读文件末尾的 `main = function()`（`doScriptScene` 状态机）。

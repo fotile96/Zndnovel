@@ -163,6 +163,16 @@ def stage_lua(ctx: BuildContext) -> dict:
     ledger_ids = {r["id"] for r in ledger_rows}
     layers.check_ids(ctx.manifest, layers.LAYERS, ledger_ids)
 
+    # 消息窗排版校验：release 有错误即拒绝（第 5 行停滞/缓冲写穿/注音读穿会直接坏盘），
+    # test 剖面只告警——探针文本本来就可能故意越界（tools/testboot.py）。
+    from tools import msg_layout_check as mlc
+    findings, stats = mlc.check_sources(sources)
+    for ln in mlc.format_report(findings, stats, limit=5).splitlines():
+        log(ln)
+    if stats["errors"] and ctx.profile == "release":
+        die(f"lua: 消息窗排版校验有 {stats['errors']} 处错误——"
+            f"`uv run python tools/msg_layout_check.py --show <id>` 看版面")
+
     final_dir = ctx.root / "lua" / "final"
     if final_dir.exists():
         shutil.rmtree(final_dir)

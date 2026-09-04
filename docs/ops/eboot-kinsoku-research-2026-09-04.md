@@ -356,3 +356,19 @@ CIRCLE 推不动，后续页全部丢失——校验器必须把"每页 ≤ 4 �
 另两条实测观察：①相邻两个单字宽注音（`<哐,kuāng><咚,dōng>`）各 25 px 压在 17 px 格上，
 彼此重叠约 8 px——校验器应对"相邻 ruby 组的注音区间重叠"告警；②语料外汉字在
 PPSSPP 里渲染成 `_`（alt char），探针页用的天干地支正好演示了这一点。
+## 8. 校验器落地（同日）
+
+`tools/msg_layout_check.py`（纯 stdlib）：从最终 lua 源提取 `vms/msg/oCard.show` 的字面量
+文本（动态拼接的调用计数跳过），按 §3 + §7 的规则逐格模拟：`【名】` 前缀、`_n` 等键不换行、
+`_r` 换行、25 格 × 4 行、禁则表（直接读 layers/eboot/kinsoku.toml，与 EBOOT 同源）、
+注音组的单位计数与起点公式（P 取 build_font.RUBY_PITCH_PX）、500 B 与 100 B 缓冲。
+错误（引擎会出可见故障）：page-overflow、too-long、name-unterminated、ruby-unterminated、
+ruby-(base-)too-long、ruby-past-margin、ruby-negative-x；警告：hang-deep（悬挂第 3 格）、
+ruby-overlap、ruby-halfwidth-nonpinyin、ruby-base-space、ruby-no-comma、ruby-nested、
+ruby-control-code、stray-underscore、ruby-empty-base。`--show <id>` 打印模拟版面。
+挂在 `layers.py check`（硬失败）与 `build_disc.py` 的 `lua` 阶段（release 硬失败、test 告警）。
+
+首轮跑 release 全量 17069 条：**错误 0，警告 43**，全部是 hang-deep，且清一色是行尾
+`。――`（句号后接双破折号，`―` 在行头表内 → 三个字符一起悬挂到 x≈463）。要不要让 `―`/`—`
+留在行头表（改成不悬挂就会整对破折号折到下一行、只悬挂 `。`），由译审定；表在
+layers/eboot/kinsoku.toml 一处改。

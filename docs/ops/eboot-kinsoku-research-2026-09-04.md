@@ -368,7 +368,8 @@ ruby-overlap、ruby-halfwidth-nonpinyin、ruby-base-space、ruby-no-comma、ruby
 ruby-control-code、stray-underscore、ruby-empty-base。`--show <id>` 打印模拟版面。
 挂在 `layers.py check`（硬失败）与 `build_disc.py` 的 `lua` 阶段（release 硬失败、test 告警）。
 
-首轮跑 release 全量 17069 条：**错误 0，警告 43**，全部是 hang-deep，且清一色是行尾
-`。――`（句号后接双破折号，`―` 在行头表内 → 三个字符一起悬挂到 x≈463）。要不要让 `―`/`—`
-留在行头表（改成不悬挂就会整对破折号折到下一行、只悬挂 `。`），由译审定；表在
-layers/eboot/kinsoku.toml 一处改。
+首轮跑 release 全量 17069 条：**错误 0，警告 43**，全部是 hang-deep，悬挂串的分布：
+`――」` 17、`……」` 15、`…？」` 2、`。……` 2、其余零星（`。――`、`——」`、`』――」` 等）——
+都是"双破折号/省略号 + 闭引号"落在行尾，三个字符一起悬挂到 x≈463。要不要让 `―—…`
+留在行头表（拿掉后整对破折号/省略号会折到下一行开头、只悬挂 `」`），由译审定；表在
+layers/eboot/kinsoku.toml 一处改，校验器会自动跟着变。

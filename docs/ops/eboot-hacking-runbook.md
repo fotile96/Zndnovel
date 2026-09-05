@@ -250,6 +250,32 @@ uv run python tools/emu/drives/regtrace.py --bp 0xA4DC --cond "s0 == 1" \
 - 模拟器：`tools/emu/drives/{font_probe,regtrace,save_probe}.py`、`tools/emu/client.py`、
   `docs/ops/ppsspp-local-setup-2026-08-31.md`
 - 存档：`docs/ops/eboot-savedata-research-2026-09-05.md`（Pluto 序列化机制、存档结构布局、
-  容量与实测）、`tools/pluto_size.py`（字节码估算 / 转储解析；`build_disc.py` members 阶段
-  的容量闸）、`tools/emu/drives/save_probe.py`（实测 blob 大小并转储存档结构）
+  容量与实测、扩容层落地）、`tools/pluto_size.py`（字节码估算 / 转储解析；`build_disc.py`
+  members 阶段的容量闸，容量从层推导）、`tools/emu/drives/save_probe.py`（实测 blob 大小并
+  转储存档结构，`--patched` 读扩容布局）、`tools/emu/drives/save_roundtrip.py`（存→读往返
+  + 旧区毒化）、`tools/emu/drives/mem_probe.py`（用户内存预算）
+- 扩容层：`layers/eboot/savebuf.toml`（现 `profile = "test"`；要给发布盘启用就改成 release，
+  同时接受与旧布局存档互不兼容）。由 `tools/eboot_relscan.py move-plan --delta 0x40000
+  --emit-toml layers/eboot/savebuf.toml` 机械生成，`tests/test_eboot_relscan.py` 从纯净 ELF
+  重推对账；改 Δ 就重跑生成并跑测试。`eboot_relscan.py scan --range A B` 可列出任何 bss
+  区间的全部引用（IDA 地址）。
+
+## 8. 搬迁 bss 对象的纪律（2026-09-05 存档扩容实战）
+
+- **引用清单要三源互证**：`eboot_relscan`（重定位表 + 寄存器流回溯 lui，含 addu/or/move
+  传播）、IDA 列表（`search_text` 正则找裸地址）、运行时毒化（把旧区填 0xEE 跑一遍存/读档，
+  `save_roundtrip.py --patched` 内建）。扫描器第一版漏掉了两处 `lui + addu 索引` 的循环访问，
+  IDA 也把它们显示成 `+0x390000` 算术——单靠任何一种都会漏。
+- **位移取 0x10000 的整数倍**，只改 lui 立即数，`%lo` 与重定位表不动；同一条 lui 的全部
+  用户必须落在同一侧（脚本断言）。
+- **常量物化点另找**：结构长度 0x63268 是 `lui r,6 ; addiu r,0x3268`，lui 与 addiu 可能隔着
+  几条（延迟槽重排），且 addiu 的 rt 可以不同于 rs。
+- **扩 bss 只改 PH1.p_memsz**（文件偏移 0x68，`off =` 补丁）。C 堆 `UserSbrk` 是 LowAligned
+  分配、紧跟模块，会自动后移；heap16 自顶向下。用 `mem_probe.py` 看空隙。
+- **PPSSPP 存档对话框按键**（Core/Dialog/PSPSaveDialog.cpp）：列表 ○ 选槽；槽里有数据 →
+  「覆盖？」默认 No，← 到 Yes 再 ○；「Save completed」**只认 ✕**；「Load completed」○✕ 皆可；
+  引擎侧活动标志 `byte_326294`（IDA）回 0 才算结束，成功与否看 `param.result`（IDA 0x325204）。
+  Lua 随后的 `autoSystemSave(1)` 会弹「是/否」（是 默认）。
+- **读 bss 一律用 IDA 地址 − 0x6DA40 + 0x08804000**（§1）；探针开场自检
+  `SceUtilitySavedataParam.size == 1536`。
 - 管线：`docs/ops/disc-pipeline.md`（eboot 阶段、各道闸）

@@ -383,6 +383,13 @@ nups/numparams/is_vararg/maxstacksize 各 1。
 
 估算器在超容量区间同样准：估算 377692 + 实测差 1674 B（与未翻倍的 s1s_20 完全一致）。
 
+**往返验证**（`tools/emu/drives/save_roundtrip.py --patched`，翻倍 s1s + savebuf 层）：开机后把旧
+结构区 0x63268 B 填 0xEE → 存档（LISTSAVE 对话框 result 0，写出 681 KB 的 DATA.BIN）→ Lua 的系统
+数据确认 → 推进两句 → 读档（LISTLOAD result 0 → AUTOLOAD → applyGamedata）→ 读回 `msg_text_buf`
+与存档瞬间完全一致（「○蝉声回响，讴歌着这短暂的夏天。」，读档前已是下一句）→ 旧结构区 0 B 被改动。
+三项判据 saved/resumed/poison 全过。前两轮失败都在 PPSSPP 对话框按键语义（覆盖确认默认 No、
+「Save completed」只认 ✕），已按其源码改成按引擎活动标志驱动。
+
 ### 内存预算（扩 bss 会不会挤到别的东西）
 
 用户区 0x08800000..0x0A000000（24 MB，PARAM.SFO 无 MEMSIZE 大内存标志）。实测（PPSSPP，
@@ -397,6 +404,16 @@ s2s_10 场景内快照 heap16 块表 IDA 0x257D60 与 sbrk 指针 IDA 0x1DB4B8/B
 
 所以 +716 KB 绰绰有余；影片播放（`sub_B444` 的 mpeg 工作区）与最重场景的峰值未测，落地前
 用同一探针在 OP 播放中再快照一次即可。
+
+### 实机（CFW）验证清单——模拟器验不到的三件事
+
+1. **内核对扩大的 p_memsz 的处理**：`build_disc.py --profile test --mode scene --scene s1s_20 --bloat`
+   出的盘（含 savebuf 层）在实机开机进场景、SQUARE 存档；崩溃/黑屏 = 装载器没按 p_memsz 分配。
+2. **savedata 真实写卡**：存档文件 `ms0:/PSP/SAVEDATA/NPJH50279GAME00/DATA.BIN` 应为 668264 B；
+   读档回到同一句；再拿 PPSSPP 生成的同名存档拷到卡上读一次（跨平台一致性）。
+3. **影片与峰值内存**：翻倍盘从头玩到 OP 播放；`heap16_alloc` 失败会在 stdout 打
+   `NG! sceKernelAllocMemoryBlock`（实机看不到，只能看现象：影片黑屏/贴图缺失）。
+启用到发布盘前还要做：删除测试者的旧布局存档（读旧档必崩），发布说明写明。
 
 ### 备选
 

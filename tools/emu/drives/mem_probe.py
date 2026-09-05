@@ -34,7 +34,7 @@ def bss(ida: int) -> int:
 async def snapshot(cli) -> dict:
     await cli.break_cpu()
     tbl = await cli.read_bytes(bss(HEAP16_TABLE_IDA), 12 * HEAP16_N)
-    base, brk, end = (await cli.read_u32(bss(x)) for x in (SBRK_BASE_IDA, SBRK_BRK_IDA, SBRK_END_IDA))
+    base, brk, end = [await cli.read_u32(bss(x)) for x in (SBRK_BASE_IDA, SBRK_BRK_IDA, SBRK_END_IDA)]
     await cli.resume()
     addrs = sorted(struct.unpack_from("<I", tbl, i * 12 + 8)[0] for i in range(HEAP16_N)
                    if tbl[i * 12] and struct.unpack_from("<I", tbl, i * 12 + 8)[0])

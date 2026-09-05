@@ -246,6 +246,18 @@ main = function()
 end
 '''
 
+MOVIE_TEMPLATE = '''-- 自动生成（tools/testboot.py）：开机直接循环播放 OP 影片（内存峰值探针用）
+-- 替换 script/snr_mainmenu.lua。影片解码是引擎 heap16 用量的峰值场合之一。
+main = function()
+    cardIDFlag = true
+    gameSave.startMenuState = 2
+    while true do
+        playMovie("movie/op.mp4")
+        wait(60)
+    end
+end
+'''
+
 SCENE_TEMPLATE = '''-- 自动生成（tools/testboot.py）：跳场景 {scene}
 -- 替换 script/snr_mainmenu.lua；预置进度后直入目标章节脚本。
 main = function()
@@ -452,7 +464,7 @@ def scene_to_script(scene: str) -> str:
     return f"snr_{chap}_10_{suffix}"
 
 
-_MODES = ("font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map")
+_MODES = ("font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map", "movie")
 
 
 def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
@@ -512,6 +524,9 @@ def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
     if mode == "scene":
         return SCENE_TEMPLATE.format(scene=scene, script=scene_to_script(scene),
                                      hold=-1 if no_cards else 1)
+    if mode == "movie":
+        print("[testboot] 开机循环播放 movie/op.mp4（内存峰值探针）")
+        return MOVIE_TEMPLATE
     sys.exit(f"未知模式 {mode!r}（可选 {', '.join(_MODES)}）")
 
 

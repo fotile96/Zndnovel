@@ -365,6 +365,24 @@ nups/numparams/is_vararg/maxstacksize 各 1。
 - 代价：存档文件变长 Δ、与原版/旧版存档互不兼容（读旧档时 unpersist 会读到错位数据）；
   内存少 716 KB（见下）。
 
+### 落地：`layers/eboot/savebuf.toml`（test 剖面）与红/绿实测（同日）
+
+层由 `tools/eboot_relscan.py move-plan --delta 0x40000 --emit-toml` 生成：37 个 lui 字 + 3 个常量
+高半字 + PH1.p_memsz（文件偏移 0x68）共 41 条补丁；`tests/test_eboot_relscan.py` 从纯净 ELF
+重新推导并与入库文件逐字对账，打补丁后的 ELF 再扫一遍：旧结构区间 0 处引用、新区间 40 处。
+估算器/出盘闸的容量改为从层里两条 lui 反推（`pluto_size.savebuf_layout`），层不生效时回到 0x50000。
+
+复现材料：`build_disc.py --profile test --mode scene --scene s1s_20 --bloat` 把 s1s 章 1433 条 vms
+翻倍（原句前插一条带 `＊` 标记的 NONVOICE 副本，常量各不相同），复刻"中日双语"盘；估算器报
+线程 blob 394076 B。
+
+| 盘 | 引擎布局 | 实测线程 blob | 结果 |
+|---|---|---|---|
+| 翻倍 s1s | 原版（kinsoku+ruby 层，无 savebuf） | **379366 B / 327680 B（116%）** | 溢出 51686 B：越过结构末，盖掉对话框状态、icon 指针、`savedataTitle` 缓冲（读回标题成乱码 `�=`）直到 DATA.BIN 封包描述符——文件句柄变成 −603957247，装载线程随即刷出 8184 条 `sceIoReadAsync … bad file descriptor`，存档对话框没能弹出、游戏停摆。转储里线程流在 0x50464 处被随后 memcpy 的引擎状态盖断（`parse-dump` 解析失败） |
+| 翻倍 s1s | savebuf 层（Δ = 0x40000） | **379366 B / 589824 B（64%）** | 标题/章节完好，错误日志只有开机固定的 1 条，对话框正常 |
+
+估算器在超容量区间同样准：估算 377692 + 实测差 1674 B（与未翻倍的 s1s_20 完全一致）。
+
 ### 内存预算（扩 bss 会不会挤到别的东西）
 
 用户区 0x08800000..0x0A000000（24 MB，PARAM.SFO 无 MEMSIZE 大内存标志）。实测（PPSSPP，

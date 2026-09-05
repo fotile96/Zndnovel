@@ -138,6 +138,7 @@ def stage_lua(ctx: BuildContext) -> dict:
     if ctx.profile == "test":
         opts = dict(ctx.mode_opts)
         mode = opts.pop("mode")
+        opts.pop("bloat", None)            # --bloat 由本函数在最终源上施加，不是 testboot 模式参数
         testboot_result = testboot.generate(mode, gen_dir, **opts)
         for w in testboot_result["warnings"]:
             log(f"lua: ⚠ {w}")
@@ -162,6 +163,16 @@ def stage_lua(ctx: BuildContext) -> dict:
 
     ledger_ids = {r["id"] for r in ledger_rows}
     layers.check_ids(ctx.manifest, layers.LAYERS, ledger_ids)
+
+    # test 剖面 --bloat：把目标场景所在章节脚本的每条 vms 翻倍（复刻"中日双语"盘），用来
+    # 复现/验证存档线程 blob 超容量（docs/ops/eboot-savedata-research-2026-09-05.md §8a 路线图阶段 1）。
+    if ctx.profile == "test" and ctx.mode_opts.get("bloat"):
+        target = testboot.scene_to_script(ctx.mode_opts["scene"])
+        target = target if target.endswith(".lua") else target + ".lua"
+        if target not in sources:
+            die(f"lua: --bloat 目标脚本 {target} 不在最终源里")
+        sources[target], n_dup = testboot.bloat_script(sources[target])
+        log(f"lua: --bloat 把 {target} 的 {n_dup} 条 vms 翻倍（原文前插入 NONVOICE 标记副本）")
 
     # 消息窗排版校验：release 有错误即拒绝（第 5 行停滞/缓冲写穿/注音读穿会直接坏盘），
     # test 剖面只告警——探针文本本来就可能故意越界（tools/testboot.py）。
@@ -276,13 +287,14 @@ def _check_save_size(script_dir: Path, ctx: BuildContext) -> None:
         return
     rows.sort(reverse=True)
     worst, name = rows[0]
-    log(f"members: 存档线程 blob 估算最大 {worst} B / {ps.THREAD_CAP} B"
-        f"（{100 * worst / ps.THREAD_CAP:.1f}%，{name}）")
-    over = [(t, n) for t, n in rows if t > ps.THREAD_CAP]
+    cap = ps.thread_cap(ctx.profile)        # savebuf 扩容层生效时容量随之变大
+    log(f"members: 存档线程 blob 估算最大 {worst} B / {cap} B"
+        f"（{100 * worst / cap:.1f}%，{name}；容量含层 Δ={cap - ps.THREAD_CAP:#x}）")
+    over = [(t, n) for t, n in rows if t > cap]
     if over:
         detail = "、".join(f"{n} {t} B" for t, n in over[:5])
         if ctx.profile == "release":
-            die(f"members: 脚本超过存档线程 blob 容量 {ps.THREAD_CAP} B：{detail}——"
+            die(f"members: 脚本超过存档线程 blob 容量 {cap} B：{detail}——"
                 f"存档时会溢出（`uv run python tools/pluto_size.py estimate --members {script_dir}`）")
         log(f"members: ⚠ 脚本超过存档线程 blob 容量：{detail}")
 
@@ -910,12 +922,14 @@ def main() -> None:
     ap.add_argument("--card", type=int, help="test 剖面 card 模式的卡号")
     ap.add_argument("--hold", type=int, default=180, help="test 剖面 font/cutin 每页停留帧数")
     ap.add_argument("--no-cards", action="store_true", help="test 剖面 scene 模式不预置全卡")
+    ap.add_argument("--bloat", action="store_true",
+                    help="test 剖面 scene 模式：把目标章节脚本的 vms 翻倍，复现存档线程 blob 超容量")
     args = ap.parse_args()
 
     manifest = layers.load_manifest()
     switches = {"fast-boot": False} if args.no_fast_boot else {}
     mode_opts = {"mode": args.mode, "scene": args.scene, "card": args.card,
-                "hold": args.hold, "no_cards": args.no_cards}
+                "hold": args.hold, "no_cards": args.no_cards, "bloat": args.bloat}
     ctx = BuildContext(profile=args.profile, root=REPO / "build" / args.profile,
                        manifest=manifest, switches=switches, mode_opts=mode_opts,
                        force=args.force)

@@ -26,6 +26,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import REPO, TEST_GAME, Emulator, report_errors, session, snap, wait_game  # noqa: E402
 
+sys.path.insert(0, str(REPO))
+
 LOAD_BASE = 0x08804000
 # ⚠ IDB 里 bss（段 1）对象的地址比链接时 VA 高 0x6DA40（IDA 的 PSP 重定位把段基址加了两次）；
 # 代码段地址（函数/rodata）无此偏移。bss 对象运行时地址 = IDA 地址 − 0x6DA40 + 0x08804000。
@@ -55,6 +57,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--settle", type=float, default=14.0)
     ap.add_argument("--tag", default="", help="输出文件名后缀（区分场景）")
     ap.add_argument("--no-dump", action="store_true", help="不转储 406 KB 存档结构")
+    ap.add_argument("--patched", action="store_true",
+                    help="盘里的 EBOOT 打了 savebuf 扩容层：按层推导的新基址/Δ 读结构")
     return ap.parse_args()
 
 
@@ -70,7 +74,18 @@ async def run(a: argparse.Namespace) -> int:
     a.out.mkdir(parents=True, exist_ok=True)
     tag = f"_{a.tag}" if a.tag else ""
     bp = LOAD_BASE + BP_AFTER_PERSIST
-    result: dict = {"disc": str(a.disc), "presses": a.presses}
+    # 布局：原版 / savebuf 扩容层（结构搬到 bss 新尾部、线程区 +Δ、其后字段后移 Δ）
+    from tools import pluto_size as ps
+    base_raw, delta = ps.savebuf_layout("test") if a.patched else (ps.STRUCT_RAW, 0)
+    struct_ida = base_raw + BSS_SHIFT * 2            # 段内偏移 → IDA 地址（IDA 多加了一次段基址）
+    struct_size = SAVE_STRUCT_SIZE + delta
+    gs_size_field = struct_ida + (GAMESAVE_SIZE_FIELD - SAVE_STRUCT)
+    th_size_field = struct_ida + (THREAD_SIZE_FIELD - SAVE_STRUCT) + delta
+    thread_cap = THREAD_CAP + delta
+    print(f"布局：结构 IDA {struct_ida:#x}（运行时 {bss(struct_ida):#x}），{struct_size} B，线程区容量 {thread_cap} B"
+          + (f"（savebuf Δ={delta:#x}）" if a.patched else "（原版）"))
+    result: dict = {"disc": str(a.disc), "presses": a.presses, "patched": a.patched,
+                    "struct_ida": hex(struct_ida), "delta": delta}
     async with session(lambda: Emulator.app(a.disc, graphics="software")) as (emu, cli):
         await wait_game(cli, a.settle)
         # 地址换算自检：SceUtilitySavedataParam.size 必为 1536、gameName 必为 NPJH50279
@@ -108,20 +123,21 @@ async def run(a: argparse.Namespace) -> int:
             report_errors(cli)
             return 2
         pc = (await cli.request("cpu.getReg", name="pc"))["uintValue"]
-        gs = await cli.read_u32(bss(GAMESAVE_SIZE_FIELD))
-        th = await cli.read_u32(bss(THREAD_SIZE_FIELD))
-        title = await cli.read_string(bss(SAVE_STRUCT))          # savedataTitle() 第 1 参
-        chapter = await cli.read_string(bss(SAVE_STRUCT) + 0x80)  # savedataTitle() 第 2 参
+        gs = await cli.read_u32(bss(gs_size_field))
+        th = await cli.read_u32(bss(th_size_field))
+        title = await cli.read_string(bss(struct_ida))          # savedataTitle() 第 1 参
+        chapter = await cli.read_string(bss(struct_ida) + 0x80)  # savedataTitle() 第 2 参
         result.update({"pc": hex(pc), "gamesave_blob": gs, "gamesave_cap": GAMESAVE_CAP,
-                       "thread_blob": th, "thread_cap": THREAD_CAP,
-                       "thread_headroom": THREAD_CAP - th, "title": title, "chapter": chapter})
+                       "thread_blob": th, "thread_cap": thread_cap,
+                       "thread_headroom": thread_cap - th, "title": title, "chapter": chapter})
         print(f"hit pc={pc:#x}  gameSave blob = {gs} B / {GAMESAVE_CAP} B  "
-              f"mainThread blob = {th} B / {THREAD_CAP} B  (headroom {THREAD_CAP - th} B)")
+              f"mainThread blob = {th} B / {thread_cap} B  (headroom {thread_cap - th} B)"
+              + ("  ⚠ 超容量！" if th > thread_cap else ""))
         print(f"title={title!r} chapter={chapter!r}")
         img = await cli.vram_screenshot()
         img.save(a.out / f"04_at_bp{tag}.png")
         if not a.no_dump:
-            blob = await read_chunked(cli, bss(SAVE_STRUCT), SAVE_STRUCT_SIZE)
+            blob = await read_chunked(cli, bss(struct_ida), struct_size)
             (a.out / f"savestruct{tag}.bin").write_bytes(blob)
             print(f"dumped {len(blob)} B -> {a.out / f'savestruct{tag}.bin'}")
         await cli.bp_remove(bp)

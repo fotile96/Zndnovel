@@ -38,4 +38,4 @@ member = "pgf/LXGWWenKai-Regular-09.pgf"
 source   = "assets/EBOOT.dec.elf"     # PPSSPP dump 的解密 EBOOT 截到 elf_size（584689 B）；版权物，不入库
 sha256   = "8737f1d35db01e9cde98efb09c8272c835195f46321b4b2b75fdb36a6ece2c50"
 iso_path = "/PSP_GAME/SYSDIR/EBOOT.BIN"
-order    = ["kinsoku", "ruby-p5"]     # layers/eboot/*.toml 施加顺序（区间不得重叠）
+order    = ["kinsoku", "ruby-p5", "savebuf"]     # layers/eboot/*.toml 施加顺序（区间不得重叠）

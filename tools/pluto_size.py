@@ -26,6 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+REPO = Path(__file__).resolve().parents[1]
 THREAD_CAP = 0x50000        # 0x33572C..0x38572C（IDA 地址；运行时减 0x6DA40 加 0x08804000）
 # 实测（2026-09-05）：线程 blob 与"主 chunk 闭包 Proto 树"估算之差——s1s_20 1674 B、s2s_10 5453 B、
 # s7f-10 1831 B（栈上的值、CallInfo、vms 等 snr_common 闭包的 Proto）。缺省 extra 取 16 KiB（≈5% 容量）。
@@ -36,6 +37,42 @@ OFF_GAMESAVE = 0x480
 OFF_GAMESAVE_SIZE = 0x7C80
 OFF_THREAD = 0x7C84
 OFF_THREAD_SIZE = 0x57C84
+
+# 扩容层 layers/eboot/savebuf.toml（tools/eboot_relscan.py move-plan 生成）：结构搬到 bss 新尾部、
+# 线程区 +Δ。Δ 与新基址都从层里的两条 lui 补丁反推，保证估算器/闸门与引擎实际布局钉在一起。
+SAVEBUF_LAYER = "savebuf"
+SAVEBUF_BASE_LUI_VA = 0xCB50      # savedata_req_listsave_game：结构基址 lui（%lo = 0x2628）
+SAVEBUF_CONST_LUI_VA = 0xCB64     # 同函数：dataBufSize/dataSize 常量 0x63268 的 lui
+STRUCT_RAW = 0x252628             # 原结构段内偏移（IDA 0x32DAA8 − 0xDB480）
+
+
+def savebuf_layout(profile: str = "release") -> tuple[int, int]:
+    """返回 (结构段内偏移, 线程区扩容量 Δ)。层未登记/对该剖面不生效 → 原布局 (STRUCT_RAW, 0)。"""
+    import tomllib
+    try:
+        man = tomllib.loads((REPO / "layers" / "manifest.toml").read_text(encoding="utf-8"))
+        if SAVEBUF_LAYER not in ((man.get("eboot") or {}).get("order") or []):
+            return STRUCT_RAW, 0
+        layer = tomllib.loads((REPO / "layers" / "eboot" / f"{SAVEBUF_LAYER}.toml").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return STRUCT_RAW, 0
+    if layer.get("profile", "release") == "test" and profile != "test":
+        return STRUCT_RAW, 0
+    hi = {}
+    for p in layer["patches"]:
+        va = p.get("va")
+        if va and int(va, 0) in (SAVEBUF_BASE_LUI_VA, SAVEBUF_CONST_LUI_VA):
+            hi[int(va, 0)] = int.from_bytes(bytes.fromhex("".join(p["to"].split())), "little") & 0xFFFF
+    if set(hi) != {SAVEBUF_BASE_LUI_VA, SAVEBUF_CONST_LUI_VA}:
+        raise ValueError("savebuf.toml 缺 0xCB50/0xCB64 两条 lui 补丁，无法推导布局")
+    base = (hi[SAVEBUF_BASE_LUI_VA] << 16) + (STRUCT_RAW & 0xFFFF)
+    new_size = (hi[SAVEBUF_CONST_LUI_VA] << 16) | (STRUCT_SIZE & 0xFFFF)
+    return base, new_size - STRUCT_SIZE
+
+
+def thread_cap(profile: str = "release") -> int:
+    return THREAD_CAP + savebuf_layout(profile)[1]
+
 
 LUA_TNIL, LUA_TBOOLEAN, LUA_TLIGHTUSERDATA, LUA_TNUMBER, LUA_TSTRING = 0, 1, 2, 3, 4
 LUA_TTABLE, LUA_TFUNCTION, LUA_TUSERDATA, LUA_TTHREAD, LUA_TPROTO, LUA_TUPVAL = 5, 6, 7, 8, 9, 10
@@ -403,28 +440,33 @@ def cmd_estimate(a: argparse.Namespace) -> int:
         total = est.total + a.extra
         rows.append((total, f.name, size, est))
     rows.sort(reverse=True)
+    cap = thread_cap(a.profile)
     print(f"{'脚本':28s} {'字节码':>8s} {'Proto树':>8s} {'+extra':>8s} {'占线程区':>7s}  备注")
     worst = 0
     for total, name, size, est in rows:
-        pct = 100.0 * total / THREAD_CAP
+        pct = 100.0 * total / cap
         worst = max(worst, total)
-        flag = "  ⚠ 超容量" if total > THREAD_CAP else ("  ！>80%" if pct > 80 else "")
+        flag = "  ⚠ 超容量" if total > cap else ("  ！>80%" if pct > 80 else "")
         print(f"{name:28s} {size:8d} {est.total:8d} {total:8d} {pct:6.1f}%{flag}")
-    print(f"线程 blob 容量 {THREAD_CAP} B；extra = {a.extra} B；最大 {worst} B（余量 {THREAD_CAP - worst} B）")
-    return 1 if worst > THREAD_CAP else 0
+    print(f"线程 blob 容量 {cap} B（剖面 {a.profile}，层 Δ={cap - THREAD_CAP:#x}）；extra = {a.extra} B；"
+          f"最大 {worst} B（余量 {cap - worst} B）")
+    return 1 if worst > cap else 0
 
 
 def cmd_parse_dump(a: argparse.Namespace) -> int:
     d = Path(a.dump).read_bytes()
-    if len(d) != STRUCT_SIZE:
-        print(f"⚠ 转储长度 {len(d)} ≠ {STRUCT_SIZE}", file=sys.stderr)
+    delta = len(d) - STRUCT_SIZE            # 扩容布局的转储更长，Δ 由长度推出
+    if delta < 0 or delta % 0x10000:
+        print(f"⚠ 转储长度 {len(d)} 不是 {STRUCT_SIZE} + n×0x10000，按原布局解析", file=sys.stderr)
+        delta = 0
+    cap = THREAD_CAP + delta
     title = d[:0x80].split(b"\0")[0].decode("utf-8", "replace")
     chapter = d[0x80:0x100].split(b"\0")[0].decode("utf-8", "replace")
-    print(f"title={title!r} chapter={chapter!r}")
+    print(f"title={title!r} chapter={chapter!r}" + (f"  （扩容布局 Δ={delta:#x}）" if delta else ""))
     gs_size = struct.unpack_from("<I", d, OFF_GAMESAVE_SIZE)[0]
-    th_size = struct.unpack_from("<I", d, OFF_THREAD_SIZE)[0]
+    th_size = struct.unpack_from("<I", d, OFF_THREAD_SIZE + delta)[0]
     print(f"gameSave blob: {gs_size} B / {GAMESAVE_CAP} B ({100.0 * gs_size / GAMESAVE_CAP:.1f}%)")
-    print(f"mainThread blob: {th_size} B / {THREAD_CAP} B ({100.0 * th_size / THREAD_CAP:.1f}%)")
+    print(f"mainThread blob: {th_size} B / {cap} B ({100.0 * th_size / cap:.1f}%)")
     for label, off, size in (("gameSave", OFF_GAMESAVE, gs_size), ("mainThread", OFF_THREAD, th_size)):
         ps = PlutoStream(d, off, size)
         try:
@@ -455,6 +497,8 @@ def main() -> int:
     e = sub.add_parser("estimate", help="按字节码估算主 chunk 闭包持久化字节数")
     e.add_argument("files", nargs="*")
     e.add_argument("--members", help="目录：其中全部 *.lua 字节码")
+    e.add_argument("--profile", default="release", choices=("release", "test"),
+                   help="按哪个剖面的 eboot 层算容量（savebuf 层可能只在 test 生效）")
     e.add_argument("--extra", type=int, default=DEFAULT_EXTRA,
                    help=f"栈上其余对象的经验常数（B，缺省 {DEFAULT_EXTRA}），实测差值见研究记录")
     e.set_defaults(fn=cmd_estimate)

@@ -157,7 +157,7 @@ def cmd_move_plan(a: argparse.Namespace) -> int:
     for r in sref:
         if r["kind"] == "LO16":
             by_lui[r["lui"]].append(r)
-    patches = []
+    patches: list[tuple[int, int, int, str]] = []       # (va, old, new, note)
     for lui, rs in sorted(by_lui.items()):
         offs = sorted({r["X"] - STRUCT_RAW for r in rs})
         regions = {"tail" if f >= THREAD_END else "head" for f in offs}
@@ -167,7 +167,8 @@ def cmd_move_plan(a: argparse.Namespace) -> int:
         w = elf.word(lui)
         assert (w >> 26) == 0x0F
         w2 = (w & 0xFFFF0000) | ((w & 0xFFFF) + (sh >> 16))
-        patches.append((lui, w, w2))
+        note = f"lui：结构字段 {' '.join(f'+{o:#x}' for o in offs)}（LO16 站点 {' '.join(f'{r['at']:#x}' for r in rs)}）"
+        patches.append((lui, w, w2, note))
         print(f"  va {lui:#06x}: {w:08x} → {w2:08x}   字段 {' '.join(f'+{o:#x}' for o in offs)}"
               f"   站点 {' '.join(f'{r['at']:#x}' for r in rs)}")
     print(f"共 {len(patches)} 个 lui 字；LO16 立即数不变。另需改常量 0x63268 → {new_size:#x} 的全部物化点"
@@ -182,10 +183,37 @@ def cmd_move_plan(a: argparse.Namespace) -> int:
             w1 = elf.word(va - 4 * k)
             if (w1 >> 26) == 0x0F and ((w1 >> 16) & 31) == reg:
                 if (w1 & 0xFFFF) == hi_half:
-                    print(f"  va {va - 4 * k:#06x}: lui {w1:08x} → {(w1 & 0xFFFF0000) | (new_size >> 16):08x}"
-                          f"（addiu 在 {va:#x}）")
+                    w2 = (w1 & 0xFFFF0000) | (new_size >> 16)
+                    print(f"  va {va - 4 * k:#06x}: lui {w1:08x} → {w2:08x}（addiu 在 {va:#x}）")
+                    patches.append((va - 4 * k, w1, w2, f"常量 {STRUCT_SIZE:#x} → {new_size:#x} 的高半字（addiu 在 {va:#x}）"))
                 break
+    if a.emit_toml:
+        _emit_toml(Path(a.emit_toml), elf, patches, delta, new_base, new_bss, a.profile)
+        print(f"→ 已写 {a.emit_toml}（{len(patches)} 个字 + PH1.p_memsz）")
     return 0
+
+
+def _emit_toml(path: Path, elf: "Elf", patches: list, delta: int, new_base: int, new_bss: int, profile: str) -> None:
+    """把干跑结果写成 layers/eboot 层文件：每个字一条 va 补丁（4 B 小端），p_memsz 一条 off 补丁。"""
+    def le(w: int) -> str:
+        return " ".join(f"{b:02x}" for b in struct.pack("<I", w))
+    lines = [
+        'why = """存档线程 blob 扩容：把 0x63268 B 的存档结构从 bss 中部（IDA 0x32DAA8，段内 0x252628）搬到',
+        f'bss 新尾部（段内 {new_base:#x}），线程 Pluto 区从 0x50000 B 扩到 {0x50000 + delta:#x} B，结构总长',
+        f'{STRUCT_SIZE + delta:#x} B；PH1.p_memsz 相应扩到 {new_bss:#x}。位移与扩容量都是 0x10000 的倍数，所以只改',
+        '每处引用的 lui 立即数，%lo 与重定位表不动；线程区之后的字段再多加扩容量。清单由',
+        'tools/eboot_relscan.py move-plan --emit-toml 从纯净 ELF 机械生成（tests 会重新推导对账）。',
+        '依据：docs/ops/eboot-savedata-research-2026-09-05.md §8a。副作用：存档文件变长、与旧布局存档互不兼容。"""',
+        f'profile = "{profile}"',
+        '',
+    ]
+    for va, old, new, note in sorted(patches):
+        lines += ['[[patches]]', f'va   = "{va:#x}"', f'note = "{note}"', f'from = "{le(old)}"', f'to   = "{le(new)}"', '']
+    off = elf.phoff + 32 + 20
+    lines += ['[[patches]]', f'off  = "{off:#x}"',
+              f'note = "ELF 程序头 PH1.p_memsz：bss {elf.bss_size:#x} → {new_bss:#x}（段外字节，按文件偏移）"',
+              f'from = "{le(elf.bss_size)}"', f'to   = "{le(new_bss)}"', '']
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> int:
@@ -198,6 +226,8 @@ def main() -> int:
     s.set_defaults(fn=cmd_scan)
     m = sub.add_parser("move-plan")
     m.add_argument("--delta", default="0x40000")
+    m.add_argument("--emit-toml", help="把改字清单写成 layers/eboot 层文件")
+    m.add_argument("--profile", default="test", choices=("release", "test"), help="层的 profile 字段")
     m.set_defaults(fn=cmd_move_plan)
     a = ap.parse_args()
     return a.fn(a)

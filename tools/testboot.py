@@ -428,6 +428,19 @@ def story_route(n: int = 16) -> str:
     return ", ".join(f'"{k}"' for k in ids[:n])
 
 
+_VMS_LINE_RE = re.compile(r'^([ \t]*)(vms\((\d+), "([A-Z0-9]+)", "((?:[^"\\]|\\.)*)"\))([^\n]*)$', re.M)
+
+
+def bloat_script(text: str, marker: str = "＊") -> tuple[str, int]:
+    """把脚本里每条独占一行的 `vms(id, "VOICE", "text")` 翻倍：先插一条 `vms(id, "NONVOICE", "＊text")`
+    再保留原句。字符串常量各不相同，Pluto 不能去重，Proto 树按字面量体积膨胀——这正是
+    "中日双语"盘让存档溢出的形态。返回 (新文本, 翻倍条数)。"""
+    def rep(m: "re.Match[str]") -> str:
+        indent, call, mid, _voice, body, rest = m.groups()
+        return f'{indent}vms({mid}, "NONVOICE", "{marker}{body}"){rest}\n{indent}{call}{rest}'
+    return _VMS_LINE_RE.subn(rep, text)
+
+
 def scene_to_script(scene: str) -> str:
     """场景 ID → 章节脚本名（comSectionUID2ScriptFileName 的规则）。"""
     if scene.startswith("fin-"):

@@ -1,0 +1,253 @@
+why = """存档线程 blob 扩容：把 0x63268 B 的存档结构从 bss 中部（IDA 0x32DAA8，段内 0x252628）搬到
+bss 新尾部（段内 0x2d2628），线程 Pluto 区从 0x50000 B 扩到 0x90000 B，结构总长
+0xa3268 B；PH1.p_memsz 相应扩到 0x375890。位移与扩容量都是 0x10000 的倍数，所以只改
+每处引用的 lui 立即数，%lo 与重定位表不动；线程区之后的字段再多加扩容量。清单由
+tools/eboot_relscan.py move-plan --emit-toml 从纯净 ELF 机械生成（tests 会重新推导对账）。
+依据：docs/ops/eboot-savedata-research-2026-09-05.md §8a。副作用：存档文件变长、与旧布局存档互不兼容。"""
+profile = "test"
+
+[[patches]]
+va   = "0x6e7c"
+note = "lui：结构字段 +0x0（LO16 站点 0x6e80）"
+from = "25 00 05 3c"
+to   = "2d 00 05 3c"
+
+[[patches]]
+va   = "0x6eb8"
+note = "lui：结构字段 +0x57c8c（LO16 站点 0x6ebc）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x6ed0"
+note = "lui：结构字段 +0x5813c（LO16 站点 0x6ed4）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x6ee0"
+note = "lui：结构字段 +0x631c0（LO16 站点 0x6ee4）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x6ee8"
+note = "lui：结构字段 +0x63170（LO16 站点 0x6eec）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x6f20"
+note = "lui：结构字段 +0x58141（LO16 站点 0x6f34）"
+from = "2b 00 17 3c"
+to   = "37 00 17 3c"
+
+[[patches]]
+va   = "0x6fe4"
+note = "lui：结构字段 +0x57c84（LO16 站点 0x6fe8）"
+from = "2b 00 05 3c"
+to   = "37 00 05 3c"
+
+[[patches]]
+va   = "0x7048"
+note = "lui：结构字段 +0x57c88（LO16 站点 0x704c）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x7080"
+note = "lui：结构字段 +0x62f7c（LO16 站点 0x7088）"
+from = "2b 00 04 3c"
+to   = "37 00 04 3c"
+
+[[patches]]
+va   = "0x7098"
+note = "lui：结构字段 +0x58284（LO16 站点 0x70b4 0x7110 0x712c）"
+from = "2b 00 13 3c"
+to   = "37 00 13 3c"
+
+[[patches]]
+va   = "0x7174"
+note = "lui：结构字段 +0x62f74（LO16 站点 0x7178）"
+from = "2b 00 10 3c"
+to   = "37 00 10 3c"
+
+[[patches]]
+va   = "0x7188"
+note = "lui：结构字段 +0x60490（LO16 站点 0x7190）"
+from = "2b 00 04 3c"
+to   = "37 00 04 3c"
+
+[[patches]]
+va   = "0x7198"
+note = "lui：结构字段 +0x6047c（LO16 站点 0x71b0）"
+from = "2b 00 15 3c"
+to   = "37 00 15 3c"
+
+[[patches]]
+va   = "0x719c"
+note = "lui：结构字段 +0x60480（LO16 站点 0x71b4）"
+from = "2b 00 14 3c"
+to   = "37 00 14 3c"
+
+[[patches]]
+va   = "0x71a0"
+note = "lui：结构字段 +0x60484（LO16 站点 0x71b8）"
+from = "2b 00 13 3c"
+to   = "37 00 13 3c"
+
+[[patches]]
+va   = "0x71a4"
+note = "lui：结构字段 +0x60488（LO16 站点 0x71bc）"
+from = "2b 00 12 3c"
+to   = "37 00 12 3c"
+
+[[patches]]
+va   = "0x71a8"
+note = "lui：结构字段 +0x6048c（LO16 站点 0x71c0）"
+from = "2b 00 11 3c"
+to   = "37 00 11 3c"
+
+[[patches]]
+va   = "0x71ac"
+note = "lui：结构字段 +0x62f74（LO16 站点 0x71cc）"
+from = "2b 00 17 3c"
+to   = "37 00 17 3c"
+
+[[patches]]
+va   = "0x7204"
+note = "lui：结构字段 +0x63260（LO16 站点 0x721c）"
+from = "2b 00 12 3c"
+to   = "37 00 12 3c"
+
+[[patches]]
+va   = "0x7284"
+note = "lui：结构字段 +0x62f78（LO16 站点 0x7288）"
+from = "2b 00 04 3c"
+to   = "37 00 04 3c"
+
+[[patches]]
+va   = "0x72ac"
+note = "lui：结构字段 +0x63262（LO16 站点 0x72b0）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x72bc"
+note = "lui：结构字段 +0x63263（LO16 站点 0x72c0）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x72cc"
+note = "lui：结构字段 +0x63264（LO16 站点 0x72d0）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x7350"
+note = "常量 0x63268 → 0xa3268 的高半字（addiu 在 0x7360）"
+from = "06 00 06 3c"
+to   = "0a 00 06 3c"
+
+[[patches]]
+va   = "0x7418"
+note = "lui：结构字段 +0x57c84（LO16 站点 0x741c）"
+from = "2b 00 05 3c"
+to   = "37 00 05 3c"
+
+[[patches]]
+va   = "0x7430"
+note = "lui：结构字段 +0x57c88（LO16 站点 0x7434）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x747c"
+note = "lui：结构字段 +0x5813c（LO16 站点 0x7480 0x7488）"
+from = "2b 00 10 3c"
+to   = "37 00 10 3c"
+
+[[patches]]
+va   = "0x74d0"
+note = "lui：结构字段 +0x6047c（LO16 站点 0x74dc）"
+from = "2b 00 04 3c"
+to   = "37 00 04 3c"
+
+[[patches]]
+va   = "0x750c"
+note = "lui：结构字段 +0x62f74（LO16 站点 0x7514）"
+from = "2b 00 05 3c"
+to   = "37 00 05 3c"
+
+[[patches]]
+va   = "0x7518"
+note = "lui：结构字段 +0x63260（LO16 站点 0x753c）"
+from = "2b 00 15 3c"
+to   = "37 00 15 3c"
+
+[[patches]]
+va   = "0x7580"
+note = "lui：结构字段 +0x62f78（LO16 站点 0x7584）"
+from = "2b 00 06 3c"
+to   = "37 00 06 3c"
+
+[[patches]]
+va   = "0x7588"
+note = "lui：结构字段 +0x62f7c（LO16 站点 0x7590）"
+from = "2b 00 05 3c"
+to   = "37 00 05 3c"
+
+[[patches]]
+va   = "0x75b0"
+note = "lui：结构字段 +0x63262（LO16 站点 0x75b4）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x75c0"
+note = "lui：结构字段 +0x63263（LO16 站点 0x75c4）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0x75d0"
+note = "lui：结构字段 +0x63264（LO16 站点 0x75d8）"
+from = "2b 00 07 3c"
+to   = "37 00 07 3c"
+
+[[patches]]
+va   = "0xca98"
+note = "lui：结构字段 +0x0（LO16 站点 0xca9c）"
+from = "25 00 04 3c"
+to   = "2d 00 04 3c"
+
+[[patches]]
+va   = "0xcaa0"
+note = "常量 0x63268 → 0xa3268 的高半字（addiu 在 0xcaa4）"
+from = "06 00 04 3c"
+to   = "0a 00 04 3c"
+
+[[patches]]
+va   = "0xcb50"
+note = "lui：结构字段 +0x0（LO16 站点 0xcb58）"
+from = "25 00 04 3c"
+to   = "2d 00 04 3c"
+
+[[patches]]
+va   = "0xcb64"
+note = "常量 0x63268 → 0xa3268 的高半字（addiu 在 0xcb68）"
+from = "06 00 04 3c"
+to   = "0a 00 04 3c"
+
+[[patches]]
+va   = "0xcbc8"
+note = "lui：结构字段 +0x63264（LO16 站点 0xcbcc）"
+from = "2b 00 05 3c"
+to   = "37 00 05 3c"
+
+[[patches]]
+off  = "0x68"
+note = "ELF 程序头 PH1.p_memsz：bss 0x2c2860 → 0x375890（段外字节，按文件偏移）"
+from = "60 28 2c 00"
+to   = "90 58 37 00"

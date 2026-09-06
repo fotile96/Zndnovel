@@ -1,0 +1,195 @@
+{"card": 1, "kind": "flat", "note": "平板家族（ある子が学校にくる物語）"}
+{"card": 2, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_d", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_20_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_0_a", "x": 92, "y": 4}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_0_a", "x": -84, "y": -2}], "tone": 0.5, "verify_rmse": 8.23, "note": "refine；夏の朝、高校までの通学路"}
+{"card": 3, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 2}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -8}], "tone": 0.5, "verify_rmse": 10.12, "note": "refine；放課後の約束"}
+{"card": 4, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.45, "note": "brute；選択：放課後の約束"}
+{"card": 5, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -4}], "tone": 0.5, "verify_rmse": 7.14, "note": "refine；約束をしている"}
+{"card": 6, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -6}], "tone": 0.5, "verify_rmse": 5.6, "note": "refine；約束を思い出せない"}
+{"card": 7, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -6}], "tone": 0.5, "verify_rmse": 5.58, "note": "refine；約束をしていない"}
+{"card": 8, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -4}], "tone": 0.5, "verify_rmse": 7.14, "note": "refine；約束を思い出す"}
+{"card": 9, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 2}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -8}], "tone": 0.5, "verify_rmse": 10.11, "note": "refine；朝の教室"}
+{"card": 10, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_38_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.06, "note": "recipe；セクション１：アヤノ"}
+{"card": 11, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 9.13, "note": "refine；昼休みの教室"}
+{"card": 12, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 8.75, "note": "refine；選択：ユウイチの答案"}
+{"card": 13, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 8.68, "note": "refine；答案を羨ましがる"}
+{"card": 14, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 9.14, "note": "refine；答案を受け流す"}
+{"card": 15, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_yuk_s_1_a", "x": -8, "y": 0}], "tone": 0.5, "verify_rmse": 6.85, "note": "refine；授業が始まる"}
+{"card": 16, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_3_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 6.77, "note": "brute；放課後"}
+{"card": 17, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_21_a_0", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_6_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.5, "note": "refine；ユウイチとファストフード"}
+{"card": 18, "kind": "flat", "note": "平板家族（選択：学校に戻る）"}
+{"card": 19, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_25_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.13, "note": "refine；いつもの生活"}
+{"card": 20, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_26_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 10.8, "note": "brute；探索：放課後の学校"}
+{"card": 21, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_10_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.69, "note": "recipe；放課後のコックリさん"}
+{"card": 22, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_sak_s_4_a", "x": -16, "y": 2}], "tone": 0.5, "verify_rmse": 4.59, "note": "refine；彼女との出会い"}
+{"card": 23, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_10_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.82, "note": "recipe；良くない結果"}
+{"card": 24, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.09, "note": "brute；気がつくといる場所"}
+{"card": 25, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.45, "note": "recipe；選択：声の主"}
+{"card": 26, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_8_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.61, "note": "recipe；誰も来ない"}
+{"card": 27, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.3, "note": "brute；彼女の名前"}
+{"card": 28, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.6, "note": "brute；約束はまもらないと"}
+{"card": 29, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_46_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.29, "note": "recipe；ユウイチはアヤノを助ける"}
+{"card": 30, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_c", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 8.85, "note": "hunt；誰かが呼んでた；主线程探针 2026-09-07：走廊取 bg_6_b_0（脚本 bg_4_b_0）+ po2_yui_s_1_c，12.3 → 8.9"}
+{"card": 31, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_25_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.26, "note": "recipe；また、いつもの生活"}
+{"card": 32, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_6_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.96, "note": "recipe；夏の予定"}
+{"card": 33, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 87, "y": 3}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -81, "y": -7}], "tone": 0.5, "verify_rmse": 7.39, "note": "hunt；選択：週末の予定；主线程探针 2026-09-07：与卡 34 同型——脚本 bg_1_a_2（带同学）→ 空教室 bg_1_a_0，立绘偏移同 34"}
+{"card": 34, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_3_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_b", "x": 87, "y": 3}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -81, "y": -7}], "tone": 0.5, "verify_rmse": 7.48, "note": "hunt；休み時間；猎手 2026-09-07：脚本是 bg_1_a_2（带同学），缩略图是空教室 bg_3_a_0；立绘比 comPoseInitPosition(2) 偏 (+7,+3)/(+19,-7)"}
+{"card": 35, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 96, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_sak_s_4_a", "x": -98, "y": 2}], "tone": 0.5, "verify_rmse": 11.42, "note": "refine；選択：オマジナイへの興味"}
+{"card": 36, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_63_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.47, "note": "recipe；セクション２：アヤノ"}
+{"card": 37, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_sak_s_4_d", "x": -16, "y": 0}], "tone": 0.5, "verify_rmse": 4.85, "note": "hunt；ユウイチとの仲；全立绘广搜 2026-09-07：场景后段サクラ托腮的一刻（配方首帧 25.2 → 4.8）"}
+{"card": 38, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_sak_s_4_a", "x": -16, "y": -2}], "tone": 0.5, "verify_rmse": 4.52, "note": "refine；選択：ユウイチへの想い"}
+{"card": 39, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_sak_s_4_a", "x": -16, "y": -2}], "tone": 0.5, "verify_rmse": 4.51, "note": "refine；ユウイチのことが好き"}
+{"card": 40, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_sak_s_4_a", "x": -16, "y": -2}], "tone": 0.5, "verify_rmse": 4.5, "note": "refine；ユウイチのことは……"}
+{"card": 41, "kind": "band", "note": "最佳配方 brute RMSE 32.1 > 12.0（選択：ナゾトキ），走色带兜底", "best_candidate": [{"layer": "event", "kind": "event", "name": "eve_37_x", "x": 0, "y": 0}], "best_rmse": 32.05}
+{"card": 42, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.51, "note": "recipe；ナゾトキの間違い"}
+{"card": 43, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_a_2", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.89, "note": "recipe；出かける場所"}
+{"card": 44, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_2", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 7.84, "note": "refine；選択：出かける場所"}
+{"card": 45, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_2", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 7.3, "note": "refine；プールの約束"}
+{"card": 46, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_2", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -4, "y": -6}], "tone": 0.5, "verify_rmse": 7.84, "note": "refine；プラネタリウムの約束"}
+{"card": 47, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_9_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_sak_s_4_a", "x": -16, "y": -2}], "tone": 0.5, "verify_rmse": 4.55, "note": "refine；図書室"}
+{"card": 48, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.01, "note": "recipe；選択：放課後のオマジナイ"}
+{"card": 49, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.12, "note": "brute；オマジナイ、成功……？"}
+{"card": 50, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 7.78, "note": "brute；消しゴムに名前"}
+{"card": 51, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.1, "note": "brute；選択：オマジナイの効果"}
+{"card": 52, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.01, "note": "brute；絶対に効くと思う"}
+{"card": 53, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 2.97, "note": "brute；たぶん効くと思う"}
+{"card": 54, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.29, "note": "brute；やってソンはないと思う"}
+{"card": 55, "kind": "flat", "note": "平板家族（オマジナイ完了）"}
+{"card": 56, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_4_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "bg", "name": "bg_4_b_0", "x": 0, "y": 4}], "tone": 0.5, "verify_rmse": 10.38, "note": "hunt；廊下に響く声；猎手 2026-09-07：尖叫时的画面抖动瞬间——脚本 layerLoad(pose1,bg_4_b_0)+layerMovePosition(0,5,5) 的第 4 帧；残余是左墙的空间性色偏"}
+{"card": 57, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 2.93, "note": "brute；ユウイチの後ろ姿"}
+{"card": 58, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.21, "note": "brute；夜の廊下"}
+{"card": 59, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_16_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.25, "note": "recipe；プール"}
+{"card": 60, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_12_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.76, "note": "recipe；プラネタリウム"}
+{"card": 61, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": -2, "y": -8}], "tone": 0.5, "verify_rmse": 6.99, "note": "refine；オマジナイの効果"}
+{"card": 62, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.69, "note": "recipe；ナゾトキの正解"}
+{"card": 63, "kind": "compose", "layers": [{"layer": "event", "kind": "solid", "rgb": [0, 0, 0], "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_sak_s_4_a", "x": -14, "y": 2}], "tone": 0.5, "verify_rmse": 4.82, "note": "refine；サクラのため息"}
+{"card": 64, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_63_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.54, "note": "refine；昼休みの廊下"}
+{"card": 65, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_sak_s_4_a", "x": -84, "y": 2}], "tone": 0.5, "verify_rmse": 10.04, "note": "refine；選択：階段のウワサ"}
+{"card": 66, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_sak_s_4_a", "x": -84, "y": 2}], "tone": 0.5, "verify_rmse": 10.05, "note": "refine；選択：興味深いウワサ"}
+{"card": 67, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_sak_s_4_a", "x": -84, "y": 2}], "tone": 0.5, "verify_rmse": 10.02, "note": "refine；選択：ウワサとは"}
+{"card": 68, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_38_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.85, "note": "brute；ウワサに興味がない"}
+{"card": 69, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_14_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 6.1, "note": "refine；お化け階段"}
+{"card": 70, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 6.04, "note": "recipe；選択：ウワサ話を……"}
+{"card": 71, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -2}], "tone": 0.5, "verify_rmse": 7.68, "note": "refine；適当に聞く"}
+{"card": 72, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -2}], "tone": 0.5, "verify_rmse": 6.17, "note": "refine；とりあえず聞いてみる"}
+{"card": 73, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_14_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.59, "note": "refine；真剣に聞く"}
+{"card": 74, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_26_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 10.86, "note": "brute；探索：放課後の学校"}
+{"card": 75, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.38, "note": "brute；選択：ユウイチの影"}
+{"card": 76, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.5, "note": "brute；ほうっておく"}
+{"card": 77, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_11_b_0", "x": 0, "y": 11, "fill": "edge"}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 0, "y": -4}], "tone": 0.5, "verify_rmse": 5.59, "note": "hunt；陸上部のウワサ；猎手 2026-09-07：bg_11_b_0 在缩略图里低 11 px、顶部是天空（素材边缘延伸），卡 78 同 bg 同偏移"}
+{"card": 78, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_11_b_0", "x": 0, "y": 11, "fill": "edge"}], "tone": 0.5, "verify_rmse": 4.87, "note": "hunt；選択：向かう場所；猎手 2026-09-07：与卡 77 同一 bg 同一 11 px 下移，顶部天空延伸；无立绘、无按钮（按钮会让宽掩膜 RMSE 变差）"}
+{"card": 79, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_14_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.76, "note": "brute；後をつける"}
+{"card": 80, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_13_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.57, "note": "brute；口づけ"}
+{"card": 81, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.14, "note": "recipe；セクション３：アヤノ"}
+{"card": 82, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "bg", "name": "bg_4_b_0", "x": 0, "y": 4}], "tone": 0.5, "verify_rmse": 10.46, "note": "hunt；走り去るアヤノ；主线程探针 2026-09-07：与卡 56 同型的走廊画面下移 4 px（抖动帧/素材版本差），16.2 → 10.5；场景脚本本身加载的是 bg_6_b_0"}
+{"card": 83, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_14_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 6.85, "note": "recipe；階段へ"}
+{"card": 84, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_14_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": 2, "y": -4}], "tone": 0.5, "verify_rmse": 7.11, "note": "refine；ユウイチの腕"}
+{"card": 85, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.2, "note": "brute；屋上"}
+{"card": 86, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_14_b_0", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_14_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.75, "note": "refine；ユウイチと階段へ"}
+{"card": 87, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_14_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.75, "note": "recipe；選択：ユウイチと……"}
+{"card": 88, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_14_b", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.75, "note": "recipe；ずっと一緒にいたい"}
+{"card": 89, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_15_b", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.0, "note": "recipe；ユウイチとキス"}
+{"card": 90, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_15_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.09, "note": "recipe；選択：花火の中、ユウイチと"}
+{"card": 91, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_15_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.13, "note": "recipe；ユウイチとキスしない"}
+{"card": 92, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_14_a", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_14_b_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_yui_s_1_a", "x": 2, "y": -4}], "tone": 0.5, "verify_rmse": 7.89, "note": "refine；でも、いつかは別れが"}
+{"card": 93, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_29_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.6, "note": "recipe；アヤノの返信：９月２５日"}
+{"card": 94, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_55_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.34, "note": "brute；誰も見たことのない夕焼け"}
+{"card": 95, "kind": "flat", "note": "平板家族（中庭の人だかり）"}
+{"card": 96, "kind": "flat", "note": "平板家族（サクラさんのナゾトキ）"}
+{"card": 97, "kind": "flat", "note": "平板家族（絶対に効くオマジナイ）"}
+{"card": 98, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_a_1", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_47_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.79, "note": "refine；インパクトのあるウワサ"}
+{"card": 99, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_37_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.96, "note": "recipe；セクション６：アヤノ"}
+{"card": 100, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_8_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.0, "note": "recipe；選択：どこで読む"}
+{"card": 101, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_35_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.59, "note": "brute；サクラからの手紙"}
+{"card": 102, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_9_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.21, "note": "recipe；図書室で読む"}
+{"card": 103, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 8.0, "note": "brute；選択：ノート"}
+{"card": 104, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.39, "note": "recipe；Ｔｒｕｅ Ｃｏｌｏｒ"}
+{"card": 105, "kind": "flat", "note": "平板家族（自己暗示）"}
+{"card": 106, "kind": "flat", "note": "平板家族（強迫観念）"}
+{"card": 107, "kind": "flat", "note": "平板家族（先生は信用できない）"}
+{"card": 108, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_7_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.06, "note": "recipe；選択：屋上の帰り道"}
+{"card": 109, "kind": "flat", "note": "平板家族（冬の告白は失敗する）"}
+{"card": 110, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_8_a_1", "x": 0, "y": 0}, {"layer": "event", "kind": "event", "name": "eve_33_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.39, "note": "recipe；中庭の雪"}
+{"card": 111, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.63, "note": "recipe；僕の言葉"}
+{"card": 112, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.15, "note": "recipe；セクション８：ユウイチ、直哉"}
+{"card": 113, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_46_d", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.22, "note": "recipe；フェンスの向こう側"}
+{"card": 114, "kind": "flat", "note": "平板家族（ナオヤ）"}
+{"card": 115, "kind": "flat", "note": "平板家族（アヤノ）"}
+{"card": 116, "kind": "flat", "note": "平板家族（屋上から転落）"}
+{"card": 117, "kind": "flat", "note": "平板家族（気がつくと屋上）"}
+{"card": 118, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.16, "note": "brute；春"}
+{"card": 119, "kind": "flat", "note": "平板家族（屋上）"}
+{"card": 120, "kind": "flat", "note": "平板家族（将来の職業）"}
+{"card": 121, "kind": "flat", "note": "平板家族（すぐに家に帰ってた）"}
+{"card": 122, "kind": "flat", "note": "平板家族（コックリさん）"}
+{"card": 123, "kind": "flat", "note": "平板家族（ユウイチ）"}
+{"card": 124, "kind": "flat", "note": "平板家族（サクラ）"}
+{"card": 125, "kind": "flat", "note": "平板家族（ユカリ先生）"}
+{"card": 126, "kind": "flat", "note": "平板家族（物語の主人公）"}
+{"card": 127, "kind": "flat", "note": "平板家族（夫婦喧嘩）"}
+{"card": 128, "kind": "flat", "note": "平板家族（黒板の上の時計）"}
+{"card": 129, "kind": "flat", "note": "平板家族（きくちゃん）"}
+{"card": 130, "kind": "flat", "note": "平板家族（消しゴム）"}
+{"card": 131, "kind": "flat", "note": "平板家族（あの子と会う約束）"}
+{"card": 132, "kind": "flat", "note": "平板家族（ハンバーガー）"}
+{"card": 133, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ１あらすじ）"}
+{"card": 134, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ２あらすじ）"}
+{"card": 135, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ３Ａあらすじ）"}
+{"card": 136, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ３Ｂあらすじ）"}
+{"card": 137, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ４Ａあらすじ）"}
+{"card": 138, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ４Ｂあらすじ）"}
+{"card": 139, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ５あらすじ）"}
+{"card": 140, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ６あらすじ）"}
+{"card": 141, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ７あらすじ）"}
+{"card": 142, "kind": "flat", "note": "平板家族（Ｓｅｃｔｉｏｎ８あらすじ）"}
+{"card": 143, "kind": "flat", "note": "平板家族（ＳｅｃｔｉｏｎＥｘ１）"}
+{"card": 144, "kind": "flat", "note": "平板家族（ＳｅｃｔｉｏｎＥｘ２）"}
+{"card": 145, "kind": "flat", "note": "平板家族（いつかきみがみるお話。）"}
+{"card": 146, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_5_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -8}, {"layer": "pose3", "kind": "cutin", "name": "cut_61", "x": 165, "y": 40}], "tone": 0.5, "verify_rmse": 10.15, "note": "refine；ポケットの中のメモ"}
+{"card": 147, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_5_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": 88, "y": 0}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -8}], "tone": 0.5, "verify_rmse": 9.97, "note": "refine；選択：屋上のウワサ"}
+{"card": 148, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_5_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_c", "x": 88, "y": 2}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -6}], "tone": 0.5, "verify_rmse": 9.48, "note": "refine；私じゃない"}
+{"card": 149, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_5_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_c", "x": 88, "y": 2}, {"layer": "pose2", "kind": "pose", "name": "po1_yui_s_1_a", "x": -84, "y": -6}], "tone": 0.5, "verify_rmse": 9.47, "note": "refine；気になるね"}
+{"card": 150, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_7_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.94, "note": "recipe；セクション４：ユウイチ"}
+{"card": 151, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_46_a", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_9_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po1_yuk_s_1_a", "x": -8, "y": 2}], "tone": 0.5, "verify_rmse": 4.95, "note": "refine；図書室の先生"}
+{"card": 152, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_49_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.7, "note": "brute；選択：ユカリ先生"}
+{"card": 153, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.4, "note": "brute；どこかで見たことのある少女"}
+{"card": 154, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.14, "note": "recipe；選択：メモを見たとき"}
+{"card": 155, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.77, "note": "recipe；興味はない"}
+{"card": 156, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_26_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 10.39, "note": "brute；探索：アヤノに何が？"}
+{"card": 157, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 7.88, "note": "brute；廊下のユウイチ"}
+{"card": 158, "kind": "band", "note": "最佳配方 recipe RMSE 21.6 > 12.0（セクションＥＸ２：女子生徒），走色带兜底", "best_candidate": [{"layer": "bg1", "kind": "bg", "name": "bg_23_a_0", "x": 0, "y": 0}], "best_rmse": 21.63}
+{"card": 159, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.16, "note": "recipe；選択：メモの内容"}
+{"card": 160, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.47, "note": "brute；下らない、と思った"}
+{"card": 161, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_9_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.13, "note": "recipe；信じてみてもいい"}
+{"card": 162, "kind": "compose", "layers": [{"layer": "bg1", "kind": "solid", "rgb": [255, 255, 255], "x": 0, "y": 0}, {"layer": "pose1", "kind": "sysgim", "name": "title_01_a", "x": -22, "y": 78, "scale": [522, 113]}], "tone": 0.5, "title": "none", "verify_rmse": 3.61, "note": "hunt；セカンドノベル；猎手 2026-09-07：白底 + 题名 logo 放大 1.29×1.27 居中，再 0.5 变暗；格内没有烤字标题，logo 即标题"}
+{"card": 163, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.58, "note": "brute；ひっくり返った机"}
+{"card": 164, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.56, "note": "recipe；選択：アヤノの机"}
+{"card": 165, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.55, "note": "brute；屋上の人影"}
+{"card": 166, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.58, "note": "recipe；アヤノの机を調べる"}
+{"card": 167, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.17, "note": "recipe；選択：アヤノのノート"}
+{"card": 168, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_6_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 7.78, "note": "brute；ノートに書かれた名前"}
+{"card": 169, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_26_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 10.4, "note": "brute；探索：アヤノの居場所"}
+{"card": 170, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.07, "note": "recipe；選択：アヤノを――"}
+{"card": 171, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_b", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.26, "note": "recipe；腕をつかむ"}
+{"card": 172, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_46_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.13, "note": "recipe；アヤノは意識を取り戻す"}
+{"card": 173, "kind": "flat", "note": "平板家族（選択：放課後の学校）；无字行全黑＝开场黑屏格", "black": true}
+{"card": 174, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_32_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.22, "note": "recipe；セクション４：アヤノ"}
+{"card": 175, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.69, "note": "brute；サクラを待つ"}
+{"card": 176, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_15_a_1", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.1, "note": "recipe；消えたサクラ"}
+{"card": 177, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.75, "note": "recipe；サクラさん"}
+{"card": 178, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_61_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 7.2, "note": "recipe；セクション５：サクラ"}
+{"card": 179, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_64_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 5.49, "note": "brute；サクラの日記：９月１３日"}
+{"card": 180, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_1_a_2", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.35, "note": "recipe；サクラの日記：７月（書きかけ）"}
+{"card": 181, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_31_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.12, "note": "brute；サクラの日記：９月１６日"}
+{"card": 182, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_24_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 9.07, "note": "brute；サクラの日記：９月１６日（夜）"}
+{"card": 183, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_31_b", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.15, "note": "brute；サクラの日記：９月２０日"}
+{"card": 184, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_28_c", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 10.3, "note": "brute；サクラの日記：９月２２日"}
+{"card": 185, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_24_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 9.06, "note": "recipe；サクラの日記：９月２３日"}
+{"card": 186, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_8_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.53, "note": "recipe；サクラの日記：９月２９日"}
+{"card": 187, "kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_7_b_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.79, "note": "brute；サクラの日記：断片"}
+{"card": 188, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_24_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 9.05, "note": "recipe；サクラの日記：１０月３日"}
+{"card": 189, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_8_c_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.15, "note": "recipe；サクラの日記：１１月１２日"}
+{"card": 190, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_61_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 6.82, "note": "brute；サクラの日記：２月１３日"}
+{"card": 191, "kind": "compose", "layers": [{"layer": "event", "kind": "event", "name": "eve_0_b", "x": 0, "y": 0}, {"layer": "bg1", "kind": "bg", "name": "bg_8_a_0", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 4.56, "note": "recipe；アヤノの返信：１０月３０日"}
+{"card": 192, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_33_b", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.73, "note": "brute；失われた夢の物語"}
+{"card": 193, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_33_a", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.8, "note": "recipe；２月、中庭"}
+{"card": 194, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_8_a_0", "x": 0, "y": 0}, {"layer": "pose1", "kind": "pose", "name": "po2_aya_s_5_a", "x": -6, "y": 8}], "tone": 0.5, "verify_rmse": 7.89, "note": "refine；中庭のアヤノさん"}
+{"card": 195, "kind": "single", "layers": [{"layer": "event", "kind": "event", "name": "eve_63_x", "x": 0, "y": 0}], "tone": 0.5, "verify_rmse": 3.91, "note": "recipe；セクション５：アヤノ"}

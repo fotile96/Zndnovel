@@ -10,10 +10,14 @@
 | `refine.py` | 对带立绘的难例做变体+位置坐标下降（先跑 survey） | `build/research/plot_plate/refine.json` |
 | `probe_drive.py` | PPSSPP：直入场景后按时间序列截图（`build_disc.py --profile test --mode scene --scene <id>`） | `build/emu/drives/plot_probe/` |
 | `walk_drive.py` | PPSSPP：直入场景逐句 CIRCLE 推进截图（建议加 `--no-cards`，否则先弹跳过询问） | `build/emu/drives/plot_walk/` |
+| `emit_plates.py` | 把 survey/refine/hunts 汇成 `data/plot_plates.jsonl`：每条候选按生产口径（`bake_plot_plate.build_plate`+`verify_plate`）重量取最优，超闸写 band | `data/plot_plates.jsonl`（入库） |
+| `hunts.json` | 猎手子代理与主线程探针确认的逐卡配方（入库，emit 的最高优先级来源） | — |
 
 ```bash
 uv run --with numpy python tools/research/plot_plate/survey.py > build/research/plot_plate/survey.txt
 uv run --with numpy python tools/research/plot_plate/refine.py
+uv run --with numpy python tools/research/plot_plate/emit_plates.py   # → data/plot_plates.jsonl
+uv run python tools/bake_plot_plate.py                                 # → build/plot_zh/
 ```
 
 判据口径：RMSE 只在**无字行**上算（标题 ≤7 字取 y≥14，≥8 字取 y≥26），色调按 `y = g·x + o` 逐格拟合；

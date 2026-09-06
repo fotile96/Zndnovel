@@ -2,7 +2,7 @@
 
 对每张卡：从场景函数开头的图层操作拼出「配方」（bg/event + pose@位置），合成 480×272
 → BILINEAR 缩到 82×48 → 在无字行上最小二乘拟合 gain/offset → RMSE。另做一遍暴力匹配
-（全部 bg/event 单图）作参照。输出 work/tmp/plot_survey.json 与摘要。
+（全部 bg/event 单图）作参照。产物落 build/research/plot_plate/（见 README）。
 """
 import sys, re, glob, json, os, collections
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))

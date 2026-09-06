@@ -736,3 +736,81 @@ def test_real_run_band_bottom_stays_within_cell():
     assert report["band_bottom_max"] <= CELL_H
     # 旧固定实现是恒定 28；新实现必须体现出跨格差异（废除固定框的行为证据）
     assert report["band_bottom_min"] < report["band_bottom_max"]
+
+
+# ---------------------------------------------------------------------------
+# 8. 行数规则（2026-09-07，测试反馈卡 7「没有约」色带没盖住第二行的「い」）
+#
+# 根因：第二行只有一个「い」，每行合格像素 1–2 个，低于 INK_MIN_ROW_PIXELS=3，
+# 整行被判无墨。全库 195 张里标题 ≤7 字的全是一行、≥8 字的全是两行（原图的断行
+# 规则就是第 7 字后断），一个例外都没有——行数由**标题字数**决定是数据事实，
+# 像素检测降级为交叉核对。详见 docs/ops/plot-plate-research-2026-09-07.md §1。
+# ---------------------------------------------------------------------------
+
+from tools.bake_plot import jp_line_count, load_titles_jp  # noqa: E402
+
+_LINE2_MISSED = (7, 42, 86, 161)   # 第二行整行漏检
+_LINE2_PARTIAL = (170,)            # 第二行只检到 y=19
+
+
+def test_jp_line_count_rule_matches_pixel_detection_on_all_other_cells():
+    """规则的证据：除已知 5 张外，字数规则与像素检测的行数逐张一致。"""
+    jp = load_titles_jp()
+    assert sorted(jp) == list(range(1, NUM_CARDS + 1))
+    mismatch = []
+    for card in range(1, NUM_CARDS + 1):
+        if card in _LINE2_MISSED + _LINE2_PARTIAL or card == 162:
+            continue
+        ink = ink_bbox_of_cell(_real_cell(card))
+        detected = 2 if ink and ink[1] >= 15 else 1
+        if detected != jp_line_count(jp[card]):
+            mismatch.append((card, jp[card], ink))
+    assert mismatch == []
+    assert jp_line_count("プラネタリウム") == 1          # 7 字
+    assert jp_line_count("約束をしていない") == 2         # 8 字
+
+
+def test_decide_band_title_rule_covers_the_missed_second_line():
+    """5 张已知缺陷格：按字数规则第二行存在，色带硬区必须盖到 y≥24。"""
+    font = _font()
+    titles = load_titles_zh()
+    jp = load_titles_jp()
+    for card in _LINE2_MISSED + _LINE2_PARTIAL:
+        lines, _ = wrap_title(titles[card], font)
+        d = decide_band(_real_cell(card), lines, font, jp_title=jp[card])
+        assert d.fallback is False
+        assert d.hard_range[1] >= 24, (card, d)
+        assert d.content_bottom >= 24, (card, d)
+        assert d.line_rule == "override", (card, d)
+
+
+def test_decide_band_title_rule_leaves_agreeing_cells_unchanged():
+    """规则与检测一致时决策一个字都不变（卡 6：两行检出、9 字）。"""
+    font = _font()
+    titles = load_titles_zh()
+    jp = load_titles_jp()
+    lines, _ = wrap_title(titles[6], font)
+    before = decide_band(_real_cell(6), lines, font)
+    after = decide_band(_real_cell(6), lines, font, jp_title=jp[6])
+    assert (after.content_bottom, after.band_bottom, after.hard_range) == \
+        (before.content_bottom, before.band_bottom, before.hard_range)
+    assert after.line_rule == "agree"
+
+
+def test_bake_sheet_applies_the_title_rule_to_card_7():
+    """成品层面：卡 7 那格第 21–23 行（「い」所在）必须落在色带硬区里。
+
+    硬区末两行按既有设计是 255→200 的短坡（HARD_TRANSITION_PX），所以不是纯黑，
+    但白色墨迹最多只能剩 22%；修前这三行根本不在色带里，「い」原样露出（255）。
+    """
+    font = _font()
+    titles = load_titles_zh()
+    sheet, _diffs, decisions = bake_sheet(1, titles, font)
+    d = decisions[7]
+    assert d.line_rule == "override" and d.hard_range[1] >= 24
+    band = render_band_layer((CELL_W, CELL_H), d)
+    assert all(band.getpixel((40, y))[3] >= 200 for y in (21, 22, 23))
+    s, box = cell_box(7)
+    cell = sheet.convert("RGB").crop(box)
+    px = cell.load()
+    assert max(max(px[x, y]) for y in (21, 22, 23) for x in range(4, 30)) <= 64

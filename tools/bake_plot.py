@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Bake Chinese card-name text into png/plot/plot_{1..4}_a.png thumbnails.
 
+NOTE (2026-09-07): the production path is now tools/bake_plot_plate.py (clean
+plate reconstruction, decision P6); this module is its fallback for cells whose
+plate recipe is `band`, and a library (grid, wrapping, text layer). Running it
+directly still produces the all-band product for A/B comparison.
+
 png/plot/ holds 4 sheets (492x480, RGBA-in-P PNG) of 6-col x 10-row, 82x48px
 cells. Cards 1..195 are laid out row-major (left-to-right, top-to-bottom)
 across the 4 sheets in strict card-number order, 60 cards/sheet, per the
@@ -47,6 +52,7 @@ from tools.ui_font import truetype as _ui_truetype
 
 PLOT_DIR = os.path.join(REPO, "png", "plot")
 CARDS_ZH_PATH = os.path.join(REPO, "skeleton", "cards.zh.yaml")
+CARDS_JP_PATH = os.path.join(REPO, "skeleton", "cards.jp.yaml")
 #: 字体按面可换：`ZND_UI_FONT_PLOT` > `ZND_UI_FONT` > 随仓库分发的霞鹜文楷
 #: Regular。面名＝plot。详见 tools/ui_font.py——那里也记着
 #: 「换字体后金标夹具会红，这是对的」。
@@ -251,6 +257,35 @@ def load_titles_zh(path=CARDS_ZH_PATH):
     return titles
 
 
+def load_titles_jp(path=CARDS_JP_PATH):
+    """card(int) -> title_jp(str), 1..195, from skeleton/cards.jp.yaml (variant a)."""
+    import yaml
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    titles = {}
+    for row in data:
+        card = row.get("card")
+        if isinstance(card, int) and 1 <= card <= NUM_CARDS and card not in titles:
+            titles[card] = row["title_jp"]
+    missing = sorted(set(range(1, NUM_CARDS + 1)) - set(titles))
+    if missing:
+        raise ValueError(f"cards.jp.yaml missing title_jp for cards: {missing}")
+    return titles
+
+
+#: 原图断行规则：第 7 字后断行，两行封顶。195 张里 ≤7 字的 79 张全是一行、≥8 字的 116 张
+#: 全是两行，无一例外（2026-09-07 普查，docs/ops/plot-plate-research-2026-09-07.md §1）。
+#: 像素检测在「第二行只有一个瘦假名」时会整行漏检（卡 7/42/86/161：每行合格像素 1–2 个，
+#: 低于 INK_MIN_ROW_PIXELS=3），所以行数由字数决定，像素检测降为交叉核对。
+JP_LINE_BREAK_AT = 7
+#: 各行墨迹底（含端点）：line1 y3–11，line2 y15–23（spec §4 实测）。
+JP_LINE_INK_BOTTOM = {1: 11, 2: 23}
+
+
+def jp_line_count(title_jp):
+    return 1 if len(title_jp) <= JP_LINE_BREAK_AT else 2
+
+
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+|.")
 
 
@@ -406,11 +441,23 @@ BandDecision = namedtuple("BandDecision", [
     "zh_bottom_used",     # zh-render-derived candidate bottom (post margin)
     "fallback",           # bool: did ink detection fail/get rejected?
     "fallback_reason",    # str or None
-])
+    "line_rule",          # None (no jp title given) | "agree" | "override" |
+                          # "detect>rule" | "fallback": how the title-length
+                          # line rule interacted with pixel detection.
+], defaults=(None,))
 
 
-def decide_band(cell, lines, font):
+def decide_band(cell, lines, font, jp_title=None):
     """Decide how tall the translucent cover band needs to be for this cell.
+
+    `jp_title` (the ORIGINAL Japanese caption baked into the cell) switches on
+    the title-length line rule (see JP_LINE_BREAK_AT): the number of caption
+    lines is decided by the title length, and the pixel ink detection is only
+    a cross-check. When detection found fewer lines than the rule says -- or
+    found the second line but stopped short of its measured bottom -- the ink
+    envelope is extended to JP_LINE_INK_BOTTOM[lines] (`line_rule="override"`).
+    Detection is never shortened by the rule. Without `jp_title` behaviour is
+    exactly the pre-2026-09-07 one (`line_rule=None`).
 
     Normal path (ink detected and plausible): max(vertical extent of the
     ORIGINAL jp ink actually detected in the art, vertical extent OUR OWN zh
@@ -468,6 +515,22 @@ def decide_band(cell, lines, font):
         fallback = True
         reason = f"implausible_ink_bottom_{ink[1]}"
 
+    line_rule = None
+    if jp_title is not None:
+        if fallback:
+            line_rule = "fallback"
+        else:
+            expected = jp_line_count(jp_title)
+            detected = 2 if ink[1] >= JP_LINE_INK_BOTTOM[1] + 4 else 1
+            rule_bottom = JP_LINE_INK_BOTTOM[expected]
+            if detected > expected:
+                line_rule = "detect>rule"       # never seen in the corpus; keep detection
+            elif ink[1] < rule_bottom:
+                line_rule = "override"
+                ink = (ink[0], rule_bottom)
+            else:
+                line_rule = "agree"
+
     zh_bottom = measure_rendered_text_bottom(lines, font) + ZH_BOTTOM_MARGIN
 
     if fallback:
@@ -491,7 +554,7 @@ def decide_band(cell, lines, font):
         hard_range = (hard_top, hard_bottom)
 
     return BandDecision(band_bottom, content_bottom, hard_range, ink,
-                         ink_bottom, zh_bottom, fallback, reason)
+                         ink_bottom, zh_bottom, fallback, reason, line_rule)
 
 
 def collect_ink_fallbacks(decisions):
@@ -600,14 +663,14 @@ def render_band_layer(size, decision, color=BAND_COLOR, soft_alpha=BAND_ALPHA,
     return layer
 
 
-def bake_cell(cell, lines, font):
+def bake_cell(cell, lines, font, jp_title=None):
     """cell: CELL_W x CELL_H RGBA image (one card's thumbnail+title).
     Returns (new_cell, decision): new_cell has a cover band composited over
     rows [0, decision.band_bottom) -- fully opaque over decision.hard_range
     (the real detected ink), genuinely translucent elsewhere in that span --
     with the new zh caption drawn on top; every pixel at
     y >= decision.band_bottom is byte-identical to `cell`."""
-    decision = decide_band(cell, lines, font)
+    decision = decide_band(cell, lines, font, jp_title=jp_title)
     band = render_band_layer(cell.size, decision)
     text = render_text_layer(cell.size, lines, font)
     new_cell = Image.alpha_composite(cell.convert("RGBA"), band)
@@ -636,12 +699,16 @@ def find_outside_box_diffs(orig_cell, new_cell, box):
     return diffs
 
 
-def bake_sheet(sheet_num, titles, font):
+def bake_sheet(sheet_num, titles, font, titles_jp=None):
     """Return (new_sheet_image, per_cell_diffs, per_cell_decisions).
+    `titles_jp` (card -> original jp caption) enables the title-length line
+    rule in decide_band; loaded from skeleton/cards.jp.yaml when omitted.
     per_cell_diffs maps card -> list of outside-band-region pixel diffs
     (should be [] for every card). per_cell_decisions maps card ->
     BandDecision (used to build the ink-fallback report and band-height
     stats)."""
+    if titles_jp is None:
+        titles_jp = load_titles_jp()
     path = os.path.join(PLOT_DIR, f"plot_{sheet_num}_a.png")
     sheet = Image.open(path).convert("RGBA")
     new_sheet = sheet.copy()
@@ -653,7 +720,7 @@ def bake_sheet(sheet_num, titles, font):
         _, box = cell_box(card)
         cell = sheet.crop(box)
         lines, truncated = wrap_title(titles[card], font)
-        new_cell, decision = bake_cell(cell, lines, font)
+        new_cell, decision = bake_cell(cell, lines, font, jp_title=titles_jp[card])
         check_box = (0, 0, CELL_W, decision.band_bottom)
         d = find_outside_box_diffs(cell, new_cell, check_box)
         diffs[card] = d
@@ -808,6 +875,9 @@ def run(write=True, with_cellzoom=None):
         },
         "band_bottom_min": min(band_bottoms.values()),
         "band_bottom_max": max(band_bottoms.values()),
+        # 行数规则纠正了像素检测的格（2026-09-07 起）：第二行漏检/半漏的卡
+        "line_rule_overrides": sorted(c for c, d in all_decisions.items()
+                                      if d.line_rule == "override"),
     }
 
     if write:

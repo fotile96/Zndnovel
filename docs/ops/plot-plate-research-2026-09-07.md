@@ -193,3 +193,12 @@ uv run --with numpy python tools/research/plot_plate/refine.py
 uv run python tools/build_disc.py --profile test --mode scene --scene s1s_38 && uv run python tools/research/plot_plate/probe_drive.py
 uv run python tools/build_disc.py --profile test --mode scene --scene s2s_150 --no-cards && uv run python tools/research/plot_plate/walk_drive.py
 ```
+
+
+## 附 2：落地记录（2026-09-07 夜）
+
+用户批准方案 B。已落地：`tools/bake_plot_plate.py`、`data/plot_plates.jsonl`、`tests/test_bake_plot_plate.py`、
+`tools/research/plot_plate/emit_plates.py`；方案 A 的行数规则并入 `bake_plot.decide_band`（裁决 P5–P8）。
+子代理猎手把 34/77/78/56/162 压到 4.5–10.3，主线程探针解了 33/30/82；41 与 158 走 band。
+现状：single 85 / compose 66 / flat 42 / band 2，review 26 格。
+勘误：研究合成器的 `paste(im, pos, im)` 把 alpha 平方了，半透明像素偏暗；本文数字按旧合成器计算，与修后差 <0.5，分桶结论不变。

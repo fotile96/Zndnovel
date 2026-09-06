@@ -8,13 +8,13 @@
 > **正确的 PNG + 版面规格**为止。产物落 `build/`（gitignore），由「工具 + 冻结骨架 +
 > 只读原图」一条命令确定性再生。
 
-最后更新：2026-09-06
+最后更新：2026-09-07
 
 ## 一览
 
 | 面 | 总数 | 已烤 | 暂缓/跳过 | 待做 | 工具 |
 |---|---:|---:|---:|---:|---|
-| `png/plot/` | 4 | **4** | — | — | `bake_plot.py` |
+| `png/plot/` | 4 | **4** | — | — | `bake_plot_plate.py`（干净底板，2026-09-07 起）/ `bake_plot.py`（band 兜底） |
 | `png/scene/` | 2 | **2** | — | — | `bake_scene.py` |
 | `png/card/` | 197 | **196** | 1（空白模板） | — | `bake_card.py` |
 | `png/select/` | 278 | **134 按钮 + 地图 + 底栏** | 22 孤儿 + 2 立绘 | — | `bake_select.py` / `bake_select_map.py` / `bake_select_map_info.py` |
@@ -75,6 +75,22 @@
 ⚠ **方法教训**：台账里写「少量」「个别」的那几格，等于**从没被清点过**。
 数字才是清点，形容词不是。另有 CLAUDE.md 的一处记错顺带查实——「`bg/` 少量含字
 （黑板板书等）」的黑板板书在 `cutin/cut_54`，`bg/` 81 张一张烤字也没有。
+
+## 2026-09-07 plot 干净底板落地（裁决 P5–P8）
+
+- **修法 A 已并入兜底路径**：`bake_plot.decide_band` 行数按标题字数（P5），7/42/86/161/170 的第二行进硬区。
+- **方案 B 落地**：`tools/bake_plot_plate.py` + `data/plot_plates.jsonl`（195 行）+ `tests/test_bake_plot_plate.py`（13 条）
+  + `tools/research/plot_plate/emit_plates.py`（从普查/细化/猎手结果生成配方，按生产口径重量）。
+  产物 `build/plot_zh/`：single 85 / compose 66 / flat 42 / band 2；review 26 格。
+- **猎手工作流**（子代理并行逐卡深挖）：34→7.3、77→5.5、78→4.9、56→10.3、162→4.5 五张确认；主线程探针再解 33→7.4、30→8.9、82→10.5。
+  41（選択：ナゾトキ）、158（セクションEX2）仍无解，走 band；账号会话额度触顶导致 9 个猎手与 2 个审计未跑完，待续。
+- **游戏内**：`tools/emu/drives/plot_timeline.py`（`--mode mainmenu --no-cards` 盘 → Story/Fragment 时间轴逐页截图）。
+  ⚠ 全卡持有的主菜单盘看不到时间轴：Story 一进就是跳过询问、Fragment 提示没有可做的故事（2026-09-07 实测）。
+- **量化**：干净底板让 plot sheet 颜色数到 4 万+，FASTOCTREE 落 256 色损耗 37；`build_disc.quantize_for_template`
+  对二值 alpha 的图改走 MEDIANCUT（RGB）+ 透明项，plot_1_a 37.3→9.1、plot_4_a 8.5→1.6。顺带发现 cutin/tut_* 教程图
+  的 FASTOCTREE 损耗 50+ 是旧有状态（此前缓存命中从未报出），半透明晕不能走 RGB 分支，待另议（libimagequant？）。
+- 顺手修的研究缺陷：合成器 `paste(im, pos, im)` 把 alpha 平方了（半透明像素偏暗），研究报告里的数字是用旧合成器算的，
+  与修后差 <0.5，结论不变；生产工具与研究模块都已改为不带掩膜 paste。
 
 ## 2026-09-06 补漏：`sel_map_0_a` 探索地图底栏（裁决 L12）
 
@@ -189,7 +205,7 @@ v19 C1 在 `cards.zh.yaml` 漏了 **3 处跨换行断名**（`body_zh` 按卡面
 
 ## 等你裁的
 
-- **plot 缩略图：色带修法还是干净底板重建**——`docs/ops/plot-plate-research-2026-09-07.md`（2026-09-07）。已知缺陷：卡 7/42/86/161 第二行原文露出、170 半露（色带行阈值），修法与更精细的重建方案都在报告里，等裁。
+- ~~plot 缩略图：色带修法还是干净底板重建~~ ✅ 2026-09-07 用户批准 B 并已落地（P5–P8）；剩下要你看的是 review 带的格（拼图 `build/plot_zh/_compare.png`）与 band 兜底的 41/158。
 1. **`sys_1_g` 的字号**：全族最紧的一张，3 行塞进 37px ＝ **每行 12px**。中文在这个
    尺寸上可读性存疑，可能要缩短译文或改 2 行。落地前想给你看图。
 2. **A 类字形偏细**（你 2026-08-10 已提出）：等你补 Bold TTF。设施已就绪——
@@ -371,7 +387,7 @@ ZND_UI_FONT_CARD=/path/to/Other.ttf uv run python tools/bake_card.py
 
 ```bash
 export ZND_UI_FONT="$PWD/third_party/SourceHanSansSC-VF.ttf" ZND_BUILD_TAG=shs
-uv run python tools/bake_plot.py && uv run python tools/bake_scene.py
+uv run python tools/bake_plot_plate.py && uv run python tools/bake_scene.py
 uv run python tools/bake_card.py
 ZND_UI_SIZE_CASCADE_SELECT=18,17,16,15,14 uv run python tools/bake_select.py
 ZND_UI_SIZE_CASCADE_SELECT=18,17,16,15,14 uv run python tools/bake_select_map.py
@@ -489,7 +505,7 @@ Medium **不降反升 24%**——这不是反常：霞鹜文楷 9px 下笔画淡
 ## 复跑
 
 ```bash
-uv run python tools/bake_plot.py && uv run python tools/bake_scene.py
+uv run python tools/bake_plot_plate.py && uv run python tools/bake_scene.py
 uv run python tools/bake_card.py && uv run python tools/bake_select.py
 uv run python tools/bake_select_map.py
 uv run python tools/bake_sysgim_outline.py

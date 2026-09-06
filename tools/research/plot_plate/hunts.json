@@ -1,0 +1,198 @@
+{
+ "34": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_3_a_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po1_aya_s_1_b",
+    "x": 87,
+    "y": 3
+   },
+   {
+    "layer": "pose2",
+    "kind": "pose",
+    "name": "po1_yui_s_1_a",
+    "x": -81,
+    "y": -7
+   }
+  ],
+  "note": "猎手 2026-09-07：脚本是 bg_1_a_2（带同学），缩略图是空教室 bg_3_a_0；立绘比 comPoseInitPosition(2) 偏 (+7,+3)/(+19,-7)"
+ },
+ "77": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_11_b_0",
+    "x": 0,
+    "y": 11,
+    "fill": "edge"
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po1_aya_s_1_a",
+    "x": 0,
+    "y": -4
+   }
+  ],
+  "note": "猎手 2026-09-07：bg_11_b_0 在缩略图里低 11 px、顶部是天空（素材边缘延伸），卡 78 同 bg 同偏移"
+ },
+ "56": {
+  "layers": [
+   {
+    "layer": "event",
+    "kind": "event",
+    "name": "eve_0_b",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_4_b_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "bg",
+    "name": "bg_4_b_0",
+    "x": 0,
+    "y": 4
+   }
+  ],
+  "note": "猎手 2026-09-07：尖叫时的画面抖动瞬间——脚本 layerLoad(pose1,bg_4_b_0)+layerMovePosition(0,5,5) 的第 4 帧；残余是左墙的空间性色偏"
+ },
+ "162": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "solid",
+    "rgb": [
+     255,
+     255,
+     255
+    ],
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "sysgim",
+    "name": "title_01_a",
+    "x": -22,
+    "y": 78,
+    "scale": [
+     522,
+     113
+    ]
+   }
+  ],
+  "note": "猎手 2026-09-07：白底 + 题名 logo 放大 1.29×1.27 居中，再 0.5 变暗；格内没有烤字标题，logo 即标题",
+  "title": "none"
+ },
+ "78": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_11_b_0",
+    "x": 0,
+    "y": 11,
+    "fill": "edge"
+   }
+  ],
+  "note": "猎手 2026-09-07：与卡 77 同一 bg 同一 11 px 下移，顶部天空延伸；无立绘、无按钮（按钮会让宽掩膜 RMSE 变差）"
+ },
+ "37": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_9_a_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po2_sak_s_4_d",
+    "x": -16,
+    "y": 0
+   }
+  ],
+  "note": "全立绘广搜 2026-09-07：场景后段サクラ托腮的一刻（配方首帧 25.2 → 4.8）"
+ },
+ "33": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_a_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po1_aya_s_1_a",
+    "x": 87,
+    "y": 3
+   },
+   {
+    "layer": "pose2",
+    "kind": "pose",
+    "name": "po1_yui_s_1_a",
+    "x": -81,
+    "y": -7
+   }
+  ],
+  "note": "主线程探针 2026-09-07：与卡 34 同型——脚本 bg_1_a_2（带同学）→ 空教室 bg_1_a_0，立绘偏移同 34"
+ },
+ "30": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_6_b_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po2_yui_s_1_c",
+    "x": -4,
+    "y": -6
+   }
+  ],
+  "note": "主线程探针 2026-09-07：走廊取 bg_6_b_0（脚本 bg_4_b_0）+ po2_yui_s_1_c，12.3 → 8.9"
+ },
+ "82": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_4_b_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "bg",
+    "name": "bg_4_b_0",
+    "x": 0,
+    "y": 4
+   }
+  ],
+  "note": "主线程探针 2026-09-07：与卡 56 同型的走廊画面下移 4 px（抖动帧/素材版本差），16.2 → 10.5；场景脚本本身加载的是 bg_6_b_0"
+ }
+}

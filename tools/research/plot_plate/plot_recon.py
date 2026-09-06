@@ -92,7 +92,7 @@ def compose(state):
         im = img(kind, name)
         if im is None: continue
         layer = Image.new("RGBA", (480, 272), (0, 0, 0, 0))
-        layer.paste(im, (x, y), im)
+        layer.paste(im, (x, y))          # 不带掩膜（带掩膜会把 alpha 平方）
         scr.alpha_composite(layer)
     return scr.convert("RGB")
 

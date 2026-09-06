@@ -85,6 +85,9 @@
 - **猎手工作流**（子代理并行逐卡深挖）：34→7.3、77→5.5、78→4.9、56→10.3、162→4.5 五张确认；主线程探针再解 33→7.4、30→8.9、82→10.5。
   41（選択：ナゾトキ）、158（セクションEX2）仍无解，走 band；账号会话额度触顶导致 9 个猎手与 2 个审计未跑完，待续。
 - **游戏内**：`tools/emu/drives/plot_timeline.py`（`--mode mainmenu --no-cards` 盘 → Story/Fragment 时间轴逐页截图）。
+  ✅ 2026-09-07 实测：两条时间轴各 7 帧，底板格与相邻格观感一致、中文标题清晰、无原文残留
+  （`docs/ops/figures/plot-plate-2026-09-07/ingame_{story,fragment}_timeline.png`）。顺手修了 testboot 的
+  `story_route()`：它按 `s1s_` 前缀筛 dag.json 的 `scene_<id>` 键，一直返回空路线；现剥前缀并只留有卡场景。
   ⚠ 全卡持有的主菜单盘看不到时间轴：Story 一进就是跳过询问、Fragment 提示没有可做的故事（2026-09-07 实测）。
 - **量化**：干净底板让 plot sheet 颜色数到 4 万+，FASTOCTREE 落 256 色损耗 37；`build_disc.quantize_for_template`
   对二值 alpha 的图改走 MEDIANCUT（RGB）+ 透明项，plot_1_a 37.3→9.1、plot_4_a 8.5→1.6。顺带发现 cutin/tut_* 教程图

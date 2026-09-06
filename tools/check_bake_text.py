@@ -45,6 +45,7 @@ MODE_FRAME = REPO / "data" / "mode_frame_text.jsonl"
 MEMORY_THUMB = REPO / "data" / "memory_thumb_text.jsonl"
 SYSGIM_PANEL = REPO / "data" / "sysgim_panel_text.jsonl"
 SYSGIM_TITLE = REPO / "data" / "sysgim_title_text.jsonl"
+SELECT_MAP_INFO = REPO / "data" / "select_map_info_text.jsonl"
 
 #: 受本闸管辖的数据文件：(数据文件, 原图目录, box 是否必填)。
 #:
@@ -61,6 +62,8 @@ SOURCES = [
     (MEMORY_THUMB, REPO / "png", True),
     (SYSGIM_PANEL, SYSGIM, True),
     (SYSGIM_TITLE, SYSGIM, True),
+    # 探索地图底栏 sel_map_0_a：png/select 里唯一走段落发光管线的一张。
+    (SELECT_MAP_INFO, REPO / "png" / "select", True),
 ]
 
 REQUIRED = ("file", "row", "jp", "zh")
@@ -75,8 +78,11 @@ REQUIRED = ("file", "row", "jp", "zh")
 # 那是「这里裁定不放中文」，不是「中文还没译」。两者都表现为空 zh，靠字段区分。
 # `twin`：孪生态重建参数 {"dy":…, "band":[y0,y1]}（bake_mask.plan 同名同义）——
 # 本图另有一份不含旧墨的保留层渲染，用来重建擦不掉的那几粒残留。
+# `geo`：几何足迹遮盖参数（bake_para_glow 的 mask_mode="geo_footprint"，
+# bake_mask.plan_geo 同名同义），放在该图 row 0 上——保留组的盒/半径、旧墨足迹
+# 半径、底色、可见性地板等，逐张实测逐张写。
 KNOWN = REQUIRED + ("box", "note", "deferred", "align", "left", "force_size",
-                    "erase", "twin")
+                    "erase", "twin", "geo")
 
 
 @dataclass(frozen=True)

@@ -148,3 +148,19 @@ def test_event_op_corpus_is_four_paragraph_blocks():
     assert {r["file"] for r in rows} == {"op_1_a", "op_2_a", "op_3_a"}
     # _b 不进数据：它是 _a 的虚化版（高斯 r=1.5，alpha 平均残差 0.4）
     assert not any(r["file"].endswith("_b") for r in rows)
+
+
+def test_geo_footprint_params_are_a_known_row_field(tmp_path):
+    """`geo`（`bake_para_glow` 的 geo_footprint 遮盖参数，`bake_mask.plan_geo` 同名同义）
+    与 `align` 一样是逐行字段，不是打错的字段名。探索地图底栏是第一份既走几何足迹、
+    又归本闸管辖的数据。"""
+    row = dict(GOOD)
+    row["geo"] = {"keep": [], "r_old": 9, "bg": [255, 255, 255, 0], "glow_floor": 12}
+    errs, _ = check(_write(tmp_path, [row]), box_required=True)
+    assert errs == []
+
+
+def test_select_map_info_is_registered():
+    """探索地图底栏的译文数据归本闸管：加新面时往 SOURCES 加一行，别新起一个闸。"""
+    names = {d.name for d, _img, _b in SOURCES}
+    assert "select_map_info_text.jsonl" in names

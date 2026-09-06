@@ -20,6 +20,7 @@
 | `save_roundtrip.py` | 存档往返：毒化旧结构区 → 暂停菜单「保存」走完 PSP 对话框（覆盖确认 ←○、完成 ✕）→ 推进两句 → 「读取」→ 核对恢复到存档那句、旧区仍全 0xEE；判据 saved/resumed/poison 三项 | `--profile test --mode scene --scene <id> [--bloat]`，用 `--patched` 读 savebuf 扩容布局 | `判定: {'saved_ok': True, 'resumed_ok': True, 'poison_ok': True}` |
 | `mem_probe.py` | 定时快照 heap16 块表与 UserSbrk 指针，算模块+C 堆与 heap16 之间的空隙（扩 bss 的余地） | `--profile test --mode movie`（OP 循环播放，峰值场合）或任意盘 | 打印每次快照与最小空隙 |
 | `save_probe.py` | 直入场景 → SQUARE 暂停菜单 → 「保存」→ 在 Pluto 序列化完成处断住，读出 gameSave/mainThread blob 真实大小并转储 406120 B 存档结构（`tools/pluto_size.py parse-dump` 解析） | `--profile test --mode scene --scene <id>` | 打印 `mainThread blob = N B / 327680 B`；05 帧是 PPSSPP 存档对话框 |
+| `map.py` | 探索地图底栏 `select/sel_map_0_a` 的中文提示：五处 comSelectMap 逐页截图 | `--profile test --mode map` | 00–05 帧底栏「请选择要前往的地点。」红晕白字、`- MAP SELECT -` 原样、「当前位置」；01 帧为 00 帧按 DOWN 后光标态；ERROR 0 |
 
 跑法：
 
@@ -34,6 +35,9 @@ uv run python tools/emu/drives/glyph.py
 
 uv run python tools/build_disc.py --profile release
 uv run python tools/emu/drives/release_iso.py
+
+uv run python tools/build_disc.py --profile test --mode map
+uv run python tools/emu/drives/map.py
 ```
 
 看图：截图是 480×272 PNG，直接打开；`finale_full.py` 一次几十帧，可先拼缩略马赛克。

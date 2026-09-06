@@ -87,7 +87,7 @@ QUANT_MSE_WARN = 15.0        # 经验阈：>256 色烤字图落 256 色板的典
 #: 数手动 +1：旧缓存条目从此在键空间里再也不会被命中，会被当作未命中重新编码。
 #: 不这样做的后果：改了编码器却忘了清缓存，687 张图会静默继续用旧编码器的产物，
 #: release_assertions 也查不出来——它只逐字节核对 script/*.lua，不比对任何 gim 成员。
-GIM_CACHE_VERSION = 1
+GIM_CACHE_VERSION = 2      # 2：二值 alpha 的图改走 MEDIANCUT（2026-09-07），旧缓存作废
 
 #: 测试引导（tools/testboot.py）注入的**新成员**，绝不能进发布盘。
 TESTBOOT_MEMBER = "script/snr_test.lua"
@@ -336,7 +336,33 @@ def quantize_for_template(im: Image.Image, cap: int) -> Image.Image:
         out.putdata([lut[px] for px in im.getdata()])
         out.putpalette(palette, rawmode="RGBA")
         return out
+    alphas = {a for _n, a in im.getchannel("A").getcolors(256)}
+    if alphas <= {0, 255}:
+        return _quantize_binary_alpha(im, cap, transparent=0 in alphas)
     return im.quantize(colors=cap, method=Image.Quantize.FASTOCTREE)
+
+
+def _quantize_binary_alpha(im: Image.Image, cap: int, transparent: bool) -> Image.Image:
+    """alpha 只有 0/255 的图：RGB 走 MEDIANCUT，透明另占一个色板项。
+
+    FASTOCTREE 把 alpha 当第四维一起量化，对「大面积不透明照片 + 少量全透明」的图
+    （plot 四张 sheet：干净底板重建后 4 万多色）落 256 色的损耗 MSE 37；只对 RGB 做
+    MEDIANCUT 同一张图 9.1（2026-09-07 实测）。半透明晕（sysgim/card）不走这里。
+    """
+    n = cap - (1 if transparent else 0)
+    q = im.convert("RGB").quantize(colors=n, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette()[:3 * n]
+    data = list(q.getdata())
+    palette = []
+    for i in range(n):
+        palette.extend((pal[3 * i], pal[3 * i + 1], pal[3 * i + 2], 255))
+    if transparent:
+        palette.extend((0, 0, 0, 0))
+        data = [n if a == 0 else v for v, a in zip(data, im.getchannel("A").getdata())]
+    out = Image.new("P", im.size)
+    out.putdata(data)
+    out.putpalette(palette, rawmode="RGBA")
+    return out
 
 
 def _encode_gim_cached(png: Path, tpl_path: Path, out: Path, force: bool,
@@ -921,7 +947,7 @@ def main() -> None:
     ap.add_argument("--scene", default="s1s_20", help="test 剖面 scene 模式的目标场景 ID")
     ap.add_argument("--card", type=int, help="test 剖面 card 模式的卡号")
     ap.add_argument("--hold", type=int, default=180, help="test 剖面 font/cutin 每页停留帧数")
-    ap.add_argument("--no-cards", action="store_true", help="test 剖面 scene 模式不预置全卡")
+    ap.add_argument("--no-cards", action="store_true", help="test 剖面 scene/mainmenu 模式不预置全卡")
     ap.add_argument("--bloat", action="store_true",
                     help="test 剖面 scene 模式：把目标章节脚本的 vms 翻倍，复现存档线程 blob 超容量")
     args = ap.parse_args()

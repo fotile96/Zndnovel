@@ -374,3 +374,50 @@ def test_stage_eboot_rejects_unregistered_source(tmp_path, monkeypatch):
            "iso_path": "/PSP_GAME/SYSDIR/EBOOT.BIN", "order": ["x"]}
     with pytest.raises(SystemExit):
         stage_eboot(_ctx(tmp_path, {"eboot": cfg}))
+
+
+# ── 量化：二值 alpha 的图走 MEDIANCUT（2026-09-07）────────────────────────
+#
+# plot 四张 sheet 重建为干净底板后颜色数 4 万+，FASTOCTREE（RGBA 感知）落 256 色的损耗
+# MSE 37；只对 RGB 做 MEDIANCUT、透明另占一个色板项，同一张图 9.1。alpha 只有 0/255 的图
+# 才能这么做（半透明晕的 sysgim/card 仍走 RGBA 量化）。
+
+def _binary_alpha_photo():
+    from PIL import Image
+    # bg 原图本身是 256 色索引图；双线性放大后再裁，才是真正的连续色照片（数千色）
+    im = Image.open("png/bg/bg_1_a_0.png").convert("RGB").resize((624, 354), Image.BILINEAR).crop((0, 0, 480, 272)).convert("RGBA")
+    im.putalpha(255)
+    px = im.load()
+    for y in range(0, 60):
+        for x in range(0, 120):
+            px[x, y] = (0, 0, 0, 0)      # 一块全透明区（相当于 sheet 尾部的空格）
+    assert im.getcolors(256) is None      # 必须真的超过 256 色，走量化分支
+    return im
+
+
+def test_quantize_binary_alpha_keeps_alpha_exact_and_beats_fastoctree():
+    from PIL import Image
+    from tools.build_disc import perceptual_mse, quantize_for_template
+    src = _binary_alpha_photo()
+    q = quantize_for_template(src, 256)
+    assert q.mode == "P"
+    out = q.convert("RGBA")
+    assert list(out.getchannel("A").getdata()) == list(src.getchannel("A").getdata())
+    loss = perceptual_mse(out, src)
+    ref = perceptual_mse(src.quantize(colors=256, method=Image.Quantize.FASTOCTREE).convert("RGBA"), src)
+    assert loss <= 0.6 * ref, (loss, ref)
+
+
+def test_quantize_semi_transparent_image_still_uses_rgba_path():
+    """半透明晕（sysgim 那类）不能走 RGB 分支：alpha 必须仍是逐像素量化后的近似值，不能被二值化。"""
+    from PIL import Image
+    from tools.build_disc import quantize_for_template
+    src = Image.open("png/bg/bg_1_a_0.png").convert("RGBA")
+    px = src.load()
+    for y in range(272):
+        for x in range(480):
+            r, g, b, _ = px[x, y]
+            px[x, y] = (r, g, b, (x * 255) // 479)     # 横向 alpha 渐变
+    q = quantize_for_template(src, 256).convert("RGBA")
+    alphas = set(q.getchannel("A").getdata())
+    assert len(alphas) > 2

@@ -163,7 +163,7 @@ main = function()
     local i0
     cardIDFlag = true
     for i0 = 1, 195 do
-        gameSave.myCard[i0].hold = 1
+        gameSave.myCard[i0].hold = {hold}
     end
     gameSave.startMenuState = 2
     gameSave.tutorial.firstStory = 1
@@ -474,7 +474,9 @@ def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
     """
     if mode == "mainmenu":
         print("[testboot] 全解锁主菜单（195 卡 + startMenuState=2 + 预置记忆路线）")
-        return MAINMENU_TEMPLATE.format(route=story_route())
+        # --no-cards：全卡不持有。全卡持有时 Story 一进就是「要跳过吗」对话框、Fragment 提示
+        # 「没有可以制作梗概的故事」，两条时间轴都看不到（2026-09-07 实测）；看缩略图要用它。
+        return MAINMENU_TEMPLATE.format(route=story_route(), hold=-1 if no_cards else 1)
     if mode == "choices":
         calls = scan_calls(DLG_CALL)
         pages = "".join(CHOICES_PAGE.format(tag=t, args=a, bg=CHOICE_BG)

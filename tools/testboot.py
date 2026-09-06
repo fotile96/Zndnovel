@@ -432,10 +432,18 @@ def scan_calls(pat: re.Pattern) -> list[tuple[str, str]]:
 
 
 def story_route(n: int = 16) -> str:
-    """取前 n 个 s1/s2 章故事场景 ID，给主菜单模式当预置记忆路线。"""
+    """取前 n 个**有卡的** s1/s2 章故事场景 ID，给主菜单模式当预置记忆路线。
+
+    dag.json 的 scene_meta 键是函数名 `scene_<id>`，先剥前缀；再按 snr_common 的
+    sceneId2aCard 只留有卡场景——snr_story_main 画时间轴要拿 sceneId2aCard[id] 查
+    plotState，无卡场景（s1s_10 等）会取到 nil 报错。
+    """
     import json
     dag = json.loads((REPO / "data" / "dag.json").read_text(encoding="utf-8"))
-    ids = [k for k in dag["scene_meta"] if k.startswith(("s1s_", "s2s_"))]
+    common = (REPO / "lua_scripts" / "snr_common.lua").read_text(encoding="utf-8")
+    carded = set(re.findall(r"sceneId2aCard\.(\w+) = \d+", common))
+    ids = [k[len("scene_"):] for k in dag["scene_meta"] if k.startswith("scene_")]
+    ids = [k for k in ids if k.startswith(("s1s_", "s2s_")) and k in carded]
     ids.sort(key=lambda k: (k[:3], int(re.sub(r"\D", "", k[4:]) or 0)))
     return ", ".join(f'"{k}"' for k in ids[:n])
 

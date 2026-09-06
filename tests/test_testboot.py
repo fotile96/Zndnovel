@@ -109,3 +109,21 @@ def test_generate_refuses_output_dir_outside_build(tmp_path):
     """
     with pytest.raises(SystemExit):
         generate("mainmenu", tmp_path)
+
+
+def test_story_route_presets_card_scenes_in_story_order():
+    """主菜单测试模式预置的记忆路线必须是**有卡的真场景 ID**（不带 scene_ 前缀）。
+
+    data/dag.json 的 scene_meta 键是函数名 `scene_<id>`；直接按 `s1s_` 前缀筛会得到空路线，
+    Story/Fragment 时间轴就是空的（2026-09-07 实测：Fragment 报「没有可以制作梗概的故事」）。
+    路线里若混进无卡场景（如 s1s_10），snr_story_main 会在 sceneId2aCard 上取到 nil 而报错。
+    """
+    import re
+    from tools.testboot import REPO, story_route
+    ids = [s.strip('"') for s in story_route(16).split(", ")]
+    assert len(ids) == 16
+    assert all(not i.startswith("scene_") for i in ids)
+    txt = (REPO / "lua_scripts" / "snr_common.lua").read_text(encoding="utf-8")
+    carded = set(re.findall(r"sceneId2aCard\.(\w+) = \d+", txt))
+    assert all(i in carded for i in ids), [i for i in ids if i not in carded]
+    assert ids[0] == "s1s_20"

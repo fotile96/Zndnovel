@@ -8,7 +8,7 @@
 > **正确的 PNG + 版面规格**为止。产物落 `build/`（gitignore），由「工具 + 冻结骨架 +
 > 只读原图」一条命令确定性再生。
 
-最后更新：2026-08-30
+最后更新：2026-09-06
 
 ## 一览
 
@@ -17,7 +17,7 @@
 | `png/plot/` | 4 | **4** | — | — | `bake_plot.py` |
 | `png/scene/` | 2 | **2** | — | — | `bake_scene.py` |
 | `png/card/` | 197 | **196** | 1（空白模板） | — | `bake_card.py` |
-| `png/select/` | 278 | **134 按钮 + 地图** | 22 孤儿 + 3 异形 | — | `bake_select.py` / `bake_select_map.py` |
+| `png/select/` | 278 | **134 按钮 + 地图 + 底栏** | 22 孤儿 + 2 立绘 | — | `bake_select.py` / `bake_select_map.py` / `bake_select_map_info.py` |
 | `png/sysgim/` | 61（处理面） | **60** | 1（零引用孤儿 Y4） | — | `bake_sysgim_outline.py` / `bake_sysgim_glow.py` / `bake_panel.py` / `bake_sysgim_title.py` / `bake_sysgim_note.py` |
 | `png/event/` | 121 | **6**（`op_*`） | 115 无字 | — | `bake_event_op.py` |
 | `png/music/` | 4 | **1** | 3（曲目表，用户裁定不译） | — | `bake_mode_frame.py` |
@@ -75,6 +75,25 @@
 ⚠ **方法教训**：台账里写「少量」「个别」的那几格，等于**从没被清点过**。
 数字才是清点，形容词不是。另有 CLAUDE.md 的一处记错顺带查实——「`bg/` 少量含字
 （黑板板书等）」的黑板板书在 `cutin/cut_54`，`bg/` 81 张一张烤字也没有。
+
+## 2026-09-06 补漏：`sel_map_0_a` 探索地图底栏（裁决 L12）
+
+L10 把这张 480×42 的底栏推给 sysgim 那轮「一并定夺」，sysgim 收口时没人接——
+`bake-decisions.md`「尚未定方向」里也没有它，两处都没提醒到。用户看清单时发现。
+
+- **做了什么**：「移動場所を選択してください。」→「请选择要前往的地点。」、「現在位置」→
+  「当前位置」；`- MAP SELECT -`、框线、占位框（运行时被 `sel_map_1_a` 地点条盖住）逐像素不变。
+  工具 `tools/bake_select_map_info.py`＝`bake_para_glow` 的第 7 份 Spec（face=sysgim，
+  与三张模式框同模板同字），数据 `data/select_map_info_text.jsonl`（两行，geo 参数带实测注），
+  产物 `build/select_zh/sel_map_0_a.png` 随既有 `[gim].replace` 表回注，清单零改动。
+- **与模式框的一处不同**：走几何足迹两步遮盖而非裁盒——红晕在英文阴影起始行 α 峰值 41
+  （模式框 ≤11），裁盒会把旧晕尾巴留在更短的中文右边。对照测试把这个前提钉住了。
+- **字号**：整张钉 13px。自动选号会落到 12/11px，比日文各矮一行——`_core_mask` 那把尺子
+  比产物白芯高约 2 行，详见 L12。
+- **实测**：`tests/test_bake_select_map_info.py` 13 条（遮盖归属、保护、收敛、单行、盒外不变、
+  尾巴归零、居中/齐左、字高）；`check_bake_text`（新登记，`geo` 入 KNOWN）0 错；
+  `check_ui_terms` 0；`layers.py check --profile release` 0 错；test 盘量化损耗 MSE 10.0（阈 15）；
+  PPSSPP `--mode map` 五页 ERROR 0（新驾驶脚本 `tools/emu/drives/map.py`）。
 
 ## 2026-08-28：与正文轨重新对齐（v19/v20）
 

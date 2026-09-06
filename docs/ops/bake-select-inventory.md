@@ -133,6 +133,7 @@ sel_s2s_192b_sel_d/e, sel_s3s_230_sel_a..e, sel_s4s_210_sel_a/b, …
   `CLAUDE.md` 记着地图点是「美術室/音楽室/保健室/職員室/中庭/校庭/教室/屋上/廊下/図書室」——
   **有已知清单，但与图的对应关系待定**。
 - 其余多为谜题选项的延伸（`_d`/`_e` 档），与 ③ 同性质。
+- ✅ **2026-09-06 收口**：`sel_map_0_a`（480×42 探索地图底栏）已烤——`tools/bake_select_map_info.py`，裁决 L12；`sel_map_1_a` 早由 `bake_select_map.py` 烤（L9）；`sel_map_2_a/2_b` 是立绘无字；`sel_map`/`sel_map_on/off` 是零引用孤儿（L8）。此行之后，这一组 5 张再无待做项。
 
 ## 四、还需要做的
 

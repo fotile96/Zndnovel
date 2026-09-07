@@ -92,8 +92,10 @@
   （`docs/ops/figures/plot-plate-2026-09-07/ingame_{story,fragment}_timeline.png`）。顺手修了 testboot 的
   `story_route()`：它按 `s1s_` 前缀筛 dag.json 的 `scene_<id>` 键，一直返回空路线；现剥前缀并只留有卡场景。
   ⚠ 全卡持有的主菜单盘看不到时间轴：Story 一进就是跳过询问、Fragment 提示没有可做的故事（2026-09-07 实测）。
+- **宽掩膜**（裁决 P9）：窄掩膜量不到标题区，而那正是我们替换的地方；启用后卡 146 的伪 cutin 当场现形。
+- **色调**（裁决 P10）：四种候选模型互差 <0.1，维持 `round(v×0.5)`；「标题底下有暗化带」的假设实测证否。
 - **量化**：干净底板让 plot sheet 颜色数到 4 万+，FASTOCTREE 落 256 色损耗 37；`build_disc.quantize_for_template`
-  对二值 alpha 的图改走 MEDIANCUT（RGB）+ 透明项，plot_1_a 37.3→9.1、plot_4_a 8.5→1.6。顺带发现 cutin/tut_* 教程图
+  对二值 alpha 的图改走 MEDIANCUT（RGB）+ 透明项，plot_1_a 37.3→9.3、plot_4_a 8.5→1.6（成盘实测 3 张新编码最大 9.32，阈 15）。顺带发现 cutin/tut_* 教程图
   的 FASTOCTREE 损耗 50+ 是旧有状态（此前缓存命中从未报出），半透明晕不能走 RGB 分支，待另议（libimagequant？）。
 - 顺手修的研究缺陷：合成器 `paste(im, pos, im)` 把 alpha 平方了（半透明像素偏暗），研究报告里的数字是用旧合成器算的，
   与修后差 <0.5，结论不变；生产工具与研究模块都已改为不带掩膜 paste。

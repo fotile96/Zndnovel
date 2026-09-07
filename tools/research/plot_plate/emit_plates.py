@@ -86,6 +86,15 @@ def main(argv=None):
             row["verify_rmse"] = round(rm, 2)
             row["note"] = f"{src}；{s['jp']}" + (f"；{note}" if note else "")
             rows.append(row)
+    # accepted/accepted_note 是**人的裁定**，不是搜索结果：重生成时按卡号原样带过来，
+    # 否则每次跑 emit 都会把「已接受」抹掉，复核清单又开始重报同一批格。
+    if os.path.exists(a.out):
+        prev = {json.loads(l)["card"]: json.loads(l) for l in open(a.out, encoding="utf-8") if l.strip()}
+        for r in rows:
+            old_row = prev.get(r["card"])
+            if old_row and old_row.get("accepted"):
+                r["accepted"] = True
+                r["accepted_note"] = old_row.get("accepted_note", "")
     with open(a.out, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

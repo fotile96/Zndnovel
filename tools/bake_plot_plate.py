@@ -11,7 +11,8 @@
       {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -6}], "tone": 0.5, "verify_rmse": 5.5, "note": "…"}
     kind: single（单张 bg/event 直缩）| compose（多层合成）| flat（纯黑底板，取 flat 格中位数）| band（走 bake_plot 色带兜底）
     可选：layers[].scale=[w,h]（先缩放素材）、layers[].fill="edge"（素材边缘延伸铺满画布）、
-    crop=[x0,y0,x1,y1]（整帧先裁再缩，可含小数）、title="none"（不压中文，logo 板）、black=true（flat 纯黑变体）
+    crop=[x0,y0,x1,y1]（整帧先裁再缩，可含小数）、title="none"（不压中文，logo 板）、black=true（flat 纯黑变体）、
+    accepted=true + accepted_note（人看过实物、接受这格的近似；复核清单于是只喊未接受的格）
 
 **闸**：single/compose 的底板在烤字前对照**原格无字行**算 RMSE（底板原样，不做拟合），超过
 `GATE_RMSE` 直接拒绝出活——配方表自述的 `verify_rmse` 不算数，素材或配方漂移必须当场现形
@@ -284,6 +285,10 @@ def bake_card(card: int, row: dict, orig: Image.Image, title_zh: str, font, jp_t
               "local_band" if band > LOCAL_BAND_RMSE else None)
     info.update({"rmse": rmse, "wide_rmse": wide, "local_band_rmse": band,
                  "review": reason is not None, "review_reason": reason,
+                 # `accepted`＝人看过实物并接受了这格的近似（数据行的 accepted/accepted_note）。
+                 # 机械命中照报，但复核清单只对**未接受**的格喊——否则同一批格每次重报，
+                 # 清单久了没人看，真正新冒出来的偏差就淹在里面。
+                 "accepted": bool(row.get("accepted")),
                  "gate_ok": rmse <= GATE_RMSE})
     cell = plate.convert("RGBA")
     if row.get("title") == "none":
@@ -320,6 +325,8 @@ def run(write: bool = True, out_dir: str = OUT_DIR) -> dict:
         "per_card": per_card,
         "kinds": {k: sum(1 for i in per_card.values() if i["kind"] == k) for k in ("single", "compose", "flat", "band")},
         "review_cards": sorted(int(c) for c, i in per_card.items() if i.get("review")),
+        "review_unaccepted": sorted(int(c) for c, i in per_card.items()
+                                    if i.get("review") and not i.get("accepted")),
         "band_cards": sorted(int(c) for c, i in per_card.items() if i["kind"] == "band"),
         "gate_failures": [{"card": c, "rmse": r} for c, r in failures],
         "truncated": sorted(int(c) for c, i in per_card.items() if i["truncated"]),
@@ -343,8 +350,13 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default=OUT_DIR)
     a = ap.parse_args(argv)
     report = run(write=not a.check, out_dir=a.out)
-    print(f"plot 底板：{report['kinds']}；review {len(report['review_cards'])} 格 {report['review_cards']}；"
+    todo = report["review_unaccepted"]
+    print(f"plot 底板：{report['kinds']}；review {len(report['review_cards'])} 格 {report['review_cards']}"
+          f"（已接受 {len(report['review_cards']) - len(todo)}）；"
           f"band 兜底 {len(report['band_cards'])} 格 {report['band_cards']}；截断 {report['truncated']}")
+    if todo:
+        print(f"  ⚠ 待人看图裁定 {len(todo)} 格：{todo}——接受就在 data/plot_plates.jsonl 的对应行加 "
+              f"accepted/accepted_note，别只写在文档里")
     return 0
 
 

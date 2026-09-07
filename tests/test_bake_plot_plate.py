@@ -245,3 +245,33 @@ def test_manifest_carries_wide_rmse_and_flags_the_divergent_cells():
         expect = (i["rmse"] > bpp.REVIEW_RMSE or i["wide_rmse"] > bpp.REVIEW_RMSE
                   or i["wide_rmse"] - i["rmse"] > bpp.WIDE_GAP or i["local_band_rmse"] > bpp.LOCAL_BAND_RMSE)
         assert i["review"] == expect, (c, i)
+
+
+# ── 人工接受（2026-09-07 用户裁定）────────────────────────────────────
+#
+# 复核清单是机械判据的产物，人看过并接受之后，它不该每次再报同一批格——否则清单久了没人看，
+# 真正**新**冒出来的偏差就淹在里面。故把「已接受」写进数据行，manifest 分两栏：
+# review_cards（机械命中，仍然照报）与 review_unaccepted（需要人看的，应为空）。
+
+def test_accepted_cells_are_recorded_in_the_data_not_only_in_prose():
+    accepted = {c for c, r in ROWS.items() if r.get("accepted")}
+    flagged = {c for c, r in ROWS.items()
+               if r["kind"] in ("single", "compose")
+               and (r["verify_rmse"] > bpp.REVIEW_RMSE or (r.get("wide_rmse") or 0) > bpp.REVIEW_RMSE)}
+    assert accepted, "配方表里没有任何 accepted 行"
+    assert accepted <= set(ROWS)
+    for c in accepted:
+        assert ROWS[c].get("accepted_note"), c        # 接受要写清楚是谁在什么前提下接受的
+    assert flagged <= accepted, sorted(flagged - accepted)
+
+
+def test_manifest_separates_mechanical_flags_from_unaccepted_ones():
+    report = bpp.run(write=False)
+    per = report["per_card"]
+    flagged = {int(c) for c, i in per.items() if i.get("review")}
+    assert report["review_cards"] == sorted(flagged)
+    assert report["review_unaccepted"] == sorted(
+        c for c in flagged if not ROWS[c].get("accepted"))
+    assert report["review_unaccepted"] == [], report["review_unaccepted"]
+    for c in flagged:
+        assert per[str(c)]["accepted"] is bool(ROWS[c].get("accepted"))

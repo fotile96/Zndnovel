@@ -234,3 +234,14 @@ uv run python tools/build_disc.py --profile test --mode scene --scene s2s_150 --
 158（宽 8.1）、182/185/188（约 8.0–8.3，同一间病房，残差集中在床沿高对比边）、184（10.9，同一张 CG、纹理噪声）、
 194（8.3）。整帧位移（1 px 步长）、分数缩放、全素材（81 bg + 121 event）× 位移网格暴力替换、叠层假设都试过，无一改善——卡 184 的全素材专攻搜索确认 `eve_28_c@(0,0)` 就是最优解 → **它们离重采样地板只差 3–6，
 差的是素材版本或当年截图状态本身**。观感上都是同一张画（见 `final_sheet4_orig_vs_product.png`）。
+
+### 收尾验证（2026-09-07 12:5x）
+
+- `uv run pytest -m "not emu"`：**1869 通过 / 3 跳过，退出码 0**。
+- 数据自洽：195 行配方的 `verify_rmse` 与工具重量逐行一致（0 处偏差）。
+- 发布盘：`build_disc.py --profile release` 出盘、发布断言全过；plot 三张 sheet 量化损耗 9.34 / 9.16 / 5.46（阈 15）。
+  发布 ISO 在 PPSSPP 上开机链正常（进序章题词）。
+- 游戏内：test 盘 `--mode mainmenu --no-cards` 的 Story / Fragment 两条时间轴各 7 帧，底板与中文标题正常、无残留原文
+  （`ingame_story_timeline.png` / `ingame_fragment_timeline.png` 已更新为最终配方的截图）。
+- 配方来源分布：场景配方 50、平板家族 42、暴力单图 33、主线程探针 30、细化搜索 26、猎手/复核 11、其他 3。
+  用到的机制：多层合成 66、素材缩放 17、边缘延伸 22、整帧裁切 2、logo 板 1、纯黑变体 1。

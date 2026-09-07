@@ -47,8 +47,14 @@ def main(argv=None):
         cands = []
         if abs(s["brute"]["gain"]) < 0.15 and card != 162:
             cell = bpp.orig_cell(card).convert("RGB")
+            # 判「纯黑变体」看**无字行**是否全黑；hunts 里若已就该格裁定过（复核发现 18/55
+            # 的整格只有底色＋标题墨、没有共享板的底部暖光条），以裁定为准。
             black = max(hi for _lo, hi in cell.crop((0, 26, 82, 48)).getextrema()) == 0
-            row = {"card": card, "kind": "flat", "note": f"平板家族（{s['jp']}）" + ("；无字行全黑＝开场黑屏格" if black else "")}
+            hf = hunts.get(str(card))
+            if hf and hf.get("flat"):
+                black = bool(hf.get("black"))
+            row = {"card": card, "kind": "flat",
+                   "note": (hf or {}).get("note") or (f"平板家族（{s['jp']}）" + ("；无字行全黑＝开场黑屏格" if black else ""))}
             if black:
                 row["black"] = True
             rows.append(row)

@@ -124,22 +124,19 @@ def test_blank_tail_cells_are_byte_identical(product):
         assert orig.crop(box).tobytes() == baked.crop(box).tobytes(), box
 
 
-def test_band_cards_equal_the_band_tool_output(product):
-    """`band` 兜底格逐像素等于 `bake_plot` 自己烤出来的那格——两条路径不许各烤各的。"""
-    out, _ = product
-    band_cards = [c for c, r in ROWS.items() if r["kind"] == "band"]
-    if not band_cards:
-        pytest.skip("配方表里没有 band 兜底格")
+def test_band_fallback_equals_the_band_tool_output():
+    """`band` 兜底格逐像素等于 `bake_plot` 自己烤出来的那格——两条路径不许各烤各的。
+    配方表里现在没有 band 格，这里把卡 7 强制成 band 来钉住这条路径（含 P5 的行数规则）。"""
     font = bp._ui_truetype("plot", bp.FONT_SIZE)
     titles = bp.load_titles_zh()
     jp = bpp.load_titles_jp()
-    for c in band_cards:
-        s, box = bp.cell_box(c)
-        orig = Image.open(bp.PLOT_DIR + f"/plot_{s}_a.png").convert("RGBA").crop(box)
-        lines, _ = bp.wrap_title(titles[c], font)
-        expect = bp.bake_cell(orig, lines, font, jp_title=jp[c])[0].convert("RGBA")
-        got = Image.open(out / f"plot_{s}_a.png").convert("RGBA").crop(box)
-        assert got.tobytes() == expect.tobytes(), c
+    c = 7
+    orig = bpp.orig_cell(c)
+    cell, info = bpp.bake_card(c, {"card": c, "kind": "band"}, orig, titles[c], font, jp[c])
+    lines, _ = bp.wrap_title(titles[c], font)
+    expect, decision = bp.bake_cell(orig.convert("RGBA"), lines, font, jp_title=jp[c])
+    assert cell.convert("RGBA").tobytes() == expect.convert("RGBA").tobytes()
+    assert info["kind"] == "band" and info["line_rule"] == decision.line_rule == "override"
 
 
 def test_titles_are_rendered_exactly_like_the_band_tool(product):
@@ -172,3 +169,39 @@ def test_manifest_reports_review_band_and_gate_per_card(product):
             assert r["rmse"] <= bpp.GATE_RMSE
             assert r["review"] == (r["rmse"] > bpp.REVIEW_RMSE)
     assert "review_cards" in report and "band_cards" in report and report["gate_failures"] == []
+
+
+# ── 裁切框（2026-09-07 猎手：卡 56/82 的走廊格是整帧 1.035× 居中放大）────────
+
+def test_crop_box_is_applied_before_the_thumbnail_resize():
+    """`crop: [x0, y0, x1, y1]`（可含小数）＝先裁再缩：等价于 PIL resize 的 box= 参数。"""
+    row = {"kind": "single", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_4_b_0", "x": 0, "y": 0}], "tone": 0.5}
+    plain = bpp.build_plate(row)
+    cropped = bpp.build_plate(dict(row, crop=[7.0, 3.5, 472.0, 266.5]))
+    assert _maxdiff(plain, cropped) > 4          # 裁切确实改变了底板
+    src = bpp.compose_layers(row["layers"])
+    expect = src.resize((82, 48), Image.BILINEAR, box=(7.0, 3.5, 472.0, 266.5)).point([int(round(v * 0.5)) for v in range(256)] * 3)
+    assert _maxdiff(cropped, expect) <= 1
+
+
+def test_card_56_and_82_use_the_same_zoomed_hallway_plate():
+    """两张「走廊」格是同一块底板：同 bg、同裁切框，重量后都在 REVIEW 线之下。"""
+    for c in (56, 82):
+        r = ROWS[c]
+        assert r["kind"] in ("single", "compose") and r.get("crop"), c
+        assert bpp.verify_plate(bpp.build_plate(r), _orig_cell(c), c) <= bpp.REVIEW_RMSE, c
+
+
+def test_localised_foreign_object_flags_review_even_when_global_rmse_is_low():
+    """测量审计的建议：整格 RMSE 低不代表没问题——底板某 3 行带里若与原格差 >20（局部异物/错位），
+    也要进复核名单。用卡 7 的底板在无字行贴一块亮斑来触发。"""
+    r = ROWS[7]
+    plate = bpp.build_plate(r)
+    assert bpp.local_band_rmse(plate, _orig_cell(7), 7) < 20
+    spoiled = plate.copy()
+    spoiled.paste((255, 255, 255), (30, 40, 60, 43))
+    assert bpp.local_band_rmse(spoiled, _orig_cell(7), 7) > 20
+    font = bp._ui_truetype("plot", bp.FONT_SIZE)
+    titles = bp.load_titles_zh(); jp = bpp.load_titles_jp()
+    _cell, info = bpp.bake_card(7, r, _orig_cell(7), titles[7], font, jp[7])
+    assert info["review"] is False and info.get("review_reason") is None

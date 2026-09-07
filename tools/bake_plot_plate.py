@@ -10,6 +10,8 @@
     {"card": 7, "kind": "compose", "layers": [{"layer": "bg1", "kind": "bg", "name": "bg_1_a_0", "x": 0, "y": 0},
       {"layer": "pose1", "kind": "pose", "name": "po1_aya_s_1_a", "x": -2, "y": -6}], "tone": 0.5, "verify_rmse": 5.5, "note": "…"}
     kind: single（单张 bg/event 直缩）| compose（多层合成）| flat（纯黑底板，取 flat 格中位数）| band（走 bake_plot 色带兜底）
+    可选：layers[].scale=[w,h]（先缩放素材）、layers[].fill="edge"（素材边缘延伸铺满画布）、
+    crop=[x0,y0,x1,y1]（整帧先裁再缩，可含小数）、title="none"（不压中文，logo 板）、black=true（flat 纯黑变体）
 
 **闸**：single/compose 的底板在烤字前对照**原格无字行**算 RMSE（底板原样，不做拟合），超过
 `GATE_RMSE` 直接拒绝出活——配方表自述的 `verify_rmse` 不算数，素材或配方漂移必须当场现形
@@ -166,7 +168,11 @@ def build_plate(row: dict) -> Image.Image:
         return flat_plate()
     if kind in ("single", "compose"):
         tone = float(row.get("tone", 0.5))
-        return _tone(compose_layers(row["layers"]).resize(THUMB, Image.BILINEAR), tone)
+        scr = compose_layers(row["layers"])
+        # `crop: [x0, y0, x1, y1]`（可含小数）：先裁再缩。卡 56/82 的走廊格是整帧 1.035× 居中放大
+        # （裁 (7,3.5)-(472,266.5)），没有任何脚本状态能产生，是当年截图的裁切。
+        box = tuple(float(v) for v in row["crop"]) if row.get("crop") else None
+        return _tone(scr.resize(THUMB, Image.BILINEAR, box=box), tone)
     raise ValueError(f"kind={kind!r} 没有底板")
 
 
@@ -191,6 +197,27 @@ def verify_plate(plate: Image.Image, orig: Image.Image, card: int, titles_jp=Non
     return rmse_rows(plate, orig, text_free_row(card, titles_jp))
 
 
+#: 局部异物线：无字行里任一 3 行窗口的 RMSE 超过它就进复核（测量审计 2026-09-07 的建议——
+#: 整格 RMSE 低不代表没有局部错位/多出来的东西，均值会把它摊平）。
+LOCAL_BAND_RMSE = 20.0
+
+
+def local_band_rmse(plate: Image.Image, orig: Image.Image, card: int, titles_jp=None, rows: int = 3) -> float:
+    """无字行里 `rows` 行滑窗的最大 RMSE。"""
+    y0 = text_free_row(card, titles_jp)
+    w, h = plate.size
+    pa = list(plate.convert("RGB").getdata()); pb = list(orig.convert("RGB").getdata())
+    worst = 0.0
+    for top in range(y0, h - rows + 1):
+        se = 0
+        for y in range(top, top + rows):
+            for x in range(w):
+                p, q = pa[y * w + x], pb[y * w + x]
+                se += (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2
+        worst = max(worst, math.sqrt(se / (rows * w * 3)))
+    return worst
+
+
 def bake_card(card: int, row: dict, orig: Image.Image, title_zh: str, font, jp_title: str):
     """一格：底板 + 中文标题（或 band 兜底）。返回 (RGBA cell, info dict)。"""
     lines, truncated = bp.wrap_title(title_zh, font)
@@ -202,7 +229,10 @@ def bake_card(card: int, row: dict, orig: Image.Image, title_zh: str, font, jp_t
         return cell, info
     plate = build_plate(row)
     rmse = 0.0 if row["kind"] == "flat" else round(verify_plate(plate, orig, card), 2)
-    info.update({"rmse": rmse, "review": rmse > REVIEW_RMSE, "gate_ok": rmse <= GATE_RMSE})
+    band = 0.0 if row["kind"] == "flat" else round(local_band_rmse(plate, orig, card), 2)
+    reason = "rmse" if rmse > REVIEW_RMSE else ("local_band" if band > LOCAL_BAND_RMSE else None)
+    info.update({"rmse": rmse, "local_band_rmse": band, "review": reason is not None,
+                 "review_reason": reason, "gate_ok": rmse <= GATE_RMSE})
     cell = plate.convert("RGBA")
     if row.get("title") == "none":
         # logo 板（卡 162）：原格本就没有烤字标题，logo 即标题，不再压中文

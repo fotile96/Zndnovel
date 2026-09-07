@@ -58,7 +58,7 @@ def main(argv=None):
             rows.append({"card": card, "kind": "band", "note": "题名 logo 格：保持色带路径（裁决 P3）"})
             continue
         if h and h.get("layers"):
-            cands.append(("hunt", {"layers": h["layers"], "title": h.get("title")}, h.get("note", "")))
+            cands.append(("hunt", {"layers": h["layers"], "title": h.get("title"), "crop": h.get("crop")}, h.get("note", "")))
         if str(card) in refine:
             cands.append(("refine", {"layers": layers_from_state(refine[str(card)]["state"])}, ""))
         if s.get("recipe"):
@@ -70,6 +70,8 @@ def main(argv=None):
             row = {"card": card, "kind": "compose" if len(rec["layers"]) > 1 else "single", "layers": rec["layers"], "tone": 0.5}
             if rec.get("title"):
                 row["title"] = rec["title"]
+            if rec.get("crop"):
+                row["crop"] = rec["crop"]
             try:
                 rm = bpp.verify_plate(bpp.build_plate(row), bpp.orig_cell(card), card)
             except Exception as e:  # 素材缺失等

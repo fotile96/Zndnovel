@@ -766,5 +766,187 @@
    }
   ],
   "note": "复核带探针 2026-09-07：立绘层 2 绕画布中心缩放 0.98 并微调位置；10.02 → 5.0"
+ },
+ "52": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 7.02→4.26"
+ },
+ "53": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 7.02→4.25"
+ },
+ "163": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 7.40→4.55"
+ },
+ "164": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 7.64→4.68"
+ },
+ "166": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 6.80→4.50"
+ },
+ "167": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 7.70→5.19"
+ },
+ "92": {
+  "layers": [
+   {
+    "layer": "event",
+    "kind": "event",
+    "name": "eve_14_a",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_14_b_0",
+    "x": 0,
+    "y": 0
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po2_yui_s_1_a",
+    "x": 16,
+    "y": 5,
+    "scale": [
+     451,
+     282
+    ]
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 8.52→5.39"
+ },
+ "103": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_1_b_0",
+    "x": -4,
+    "y": -2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 8.36→5.08"
+ },
+ "168": {
+  "layers": [
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_6_b_0",
+    "x": 2,
+    "y": 0,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 8.09→6.71"
+ },
+ "178": {
+  "layers": [
+   {
+    "layer": "event",
+    "kind": "event",
+    "name": "eve_61_x",
+    "x": -2,
+    "y": 2,
+    "fill": "edge"
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 8.21→6.29"
+ },
+ "2": {
+  "layers": [
+   {
+    "layer": "event",
+    "kind": "event",
+    "name": "eve_0_d",
+    "x": 2,
+    "y": 0,
+    "fill": "edge"
+   },
+   {
+    "layer": "bg1",
+    "kind": "bg",
+    "name": "bg_20_a_0",
+    "x": 2,
+    "y": 0,
+    "fill": "edge"
+   },
+   {
+    "layer": "pose1",
+    "kind": "pose",
+    "name": "po1_aya_s_0_a",
+    "x": 92,
+    "y": 6
+   },
+   {
+    "layer": "pose2",
+    "kind": "pose",
+    "name": "po1_yui_s_0_a",
+    "x": -82,
+    "y": -2
+   }
+  ],
+  "note": "宽掩膜精修 2026-09-07：wide 8.00→6.64"
  }
 }

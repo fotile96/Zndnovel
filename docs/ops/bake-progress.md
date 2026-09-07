@@ -81,7 +81,7 @@
 - **修法 A 已并入兜底路径**：`bake_plot.decide_band` 行数按标题字数（P5），7/42/86/161/170 的第二行进硬区。
 - **方案 B 落地**：`tools/bake_plot_plate.py` + `data/plot_plates.jsonl`（195 行）+ `tests/test_bake_plot_plate.py`（13 条）
   + `tools/research/plot_plate/emit_plates.py`（从普查/细化/猎手结果生成配方，按生产口径重量）。
-  产物 `build/plot_zh/`：single 87 / compose 66 / flat 42 / band 0；review 17 格。
+  产物 `build/plot_zh/`：single 87 / compose 66 / flat 42 / band 0；review 8 格。
 - **猎手工作流**（子代理并行逐卡深挖，两轮）：一轮 34→7.3、77→5.5、78→4.9、56→10.3、162→4.5；主线程探针 33→7.4、30→8.9、82→10.5、
   3/9/146–149 套用双立绘偏移 →7.5/8.2–8.8、地图格整帧下移 4 px →5.7；二轮 41→5.8（两张谜题 CG 并排的编辑合成图）、158→9.4、
   34→4.8、30→6.8、35→4.4、56/82→4.8/5.0（1.035× 裁切）、162→3.0。**band 兜底归零**。复核者独立复算 30/41/56/77/78/162 全部一致。

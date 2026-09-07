@@ -197,9 +197,55 @@ def verify_plate(plate: Image.Image, orig: Image.Image, card: int, titles_jp=Non
     return rmse_rows(plate, orig, text_free_row(card, titles_jp))
 
 
+#: 宽掩膜与窄掩膜的差距线：宽比窄大过它就进复核——差距大＝**标题区底下**与画面其余部分不一致，
+#: 而标题区正是我们要替换的地方（测量审计 2026-09-07）。
+WIDE_GAP = 3.0
 #: 局部异物线：无字行里任一 3 行窗口的 RMSE 超过它就进复核（测量审计 2026-09-07 的建议——
 #: 整格 RMSE 低不代表没有局部错位/多出来的东西，均值会把它摊平）。
 LOCAL_BAND_RMSE = 20.0
+
+
+def ink_mask(orig: Image.Image, dilate: int = 2) -> list[list[bool]]:
+    """原格里「标题墨迹」的逐像素掩膜：近白（min≥200）且 2px 内有近黑（max≤40），再膨胀 `dilate`。
+
+    与 `bake_plot.ink_bbox_of_cell` 同一条判据（亮 + 邻近暗才算墨），只是这里要的是**逐像素**
+    而不是纵向范围：宽掩膜要把字间与行间的空隙留出来量。
+    """
+    px = orig.convert("RGB").load()
+    w, h = orig.size
+    dark = [[max(px[x, y]) <= 40 for x in range(w)] for y in range(h)]
+    core = [[False] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if min(px[x, y]) < 200:
+                continue
+            if any(dark[yy][xx] for yy in range(max(0, y - 2), min(h, y + 3))
+                   for xx in range(max(0, x - 2), min(w, x + 3))):
+                core[y][x] = True
+    out = [[False] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if any(core[yy][xx] for yy in range(max(0, y - dilate), min(h, y + dilate + 1))
+                   for xx in range(max(0, x - dilate), min(w, x + dilate + 1))):
+                out[y][x] = True
+    return out
+
+
+def wide_rmse(plate: Image.Image, orig: Image.Image, card: int, mask=None) -> float:
+    """底板对照原格**所有非墨迹像素**的 RMSE（含标题区的字间/行间空隙与顶行）。"""
+    m = ink_mask(orig) if mask is None else mask
+    pa = plate.convert("RGB").load()
+    pb = orig.convert("RGB").load()
+    w, h = plate.size
+    se = n = 0
+    for y in range(h):
+        for x in range(w):
+            if m[y][x]:
+                continue
+            p, q = pa[x, y], pb[x, y]
+            se += (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2
+            n += 3
+    return math.sqrt(se / n) if n else 0.0
 
 
 def local_band_rmse(plate: Image.Image, orig: Image.Image, card: int, titles_jp=None, rows: int = 3) -> float:
@@ -228,11 +274,17 @@ def bake_card(card: int, row: dict, orig: Image.Image, title_zh: str, font, jp_t
                      "rmse": None, "review": False})
         return cell, info
     plate = build_plate(row)
-    rmse = 0.0 if row["kind"] == "flat" else round(verify_plate(plate, orig, card), 2)
-    band = 0.0 if row["kind"] == "flat" else round(local_band_rmse(plate, orig, card), 2)
-    reason = "rmse" if rmse > REVIEW_RMSE else ("local_band" if band > LOCAL_BAND_RMSE else None)
-    info.update({"rmse": rmse, "local_band_rmse": band, "review": reason is not None,
-                 "review_reason": reason, "gate_ok": rmse <= GATE_RMSE})
+    flat = row["kind"] == "flat"
+    rmse = 0.0 if flat else round(verify_plate(plate, orig, card), 2)
+    wide = None if flat else round(wide_rmse(plate, orig, card), 2)
+    band = 0.0 if flat else round(local_band_rmse(plate, orig, card), 2)
+    reason = ("rmse" if rmse > REVIEW_RMSE else
+              "wide" if (wide or 0) > REVIEW_RMSE else
+              "wide_gap" if (wide or 0) - rmse > WIDE_GAP else
+              "local_band" if band > LOCAL_BAND_RMSE else None)
+    info.update({"rmse": rmse, "wide_rmse": wide, "local_band_rmse": band,
+                 "review": reason is not None, "review_reason": reason,
+                 "gate_ok": rmse <= GATE_RMSE})
     cell = plate.convert("RGBA")
     if row.get("title") == "none":
         # logo 板（卡 162）：原格本就没有烤字标题，logo 即标题，不再压中文

@@ -167,7 +167,8 @@ def test_manifest_reports_review_band_and_gate_per_card(product):
     for r in per.values():
         if r["kind"] in ("single", "compose"):
             assert r["rmse"] <= bpp.GATE_RMSE
-            assert r["review"] == (r["rmse"] > bpp.REVIEW_RMSE)
+            if r["rmse"] > bpp.REVIEW_RMSE:
+                assert r["review"] and r["review_reason"] == "rmse"
     assert "review_cards" in report and "band_cards" in report and report["gate_failures"] == []
 
 
@@ -205,3 +206,42 @@ def test_localised_foreign_object_flags_review_even_when_global_rmse_is_low():
     titles = bp.load_titles_zh(); jp = bpp.load_titles_jp()
     _cell, info = bpp.bake_card(7, r, _orig_cell(7), titles[7], font, jp[7])
     assert info["review"] is False and info.get("review_reason") is None
+
+
+# ── 宽掩膜（2026-09-07 测量审计建议）────────────────────────────────────
+#
+# 窄掩膜只看无字行，而**我们替换掉的正是标题那片区域**——那里对不对，窄掩膜一个字都没测。
+# 宽掩膜＝原格里所有「不是标题墨迹」的像素（墨迹＝近白且 2px 内有近黑，再膨胀 2px），
+# 包含字间空隙、行间空隙与顶部空行，于是标题区的底也被量到。
+
+def test_ink_mask_covers_the_title_and_leaves_the_picture():
+    """墨迹掩膜必须罩住标题、且不吞掉画面：两行标题格的墨迹应集中在 y<26 且占比不过半。"""
+    m = bpp.ink_mask(_orig_cell(7))
+    n = sum(sum(1 for v in row if v) for row in m)
+    assert 0 < n < 82 * 48 * 0.5
+    below = sum(1 for y in range(26, 48) for x in range(82) if m[y][x])
+    assert below <= n * 0.05, below
+
+
+def test_wide_rmse_sees_errors_hidden_under_the_title():
+    """在标题区凿一块坏底板：窄掩膜纹丝不动，宽掩膜必须炸。"""
+    r = ROWS[7]
+    plate = bpp.build_plate(r)
+    spoiled = plate.copy()
+    spoiled.paste((255, 0, 255), (0, 0, 82, 24))       # 整个标题区改成品红
+    orig = _orig_cell(7)
+    assert bpp.verify_plate(spoiled, orig, 7) == bpp.verify_plate(plate, orig, 7)
+    assert bpp.wide_rmse(spoiled, orig, 7) > 3 * bpp.wide_rmse(plate, orig, 7)
+
+
+def test_manifest_carries_wide_rmse_and_flags_the_divergent_cells():
+    """每格都记宽掩膜 RMSE；宽掩膜超线、或宽比窄大 3 以上，都算复核（审计建议的两条）。"""
+    report = bpp.run(write=False)
+    per = report["per_card"]
+    for c, i in per.items():
+        if i["kind"] not in ("single", "compose"):
+            continue
+        assert i["wide_rmse"] is not None
+        expect = (i["rmse"] > bpp.REVIEW_RMSE or i["wide_rmse"] > bpp.REVIEW_RMSE
+                  or i["wide_rmse"] - i["rmse"] > bpp.WIDE_GAP or i["local_band_rmse"] > bpp.LOCAL_BAND_RMSE)
+        assert i["review"] == expect, (c, i)

@@ -12,11 +12,12 @@
 #     现实层汉字（彩野）。未点名者保持未点名（あの子→那孩子、彼女→她、女子生徒→女学生）。
 #   - 卡 0 为无字模板（jp 侧 variant "d" 记录行），无译文条目，本批自卡 1 起。
 # v19 修订（2026-08-19）：故事层人名罗马音化（Ayano/Yuichi/Yukari/Sakura…）+ 天文馆→天象馆已落于 title_zh/body_zh；tr_note 保持历史原文。涉名流式 body 经 tools/zh_wrap（jieba）重排（宽 12 全角），结构卡逐行替换保结构。
+# v22 修订（2026-09-08）：卡 1 改题『有个女孩子来学校的故事』；あの子＝Sakura 族「那孩子→那个女孩」落于卡 5/8/21/22/27（tr_note 保持历史原文）；body 换行＝tools.bake_card.plan_body 输出（v21 口径）。
 
 - card: 1
   variant: "a"
-  title_zh: "有个孩子来学校的故事"
-  body_zh: "走进教室时，看到课桌上的\n涂鸦，彩野同学想起自己以\n前写过「有个孩子来学校的\n故事」。"
+  title_zh: "有个女孩子来学校的故事"
+  body_zh: "走进教室时，看到课桌\n上的涂鸦，彩野同学\n想起自己以前写过「有个\n女孩子来学校的故事」。"
   tr_note: "标题「物語」与正文引用「お話」自 v4 起同译「故事」；彩野さん→彩野同学（现实层称呼，依 style.md）。"
 - card: 2
   variant: "a"
@@ -36,7 +37,7 @@
 - card: 5
   variant: "a"
   title_zh: "约好了"
-  body_zh: "看到橡皮，Ayano想起自己\n约好放学后和那孩子见面。"
+  body_zh: "看到橡皮，Ayano\n想起自己约好放学\n后和那个女孩见面。"
   tr_note: "「あの子」未点名，统一译「那孩子」。"
 - card: 6
   variant: "a"
@@ -51,7 +52,7 @@
 - card: 8
   variant: "a"
   title_zh: "想起约定"
-  body_zh: "聊起传闻，Ayano想起\n自己约好放学后要\n和「那孩子」见面。"
+  body_zh: "聊起传闻，Ayano想起\n自己约好放学后要和\n「那个女孩」见面。"
   tr_note: ""
 - card: 9
   variant: "a"
@@ -116,12 +117,12 @@
 - card: 21
   variant: "a"
   title_zh: "放学后的钱仙"
-  body_zh: "放学后，Ayano决定和\n那孩子一起请钱仙。那\n孩子的准备十分周到。"
+  body_zh: "放学后，Ayano决定和\n那个女孩一起请钱仙。\n那个女孩的准备十分周到。"
   tr_note: ""
 - card: 22
   variant: "a"
   title_zh: "与她的相遇"
-  body_zh: "和那孩子相遇，是在天台\n上。她好像不太擅长应付人\n多的场合。"
+  body_zh: "和那个女孩相遇，是\n在天台上。她好像不太\n擅长应付人多的场合。"
   tr_note: ""
 - card: 23
   variant: "a"
@@ -146,7 +147,7 @@
 - card: 27
   variant: "a"
   title_zh: "她的名字"
-  body_zh: "天台。「那孩子」\n说，自己等Ayano来到\n这里，已经等了５年。"
+  body_zh: "天台。「那个女孩」\n说，自己等Ayano来到\n这里，已经等了５年。"
   tr_note: "「５年」的「５」依原卡保留全角。"
 - card: 28
   variant: "a"

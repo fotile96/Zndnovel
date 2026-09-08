@@ -8,6 +8,7 @@
 #   - 卡 40/70 标题依 plotTitle 不带句尾句号（卡面多句号差异见 jp 侧 note）。
 #   - 卡 74 右栏第二标签为「探索」（zh 侧无 section_label 字段，记于 tr_note）。
 # v19 修订（2026-08-19）：故事层人名罗马音化（Ayano/Yuichi/Yukari/Sakura…）+ 天文馆→天象馆已落于 title_zh/body_zh；tr_note 保持历史原文。涉名流式 body 经 tools/zh_wrap（jieba）重排（宽 12 全角），结构卡逐行替换保结构。
+# v22 修订（2026-09-08）：卡 73「参加社团活动的孩子→学生」（v19 C3 漏网）；body 换行＝tools.bake_card.plan_body 输出（v21 口径）。
 
 - card: 40
   variant: "a"
@@ -177,7 +178,7 @@
 - card: 73
   variant: "a"
   title_zh: "认真打听"
-  body_zh: "向同学认真打听楼梯的传\n闻。得到情报：或许是暑假\n里参加社团活动的孩子经历\n的。"
+  body_zh: "向同学认真打听楼梯\n的传闻。得到情报：\n或许是暑假里参加\n社团活动的学生经历的。"
   tr_note: ""
 - card: 74
   variant: "a"

@@ -18,6 +18,11 @@ CIRCLE 分发插 finale 项（doScriptScene=fin-10 → run snr_finale）；原�
 紧跟 library 分支），只有形态 2+140 的那一份具备 section7，是 occurrence=-1 命中的
 那处；形态 2（无 140）的 library 分支前面没有 section7 分发，不应该、也从未被
 今日的手工改动触碰。
+encore 项横向摆位 2026-09-11 由 194 改 184：用户目检「偏右」，按盘上实际烤字面
+（build/sysgim_title_zh 与 finale_menu）量墨迹质心——主列 story/fragment/section7/
+library/option 的质心在 x≈239–243（bbox 中心 241.5–245），encore 在 x=194 时质心 251.9、
+右偏约 10 px；x=184 时质心 241.9、bbox 中心 242.5，与主列齐。原 194 是按日文面
+（带小注、墨迹更宽）估的，小注擦掉后主列的墨心整体左移，encore 没跟着改。
 """
 
 [[ops]]
@@ -55,7 +60,7 @@ text   = '''
                 elseif l1_3 == l0_1.section7 then
                     layerPosition(l0_0.layerNumber.menu + l0_1.section7, 194, 158)
                 elseif l1_3 == l0_1.finale then
-                    layerPosition(l0_0.layerNumber.menu + l0_1.finale, 194, 185)
+                    layerPosition(l0_0.layerNumber.menu + l0_1.finale, 184, 185)
                 elseif l1_3 == l0_1.library then
                     layerPosition(l0_0.layerNumber.menu + l0_1.library, 205, 212)
                 elseif l1_3 == l0_1.option then

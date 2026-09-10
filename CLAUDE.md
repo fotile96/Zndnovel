@@ -138,6 +138,13 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     `layers/overlays/encore-menu.toml`），**绝不进 storyRoute**；vms 17300–17481 + 卡消息
     18201–18207 已实测冻结（登记见 `layers/vms_ids.toml`）。谢幕卡 crd_201..207 与菜单图
     title_14_a 经 `layers/manifest.toml` 的 `[gim].new` 表进包（模板 crd_1_a/title_13_a）。
+    **题名 logo 双态**（2026-09-11）：fin-50 跑完置 `systemSave.finaleReadFlag = true` 并
+    `autoSystemSave(0)`（缺省 false 由 `layers/overlays/finale-read-flag.toml` 写进 snr_common 的
+    systemSave 字面表；旧系统数据缺键取 nil 即 false，零迁移）；主菜单 `title-logo-zh` 层据此把
+    logo 从日文 `title_01_a` 换成中文 `sysgim/title_01_c`（新成员，模板 title_01_a，同 405×89，
+    绘制期直载工作层；源图 `docs/finale/assets/title_01_c.src.png` → `tools/bake_finale_title.py`
+    预乘 alpha 降采样 → `build/finale_title/`，量化 MSE≈20 目检不可辨）。故事层 s8f/e2f 结尾
+    的 title_01_a 落版刻意未动。端到端驾驶 `tools/emu/drives/title_logo.py`。
     实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md（已被 docs/ops/disc-pipeline.md
     取代为现行命令面，历史记录仍有效）。
   - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。

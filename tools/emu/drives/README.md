@@ -13,6 +13,7 @@
 | `library.py` | library 子列展开/收合四项齐全（`#layerKeyCur` 修正） | 同上 | 01 帧四子项；02 帧收合 |
 | `no_card144.py` | 无卡 144 时回到原版 11 项形态 | 同上，但需在 `build/test/lua/final/snr_test.lua` 全卡循环后补 `gameSave.myCard[144].hold = -1`，再跑 `--profile test --stage members,stage,pack,disc`（跳过 lua，否则被重新生成覆盖） | 00 帧 11 项；下 4 次到 option |
 | `finale_full.py` | 谢幕全章 fin-10..50 跑通回主菜单（约 15 分钟） | `--profile test --mode mainmenu` | p010..p350 每 10 句一帧；end* 回主菜单 |
+| `title_logo.py` | 题名 logo 双态：开机日文 → 跑完谢幕章回主菜单换中文 `title_01_c` → 重启仍中文（`finaleReadFlag` 已随 autoSystemSave 写进 NPJH50279SYSTEM）；logo 区与合成期望图按 MSE 判态；跑前备份、跑完恢复模拟器系统数据（`--keep-save` 保留） | 同上 | `判定: {'before_ja': True, 'after_zh': True, 'reboot_zh': True, …}`；ERROR 只有 `ILLEGAL_THID=sceKernelWaitThreadEnd` 这条 HLE 噪声（开机 1 条、谢幕全章约 8 条） |
 | `glyph.py` | 直入场景逐句截图；缺省验 fin-10 的 7 个曾缺字 | `--profile test --mode scene --scene fin-10` | p05「啥」、p11「颁…奖」有字形 |
 | `release_iso.py` | 发布 ISO 完整 IPL 开机链、标题初始形态 | `--profile release`（到 iso） | 02 帧 Prologue/load/option 三项 |
 | `font_probe.py` | 字体/ruby/禁则探针逐页截图（`testboot.py` 的 `FONT_PAGES`，含 K1–K4/R1） | `--profile test --mode font` | K 帧标点悬挂/提前换行；R1 帧注音居中不裁 |
@@ -29,6 +30,7 @@ uv run python tools/build_disc.py --profile test --mode mainmenu
 uv run python tools/emu/drives/menu.py
 uv run python tools/emu/drives/library.py
 uv run python tools/emu/drives/finale_full.py
+uv run python tools/emu/drives/title_logo.py
 
 uv run python tools/build_disc.py --profile test --mode scene --scene fin-10
 uv run python tools/emu/drives/glyph.py

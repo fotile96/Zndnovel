@@ -1,0 +1,50 @@
+target  = "snr_mainmenu.lua"
+profile = "release"
+why     = """标题画面题名 logo 双态：`systemSave.finaleReadFlag`（finale-read-flag 层声明、
+snr_finale.lua 置位）为 true 时用中文题名 `sysgim/title_01_c`，否则沿用日文
+`title_01_a`。用户 2026-09-11 设想：谢幕章首次完整读完之前标题保持原版（日文大标题
+＋副标题），读完之后换成中文字——「第二物语」是写完第二个故事才出现的题名。
+
+改法只碰 l0_4（标题绘制函数）里那一行 `layerCopy(logo, layerName.title_01_a)`：
+title_01_a 是开机由 snr_common.main() 异步载入常驻层 212 的（早于 runAutoLoad，那时
+旗标尚未载入，故不能在常驻层那头做条件）；中文图走「绘制期同步 layerLoad 直载工作层」
+——logo 层是 1 号工作层，cInitGame 会清掉 <200 的层，与 encore-menu 层里 title_14_a 的
+做法相同（层 198 常驻方案已证伪，见 CLAUDE.md「已知坑」）。摆位 `layerPosition(logo, 38, 10)`
+与后面的白闪、菜单绘制全部不动：title_01_c 与 title_01_a 同尺寸 405×89
+（tools/bake_finale_title.py 产出，[gim].new 以 title_01_a 为模板进包）。
+
+**存档兼容（用户 2026-09-11 要求）**：玩家可能带着原版游戏或旧 release 写出的系统数据来玩，
+那张表里没有 `finaleReadFlag` 这个键。runAutoLoad() 是整表替换（Pluto unpersist 后 setglobal），
+snr_common 字面表里的缺省 false 在那之后就不存在了——所以读的一侧不能依赖缺省值：
+这里先 `== nil` 补成 false（自愈，下次 autoSystemSave 就把键写进盘），再 `== true` 严格判断；
+两个判断对 nil 都不会出错（Lua 对缺键取值是 nil，不抛错），也没有任何算术/拼接/传 C 原语
+的用法。反向兼容同样成立：带键的新系统数据被旧 release/原版读入时，多出的键只是被
+Pluto 原样往返、applySystemdata 按名只读 19 个已知字段。tests/test_layers_corpus.py 的
+nil 安全守门测试钉住「全部用法只准这几种形态」，并用 lua_sz4 实跑本段代码验证三种取值。
+唯一的非崩溃性边角：旧 release 里在谢幕章**中途**存的档，读回来跑的是存档里冻结的旧
+谢幕脚本（引擎把整份脚本字节码存进 mainThread blob），跑完不会置旗标——重进一次
+encore 即可，不算故障。
+
+不改故事层里 s8f/e2f 结尾的 `layerLoad(pose1, "sysgim/title_01_a")` 题名落版（3 处），
+那是原作正片的演出，与标题画面的双态是两回事；要不要同步换由用户另行裁定。"""
+
+[[ops]]
+op   = "replace"
+find = '''
+    layerCopy(l0_0.layerNumber.logo, layerName.title_01_a)
+'''
+with = '''
+    if systemSave.finaleReadFlag == nil then
+        -- system data written before this flag existed (original game / older zh release):
+        -- the key is simply absent and reads as nil; pin it to false so the table is
+        -- self-describing from here on (next autoSystemSave persists the key)
+        systemSave.finaleReadFlag = false
+    end
+    if systemSave.finaleReadFlag == true then
+        -- zh title logo once the encore has been read through (sysgim/title_01_c, new member,
+        -- same 405x89 as title_01_a); layer 1 is a work layer wiped by cInitGame, so load direct
+        layerLoad(l0_0.layerNumber.logo, cGetFileName("sysgim", "title_01_c"))
+    else
+        layerCopy(l0_0.layerNumber.logo, layerName.title_01_a)
+    end
+'''

@@ -1,0 +1,24 @@
+target  = "snr_common.lua"
+profile = "release"
+why     = """系统数据里新增布尔旗标 `finaleReadFlag`，缺省 false；谢幕章（layers/scripts/
+snr_finale.lua）fin-50 跑完后置 true 并立刻 autoSystemSave(0) 写盘；主菜单的
+title-logo-zh 层据它把题名 logo 换成中文（用户 2026-09-11 的设想：中文题名是
+「第二个故事」写成之后才揭晓的东西）。
+
+为什么放 systemSave 而不是 gameSave：标题画面在任何游戏存档被读取之前就要画 logo，
+只有随 runAutoLoad() 开机自动载入的系统数据能在那个时点提供状态；且它是「玩家读过
+谢幕」这一跨存档的事实，与 cgFlag/memoryFlag 同类。
+
+引擎侧安全性（docs/ops/eboot-savedata-research-2026-09-05.md）：runAutoSave() 用
+Pluto 把整张 systemSave 表序列化（≤0x5000 B，现远未用满，一个布尔可忽略）；
+applySystemdata() 只按名读 19 个已知字段，多出的键被无视；旧系统数据（原版或早期
+中文盘）反序列化后没有这个键，取值 nil，`== true` 判断即为 false——老存档零迁移。
+⚠ testboot 的告诫仍然成立：systemSave 里原有的字段是数字、被拿去做算术，不要往
+它们里写布尔；本旗标是新键，只被 `== true` 读取。
+
+锚点是 L8 那张 systemSave 字面表的收尾 `storyLineSkip = 0}`，全库唯一。"""
+
+[[ops]]
+op   = "replace"
+find = "storyLineSkip = 0}"
+with = "storyLineSkip = 0, finaleReadFlag = false}"

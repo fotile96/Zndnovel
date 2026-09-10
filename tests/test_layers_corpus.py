@@ -2,6 +2,9 @@
 
 夹具证明不了「锚点还在」——只能对真语料跑。这是新增文本以后的日常守门员。
 """
+import re
+from pathlib import Path
+
 import pytest
 
 from tools.layers import (LAYERS, build_final_sources, check_ids, collect_ids,
@@ -26,7 +29,8 @@ def ledger_ids(ledger_rows):
 
 def test_every_release_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("release")
-    assert [o["_name"] for o in applied] == ["fonts", "encore-menu"]
+    assert [o["_name"] for o in applied] == [
+        "fonts", "encore-menu", "finale-read-flag", "title-logo-zh"]
     assert sources["snr_common.lua"].count('pgf/LXGWWenKai-Regular.pgf') == 1
     assert "layerKeyCur" in sources["snr_mainmenu.lua"]
 
@@ -34,7 +38,7 @@ def test_every_release_overlay_hits_on_real_base():
 def test_every_test_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("test")
     assert [o["_name"] for o in applied] == [
-        "fonts", "encore-menu", "strip-ipl", "boot-handoff"]
+        "fonts", "encore-menu", "finale-read-flag", "title-logo-zh", "strip-ipl", "boot-handoff"]
     assert 'run(cGetFileName("script", "snr_test"))' in sources["snr_common.lua"]
     assert "layerMoveAlpha(0, 100, 120)" not in sources["snr_common.lua"]
 
@@ -127,3 +131,109 @@ def test_injected_sources_translates_and_leaves_font_lines_untouched(manifest, l
 
     assert 'fontLoad(0, "pgf/tsukuminpro_e_17.pgf")' in injected["snr_common.lua"]
     assert 'fontLoad(1, "pgf/tsukuminpro_e_09.pgf")' in injected["snr_common.lua"]
+
+
+def test_title_logo_swap_is_wired_end_to_end(manifest):
+    """谢幕读完 → 系统旗标 → 主菜单换中文题名，三段各在最终源里出现且只出现一次。
+
+    finale-read-flag 层在 snr_common 的 systemSave 字面表里声明缺省 false；
+    title-logo-zh 层把 snr_mainmenu 的 logo 绘制改成条件分支，else 里保留原
+    layerCopy（旧存档/未读谢幕时版面逐字不变）；snr_finale.lua 在 fin-50 之后、
+    `doScriptScene = "end"` 之前置位并 autoSystemSave(0)——顺序反了旗标会漏写盘。
+    """
+    import re
+    sources, _, _ = build_final_sources("release")
+    common, menu = sources["snr_common.lua"], sources["snr_mainmenu.lua"]
+    fin = (LAYERS / "scripts" / "snr_finale.lua").read_text(encoding="utf-8")
+
+    assert common.count("finaleReadFlag = false") == 1
+    assert re.search(r"^systemSave = \{.*finaleReadFlag = false\}$", common, re.M), \
+        "缺省值没落在 systemSave 那张字面表里"
+
+    zh_load = 'layerLoad(l0_0.layerNumber.logo, cGetFileName("sysgim", "title_01_c"))'
+    ja_copy = "layerCopy(l0_0.layerNumber.logo, layerName.title_01_a)"
+    cond = "if systemSave.finaleReadFlag == true then"
+    assert menu.count(zh_load) == 1 and menu.count(ja_copy) == 1 and menu.count(cond) == 1
+    assert menu.index(cond) < menu.index(zh_load) < menu.index(ja_copy) < menu.index(
+        "layerPosition(l0_0.layerNumber.logo, 38, 10)")
+
+    i50 = fin.index("scene_fin_50(doScriptScene")
+    seg = fin[i50:fin.index('doScriptScene = "end"', i50)]
+    seg = "\n".join(l for l in seg.splitlines() if not l.lstrip().startswith("--"))  # 去注释再查语句
+    assert "systemSave.finaleReadFlag = true" in seg and "autoSystemSave(0)" in seg
+    assert seg.index("systemSave.finaleReadFlag = true") < seg.index("autoSystemSave(0)")
+
+    assert ["finale_title", "sysgim", "sysgim/title_01_a.gim"] in \
+        [list(x) for x in manifest["gim"]["new"]]
+
+
+_FLAG_LINE_OK = [
+    re.compile(r"^systemSave = \{.*finaleReadFlag = false\}$"),                 # 字面表缺省
+    re.compile(r"^\s*if systemSave\.finaleReadFlag == (?:true|nil) then$"),     # 严格读
+    re.compile(r"^\s*systemSave\.finaleReadFlag = (?:true|false)$"),            # 赋值
+]
+
+
+def _flag_lines():
+    out = []
+    for profile in ("release", "test"):
+        sources, _, _ = build_final_sources(profile)
+        for name, text in sources.items():
+            out += [(f"{profile}:{name}", l) for l in text.splitlines()
+                    if "finaleReadFlag" in l and not l.lstrip().startswith("--")]
+    fin = (LAYERS / "scripts" / "snr_finale.lua").read_text(encoding="utf-8")
+    out += [("scripts/snr_finale.lua", l) for l in fin.splitlines()
+            if "finaleReadFlag" in l and not l.lstrip().startswith("--")]
+    return out
+
+
+def test_finale_read_flag_every_use_is_nil_safe():
+    """老系统数据（原版游戏 / 旧 release 写的）里没有 finaleReadFlag 这个键：runAutoLoad()
+    是整表替换，snr_common 字面表里的缺省 false 在那之后不复存在，读出来是 nil。
+    所以全部用法只准是三种 nil 安全形态：字面表缺省、`== nil`/`== true` 严格判断、赋
+    true/false——不准做算术、拼接、取下标、或直接传给要布尔的 C 原语（nil 进 C 侧会
+    「boolean expected」）。并且主菜单读之前必须有一次 `== nil` 补默认（自愈）。"""
+    lines = _flag_lines()
+    assert lines, "最终源里一处 finaleReadFlag 都没有——层没装上？"
+    bad = [(w, l) for w, l in lines if not any(r.match(l) for r in _FLAG_LINE_OK)]
+    assert not bad, f"finaleReadFlag 出现了非 nil 安全的用法：{bad}"
+    menu = [l for w, l in lines if w.endswith("snr_mainmenu.lua")]
+    assert any("== nil" in l for l in menu), "主菜单缺少 `== nil` 补默认——老存档兼容自愈没了"
+
+
+def _lua_interpreter():
+    import os
+    luac = Path(os.environ.get("SNDL_LUAC") or load_manifest()["compiler"]["luac"]).expanduser()
+    lua = Path(os.environ.get("SNDL_LUA") or luac.with_name("lua_sz4"))
+    if not lua.exists():
+        pytest.skip(f"缺 Lua 5.1 解释器 {lua}（与 luac_sz4 同目录的 lua_sz4，或设 SNDL_LUA）")
+    return lua
+
+
+@pytest.mark.parametrize("state, expect_call, expect_flag", [
+    ("{messageSpeed = 3, storyLineSkip = 0}", "copy:1:212", "false"),   # 原版/旧 release：无此键
+    ("{finaleReadFlag = false}", "copy:1:212", "false"),
+    ("{finaleReadFlag = true}", "load:1:sysgim/title_01_c.gim", "true"),
+])
+def test_title_logo_snippet_runs_on_old_system_data(state, expect_call, expect_flag):
+    """把 title-logo-zh 层实际注入的那段 Lua 原文，在与游戏同源的 Lua 5.1 解释器里跑三种
+    systemSave：无键（老存档）→ 不报错、走 layerCopy 原 logo、键被补成 false；false 同；
+    true → layerLoad 中文 logo。这是行为级证据，不只看字面形态。"""
+    import subprocess
+    lua = _lua_interpreter()
+    overlay = load_overlay(LAYERS / "overlays" / "title-logo-zh.toml")
+    snippet = overlay["ops"][0]["with"]
+    harness = f"""
+local calls = {{}}
+l0_0 = {{layerNumber = {{logo = 1}}}}
+layerName = {{title_01_a = 212}}
+function layerLoad(layer, file) calls[#calls + 1] = "load:" .. layer .. ":" .. file end
+function layerCopy(dst, src) calls[#calls + 1] = "copy:" .. dst .. ":" .. src end
+function cGetFileName(kind, name) return kind .. "/" .. name .. ".gim" end
+systemSave = {state}
+{snippet}
+print(table.concat(calls, ",") .. "|" .. tostring(systemSave.finaleReadFlag))
+"""
+    proc = subprocess.run([str(lua), "-"], input=harness, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == f"{expect_call}|{expect_flag}"

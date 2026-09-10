@@ -374,6 +374,10 @@ main = function()
             doScriptScene = "fin-50"
         elseif doScriptScene == "fin-50" then
             scene_fin_50(doScriptScene, "第三个 Staff Roll")
+            -- 首次完整读完谢幕章：置系统旗标并立刻写系统数据（e2f-complete 同款 autoSystemSave(0)），
+            -- 主菜单 title-logo-zh 层据此把题名 logo 换成中文 title_01_c；旗标声明见 finale-read-flag 层。
+            systemSave.finaleReadFlag = true
+            autoSystemSave(0)
             doScriptScene = "end"
         end
         wait(5)

@@ -9,7 +9,8 @@ __pycache__/
 .env
 .env.*
 
-assets
+# 顶层版权资产（DATA.BIN/orig.iso/EBOOT.dec.elf）。锚定到根：不要误吞 docs/finale/assets/ 这类入库美术源
+/assets
 
 # tool outputs / scratch
 build/

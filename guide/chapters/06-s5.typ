@@ -1,0 +1,64 @@
+#import "../template.typ": *
+
+= 章节 5：Sakura 的日记
+
+#chapter-open(entry: [章节 1 的 #card("选择：声音的主人") 选 #opt("Sakura同学")], unlock: [持有 #card("总有一天你会看到的故事。")])[
+  本章的讲述方式与前四章不同：日记卡在开头一次性全部到手，之后在*故事模式里*彩野每读完一篇日记，就要你递出下一篇日记的卡。递错即 Game Over。
+]
+
+== 进入章节 5，交出全部梗概
+
+#route-box[#frag][
+  #make-cards(("选择：声音的主人", [递 #card("总有一天你会看到的故事。")。做成后出现 #opt("Sakura同学")]))
+]
+#route-box[#story][
+  按章节 1 的正常路线讲到 #card("选择：声音的主人")，选 #opt("Sakura同学") #arrow #card("Sakura同学")（耗时 100）。
+]
+#route-box[#frag][
+  #make-cards(("Sakura同学", [卡 177。需先持有 #card("选择：声音的主人")；依次递 #card("章节 1 梗概")、#card("章节 2 梗概")、#card("章节 3A 梗概")、#card("章节 3B 梗概")、#card("章节 4A 梗概")、#card("章节 4B 梗概")、#card("总有一天你会看到的故事。")]))
+]
+
+做成后彩野辨认出这是她与 Sakura 的交换日记，一次性获得 #card("章节 5：Sakura")、全部 12 篇 Sakura 日记卡、两篇 Ayano 回信卡与 #card("章节 5：Ayano")。
+
+== 读日记
+
+回到故事模式继续。下表是每个场景结束时彩野的提问要点和该递的卡。递卡界面无法取消，递错直接 #gameover，提示是「仔细听她的话，慎重选卡」。
+
+#set par(first-line-indent: 0em)
+#table(
+  columns: (1.1fr, 1fr, 1.4fr),
+  stroke: 0.4pt + c-line, inset: (x: 7pt, y: 4.5pt),
+  fill: (x, y) => if y == 0 { c-soft } else { none },
+  table.header([*场景*], [*选项*], [*场景结束时递出的卡*]),
+  [#card("章节 5：Sakura") → #card("Sakura的日记：9月13日")], [传闻是指？选 #opt("下雪")，另两项会绕回], [#card("Sakura的日记：7月（未写完）")],
+  [#card("Sakura的日记：7月（未写完）")], [去哪里？选 #opt("去中庭")], [进入 #card("中庭的Ayano同学")；首次会因未持卡耗时 100],
+  [#card("中庭的Ayano同学")], [—], [#card("Sakura的日记：9月16日")],
+  [#card("Sakura的日记：9月16日")], [—], [#card("Sakura的日记：9月16日（夜）")],
+  [#card("Sakura的日记：9月16日（夜）")], [发作：选 #opt("不硬撑")。只有本轮去过中庭才有此项，否则只剩 #opt("试着撑一下") 且是 #gameover], [#card("Sakura的日记：9月20日")],
+  [#card("Sakura的日记：9月20日")], [—], [#card("Sakura的日记：9月22日")],
+  [#card("Sakura的日记：9月22日")], [—], [依次 #card("Sakura的日记：9月13日")、#card("Sakura的日记：9月16日")、#card("Sakura的日记：9月23日")],
+  [#card("Sakura的日记：9月23日")], [—], [#card("Sakura的日记：9月29日")],
+  [#card("Sakura的日记：9月29日")], [—], [#card("Sakura的日记：断片")],
+  [#card("Sakura的日记：断片")], [出现关键词卡 #card("自我暗示")、#card("强迫观念")、#card("冬天的告白会失败")], [#card("Sakura的日记：10月3日")],
+  [#card("Sakura的日记：10月3日")], [—], [#card("Sakura的日记：11月12日")],
+  [#card("Sakura的日记：11月12日")], [持 #card("章节 EX1") 后多出「他的身影」选择，此时选 #opt("回家")], [#card("Sakura的日记：2月13日")],
+  [#card("Sakura的日记：2月13日")], [—], [依次 #card("Sakura的日记：9月13日")、#card("中庭的Ayano同学")、#card("Sakura的日记：9月16日")、#card("Sakura的日记：9月16日（夜）")、#card("Sakura的日记：9月20日")、#card("Sakura的日记：9月22日")、#card("Sakura的日记：9月23日")、#card("Sakura的日记：9月29日")、#card("Sakura的日记：断片")、#card("Sakura的日记：10月3日")、#card("Sakura的日记：11月12日")],
+)
+#set par(first-line-indent: (amount: 2em, all: true))
+
+中途沙漏满了就去片段模式做 #card("中庭的Ayano同学")，它是本章唯一需要在片段模式做的日记场景：
+
+#route-box[#frag][
+  #make-cards(("中庭的Ayano同学", [依次递 #card("Sakura的日记：9月13日")、#card("Sakura的日记：7月（未写完）")]))
+]
+
+== 章节 5 完成
+
+#route-box[#story][
+  2 月 13 日的递卡全部正确 #arrow #card("章节 5：Ayano") #arrow #card("Ayano的回信：9月25日") #arrow #card("Ayano的回信：10月30日") #arrow #card("2月，中庭") #arrow #complete
+]
+#route-box[#frag][
+  #make-cards(("2月，中庭", [章节终卡 #cn(193)。依次递 #card("Sakura的日记：9月13日")、#card("中庭的Ayano同学")、#card("Ayano的回信：9月25日")]))
+]
+
+现实层「章节 5 读完」：傍晚的教室、彩野家的晚饭与扑克牌、老板给的威士忌、彩野的笔记本、9 月的信。获得 #card("章节 5 梗概") #cn(139)。

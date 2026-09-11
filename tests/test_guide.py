@@ -20,6 +20,11 @@ def test_generated_matches_sources():
         assert p.read_text(encoding="utf-8") == text, f"{p} 与数据源不一致，重跑 tools/build_guide.py gen"
 
 
+def test_hand_order_matches_crd_scripts():
+    """多卡谜题的「依次递 A、B、C」必须与 snr_crd_N.lua 里 selectCardObj 后的比较顺序一致（2026-09-12 用户反馈 crd_35 写反）。"""
+    assert build_guide.check_hand_order() == []
+
+
 def test_no_encore_mention():
     """用户裁定：攻略不提谢幕章。"""
     banned = ("encore", "谢幕", "snr_finale", "title_14")

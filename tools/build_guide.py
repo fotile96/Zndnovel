@@ -361,6 +361,58 @@ def do_check_gen() -> bool:
 
 
 # ----------------------------------------------------------------------------
+# 递卡顺序校验：正文 make-cards 行里的「依次递 A、B、C」必须与 crd 脚本的比较顺序一致
+# ----------------------------------------------------------------------------
+SELECT_BLOCK_RE = re.compile(r"selectCardObj\(\)(.*?)(?=selectCardObj\(\)|\Z)", re.S)
+CMP_RE = re.compile(r"== (\d+) then")
+MAKE_ROW_RE = re.compile(r'\("([^"]+)", \[(.*?)\](?:, (\d+))?\)')
+CARD_REF_RE = re.compile(r'#card\("([^"]+)"')
+
+
+def expected_hand_order() -> dict[int, list[int]]:
+    """crd → 依次要递的卡号。每个 oCard.selectCardObj() 之后第一个 `== N then`（N>1）就是该步接受的卡；
+    data/dag.json 的 answers 是集合，顺序不可信，攻略正文只能以这里为准。"""
+    out = {}
+    for f in sorted((REPO / "lua_scripts").glob("snr_crd_*.lua")):
+        n = int(re.search(r"crd_(\d+)", f.name).group(1))
+        ids = []
+        for m in SELECT_BLOCK_RE.finditer(f.read_text(encoding="utf-8")):
+            cmp = [int(x) for x in CMP_RE.findall(m.group(1)) if int(x) > 1]
+            if cmp:
+                ids.append(cmp[0])
+        if ids:
+            out[n] = ids
+    return out
+
+
+def check_hand_order(cards: dict[int, dict] | None = None) -> list[str]:
+    """返回不一致说明列表（空 = 全部一致）。只查多卡谜题；正文里提到的前置卡会出现在序列前面，故比对尾段。"""
+    cards = cards or load_cards()
+    title2id = {}
+    for n in sorted(cards):
+        title2id.setdefault(cards[n]["title_zh"], n)
+    expected = {n: s for n, s in expected_hand_order().items() if len(s) > 1}
+    problems, seen = [], set()
+    for f in sorted((GUIDE / "chapters").glob("*.typ")):
+        for m in MAKE_ROW_RE.finditer(f.read_text(encoding="utf-8")):
+            title, body, cid = m.group(1), m.group(2), m.group(3)
+            n = int(cid) if cid else title2id.get(title)
+            if n not in expected:
+                continue
+            seen.add(n)
+            exp = [cards[i]["title_zh"] for i in expected[n]]
+            # 只看「递 …。」这一句：前面可能提到前置卡，后面可能提到做成后解锁的场景
+            seg = body[body.rfind("递") + 1:] if "递" in body else body
+            seg = seg.split("。")[0]
+            got = CARD_REF_RE.findall(seg)
+            if got != exp:
+                problems.append(f"{f.name} crd_{n}『{title}』递卡顺序应为 {exp}，正文写的是 {got}")
+    for n in sorted(set(expected) - seen):
+        problems.append(f"crd_{n}『{cards[n]['title_zh']}』是多卡谜题但正文没有 make-cards 行")
+    return problems
+
+
+# ----------------------------------------------------------------------------
 # 编译
 # ----------------------------------------------------------------------------
 def do_pdf(out: Path | None = None) -> Path:
@@ -387,6 +439,12 @@ def main() -> None:
     ap.add_argument("action", nargs="?", default="all", choices=["all", "gen", "pdf", "check"])
     ap.add_argument("--out", type=Path, help="pdf 输出路径（缺省 guide/dist/%s）" % PDF_NAME)
     a = ap.parse_args()
+    if a.action in ("all", "pdf", "check"):
+        problems = check_hand_order()
+        for p in problems:
+            print("[build_guide] 递卡顺序:", p, file=sys.stderr)
+        if problems:
+            sys.exit("[build_guide] 递卡顺序与 crd 脚本不一致，拒绝出盘")
     if a.action in ("all", "gen"):
         do_gen()
     if a.action in ("all", "pdf"):

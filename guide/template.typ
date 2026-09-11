@@ -211,7 +211,8 @@
     ]
   }
   show table: set text(size: 0.95em)
-  show table.cell: set par(first-line-indent: 0em)
+  // 表格内不两端对齐：窄列折行时 justify 会把词间距拉成大空洞
+  show table.cell: set par(first-line-indent: 0em, justify: false)
   show figure.caption: it => { set text(size: 0.86em, fill: c-gray); set par(first-line-indent: 0em); it }
   show raw.where(block: false): set text(font: f-mono, size: 0.92em)
   show raw.where(block: true): it => block(width: 100%, fill: rgb("#F6F4EF"), inset: 9pt, radius: 3pt,

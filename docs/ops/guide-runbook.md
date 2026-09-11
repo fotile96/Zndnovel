@@ -75,7 +75,9 @@ Typst 把紧跟的 `(`/`[` 当参数表；全角括号安全。`#route-box[#stor
 2. 每段流程按「★故事模式：场景 → 选项 → 场景 …」＋「★片段模式：make-cards 表」成对写；
    Game Over 用 `#gameover`，章节完成用 `#complete`。
 3. 递卡顺序**以 crd 脚本里 `oCard.selectCardObj` 之后的比较顺序为准**（`data/dag.json` 的
-   `answers` 是集合、无序），多张卡时去读 `lua_scripts/snr_crd_N.lua` 或 `analysis/crd_summary.txt`。
+   `answers` 是集合、无序——2026-09-12 首版正是因此写反了 4 处）。`build_guide.check_hand_order()`
+   会把每个多卡谜题的 make-cards 行与脚本逐张比对，`pdf`/`check`/`tests/test_guide.py` 都跑它，
+   顺序不对拒绝出盘。写正文时先跑 `uv run python -c "import sys; sys.path.insert(0,'tools'); import build_guide; print(build_guide.expected_hand_order()[35])"` 之类看期望序列。
 4. `uv run python tools/build_guide.py` 出盘，`pdftoppm -png -r 60 -f N -l N` 抽两页看版式。
 5. 提交：工具/模板改动与正文改动分开 commit，`dist/*.pdf` 随正文 commit 一起更新。
 

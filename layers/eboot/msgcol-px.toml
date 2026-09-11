@@ -1,0 +1,167 @@
+why = """正文列计数从"17 px 一格"改成"像素"，拉丁字母按字形真实步进（比例宽）推进；
+名牌、卡名、正文三处从此同一步进。机制与字数预算见
+docs/ops/eboot-kinsoku-research-2026-09-04.md §9；生成器 tools/msgcol_px.py（改 NEW_LISTING
+后重跑，tests/test_msgcol_px.py 拿纯净源重推对账）。
+
+- msg_col 存行内像素 x（0..425 = 25 格 × 17）。汉字步进 17 = 一格，不含 ASCII 的文本
+  版面逐像素不变；"Ayano" 从 5 格 85 px 变成约 48 px。
+- 行末禁则 col ≥ 392（原 col == 24）；行头禁则 col + est ≥ 426（原 col ≥ 25），est 由入口
+  决定：单字节 9、多字节 17（画之前拿不到真实步进，只能估；误差落进悬挂区）。
+- 画在 x = col + 4，然后 col += font_draw_string 返回的 pen（真实步进）。
+- ruby 组先画 base 取宽 w，再按 col + (w − 5u)/2 + 4 画注音，col += w；base 从此可含 ASCII。
+- 等待光标 x = col + 8。backlog 复用同一函数，自动一致。
+- 0xA50C–0xA67C 93 字整段重排（0xA508 的 sll 归 ruby-p5 层）；带重定位的 13 个字里 12 个
+  搬了位置，对应条目只改 r_offset、不改顺序（HI16/LO16 按表内先后配对）。
+校验器 tools/msg_layout_check.py 的像素模型与 LATIN_EST_PX/CJK_EST_PX/LINE_PX 三个常数
+由 tests/test_msgcol_px.py 钉住与本层一致。"""
+profile = "release"
+
+[[patches]]
+va   = "0XA50C"
+note = "msg_layout_step 0xA50C–0xA67C 整段重排：ruby 先画 base 取宽、正文列计数改像素、col += 真实步进"
+from = """
+    cc 02 65 8e 21 20 24 02 21 30 46 02 23 20 86 00
+    00 39 05 00 43 30 04 00 21 28 a7 00 c2 37 06 00
+    d0 02 67 8e 21 20 86 00 43 20 04 00 c0 30 07 00
+    21 20 a4 00 21 28 e6 00 04 00 87 24 21 20 c5 00
+    21 20 85 00 25 28 e0 00 d0 4a c7 8f 01 00 86 24
+    d4 4a e8 8e 01 00 04 34 a6 15 00 0c 25 48 80 02
+    cc 02 64 8e d0 02 65 8e 00 31 04 00 c0 38 05 00
+    21 20 86 00 21 30 a7 00 04 00 85 24 21 20 e6 00
+    21 30 86 00 d0 4a c7 8f d4 4a e8 8e 0a 00 c6 24
+    25 20 00 00 a6 15 00 0c 25 48 a0 02 cc 02 64 8e
+    21 20 91 00 80 ff 00 10 cc 02 64 ae cc 02 64 8e
+    18 00 05 34 0b 00 85 54 cc 02 64 8e e0 00 a4 8f
+    00 46 00 0c 25 28 a0 03 06 00 40 50 cc 02 64 8e
+    d0 02 64 8e cc 02 60 ae 01 00 84 24 d0 02 64 ae
+    cc 02 64 8e 19 00 84 2c 0b 00 80 54 d0 02 64 8e
+    dc 00 a4 8f 00 46 00 0c 25 28 a0 03 06 00 40 54
+    d0 02 64 8e d0 02 64 8e cc 02 60 ae 01 00 84 24
+    d0 02 64 ae d0 02 64 8e 04 00 85 2c 30 00 a0 50
+    c6 02 64 92 cc 02 65 8e c0 30 04 00 00 39 05 00
+    21 20 86 00 21 28 a7 00 21 30 c4 00 21 30 c4 00
+    d0 4a c7 8f 04 00 a5 24 d4 4a e8 8e 0a 00 c6 24
+    25 20 00 00 a6 15 00 0c 25 48 a0 03 cc 02 64 8e
+    d4 00 a5 8f 10 00 06 3c 01 00 84 24 c6 1e c6 90
+    cc 02 64 ae"""
+to   = """
+    21 88 46 02 cc 02 65 8e d0 02 67 8e c0 30 07 00
+    21 20 e6 00 21 30 86 00 21 30 86 00 04 00 a5 24
+    d0 4a c7 8f d4 4a e8 8e 0a 00 c6 24 25 20 00 00
+    a6 15 00 0c 25 48 a0 02 25 80 40 00 23 20 11 02
+    43 30 04 00 c2 37 06 00 21 20 86 00 43 20 04 00
+    cc 02 65 8e d0 02 67 8e 21 20 a4 00 c0 30 07 00
+    21 28 e6 00 04 00 87 24 21 20 c5 00 21 20 85 00
+    25 28 e0 00 d0 4a c7 8f 01 00 86 24 d4 4a e8 8e
+    01 00 04 34 a6 15 00 0c 25 48 80 02 cc 02 64 8e
+    21 20 90 00 84 ff 00 10 cc 02 64 ae 09 00 11 34
+    02 00 00 10 cc 02 64 8e 11 00 11 34 88 01 85 2c
+    0b 00 a0 54 cc 02 64 8e e0 00 a4 8f 00 46 00 0c
+    25 28 a0 03 06 00 40 50 cc 02 64 8e d0 02 64 8e
+    cc 02 60 ae 01 00 84 24 d0 02 64 ae cc 02 64 8e
+    21 28 91 00 aa 01 a5 2c 0a 00 a0 54 d0 02 64 8e
+    dc 00 a4 8f 00 46 00 0c 25 28 a0 03 05 00 40 54
+    d0 02 64 8e d0 02 64 8e cc 02 60 ae 01 00 84 24
+    d0 02 64 ae 04 00 85 2c 31 00 a0 50 c6 02 64 92
+    cc 02 65 8e c0 30 04 00 21 20 86 00 21 30 c4 00
+    21 30 c4 00 d0 4a c7 8f 04 00 a5 24 d4 4a e8 8e
+    0a 00 c6 24 25 20 00 00 a6 15 00 0c 25 48 a0 03
+    cc 02 64 8e d4 00 a5 8f 10 00 06 3c 21 20 82 00
+    c6 1e c6 90 cc 02 64 ae 00 00 00 00 00 00 00 00
+    00 00 00 00"""
+
+[[patches]]
+va   = "0X5ACC"
+note = "font_draw_string 返回 pen 像素宽：li v0,1 → move v0,s6（错误路径仍返回 0）"
+from = "01 00 02 34"
+to   = "25 10 c0 02"
+
+[[patches]]
+va   = "0XA44C"
+note = "多字节入口重定向 0xA5BC → 0xA5B4（bnel 立即数 0x5B → 0x59）"
+from = "5b 00 85 54"
+to   = "59 00 85 54"
+
+[[patches]]
+va   = "0XA45C"
+note = "单字节入口重定向 0xA5B8 → 0xA5A8（bne 立即数 0x56 → 0x52）"
+from = "56 00 85 14"
+to   = "52 00 85 14"
+
+[[patches]]
+va   = "0XA738"
+note = "等待光标 x = col + 8（原 17·col + 8）：sll a5,a3,4 → move a5,zero"
+from = "00 49 07 00"
+to   = "25 48 00 00"
+
+[[patches]]
+off  = "0X73600"
+note = "重定位条目 r_offset 0XA554 → 0XA52C（type 6 不变）"
+from = "54 a5 00 00"
+to   = "2c a5 00 00"
+
+[[patches]]
+off  = "0X73610"
+note = "重定位条目 r_offset 0XA55C → 0XA530（type 6 不变）"
+from = "5c a5 00 00"
+to   = "30 a5 00 00"
+
+[[patches]]
+off  = "0X73618"
+note = "重定位条目 r_offset 0XA564 → 0XA53C（type 4 不变）"
+from = "64 a5 00 00"
+to   = "3c a5 00 00"
+
+[[patches]]
+off  = "0X73620"
+note = "重定位条目 r_offset 0XA590 → 0XA580（type 6 不变）"
+from = "90 a5 00 00"
+to   = "80 a5 00 00"
+
+[[patches]]
+off  = "0X73628"
+note = "重定位条目 r_offset 0XA594 → 0XA588（type 6 不变）"
+from = "94 a5 00 00"
+to   = "88 a5 00 00"
+
+[[patches]]
+off  = "0X73630"
+note = "重定位条目 r_offset 0XA5A0 → 0XA590（type 4 不变）"
+from = "a0 a5 00 00"
+to   = "90 a5 00 00"
+
+[[patches]]
+off  = "0X73638"
+note = "重定位条目 r_offset 0XA5CC → 0XA5C8（type 4 不变）"
+from = "cc a5 00 00"
+to   = "c8 a5 00 00"
+
+[[patches]]
+off  = "0X73648"
+note = "重定位条目 r_offset 0XA64C → 0XA640（type 6 不变）"
+from = "4c a6 00 00"
+to   = "40 a6 00 00"
+
+[[patches]]
+off  = "0X73650"
+note = "重定位条目 r_offset 0XA654 → 0XA648（type 6 不变）"
+from = "54 a6 00 00"
+to   = "48 a6 00 00"
+
+[[patches]]
+off  = "0X73658"
+note = "重定位条目 r_offset 0XA660 → 0XA654（type 4 不变）"
+from = "60 a6 00 00"
+to   = "54 a6 00 00"
+
+[[patches]]
+off  = "0X73660"
+note = "重定位条目 r_offset 0XA670 → 0XA664（type 5 不变）"
+from = "70 a6 00 00"
+to   = "64 a6 00 00"
+
+[[patches]]
+off  = "0X73668"
+note = "重定位条目 r_offset 0XA678 → 0XA66C（type 6 不变）"
+from = "78 a6 00 00"
+to   = "6c a6 00 00"

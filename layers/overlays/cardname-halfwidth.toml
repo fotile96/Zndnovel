@@ -1,0 +1,14 @@
+target  = "snr_common.lua"
+profile = "release"
+why     = """选卡界面底部的卡名（oCard.drawSceneName → cfontPrint）在原作里先经 cHan2Zen 把
+0-9/a-z/A-Z/!?:()- 逐个替换成全角码位再 fontPrint，所以译文里的拉丁人名（"章节 1：Ayano"、
+"选择：Yuichi的答卷"）被画成全角。引擎侧 font_print_layers 本来就按字形真实步进画整串
+（与 【名】 名牌同一路径），全角完全是这层 Lua 替换造成的——去掉替换即半角，零 EBOOT 字节。
+与 layers/eboot/msgcol-px.toml（正文比例宽）一起，名牌、卡名、正文三处的拉丁字母从此同一步进。
+cHan2Zen 的定义保留（snr_lib 调试菜单等仍可调用），只是 cfontPrint 不再经过它。
+机制核对见 docs/ops/eboot-kinsoku-research-2026-09-04.md §9.1–9.2。"""
+
+[[ops]]
+op   = "replace"
+find = "    fontPrint(l1_0, l1_1, l1_2, l1_3, l1_4, cHan2Zen(l1_5))"
+with = "    fontPrint(l1_0, l1_1, l1_2, l1_3, l1_4, l1_5)"

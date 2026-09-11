@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import struct
 import sys
+from pathlib import Path
 
 DIM_IDX, BX_IDX, BY_IDX, ADV_IDX = 0x04, 0x08, 0x10, 0x20
 
@@ -124,7 +125,33 @@ class PGF:
                 "bearing_y": f26(byv[0]), "advance_h": f26(advv[0]), "advance_v": f26(advv[1])}
 
 
+def advance_px(advance_h: float) -> int:
+    """引擎推进用 advanceH>>6（26.6 定点截断）：4.25→4、5.75→5、17.0→17。"""
+    return int(advance_h * 64) >> 6
+
+
+def export_advances(pgf_bytes: bytes, font_name: str, default: int = 17) -> dict:
+    """遍历 BMP 全部码位，导出 ≠ default 的字形步进（截断后整数 px），键为字符本身。"""
+    pgf = PGF(pgf_bytes)
+    adv: dict[str, int] = {}
+    for code in range(0x20, 0x10000):
+        g = pgf.glyph(code)
+        if g is None:
+            continue
+        px = advance_px(g["advance_h"])
+        if px != default:
+            adv[chr(code)] = px
+    return {"font": font_name, "default": default, "adv": adv}
+
+
 def main(argv: list[str]) -> int:
+    if argv[1:2] == ["export-advances"]:
+        import json
+        src, dst = Path(argv[2]), Path(argv[3])
+        table = export_advances(src.read_bytes(), src.name)
+        dst.write_text(json.dumps(table, ensure_ascii=False, indent=0) + "\n", encoding="utf-8")
+        print(f"{src.name}: {len(table['adv'])} 个码位步进 ≠ {table['default']} px -> {dst}")
+        return 0
     if len(argv) < 2:
         print(__doc__)
         return 2

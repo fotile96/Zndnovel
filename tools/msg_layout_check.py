@@ -34,8 +34,14 @@ REPO = Path(__file__).resolve().parent.parent
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-CELL_PX = 17          # 每格像素
-COLS = 25             # 每行格数
+CELL_PX = 17          # 汉字/全角步进 = 原网格一格
+COLS = 25             # 原网格每行格数（行宽仍是 25 × 17 = 425 px）
+LINE_PX = COLS * CELL_PX      # 425：行宽；起点 ≥ 此值即悬挂区（layers/eboot/msgcol-px）
+LATIN_EST_PX = 9      # 单字节字符画之前的步进估算（只用于"放不放得下"判定，与 msgcol-px 层一致）
+CJK_EST_PX = 17       # 多字节字符的估算
+HANG_DEEP_PX = LINE_PX + 2 * CELL_PX   # 起点 ≥ 459（x ≥ 463）算"深悬挂"
+TAIL_PX = LINE_PX - 2 * CELL_PX + 1    # 392：起点 ≥ 此值的开括号提前换行（原 col == 24）
+ADVANCE_TABLE = REPO / "data" / "font_advances_17.json"   # tools/pgf_inspect.py export-advances
 LINES = 4             # 每消息行数上限（第 5 行起引擎停滞）
 BUF_BYTES = 500       # 正文缓冲 / backlog 槽（含 NUL）
 RUBY_BUF = 100        # base / ruby 各自的栈缓冲（含 NUL）
@@ -64,6 +70,23 @@ def ruby_pitch() -> int:
     return build_font.RUBY_PITCH_PX
 
 
+_ADV: dict | None = None
+
+
+def advance(ch: str) -> int:
+    """正文一个字符的真实步进（px）：来自 17 px 字体的步进表；空格走引擎的跳过路径 = ruby_pitch。"""
+    global _ADV
+    if ch == " ":
+        return ruby_pitch()
+    if _ADV is None:
+        _ADV = json.loads(ADVANCE_TABLE.read_text(encoding="utf-8"))
+    return _ADV["adv"].get(ch, _ADV["default"])
+
+
+def est(ch: str) -> int:
+    return LATIN_EST_PX if len(ch.encode("utf-8")) == 1 else CJK_EST_PX
+
+
 def _pinyin_chars() -> str:
     from tools import build_font
     return build_font.PINYIN_CHARS
@@ -90,9 +113,11 @@ class Finding:
 
 @dataclass
 class Layout:
-    rows: list[str] = field(default_factory=list)       # 每行的字符串（含悬挂格）
+    rows: list[str] = field(default_factory=list)       # 每行的字符串（含悬挂区）
+    line_px: list[int] = field(default_factory=list)    # 每行结束时的列（px）
+    hang_from: dict[int, int] = field(default_factory=dict)   # 行 → 悬挂区从第几个字符起
     findings: list[Finding] = field(default_factory=list)
-    rubies: list[dict] = field(default_factory=list)    # {line, col, base, ruby, x, width}
+    rubies: list[dict] = field(default_factory=list)    # {line, col(px), base, ruby, x, width, width_base, units}
     pages: int = 1                                       # `_n` 分段数 + 1
     overflow: bool = False
 
@@ -201,10 +226,17 @@ def _units(ruby: str) -> int:
     return sum(1 if len(c.encode("utf-8")) <= 2 else 2 for c in ruby)
 
 
+_ALNUM = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+
+
 def simulate(text: str, msg: Msg | None = None, *, head: str, tail: str, pitch: int,
              pinyin: str | None = None) -> Layout:
-    """按引擎规则排一条消息。findings 里 error 表示引擎会出可见故障（卡死/读穿/裁切），
-    warn 表示排版难看或与估算假设不符。"""
+    """按引擎规则（含 layers/eboot 各层）排一条消息。findings 里 error 表示引擎会出可见故障
+    （卡死/读穿/裁切），warn 表示排版难看或与估算假设不符。
+
+    像素模型（msgcol-px 层）：列 col 是行内像素 x；行末禁则 col ≥ 392、行头禁则 col + est ≥ 426
+    （est：单字节 9、多字节 17）；画在 col + 4，然后 col += 真实步进（步进表）。ruby 组先画 base
+    取真实宽 w，注音起点 col + (w − pitch·units)/2 + 4，col += w。"""
     m = msg or Msg("?", "?", text, 0)
     L = Layout()
     F = L.findings
@@ -224,20 +256,30 @@ def simulate(text: str, msg: Msg | None = None, *, head: str, tail: str, pitch: 
         i = j + 1
 
     rows: list[list[str]] = [[]]
+    line_px: list[int] = [0]
     col = line = 0
     hang_reported: set[int] = set()
     last_ruby: dict | None = None
+    prev_ch = ""
+    narrow: list[str] = []
 
-    def place(ch: str, at: int) -> None:
+    def newline() -> None:
+        nonlocal col, line, last_ruby
+        col, line = 0, line + 1
+        last_ruby = None
         while len(rows) <= line:
             rows.append([])
-        row = rows[line]
-        while len(row) < at:
-            row.append(" ")
-        if len(row) == at:
-            row.append(ch)
-        else:
-            row[at] = ch
+            line_px.append(0)
+
+    def place(ch: str) -> None:
+        nonlocal col
+        if col >= LINE_PX and line not in L.hang_from:
+            L.hang_from[line] = len(rows[line])
+        if col >= HANG_DEEP_PX and line not in hang_reported:
+            hang_reported.add(line)
+            F.append(Finding("warn", "hang-deep", m,
+                             f"第 {line + 1} 行悬挂到 x≈{col + 4}（行宽 {LINE_PX}）：贴近屏幕右缘"))
+        rows[line].append(ch)
 
     def overflow() -> bool:
         nonlocal L
@@ -256,8 +298,8 @@ def simulate(text: str, msg: Msg | None = None, *, head: str, tail: str, pitch: 
                 i += 2
                 continue
             if nxt == "r":
-                col, line = 0, line + 1
-                last_ruby = None
+                newline()
+                prev_ch = ""
                 i += 2
                 continue
             F.append(Finding("warn", "stray-underscore", m, f"`_{nxt}` 不是控制码：引擎吞掉 `_`、照画 `{nxt}`"))
@@ -284,64 +326,77 @@ def simulate(text: str, msg: Msg | None = None, *, head: str, tail: str, pitch: 
             if not base:
                 F.append(Finding("warn", "ruby-empty-base", m, "注音组 base 为空"))
             if " " in base:
-                F.append(Finding("warn", "ruby-base-space", m, f"base 含半角空格：引擎按 {pitch} px 推进而非一格 17 px：{body!r}"))
+                F.append(Finding("warn", "ruby-base-space", m, f"base 含半角空格：引擎跳过字形只推进 {pitch} px：{body!r}"))
             bad = sorted({c for c in ruby if ord(c) < 0x300 and c not in allowed_half})
             if bad:
                 F.append(Finding("warn", "ruby-halfwidth-nonpinyin", m,
                                  f"ruby 含非拼音半角字符 {bad}：字体步进 4 px 与估算 {pitch} px 不符"))
-            nb, units = len(base), _units(ruby)
+            units = _units(ruby)
+            w = sum(advance(c) for c in base)
             if overflow():
                 return L
-            if col + nb > COLS:
+            if col + w > LINE_PX:
                 F.append(Finding("error", "ruby-past-margin", m,
-                                 f"注音组起于第 {col + 1} 格、base {nb} 字，越过第 {COLS} 格：整组不折行，画进悬挂区/被裁"))
-            x = CELL_PX * col + int((CELL_PX * nb - pitch * units) / 2) + 4
+                                 f"注音组起于 x={col + 4}、base 宽 {w} px，越过行宽 {LINE_PX}：整组不折行，画进悬挂区/被裁"))
+            x = col + int((w - pitch * units) / 2) + 4
             width = pitch * units
             if x < 0:
                 F.append(Finding("error", "ruby-negative-x", m,
-                                 f"注音起点 x={x} < 0：`{ruby}` 首字母会被屏幕左缘裁掉（base `{base}` 在第 {col + 1} 格）"))
+                                 f"注音起点 x={x} < 0：`{ruby}` 首字母会被屏幕左缘裁掉（base `{base}` 起于 col {col}）"))
             if last_ruby is not None and last_ruby["line"] == line and x < last_ruby["x"] + last_ruby["width"]:
                 F.append(Finding("warn", "ruby-overlap", m,
                                  f"注音 `{last_ruby['ruby']}` 与 `{ruby}` 在同一行重叠 {last_ruby['x'] + last_ruby['width'] - x} px"))
-            info = {"line": line, "col": col, "base": base, "ruby": ruby, "x": x, "width": width, "units": units}
+            info = {"line": line, "col": col, "base": base, "ruby": ruby, "x": x, "width": width,
+                    "width_base": w, "units": units}
             L.rubies.append(info)
             last_ruby = info
-            for k, c in enumerate(base):
-                place(c, col + k)
-            col += nb
+            for c in base:
+                place(c)
+            col += w
+            line_px[line] = col
+            prev_ch = base[-1] if base else ""
             i = end + 1
             continue
-        # 普通字符
-        if col == COLS - 1 and ch in tail:
-            col, line = 0, line + 1
-            last_ruby = None
-        if col >= COLS and ch not in head:
-            col, line = 0, line + 1
-            last_ruby = None
+        # 普通字符：先按估算判"放不放得下"，画完按真实步进推进
+        wrapped = False
+        if col >= TAIL_PX and ch in tail:
+            newline()
+            wrapped = True
+        if col + est(ch) > LINE_PX and ch not in head:
+            newline()
+            wrapped = True
+        if wrapped and prev_ch in _ALNUM and ch in _ALNUM:
+            F.append(Finding("warn", "latin-split", m,
+                             f"拉丁串在 `{prev_ch}|{ch}` 处被自动折行掰开（引擎无词级折行，需手工 _r 或改写）"))
         if overflow():
             return L
-        place(ch, col)
-        if col >= COLS:
-            hang = col - COLS + 1
-            if hang >= HANG_WARN and line not in hang_reported:
-                hang_reported.add(line)
-                F.append(Finding("warn", "hang-deep", m,
-                                 f"第 {line + 1} 行悬挂到第 {hang} 格（x≈{CELL_PX * col + 4}）：贴近屏幕右缘"))
-        col += 1
+        adv = advance(ch)
+        if len(ch.encode("utf-8")) > 1 and adv < CJK_EST_PX and ch not in narrow:
+            narrow.append(ch)
+        place(ch)
+        col += adv
+        line_px[line] = col
+        prev_ch = ch
         i += 1
 
+    if narrow:
+        F.append(Finding("warn", "narrow-glyph", m,
+                         f"多字节字符 {narrow} 在 17 px 字体里是窄字形（{[advance(c) for c in narrow]} px）：会挤在一起"))
     L.rows = ["".join(r) for r in rows]
+    L.line_px = line_px
     return L
 
 
 def render(layout: Layout) -> str:
-    """人读版面：每行 25 格后用 ¦ 标出悬挂区；注音另列。"""
+    """人读版面：行宽 425 px 之后的悬挂区用 ¦ 标出；注音另列。"""
     out = []
     for k, r in enumerate(layout.rows):
-        body, hang = r[:COLS], r[COLS:]
-        out.append(f"{k + 1}| {body}{'¦' + hang if hang else ''}")
+        cut = layout.hang_from.get(k)
+        body, hang = (r, "") if cut is None else (r[:cut], r[cut:])
+        px = layout.line_px[k] if k < len(layout.line_px) else 0
+        out.append(f"{k + 1}| {body}{'¦' + hang if hang else ''}   ({px} px)")
     for rb in layout.rubies:
-        out.append(f"   ruby 第{rb['line'] + 1}行第{rb['col'] + 1}格 <{rb['base']},{rb['ruby']}> x={rb['x']} 宽≈{rb['width']}")
+        out.append(f"   ruby 第{rb['line'] + 1}行 x={rb['x']} <{rb['base']},{rb['ruby']}> base宽{rb['width_base']} 注音宽≈{rb['width']}")
     return "\n".join(out)
 
 

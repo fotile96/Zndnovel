@@ -167,3 +167,56 @@ def test_check_sources_summary_counts(tmp_path):
     findings, stats = mlc.check_sources(src)
     assert stats["messages"] == 2 and stats["errors"] == 1 and stats["warnings"] == 0
     assert findings[0].code == "page-overflow" and findings[0].msg.ref == "1"
+
+
+# ---- 像素模型（layers/eboot/msgcol-px：拉丁比例宽） --------------------------
+
+def W(s):
+    return sum(mlc.advance(c) for c in s)
+
+
+def test_latin_advances_by_glyph_width_not_cells():
+    w = W("Ayano")
+    assert 40 <= w <= 56                                  # 比例宽：远小于 5 格 85 px
+    n = (mlc.LINE_PX - w) // mlc.CJK_EST_PX               # 后面还放得下几个汉字
+    lay = sim("Ayano" + A25)
+    assert lay.rows == ["Ayano" + A25[:n], A25[n:]] and not lay.findings
+
+
+def test_cjk_only_layout_is_unchanged_by_pixel_model():
+    assert sim(A25 + "六").rows == [A25, "六"]
+    assert mlc.advance("一") == 17 and mlc.advance("Ａ") == 17
+
+
+def test_wrap_uses_estimate_before_drawing_and_real_width_after():
+    lay = sim(A25[:24] + "W" + "下")                     # col 408：估 9 放得下，实画 14 → 422
+    assert lay.rows == [A25[:24] + "W", "下"] and lay.line_px[0] == 24 * 17 + mlc.advance("W")
+
+
+def test_latin_word_split_by_auto_wrap_warns():
+    lay = sim(A25[:23] + "Ayano 后")
+    assert len(lay.rows) == 2 and "latin-split" in codes(lay, "warn")
+    assert "latin-split" not in codes(sim(A25[:23] + "_rAyano"))     # 手工换行不算
+
+
+def test_space_in_body_advances_five_px():
+    assert sim("a b").line_px[0] == mlc.advance("a") + P + mlc.advance("b")
+
+
+def test_narrow_multibyte_glyph_warns():
+    lay = sim("他说“你好”")
+    assert "narrow-glyph" in codes(lay, "warn") and lay.line_px[0] == 4 * 17 + 2 * 5
+
+
+def test_ruby_with_ascii_base_centers_on_real_width():
+    lay = sim("<Story,故事>")
+    rb = lay.rubies[0]
+    w = W("Story")
+    assert rb["width_base"] == w and rb["units"] == 4
+    assert rb["x"] == int((w - 4 * P) / 2) + 4 and lay.rows == ["Story"] and lay.line_px[0] == w
+
+
+def test_ruby_past_margin_is_pixel_based():
+    assert "ruby-past-margin" in codes(sim(A25[:24] + "<记忆,jì yì>"), "error")     # 408+34 > 425
+    assert "ruby-past-margin" not in codes(sim(A25[:23] + "<记忆,jì yì>"))          # 391+34 = 425 恰好放下
+    assert "ruby-past-margin" not in codes(sim(A25[:24] + "<记,jì>"))               # 408+17 = 425

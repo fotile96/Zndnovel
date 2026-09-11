@@ -51,6 +51,10 @@ layers/                         本地化改动层（基座只读，一切改动
                                 基座/账本/车道/编译器路径、overlays 施加顺序、编外脚本、gim 面映射、
                                 字体成员）+ vms_ids.toml（id 区段登记）+ overlays/*.toml（叠加操作，
                                 锚点=代码文本）+ scripts/*.lua（编外新增整篇脚本，如 snr_finale.lua）
+guide/                          面向玩家的中文攻略（Typst）：chapters/ 手写正文 + generated/（由 tools/build_guide.py
+                                从 cards.zh / dag.json / 选项烤字定译生成：定译字典、附录表、选卡界面格位 swatch）
+                                + dist/second-novel-guide-zh.pdf 成品。卡名/选项名经模板断言必须命中定译。
+                                ⚠ 攻略里不提 encore/谢幕章（用户裁定，留作惊喜）。runbook：docs/ops/guide-runbook.md
 pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12，不钉精确版；deps: pillow/pyyaml）
 ```
 

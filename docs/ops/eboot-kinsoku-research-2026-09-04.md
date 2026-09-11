@@ -472,3 +472,38 @@ needle 不会误中 UTF-8 续字节）；行头表现 88/129 B、行末表 31/33
 2. 半角标点是否入禁则表。
 3. 落地后语料里 568 条全角字母数字（`１５`、`Ｔｒｕｅ Ｃｏｌｏｒ`×15、`<Ｓｔｏｒｙ,故事>`×4）
    要不要成族改回半角——这是译文改动，按"成族改词先拉表复看"的规矩走。
+
+### 9.6 落地（2026-09-12，比例宽变体；用户裁定：半角标点不入禁则表、语料全角字母不动）
+
+- **层**：`layers/eboot/msgcol-px.toml`（17 条补丁：0xA50C–0xA67C 整段 372 B、单字 0x5ACC /
+  0xA44C / 0xA45C / 0xA738、12 条重定位 r_offset）由 `tools/msgcol_px.py` 生成；
+  `layers/overlays/cardname-halfwidth.toml` 把 `cfontPrint` 里的 `cHan2Zen(l1_5)` 改回 `l1_5`
+  （卡名半角，零 EBOOT 字节）。manifest：eboot order 加 `msgcol-px`（ruby-p5 之后、savebuf 之前），
+  overlays order 在 fonts 之后加 `cardname-halfwidth`。
+- **汇编器** `tools/mips_asm.py`（纯 stdlib）：`tests/test_mips_asm.py` 把 0xA50C–0xA67C 93 字按
+  IDA 反汇编重新汇编、与纯净 ELF 逐字相同——这是编码正确性的主证据。顺带纠正了两处此前
+  文档里的默认假设：这个二进制的 `li` 是 `ori`（`li v0,1` = `34020001`），`%lo` 立即数是相对 bss
+  段起点的值（`lw a3,%lo(msg_text_layer)(fp)` = `8fc74ad0`，不是按 IDA 名字算的 0xFF50），带重定位
+  的字一律 `.word` 照抄。
+- **校验器**改像素模型：`advance(ch)` 查 `data/font_advances_17.json`（`tools/pgf_inspect.py
+  export-advances build/font/lxgw17.pgf …`，只存 ≠ 17 的 138 个码位，空格按引擎跳过路径 = 5），
+  `est()` 单字节 9 / 多字节 17，`TAIL_PX = 392`、`LINE_PX = 425`；ruby 起点用 base 真实宽。新增告警
+  `latin-split`（拉丁串被自动折行掰开）与 `narrow-glyph`（多字节窄字形：LXGW 的 `“”·` 只有 5 px）。
+  `tests/test_msgcol_px.py` 钉住层里的三个常数与校验器一致。
+- **release 全量**（17069 条）：错误 0；警告 114 = hang-deep 31（原 43，拉丁变窄后少了 12 行深悬挂）
+  + latin-split 61 + narrow-glyph 22。后两类是新暴露的既有语料问题，待处理：61 条人名被引擎
+  从中间掰行（原版也会，只是全角时更宽、断点不同），22 条弯引号/间隔号会挤成 5 px。
+- **IDB 静态核对**：补丁打入后反编译读出 `v23 = font_draw_string(0, msg_col + 4, …, base)`、
+  `font_draw_string(1, msg_col + (v23 − 5·units)/2 + 4, …, ruby)`、`msg_col += v23`；正文
+  `msg_col += font_draw_string(0, msg_col + 4, 26·line + 10, …)`；行末 `col < 0x188`、行头
+  `col + est < 0x1AA`；等待光标 `col + 8`；`font_draw_string` 尾部 `return pen`。
+- **PPSSPP 实测**（`--mode font` 探针 L1/L2）：`Ayano、Yuichi、Sakura 和 Naoya` 按比例宽渲染、
+  在「上学|路上」处折行；`iiiii WWWWW mmmmm 11111` 三种宽度肉眼可辨；`<Story,故事>` 的 ASCII base
+  上注音居中；`<记忆,jì yì>`/`<彩野,cǎi yě>`/`<Ｓｔｏｒｙ,故事>`/`<往,ゆ>` 与改前一致；
+  20 个 W 一行按 14 px 推进。**探针陷阱**：初版 K1–K4 用的甲乙丙丁不在语料字集里，画成 alt 字形
+  `_`，它在像素模型下按自己的窄步进推进，整行变短、悬挂/提前换行全部不触发——不是引擎问题，
+  是探针用了语料外的字；已改成语料内 25 字（`testboot.CJK25`）并每页先 `_r` 起新行。
+  重切后复跑：K1 「，」悬挂、「（括」提前换行；K2 「……」」三格悬挂、「≫」悬挂；K3 「：」「——」
+  悬挂；K4 「≦特殊≧」提前换行——禁则行为与改前逐项相同（截图 `build/emu/drives/font_probe/p22–p25`）。
+- **发布盘**：`build/dist/game_zh.iso` 已按新层重出（四道发布断言全过）。实机（真 libfont）仍是
+  最后一道未验证项：本层的算术全在引擎侧，与 libfont 无关，风险低于 ruby-p5 的空格路径。

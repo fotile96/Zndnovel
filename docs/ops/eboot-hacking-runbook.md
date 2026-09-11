@@ -58,12 +58,14 @@ idb_open input_path=/Users/fotile96/Zndnovel/build/eboot/EBOOT.dec.elf preferred
 ```
 IDB `build/eboot/EBOOT.dec.elf.i64` 已带全部命名与注释（不在 git；丢了就重开、按 §3 的表
 重命名）。**注意 IDB 里的字节不是纯净的**：2026-09-04 把 ruby-p5 层的 A/B/C 三段直接打在
-IDB 里验证（a4dc–a504、a508、5810–581b），0x5808 已还原；禁则表没打。要看纯净字节用
+IDB 里验证（a4dc–a504、a508、5810–581b），0x5808 已还原；2026-09-12 又打了 msgcol-px 层
+（a50c–a67c 整段、5acc、a44c、a45c、a738）；禁则表没打。要看纯净字节用
 `assets/EBOOT.dec.elf` 或 `eboot_patch.py check`。
 
 MCP 工具的脾气（实测）：
-- `patch_asm` 不会汇编 MIPS（一律 "Failed to assemble"）。改字用 `patch`（十六进制字节）；
-  然后 `define_code`（尤其原字是别的东西时）、`force_recompile` 再 `decompile`。
+- `patch_asm` 不会汇编 MIPS（一律 "Failed to assemble"）。**编码用 `tools/mips_asm.py`**（§5.3），
+  改字用 `patch`（十六进制字节）；然后 `define_code`（`addr` 逐条给，"start:end" 字符串形式
+  会报 Not found；整段打完只定义首地址 + `force_recompile` 就够）、再 `decompile`。
 - `decompile` 把跨调用存活的 `$t*` 当作被破坏（显示成未初始化的 vN）——是反编译器的
   ABI 假设，不是你的错；实机语义看 `disasm` 与 §5.1 的调用者寄存器表。
 - 字符串缓存不含 UTF-8 中日文串：`find_regex`/`get_string` 对 `」`、禁则表都失败。找 UTF-8
@@ -83,6 +85,8 @@ MCP 工具的脾气（实测）：
 | VA | 名 | 备注 |
 |---|---|---|
 | 0x9040 | `lua_register_natives` | 60 个 Lua 原语的名字→函数表；找任何原语从这里 |
+| 0x5ACC | `font_draw_string` 返回值 | msgcol-px 层后返回 pen（累计步进 px），错误路径仍 0 |
+| 0xA50C–0xA67C | `msg_layout_step` ruby 块 + 正文块 | msgcol-px 层整段重排：`msg_col` 是**像素** x，见研究记录 §9 |
 | 0x9AA4 | `msg_read_utf8_char` | 按首字节取 1–4 B |
 | 0x11800 | `strstr_` | 禁则判定 |
 | 0x663E0 / 0x66462 | `kinsoku_line_head` / `_tail` | 130 B / 34 B 区间，现由 layers/eboot/kinsoku.toml 覆盖 |
@@ -106,8 +110,10 @@ MCP 工具的脾气（实测）：
 `pluto_writer_membuf` 0x5FF8（无边界检查）。系统数据：`systemdata_persist_apply_config`
 0x6314（缓冲 IDA 0x3262A0/0x7804 B，后半是 msg 已读位图 `msg_read_flag_set` 0x9B58）。
 
-版面常数：格 17 px、行距 26 px、25 格/行、4 行/消息（第 5 行起停滞）、ruby 起点
-`17·col + (17·nb − 5·units)/2 + 4`（P=5 来自 `build_font.RUBY_PITCH_PX`）。
+版面常数（msgcol-px 层后）：`msg_col` 存行内像素 x，行宽 425（= 25 × 17）、行距 26 px、
+4 行/消息（第 5 行起停滞）；汉字步进 17、拉丁按 17 px 字体真实步进（`data/font_advances_17.json`）；
+行末禁则 col ≥ 392、行头禁则 col + est ≥ 426（est 单字节 9 / 多字节 17）；ruby 先画 base 取宽 w，
+起点 `col + (w − 5·units)/2 + 4`（P=5 来自 `build_font.RUBY_PITCH_PX`）。
 
 ## 4. 改引擎的正规通道：`layers/eboot/*.toml`
 
@@ -156,6 +162,16 @@ uv run python tools/build_disc.py --profile test --mode font --stage eboot,disc 
 - 校验器（`tools/msg_layout_check.py`）的模型必须同步改：它复刻的就是这些规则。
 
 ### 5.3 重定位与编码
+
+**先用汇编器，别手编**：`tools/mips_asm.py`（纯 stdlib；支持 R 型/移位/访存/立即数/lui/分支/
+标签/`.word`）。用法范式见 `tools/msgcol_px.py`：`PRISTINE_LISTING`（原段的 IDA 反汇编转写）
++ `NEW_LISTING` + `RELOC_MOVES` + `SINGLE` → `render_layer(pristine)` 直接产 toml；
+`tests/test_mips_asm.py` 用"纯净段重新汇编必须逐字相同"钉住汇编器，`tests/test_msgcol_px.py`
+拿纯净源重生成对账。三条本机事实：① 这个二进制的 `li` 是 `ori rt,zero,imm`、`move` 是 `or`；
+② **带重定位的字照抄 `.word`**——`lw a3,%lo(msg_text_layer)(fp)` 在文件里是 `8fc74ad0`，
+立即数 0x4AD0 是相对 bss 段起点的值，不是 IDA 名字算出来的 0xFF50（§1 的 bss 双加）；
+③ 搬动带重定位的字＝只改该条目的 r_offset（`off =` 补丁 4 字节），**不改表内顺序**：
+PPSSPP `ElfReader::LoadRelocations` 对 HI16 向后找下一条非 HI16 条目配对，真机同理。
 枚举补丁区间内的重定位条目（改 `ranges`）：
 ```python
 import struct
@@ -245,7 +261,9 @@ uv run python tools/emu/drives/regtrace.py --bp 0xA4DC --cond "s0 == 1" \
 - 研究记录：`docs/ops/eboot-kinsoku-research-2026-09-04.md`（§1 dump、§2 管线、§3 规则、
   §6 ruby/字体、§7 补丁与三次实测、§8 校验器）
 - 补丁层：`layers/eboot/kinsoku.toml`、`layers/eboot/ruby-p5.toml`；工具 `tools/eboot_patch.py`
-- 校验器：`tools/msg_layout_check.py`（`--show <id>` 看版面）
+- 校验器：`tools/msg_layout_check.py`（`--show <id>` 看版面；像素模型，步进表
+  `data/font_advances_17.json` 由 `tools/pgf_inspect.py export-advances build/font/lxgw17.pgf …` 重生成）
+- 汇编器与层生成器：`tools/mips_asm.py`、`tools/msgcol_px.py`（`layers/eboot/msgcol-px.toml`）
 - 字体：`tools/build_font.py`（`RUBY_PITCH_PX`、`RECIPE`）、`tools/pgf_inspect.py`
 - 模拟器：`tools/emu/drives/{font_probe,regtrace,save_probe}.py`、`tools/emu/client.py`、
   `docs/ops/ppsspp-local-setup-2026-08-31.md`

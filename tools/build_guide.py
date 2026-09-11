@@ -401,10 +401,13 @@ def check_hand_order(cards: dict[int, dict] | None = None) -> list[str]:
                 continue
             seen.add(n)
             exp = [cards[i]["title_zh"] for i in expected[n]]
-            # 只看「递 …。」这一句：前面可能提到前置卡，后面可能提到做成后解锁的场景
-            seg = body[body.rfind("递") + 1:] if "递" in body else body
-            seg = seg.split("。")[0]
-            got = CARD_REF_RE.findall(seg)
+            # 只看「递 …。」这一句：前面可能提到前置卡，后面可能提到做成后解锁的场景。
+            # 卡名本身可能带句号（『总有一天你会看到的故事。』），先把 #card(...) 换成占位符再按句号切
+            refs = CARD_REF_RE.findall(body)
+            masked = CARD_REF_RE.sub("\x00", body)
+            seg = masked[masked.rfind("递") + 1:] if "递" in masked else masked
+            skipped = masked[: len(masked) - len(seg)].count("\x00")
+            got = refs[skipped: skipped + seg.split("。")[0].count("\x00")]
             if got != exp:
                 problems.append(f"{f.name} crd_{n}『{title}』递卡顺序应为 {exp}，正文写的是 {got}")
     for n in sorted(set(expected) - seen):

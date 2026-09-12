@@ -79,6 +79,24 @@ def is_black(img: Image.Image) -> bool:
     return dark >= 0.998 * len(px)
 
 
+async def snap_retry(cli, path, tries: int = 3):
+    """截图容错。`snap()` 先 break_cpu 等 `cpu.stepping` 广播，模拟器忙时这个请求偶发
+    丢失（2026-09-12 谢幕章第 125 句实测踩到一次，整轮 15 分钟白跑）。break_cpu 本身
+    已处理「已经断住」那种不会再有新广播的情形，所以这里只需对「请求没被响应」重试：
+    放行 CPU、缓一拍再试，连续失败才抛。"""
+    for i in range(tries):
+        try:
+            return await snap(cli, path)
+        except TimeoutError:
+            print(f"截图超时（{i + 1}/{tries}），放行 CPU 后重试", flush=True)
+            try:
+                await cli.resume()
+            except Exception:
+                pass
+            await asyncio.sleep(3.0)
+    raise TimeoutError(f"连续 {tries} 次截图超时：{path}")
+
+
 def cursor_index(img):
     px = img.convert("RGB")
     best, idx = -1.0, None
@@ -101,7 +119,7 @@ def cursor_index(img):
 async def play_finale(cli, expect):
     target = ORDER.index("finale")
     for step in range(10):
-        img = await snap(cli, OUT / f"nav{step}.png")
+        img = await snap_retry(cli, OUT / f"nav{step}.png")
         idx, frac = cursor_index(img)
         print(f"nav{step}: cursor={ORDER[idx] if idx is not None else '?'} frac={frac:.2f}", flush=True)
         if idx == target and frac > 0.2:
@@ -122,7 +140,7 @@ async def play_finale(cli, expect):
     # 黑屏纯文字段不会全黑到 99.8%，但留个防呆）就照按一次。
     presses = black_run = 0
     while presses < 400:
-        img = await snap(cli, OUT / "_cur.png")
+        img = await snap_retry(cli, OUT / "_cur.png")
         if is_title(img, expect):
             break
         if is_black(img) and black_run < 5:
@@ -150,17 +168,17 @@ async def run():
     try:
         async with session(lambda: Emulator.app(DISC, graphics="software")) as (emu, cli):
             await wait_game(cli, 15)
-            verdict["before_ja"] = classify(await snap(cli, OUT / "00_title_before.png"), expect, "00") == "ja"
+            verdict["before_ja"] = classify(await snap_retry(cli, OUT / "00_title_before.png"), expect, "00") == "ja"
             await play_finale(cli, expect)
             ends = []
             for j in range(3):
                 await asyncio.sleep(4.0)
-                ends.append(classify(await snap(cli, OUT / f"end{j}.png"), expect, f"end{j}"))
+                ends.append(classify(await snap_retry(cli, OUT / f"end{j}.png"), expect, f"end{j}"))
             verdict["after_zh"] = ends[-1] == "zh"
             errors += report_errors(cli)
         async with session(lambda: Emulator.app(DISC, graphics="software")) as (emu, cli):
             await wait_game(cli, 15)
-            verdict["reboot_zh"] = classify(await snap(cli, OUT / "10_title_reboot.png"), expect, "10") == "zh"
+            verdict["reboot_zh"] = classify(await snap_retry(cli, OUT / "10_title_reboot.png"), expect, "10") == "zh"
             errors += report_errors(cli)
     finally:
         if backup.exists() and not KEEP_SAVE:

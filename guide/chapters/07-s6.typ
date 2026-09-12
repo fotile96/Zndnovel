@@ -42,7 +42,7 @@
 #route-box[#frag][
   #make-cards(
     ("True Color", [大谜题 #cn(104)。按日期依次递 #card("Sakura的日记：9月13日")、#card("Sakura的日记：7月（未写完）")、#card("Sakura的日记：9月16日")、#card("Sakura的日记：9月16日（夜）")、#card("Sakura的日记：9月20日")、#card("Sakura的日记：9月22日")、#card("Sakura的日记：9月23日")、#card("Sakura的日记：9月29日")、#card("Sakura的日记：断片")、#card("Sakura的日记：10月3日")、#card("Sakura的日记：11月12日")、#card("Sakura的日记：2月13日")，然后 #card("Ayano的回信：9月25日")、#card("Ayano的回信：10月30日")]),
-    ("选择：天台的归途", [需先持有 #card("有个女孩子来学校的故事") 与 #card("True Color")；无需递卡。做成后出现 #opt("中庭的雪")]),
+    ("选择：天台的归途", [需先持有 #card("True Color")；递 #card("有个女孩子来学校的故事")。做成后出现 #opt("中庭的雪")]),
   )
 ]
 

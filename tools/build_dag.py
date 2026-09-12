@@ -161,7 +161,13 @@ def parse_scene_meta(stem: str, text: str) -> dict:
 
 
 def parse_crd_answers(text: str) -> list:
-    """玩家递上来的卡（oCard.selectCardObj() 的返回值）被拿去跟哪些卡号比对。"""
+    """玩家递上来的卡（oCard.selectCardObj() 的返回值）被拿去跟哪些卡号比对。
+
+    ⚠ 2026-09-13 修正：曾在结尾扣掉 {0, 1}。那是旧松正则（`if v\\d+ == (\\d+)`）时代的补丁——
+    当时会误收错卡计数器的 `l1_2 == 0/1`。改成绑定 `oCard.selectCardObj()` 的返回变量后，
+    计数器已经进不来（全库实测：hand_var 与 0 比零处、与 1 比恰好 3 处），那条减法就只剩误伤：
+    **卡 1『ある子が学校にくる物語』是 crd_2/30/108 的合法答案卡**，被一并抹掉了。
+    取消返回的 -1 不必再滤——CARD_CMP_RE 的 `(\\d+)` 不吃负号。"""
     hand_vars, answers = set(), set()
     for line in text.splitlines():
         if m := CARD_SEL_RE.match(line):
@@ -169,7 +175,7 @@ def parse_crd_answers(text: str) -> list:
             continue
         if (m := CARD_CMP_RE.search(line)) and m.group(1) in hand_vars:
             answers.add(int(m.group(2)))
-    return sorted(answers - {0, 1})
+    return sorted(answers)
 
 
 def parse_crds(script_dir) -> dict:

@@ -9,8 +9,14 @@ Interpretation of fields:
     STUB        9-10 line script that only shows 「≪入手済みカード≫」(keyword /
                 synopsis cards obtained elsewhere, e.g. by listening in Story mode)
     req         cards whose absence triggers oCard.mesNot (prerequisites)
-    answersCmp  card ids compared against the player's hand-in (0/1 are loop
-                control constants; the real answers are the ids >= 2)
+    answersCmp  card ids compared against the player's hand-in, as matched by a
+                loose regex that also picks up the wrong-card counter's 0/1.
+                ⚠ Do NOT read this as "ids >= 2 are the real answers" (the claim
+                this line used to make): card 1『ある子が学校にくる物語』IS a real
+                answer for crd_2/30/108. Telling them apart needs the binding of
+                oCard.selectCardObj()'s return variable, which this loose pass does
+                not do -- see tools/build_dag.py::parse_crd_answers (membership) and
+                tools/build_guide.py::expected_hand_order (membership + order).
     gets        myCard[...] granted on success (fragmentDoCardId = this card)
     runs        section scripts launched (chapter-final cards run the _f chapter)
     MSG         oCard.show acquisition message (translatable text)

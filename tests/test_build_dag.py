@@ -296,8 +296,11 @@ def test_real_data_counts_no_silent_degradation():
                            if any("choice" in e for e in s["seq"])})
     assert (len(choice), n_choice_states) == (76, 33)
 
+    # 2026-09-13 由 (101, 168) 上修为 (103, 171)：parse_crd_answers 去掉了旧松正则时代遗留的
+    # `- {0, 1}`，卡 1 不再被误当哨兵滤掉。逐项对账 = 101+2（crd_2/108 由「无答案」变为 [1]）
+    # 与 168+3（crd_2/30/108 各多一个卡 1）。这不是退化，是补回三处漏检。
     with_ans = [c for c in dag["crds"].values() if c["answers"]]
-    assert (len(with_ans), sum(len(c["answers"]) for c in with_ans)) == (101, 168)
+    assert (len(with_ans), sum(len(c["answers"]) for c in with_ans)) == (103, 171)
 
     meta_cost = sum(len(m["cost"]) for m in dag["scene_meta"].values())
     state_cost = sum(1 for s in dag["states"].values()

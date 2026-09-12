@@ -23,3 +23,18 @@ def test_widen_latin_sets_integer_pixel_pitch(tmp_path):
     assert hmtx[cmap[ord("k")]][1] == int((target - (g.xMax - g.xMin)) / 2)   # 墨迹居中
     g = glyf[cmap[ord("ā")]]
     assert g.xMax - g.xMin <= target                          # 声调加粗后不越出步进框
+
+
+REGULAR = bf.TTF_BY_SIZE.get(17, bf.TTF_DEFAULT)
+
+
+@pytest.mark.skipif(not REGULAR.exists(), reason="缺 third_party/LXGWWenKai-Regular.ttf")
+def test_widen_body_narrow_stretches_curly_quotes_and_interpunct(tmp_path):
+    out = bf.widen_body_narrow(REGULAR, tmp_path / "b.ttf")
+    f = TTFont(str(out))
+    upm, cmap, hmtx = f["head"].unitsPerEm, f.getBestCmap(), f["hmtx"]
+    for ch in bf.WIDEN_BODY_CHARS:
+        assert hmtx[cmap[ord(ch)]][0] == upm, f"{ch!r} should be widened to full cell"
+    # 汉字与拉丁字母不受影响
+    assert hmtx[cmap[ord("一")]][0] == upm           # 汉字本来就是 1000
+    assert hmtx[cmap[ord("A")]][0] < upm             # 拉丁保持比例宽

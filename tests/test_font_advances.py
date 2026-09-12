@@ -25,7 +25,7 @@ def test_committed_table_has_the_expected_shape_and_latin_widths():
     adv = t["adv"]
     assert adv["A"] == 11 and adv["a"] == 9 and adv["i"] == 4 and adv["W"] == 14 and adv[" "] == 5
     assert "一" not in adv and "Ａ" not in adv          # 全角/汉字 = 默认 17，不入表
-    assert adv["“"] == 5                                 # 弯引号在 LXGW 里是比例宽——校验器要告警
+    assert "“" not in adv and "”" not in adv      # build_font.widen_body_narrow 撑到 17 px（= default）
 
 
 @pytest.mark.local_assets

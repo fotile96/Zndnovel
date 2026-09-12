@@ -23,6 +23,7 @@ def codes(layout, level=None):
 
 def test_tables_come_from_the_eboot_layer():
     assert "，" in HEAD and "≫" in HEAD and "≧" in HEAD and "」" in HEAD
+    assert "-" in HEAD                    # 半角连字符（拉丁人名折行时悬挂）
     assert "（" in TAIL and "≪" in TAIL and "≦" in TAIL and "「" in TAIL
     assert "ぁ" not in HEAD           # 原表里中文永不出现的项已删
 
@@ -205,7 +206,10 @@ def test_space_in_body_advances_five_px():
 
 def test_narrow_multibyte_glyph_warns():
     lay = sim("他说“你好”")
-    assert "narrow-glyph" in codes(lay, "warn") and lay.line_px[0] == 4 * 17 + 2 * 5
+    assert "narrow-glyph" not in codes(lay)         # widen_body_narrow 撑到 17 px
+    assert lay.line_px[0] == 6 * 17                  # 全部 17 px
+    lay2 = sim("3×4=12")                         # × (U+00D7) 仍是 10 px
+    assert "narrow-glyph" in codes(lay2, "warn")
 
 
 def test_ruby_with_ascii_base_centers_on_real_width():

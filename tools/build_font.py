@@ -44,7 +44,10 @@ RUBY_PITCH_PX = 5
 RUBY_FONT_PX = 9
 #: 字体配方版本戳：影响 PGF 产物但不改变字集的参数（步进、声调加粗）变了就改这里，
 #: build_disc.stage_font 据此强制重建——字集不变时它原本只看 ucs.txt 有没有变。
-RECIPE = "lxgw17-regular-proportional / lxgw09-mono-pitch5-diacritic500 / 2026-09-04"
+RECIPE = "lxgw17-regular-proportional-narrowfix / lxgw09-mono-pitch5-diacritic500 / 2026-09-12"
+
+WIDEN_BODY_CHARS = '\u201c\u201d\u00b7'   # ""· — 在 LXGW Regular 里只有 5 px，挤在一起难看
+WIDEN_BODY_SIZES = {17}                      # 只改正文字体（17px），ruby 不受影响
 OUT = REPO / "build" / "font"
 # 用 `or` 不用 os.environ.get(key, default) 的双参数形式：后者只看键在不在
 # os.environ 里，`export SNDL_TTF_PGF=`（值设成空串）时键是在的，拿到 ""——
@@ -183,6 +186,42 @@ _UCS_LINE_RE = re.compile(r"^[0-9a-f]{4}$")
 _LOAD_LIST_RE = re.compile(r"Load list from .* : (\d+)")
 
 
+
+def widen_body_narrow(ttf: Path, out: Path, cell_px: int = 17) -> Path:
+    """派生一份 TTF：把 WIDEN_BODY_CHARS 里的窄字形撑到 cell_px 像素，字形居中。
+
+    这些字在 LXGW Regular 里是比例宽（5.75 px），引擎按 advance>>6 截断到 5 px，
+    跟相邻汉字（17 px 一格）挤在一起。撑到 17 px = 与汉字同宽，视觉上不再拥挤。
+    """
+    from fontTools.ttLib import TTFont
+
+    font = TTFont(str(ttf))
+    upm = font["head"].unitsPerEm
+    cmap = font.getBestCmap()
+    hmtx = font["hmtx"]
+    glyf = font.get("glyf")
+    target = upm * cell_px // 17          # 17px 字体 upm=1000 → target=1000
+    widened = 0
+    for ch in WIDEN_BODY_CHARS:
+        name = cmap.get(ord(ch))
+        if name is None:
+            continue
+        adv, lsb = hmtx[name]
+        if adv == target:
+            continue
+        ink = 0
+        if glyf is not None and name in glyf:
+            g = glyf[name]
+            ink = (g.xMax - g.xMin) if g.numberOfContours else 0
+        hmtx[name] = (target, int((target - ink) / 2))
+        widened += 1
+    out.parent.mkdir(parents=True, exist_ok=True)
+    font.save(str(out))
+    print(f"[font] 撑宽正文窄字形: {WIDEN_BODY_CHARS!r} → {target}/{upm} em（{cell_px}px）"
+          f" {widened} 个 -> {out.name}")
+    return out
+
+
 def _read_charset(charset_path: Path) -> tuple[int, list[int]]:
     """按 write_charset() 的格式解析字集文件。
 
@@ -242,6 +281,8 @@ def build(charset_path: Path, out_dir: Path, sizes=(17, 9), ruby_size=None) -> l
             sys.exit(f"缺字体源: {ttf}")
         if size in WIDEN_SIZES:
             ttf = widen_latin(ttf, out_dir / f"_widened{size:02d}.ttf")
+        if size in WIDEN_BODY_SIZES:
+            ttf = widen_body_narrow(ttf, out_dir / f"_body{size:02d}.ttf")
         render = ruby_size if (size in WIDEN_SIZES and ruby_size) else size
         out = out_dir / f"lxgw{size:02d}.pgf"
         proc = subprocess.run([str(TTF_PGF), str(ttf), str(out), str(charset_path),

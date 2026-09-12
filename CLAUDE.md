@@ -147,9 +147,12 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     systemSave 字面表；旧系统数据缺键取 nil 即 false，零迁移）；主菜单 `title-logo-zh` 层据此把
     logo 从日文 `title_01_a` 换成中文 `sysgim/title_01_c`（新成员，模板 title_01_a，同 405×89，
     绘制期直载工作层；源图 `docs/finale/assets/title_01_c.src.png` → `tools/bake_finale_title.py`
-    预乘 alpha 降采样 → `build/finale_title/`，量化 MSE≈24 超告警阈但 4 倍目检不可辨、
-    复合到标题底图后 MSE 11）。故事层 s8f/e2f 结尾
-    的 title_01_a 落版刻意未动。端到端驾驶 `tools/emu/drives/title_logo.py`。
+    预乘 alpha 降采样 → `build/finale_title/`，量化 MSE≈28 超告警阈但复合到标题底图后 MSE 11.8、
+    最大通道差 26，目检不可辨）。⚠ **入库的 src 已是配色后处理过的成品**（2026-09-12，
+    生成式源图比日文原版更深更浓蓝：按 title_01_a 做 Oklab 明度/浓度/色相校准，大标题明度
+    中位数 0.394→0.502、浓度 0.136→0.091，对齐原版的 0.506/0.091；只改 RGB，alpha 与字形
+    几何逐像素未动）——**不要再对它跑一次调色**，调色脚本是一次性的，不在本仓库。
+    故事层 s8f/e2f 结尾的 title_01_a 落版刻意未动。端到端驾驶 `tools/emu/drives/title_logo.py`。
     实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md（已被 docs/ops/disc-pipeline.md
     取代为现行命令面，历史记录仍有效）。
   - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。

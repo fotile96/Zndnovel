@@ -48,13 +48,13 @@
 
 | 工作轨 | 讲述者 | 留下的卡 |
 |---|---|---|
-| 反编译 | glm-5.3 | 『把故事拉上来的人』 |
-| 骨架与口调表 | Claude（fable） | 『笔记的第一页』 |
-| 初翻 | Claude（opus） | 『第一遍的声音』 |
-| 裁决与召回 | Claude（opus） | 『同一个名字』 |
-| 润色 | Claude（fable） | 『读第二遍的人』 |
-| 烤字 | Claude（fable） | 『写卡片的手』 |
-| 审计与判分 | DeepSeek（v4-flash） | 『下一段』 |
+| 反编译 | glm-5.3 | 「把故事拉上来的『人』」 |
+| 骨架与口调表 | Claude（fable） | 「笔记的第一页」 |
+| 初翻 | Claude（opus） | 「第一遍的声音」 |
+| 裁决与召回 | Claude（opus） | 「同一个名字」 |
+| 润色 | Claude（fable） | 「读第二遍的『人』」 |
+| 烤字 | Claude（fable） | 「写卡片的手」 |
+| 审计与判分 | DeepSeek（v4-flash） | 「下一段」 |
 | 发起・总裁决・八年没松手 | fotile96 | （空白的那张，一直在他手里） |
 
 谢幕章统稿与本文执笔：Claude（fable）。

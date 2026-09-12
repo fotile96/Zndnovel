@@ -1,0 +1,48 @@
+{
+  "A": {
+    "source_alpha_identical": true,
+    "native_alpha_identical": true,
+    "transparent_source_rgba_identical": true,
+    "gim_rgba_matches_indexed_png": true,
+    "gim_bytes": 41168,
+    "native_size": [
+      405,
+      89
+    ],
+    "quantizer_alpha_mae": 2.256817866555694,
+    "sha256_rgba_png": "ea0dd6456ceb13d29cce8933b8f646aa5bff246a434fce537dde00965497dee7"
+  },
+  "B": {
+    "source_alpha_identical": true,
+    "native_alpha_identical": true,
+    "transparent_source_rgba_identical": true,
+    "gim_rgba_matches_indexed_png": true,
+    "gim_bytes": 41168,
+    "native_size": [
+      405,
+      89
+    ],
+    "quantizer_alpha_mae": 2.5502288805659594,
+    "sha256_rgba_png": "bade4da52a96a2b2deb7568b197b5c5d6c05b6ab2bb51d3835a63f0f82f6ff73"
+  },
+  "C": {
+    "source_alpha_identical": true,
+    "native_alpha_identical": true,
+    "transparent_source_rgba_identical": true,
+    "gim_rgba_matches_indexed_png": true,
+    "gim_bytes": 41168,
+    "native_size": [
+      405,
+      89
+    ],
+    "quantizer_alpha_mae": 2.565959217644611,
+    "sha256_rgba_png": "0cd1eab4200e5687ad2859a3531957ccdbb712be1c0864b99a34dec7e96a1e14"
+  },
+  "Oklab_RGB_roundtrip_max_error": 1.6301368577081865e-06,
+  "zero_strength_identity": true,
+  "C_gamut": {
+    "changed_pixels": 773110,
+    "gamut_compressed_pixels": 39000,
+    "gamut_clipped_pixels": 0
+  }
+}

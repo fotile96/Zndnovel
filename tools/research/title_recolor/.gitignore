@@ -1,0 +1,5 @@
+# 运行时产物：输入快照由 snapshot_inputs.py 从 git/基座重建，venv 由 requirements.txt 重建
+inputs/
+venv/
+__pycache__/
+round*/

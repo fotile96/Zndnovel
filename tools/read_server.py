@@ -162,6 +162,11 @@ def load_edits(path) -> dict:
 _RUBY_RE = re.compile(r"<([^,>]+),([^>]+)>")
 _SPK_RE = re.compile(r"^【([^】]*)】")
 _MARKS = "「」『』≪≫≦≧"
+#: 已废止的「小＋名」称呼形 → 现行形（v19 C2 千秋、v23 推广到全族）。
+#: 只收「名＋ちゃん」这一族：`小菊`（きくちゃん 的谐音绰号译名，冻结卡 129）与
+#: 亲属称谓（お姉ちゃん→姐姐等）**不是**这个后缀，收进来就是伪报。
+_ABOLISHED_CHAN = {"小千秋": "千秋酱", "小Sakura": "Sakura酱",
+                   "小Chiaki": "Chiaki酱", "小雪乃": "雪乃酱"}
 
 
 def check_edit(jp: str, old_zh: str, new_zh: str) -> list:
@@ -177,7 +182,8 @@ def check_edit(jp: str, old_zh: str, new_zh: str) -> list:
     - `_n`/`_r` 计数：控制码是引擎的换行，多一个少一个都改版式；
     - ruby 良构与不该丢：日文注音去掉、中文拼音新增都是既定口径，所以**不与
       原文比数量**，只查括号是否成对良构、以及旧译有 ruby 而新译没有；
-    - 「小千秋」：v19 已废止的形。
+    - 「小千秋」族：v19 C2 废「小千秋」，v23 把「名＋ちゃん→小～」整族废掉
+      （`_ABOLISHED_CHAN`）。`小菊`（谐音绰号）与亲属称谓不在族内，不查。
     """
     w = []
     if new_zh != new_zh.strip():
@@ -209,8 +215,9 @@ def check_edit(jp: str, old_zh: str, new_zh: str) -> list:
         w.append("ruby 括号不成对或不良构（应形如 `<汉字,pīn yīn>`）")
     if _RUBY_RE.findall(old_zh or "") and not _RUBY_RE.findall(new_zh):
         w.append("旧译里的 ruby 注音在新译里没有了")
-    if "小千秋" in new_zh:
-        w.append("含「小千秋」——v19 已废止，现行是对白「千秋酱」／旁白「千秋」")
+    for bad, good in _ABOLISHED_CHAN.items():
+        if bad in new_zh:
+            w.append(f"含「{bad}」——已废止，现行是对白「{good}」／旁白光名")
     return w
 
 

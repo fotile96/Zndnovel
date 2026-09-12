@@ -253,6 +253,9 @@ def test_edit_is_saved_raw_not_cleaned(tmp_path):
     ("【彩野】「あ」", "【彩野】「啊」", "编【彩野】「啊」", "不在行首"),        # 14987 实测
     ("彩野は笑う。", "彩野笑了。", "彩野『笑』了。", "卡名"),                   # 2810 实测
     ("あ。", "啊。", "小千秋说的。", "小千秋"),
+    ("あ。", "啊。", "小Sakura说的。", "小Sakura"),                            # v23 全族废止
+    ("あ。", "啊。", "小Chiaki说的。", "小Chiaki"),
+    ("あ。", "啊。", "小雪乃说的。", "小雪乃"),
     ("あ。", "<啊,a>。", "啊。", "ruby"),
     ("あ。", "啊。", "<啊,a。", "不成对"),
 ])
@@ -265,6 +268,12 @@ def test_check_edit_allows_added_quote_marks_that_are_not_card_shell():
     警告文案里不该扯上卡名。"""
     w = check_edit("参ったなあ、というと", "说了句真拿你没办法", "说了句「真拿你没办法」")
     assert w and all("卡名" not in x for x in w)
+
+
+def test_check_edit_does_not_flag_kikuchan_nickname():
+    """`小菊`（きくちゃん）是谐音绰号译名、冻结卡 129 标题，v23 明确豁免——
+    它长得像「小＋名」，但不是 ちゃん 后缀族，报出来就是伪报。"""
+    assert check_edit("きくちゃんに聞いた。", "问了小菊。", "去问了小菊。") == []
 
 
 def test_check_edit_quiet_on_a_clean_edit():

@@ -147,7 +147,8 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     systemSave 字面表；旧系统数据缺键取 nil 即 false，零迁移）；主菜单 `title-logo-zh` 层据此把
     logo 从日文 `title_01_a` 换成中文 `sysgim/title_01_c`（新成员，模板 title_01_a，同 405×89，
     绘制期直载工作层；源图 `docs/finale/assets/title_01_c.src.png` → `tools/bake_finale_title.py`
-    预乘 alpha 降采样 → `build/finale_title/`，量化 MSE≈20 目检不可辨）。故事层 s8f/e2f 结尾
+    预乘 alpha 降采样 → `build/finale_title/`，量化 MSE≈24 超告警阈但 4 倍目检不可辨、
+    复合到标题底图后 MSE 11）。故事层 s8f/e2f 结尾
     的 title_01_a 落版刻意未动。端到端驾驶 `tools/emu/drives/title_logo.py`。
     实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md（已被 docs/ops/disc-pipeline.md
     取代为现行命令面，历史记录仍有效）。

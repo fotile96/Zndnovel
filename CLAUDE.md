@@ -45,7 +45,7 @@ analysis/                       上述脚本的产物归档（lua 变动后重�
   text_digest/*.txt             228 份纯文本摘要（17995 行，覆盖全部 16749 条 vms）
 skeleton/                       翻译骨架（git tag skeleton-v1 冻结）：cards.jp/（197 卡转写）+ cards.zh/（196 卡中文定稿）
                                 + 合并版 cards.{jp,zh}.yaml + anchors.yaml（120 条伏笔锚点定译）
-glossary/                       术语层：glossary.v1..v6.yaml（append-only，最高版为现行）+ active.json + speakers.json
+glossary/                       术语层：glossary.v1..vN.yaml（append-only，最高版为现行）+ active.json + speakers.json
                                 + style.md（风格与润色尺度）+ voices/ 7 份角色口调表
 layers/                         本地化改动层（基座只读，一切改动落在这里）：manifest.toml（清单：
                                 基座/账本/车道/编译器路径、overlays 施加顺序、编外脚本、gim 面映射、
@@ -58,7 +58,7 @@ guide/                          面向玩家的中文攻略（Typst）：chapter
 pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12，不钉精确版；deps: pillow/pyyaml）
 ```
 
-**翻译骨架已冻结**（`git tag skeleton-v1`，2026-07-30）：正文翻译轨的定译基准 = `skeleton/anchors.yaml`（锚点句一律逐字沿用其 zh）+ `skeleton/cards.zh/`（卡面梗概定稿，亦是前缀 compact 的『あらすじ』语料）；术语取 `glossary/` 最高版本号（现 v6）与 `active.json`，风格与润色尺度见 `glossary/style.md`。骨架文件此后视同只读，改动须走新 glossary 版本 + 召回令。
+**翻译骨架已冻结**（`git tag skeleton-v1`，2026-07-30）：正文翻译轨的定译基准 = `skeleton/anchors.yaml`（锚点句一律逐字沿用其 zh）+ `skeleton/cards.zh/`（卡面梗概定稿，亦是前缀 compact 的『あらすじ』语料）；术语取 `glossary/` 最高版本号与 `active.json`，风格与润色尺度见 `glossary/style.md`。骨架文件此后视同只读，改动须走新 glossary 版本 + 召回令。
 
 这些 lua 是反编译产物。**2026-08-31 已换基座**：来源从旧 pyluadec 产物改为 `~/pyluadec-refactor/corpus/final/`（`tools/migrate_base.py` 执行，迁移依据与验收见 `docs/ops/decompiler-base-migration-2026-08-31.md`）。新基座**每个文件重编译后与游戏原始字节码逐字节相同**（229/229，仅 `linedefined/lastlinedefined` 行号字段不同——`tools/luac_norm.py` 归零后比对可复验）；旧基座 0/229。
 

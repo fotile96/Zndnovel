@@ -29,6 +29,7 @@ from tools.build_ledger import (  # noqa: E402
     PLOT_TITLE_RE, SAVEDATA_RE, SIMPLE_EXTRA, TR_LINE_RE, VMS_RE,
 )
 from tools.layers import load_manifest  # noqa: E402
+from tools.latin_wrap import fix_latin_splits  # noqa: E402
 from tools.pipelib import read_jsonl  # noqa: E402
 from tools.resolve import resolve_map  # noqa: E402
 
@@ -119,6 +120,8 @@ def _inject_body(stem: str, lineno: int, body: str, vms_rows: dict[int, dict],
                 if row["literal"]:
                     text_zh, merged = merge_adjacent_ruby(text_zh)
                     stats["ruby_merged"] += merged
+                    text_zh, n_wrap = fix_latin_splits(text_zh, strategy=stats.get("_latin_strategy", "a"))
+                    stats["latin_wrapped"] = stats.get("latin_wrapped", 0) + n_wrap
                 new = lua_quote(text_zh) if row["literal"] else text_zh
                 stats["vms"] += 1
                 return _replace_span(body, m.start(3), m.end(3), new)
@@ -151,12 +154,14 @@ def _sub_extra(body: str, m, group: int, key: str, extra: dict[str, str],
         return body  # savedataTitle 第二参裁定不译，原样留空
     if '"' in text_zh or "\\" in text_zh:
         raise SystemExit(f"extra {key} 含引号/反斜杠，需人工处理: {text_zh!r}")
+    text_zh, n_wrap = fix_latin_splits(text_zh, strategy=stats.get("_latin_strategy", "a"))
+    stats["latin_wrapped"] = stats.get("latin_wrapped", 0) + n_wrap
     stats["extra"] += 1
     return _replace_span(body, m.start(group), m.end(group), text_zh)
 
 
 def inject_tree(base_dir: Path, ledger_rows: list[dict], zh: dict[int, str],
-                extra: dict[str, str]) -> tuple[dict[str, str], dict]:
+                extra: dict[str, str], latin_strategy: str = "a") -> tuple[dict[str, str], dict]:
     """注入整棵基座，返回 (文件名→注入后源, 统计)。行数与行号严格不变。
 
     ⚠ 不做字体改写、不编译、不写盘——那些分别是 layers/overlays/fonts.toml 与
@@ -166,7 +171,7 @@ def inject_tree(base_dir: Path, ledger_rows: list[dict], zh: dict[int, str],
     for row in ledger_rows:
         by_file.setdefault(row["file"], {})[row["line"]] = row
     stats = dict(vms=0, vms_missing=0, vms_unledgered=0, extra=0, extra_missing=0,
-                 ruby_merged=0)
+                 ruby_merged=0, latin_wrapped=0, _latin_strategy=latin_strategy)
     out: dict[str, str] = {}
     for f in sorted(Path(base_dir).glob("*.lua")):
         out[f.name] = inject_text(f.stem, f.read_text(encoding="utf-8"),

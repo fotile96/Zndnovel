@@ -125,7 +125,7 @@ def test_real_layers_apply_on_registered_source():
     assert {r["state"] for r in ep.check(out, patches)} == {"applied"}
     img = ep.Image(out)
     head = out[img.offset(0x663E0, 130):img.offset(0x663E0, 130) + 130]
-    assert head.rstrip(b"\0").decode() == "〉》」』】’”ー？！・、。，：；）…—―．～·≫≧ェッゃ＝"
+    assert head.rstrip(b"\0").decode() == "〉》」』】’”ー？！・、。，：；）…—―．～·≫≧ェッゃ＝-"
     tail = out[img.offset(0x66462, 34):img.offset(0x66462, 34) + 34]
     assert tail.rstrip(b"\0").decode() == "〈《「『【‘“（≪≦"
     assert out[img.offset(0xA508, 4):img.offset(0xA508, 4) + 4] == bytes.fromhex("80301200")

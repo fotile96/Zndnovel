@@ -1,4 +1,5 @@
 """guide/ 攻略：generated/ 与定译数据源无漂移；有 typst 时还能编译（定译断言在编译期）。"""
+import json
 import shutil
 import subprocess
 import sys
@@ -21,8 +22,26 @@ def test_generated_matches_sources():
 
 
 def test_hand_order_matches_crd_scripts():
-    """多卡谜题的「依次递 A、B、C」必须与 snr_crd_N.lua 里 selectCardObj 后的比较顺序一致（2026-09-12 用户反馈 crd_35 写反）。"""
+    """凡要递卡的谜题，正文「递 …」必须与 snr_crd_N.lua 里 selectCardObj 后的比较顺序逐张一致。
+
+    2026-09-12 用户反馈 crd_35 顺序写反；2026-09-13 又反馈 crd_30 漏掉开头的卡 1。"""
     assert build_guide.check_hand_order() == []
+
+
+def test_card1_is_a_real_answer():
+    """卡 1 是 crd_2/30/108 的合法答案，不是哨兵值。
+
+    钉住 2026-09-13 的根因：提取器曾用「卡号 > 1」筛掉错卡计数器的 0/1，把卡 1 一并误伤。
+    正确做法是绑定 oCard.selectCardObj() 的返回变量。这里同时钉 build_guide 的有序口径
+    与 data/dag.json 的成员口径，两边都不许再回退。"""
+    order = build_guide.expected_hand_order()
+    assert order[2] == [1]
+    assert order[108] == [1]
+    assert order[30][0] == 1, "crd_30 第一步递的就是卡 1"
+
+    dag = json.loads((REPO / "data/dag.json").read_text(encoding="utf-8"))
+    for n in (2, 30, 108):
+        assert 1 in dag["crds"][str(n)]["answers"], f"data/dag.json 的 crd_{n} 又把卡 1 滤掉了，重跑 tools/build_dag.py"
 
 
 def test_no_encore_mention():

@@ -76,8 +76,17 @@ Typst 把紧跟的 `(`/`[` 当参数表；全角括号安全。`#route-box[#stor
    Game Over 用 `#gameover`，章节完成用 `#complete`。
 3. 递卡顺序**以 crd 脚本里 `oCard.selectCardObj` 之后的比较顺序为准**（`data/dag.json` 的
    `answers` 是集合、无序——2026-09-12 首版正是因此写反了 4 处）。`build_guide.check_hand_order()`
-   会把每个多卡谜题的 make-cards 行与脚本逐张比对，`pdf`/`check`/`tests/test_guide.py` 都跑它，
-   顺序不对拒绝出盘。写正文时先跑 `uv run python -c "import sys; sys.path.insert(0,'tools'); import build_guide; print(build_guide.expected_hand_order()[35])"` 之类看期望序列。
+   把**每个要递卡的谜题**（103 个：80 单卡 + 23 多卡）的 make-cards 行与脚本逐张比对，
+   `pdf`/`check`/`tests/test_guide.py` 都跑它，对不上拒绝出盘。写正文时先跑
+   `uv run python -c "import sys; sys.path.insert(0,'tools'); import build_guide; print(build_guide.expected_hand_order()[35])"` 看期望序列。
+
+   ⚠ **卡 1 不是哨兵**（2026-09-13 用户反馈 crd_30 漏掉第一张）：识别答案卡只能靠**绑定
+   `oCard.selectCardObj()` 的返回变量**，绝不能用「卡号 > 1」去筛。错卡计数器确实会跟 0/1 比，
+   但那是另一个变量，绑定后根本进不来；而卡 1『有个女孩子来学校的故事』是 crd_2/30/108 的
+   真答案。这条错误约定当时同时存在于三处（`build_dag.parse_crd_answers` 的 `- {0,1}`、
+   本工具的 `> 1`、`extract_crd.py` 的 docstring），已一并修正，回归测试见
+   `tests/test_guide.py::test_card1_is_a_real_answer`。校验只覆盖 make-cards 行——**散文式
+   写递卡会逃过检查**（crd_2 当初即如此），要递卡就写成 make-cards 表。
 4. `uv run python tools/build_guide.py` 出盘，`pdftoppm -png -r 60 -f N -l N` 抽两页看版式。
 5. 提交：工具/模板改动与正文改动分开 commit，`dist/*.pdf` 随正文 commit 一起更新。
 

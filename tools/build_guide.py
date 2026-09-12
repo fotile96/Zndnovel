@@ -231,7 +231,7 @@ def render_data_typ(cards, options, scene_titles, positions) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_cards_table(cards, dag, scene2card, positions) -> str:
+def render_cards_table(cards, dag, scene2card, positions, hand_order) -> str:
     """附录 A：196 张卡一览。"""
     card2scene = defaultdict(list)
     for sid, n in scene2card.items():
@@ -267,7 +267,8 @@ def render_cards_table(cards, dag, scene2card, positions) -> str:
         c = dag["crds"].get(str(n), {})
         stub = c.get("stub", False)
         req = "、".join(name(x) for x in c.get("req", []))
-        ans = "、".join(name(x) for x in c.get("answers", []))
+        # 递卡按剧情提问顺序列出（dag.json 的 answers 只是集合，没有顺序）
+        ans = "、".join(name(x) for x in hand_order.get(n, []))
         runs = c.get("runs", [])
         if stub:
             src = set(granted_by.get(n, []))
@@ -336,7 +337,7 @@ def generate() -> dict[str, str]:
     return {
         "options.json": json.dumps(options, ensure_ascii=False, indent=1) + "\n",
         "data.typ": render_data_typ(cards, options, scene_titles, positions),
-        "cards-table.typ": render_cards_table(cards, dag, scene2card, positions),
+        "cards-table.typ": render_cards_table(cards, dag, scene2card, positions, expected_hand_order()),
         "options-table.typ": render_options_table(options, dag, scene_titles),
     }
 
@@ -363,35 +364,46 @@ def do_check_gen() -> bool:
 # ----------------------------------------------------------------------------
 # 递卡顺序校验：正文 make-cards 行里的「依次递 A、B、C」必须与 crd 脚本的比较顺序一致
 # ----------------------------------------------------------------------------
-SELECT_BLOCK_RE = re.compile(r"selectCardObj\(\)(.*?)(?=selectCardObj\(\)|\Z)", re.S)
-CMP_RE = re.compile(r"== (\d+) then")
+CARD_SEL_RE = re.compile(r"^\s*(?:local\s+)?([A-Za-z_]\w*)\s*=\s*oCard\.selectCardObj\(\)")
+CARD_CMP_RE = re.compile(r"if ([A-Za-z_]\w*) == (\d+) then")
 MAKE_ROW_RE = re.compile(r'\("([^"]+)", \[(.*?)\](?:, (\d+))?\)')
 CARD_REF_RE = re.compile(r'#card\("([^"]+)"')
 
 
 def expected_hand_order() -> dict[int, list[int]]:
-    """crd → 依次要递的卡号。每个 oCard.selectCardObj() 之后第一个 `== N then`（N>1）就是该步接受的卡；
-    data/dag.json 的 answers 是集合，顺序不可信，攻略正文只能以这里为准。"""
+    """crd → 依次要递的卡号（做卡剧情里的提问顺序）。
+
+    口径：绑定 `oCard.selectCardObj()` 的返回变量，取该变量之后第一个 `== N then`。
+    ⚠ 不能用「N > 1」筛掉哨兵——**卡 1 是 crd_2/30/108 的合法答案**（2026-09-13 用户反馈
+    crd_30 漏掉开头的卡 1，根因即此）。错卡计数器是另一个变量，绑定后本就进不来。
+    也不能用 data/dag.json 的 answers：那是集合，只有成员没有顺序。"""
     out = {}
     for f in sorted((REPO / "lua_scripts").glob("snr_crd_*.lua")):
         n = int(re.search(r"crd_(\d+)", f.name).group(1))
-        ids = []
-        for m in SELECT_BLOCK_RE.finditer(f.read_text(encoding="utf-8")):
-            cmp = [int(x) for x in CMP_RE.findall(m.group(1)) if int(x) > 1]
-            if cmp:
-                ids.append(cmp[0])
+        hand_vars, ids, pending = set(), [], False
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if m := CARD_SEL_RE.match(line):
+                hand_vars.add(m.group(1))
+                pending = True
+                continue
+            if pending and (m := CARD_CMP_RE.search(line)) and m.group(1) in hand_vars:
+                ids.append(int(m.group(2)))
+                pending = False
         if ids:
             out[n] = ids
     return out
 
 
 def check_hand_order(cards: dict[int, dict] | None = None) -> list[str]:
-    """返回不一致说明列表（空 = 全部一致）。只查多卡谜题；正文里提到的前置卡会出现在序列前面，故比对尾段。"""
+    """返回不一致说明列表（空 = 全部一致）。
+
+    覆盖**所有需要递卡的谜题**（含只递一张的）：单卡也查，才能抓住把要递卡的谜题写成
+    「无需递卡」的情形（crd_108 即如此漏掉）。正文里可能先提前置卡，故只比对「递 …。」那一句。"""
     cards = cards or load_cards()
     title2id = {}
     for n in sorted(cards):
         title2id.setdefault(cards[n]["title_zh"], n)
-    expected = {n: s for n, s in expected_hand_order().items() if len(s) > 1}
+    expected = expected_hand_order()
     problems, seen = [], set()
     for f in sorted((GUIDE / "chapters").glob("*.typ")):
         for m in MAKE_ROW_RE.finditer(f.read_text(encoding="utf-8")):
@@ -411,7 +423,7 @@ def check_hand_order(cards: dict[int, dict] | None = None) -> list[str]:
             if got != exp:
                 problems.append(f"{f.name} crd_{n}『{title}』递卡顺序应为 {exp}，正文写的是 {got}")
     for n in sorted(set(expected) - seen):
-        problems.append(f"crd_{n}『{cards[n]['title_zh']}』是多卡谜题但正文没有 make-cards 行")
+        problems.append(f"crd_{n}『{cards[n]['title_zh']}』要递卡但正文没有 make-cards 行")
     return problems
 
 

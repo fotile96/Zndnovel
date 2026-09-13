@@ -8,7 +8,7 @@
 
 == 章节 3B
 
-#route-box[#frag][
+#frag-box[
   #make-cards(("选择：烟花之下，与Yuichi", [依次递 #card("章节 3A 梗概")、#card("章节 4B 梗概")。做成后 #card("想一直在一起") 之后出现选择]))
 ]
 
@@ -16,10 +16,10 @@
   #card("选择：烟花之下，与Yuichi") 里的 #opt("不接吻") 只在本轮讲过章节 4 的 #card("不是我") 时才出现。所以不能从章节 3 内部直接走，要从章节 4 折回。
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("不是我") #arrow 回到 #card("田径部的传闻") #arrow #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……") 选 #opt("想一直在一起") #arrow #card("选择：烟花之下，与Yuichi") 选 #opt("不接吻") #arrow #card("不与Yuichi接吻") #arrow #complete（章节 3B）
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(("不与Yuichi接吻", [章节终卡 #cn(91)。无需递卡]))
 ]
 

@@ -12,30 +12,30 @@
 
 == 教程
 
-#route-box[#story][
+#story-box[
   片头 #arrow #card("夏日清晨，通往高中的上学路")。这一场固定耗时 100，讲完沙漏直接满，进入片段模式教程。
 ]
-#route-box[#frag][
+#frag-box[
   按提示做出第一张卡。做完播放 OP 动画，主菜单从此出现 Fragment。
   #make-cards(("夏日清晨，通往高中的上学路", [递 #card("有个女孩子来学校的故事")]))
 ]
 
 == 第一轮：放学后的约定
 
-#route-box[#story][
+#story-box[
   #card("放学后的约定")（自动入手 #card("汉堡")、#card("黑板上方的时钟")）#arrow #card("选择：放学后的约定")：此时只有 #opt("想不起约定") 可选 #arrow #card("想不起约定")（入手 #card("小菊")）#arrow #card("想起约定")（入手 #card("和那个女孩见面的约定")）#arrow #card("早晨的教室")（入手 #card("夫妻吵架")）#arrow #card("章节 1：Ayano") #arrow #card("午休的教室")，耗时 100，#timeover。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("放学后的约定", [递 #card("汉堡")]),
     ("选择：放学后的约定", [递 #card("和那个女孩见面的约定")。做成后该场景出现 #opt("约好了") 与 #opt("没有约")]),
   )
 ]
 
-#route-box[#story][
+#story-box[
   回到 #card("选择：放学后的约定") 选 #opt("约好了") #arrow #card("约好了")（入手 #card("橡皮")）#arrow #card("早晨的教室") #arrow #card("章节 1：Ayano") #arrow #card("午休的教室")（入手 #card("Yukari老师")）。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("约好了", [递 #card("小菊")]),
     ("早晨的教室", [递 #card("黑板上方的时钟")]),
@@ -43,10 +43,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   再回到分歧点，分别走一遍 #opt("没有约") 与 #opt("想不起约定")。#opt("没有约") 在没有 #card("章节 1 梗概") 时会接回 #card("想起约定")；这两条支线都只是为了把场景讲出来好做卡。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("没有约", [递 #card("橡皮")]),
     ("想起约定", [递 #card("夫妻吵架")]),
@@ -57,10 +57,10 @@
 
 == 第二轮：Yuichi 的答卷
 
-#route-box[#story][
+#story-box[
   #card("午休的教室") #arrow #card("选择：Yuichi的答卷")：默认只有 #opt("岔开答卷的话题") #arrow #card("岔开答卷的话题") #arrow #card("开始上课") #arrow #card("放学后") #arrow 因为这一轮没讲过「羡慕」，进入 #card("探索：放学后的学校")。探索先不用做完，沙漏满了就回片段模式。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("岔开答卷的话题", [递 #card("章节 1：Ayano")]),
     ("开始上课", [递 #card("Yukari老师")]),
@@ -69,10 +69,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   选 #opt("对答卷表示羡慕") #arrow #card("对答卷表示羡慕") #arrow #card("开始上课") #arrow #card("放学后") #arrow 这一轮讲过「羡慕」，Ayano 去了快餐店：#card("Yuichi与快餐")（入手 #card("Yuichi")）#arrow #card("选择：回学校")：默认只有 #opt("回学校") #arrow #card("放学后的钱仙")（入手 #card("钱仙")）#arrow 往下讲到沙漏满。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("对答卷表示羡慕", [递 #card("汉堡")]),
     ("Yuichi与快餐", [递 #card("对答卷表示羡慕")]),
@@ -82,10 +82,10 @@
 
 == 第三轮：探索放学后的学校，以及第一个 Game Over
 
-#route-box[#story][
+#story-box[
   回到 #card("选择：Yuichi的答卷") 选 #opt("岔开答卷的话题")，走到 #card("探索：放学后的学校")。地图上有教室、走廊、天台、中庭、操场五个点，*每个点各去两次*（第三次只会重复），五个点都到过两次后探索自动结束，入手 #card("总是马上就回家") 与 #card("天台", id: 119)。之后 #card("放学后的钱仙") #arrow #card("与她的相遇") #arrow #card("不好的结果")（入手 #card("将来的职业")）#arrow #card("回过神来的地方")（入手 #card("回过神来已在天台")）#arrow #card("选择：声音的主人")：默认只有 #opt("……") #arrow #card("她的名字")（入手 #card("Sakura")）#arrow 这一轮没有「羡慕」，Yuichi 不在场：#card("约定不守可不行")（入手 #card("从天台坠落")）#arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("探索：放学后的学校", [卡 20。递 #card("天台", id: 119)], 20),
     ("与她的相遇", [递 #card("和那个女孩见面的约定")]),
@@ -102,19 +102,19 @@
 
 == 第四轮：章节 1 完成
 
-#route-box[#story][
+#story-box[
   #card("选择：Yuichi的答卷") 选 #opt("对答卷表示羡慕") #arrow #card("Yuichi与快餐") #arrow #card("选择：回学校") 选 #opt("回学校") #arrow #card("放学后的钱仙") #arrow … #arrow #card("选择：声音的主人") 选 #opt("……") #arrow #card("她的名字") #arrow #card("Yuichi救下Ayano") #arrow #card("有谁在呼唤") #arrow #complete
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("Yuichi救下Ayano", [递 #card("Yuichi")]),
     ("选择：回学校", [递 #card("从天台坠落")。做成后出现 #opt("回家")]),
   )
 ]
-#route-box[#story][
+#story-box[
   回到 #card("选择：回学校") 选 #opt("回家") #arrow #card("一如往常的生活") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("一如往常的生活", [递 #card("总是马上就回家")]),
     ("有谁在呼唤", [章节终卡 #cn(30)。依次递 #card("有个女孩子来学校的故事")、#card("夏日清晨，通往高中的上学路")、#card("章节 1：Ayano")、#card("放学后的钱仙")、#card("一如往常的生活")、#card("约定不守可不行")、#card("Yuichi救下Ayano")]),

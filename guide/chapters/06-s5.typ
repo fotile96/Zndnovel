@@ -8,13 +8,13 @@
 
 == 进入章节 5，交出全部梗概
 
-#route-box[#frag][
+#frag-box[
   #make-cards(("选择：声音的主人", [递 #card("总有一天你会看到的故事。")。做成后出现 #opt("Sakura同学")]))
 ]
-#route-box[#story][
+#story-box[
   按章节 1 的正常路线讲到 #card("选择：声音的主人")，选 #opt("Sakura同学") #arrow #card("Sakura同学")（耗时 100）。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(("Sakura同学", [卡 177。需先持有 #card("选择：声音的主人")；依次递 #card("章节 1 梗概")、#card("章节 2 梗概")、#card("章节 3A 梗概")、#card("章节 3B 梗概")、#card("章节 4A 梗概")、#card("章节 4B 梗概")、#card("总有一天你会看到的故事。")]))
 ]
 
@@ -48,16 +48,16 @@
 
 中途沙漏满了就去片段模式做 #card("中庭的Ayano同学")，它是本章唯一需要在片段模式做的日记场景：
 
-#route-box[#frag][
+#frag-box[
   #make-cards(("中庭的Ayano同学", [依次递 #card("Sakura的日记：9月13日")、#card("Sakura的日记：7月（未写完）")]))
 ]
 
 == 章节 5 完成
 
-#route-box[#story][
+#story-box[
   2 月 13 日的递卡全部正确 #arrow #card("章节 5：Ayano") #arrow #card("Ayano的回信：9月25日") #arrow #card("Ayano的回信：10月30日") #arrow #card("2月，中庭") #arrow #complete
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(("2月，中庭", [章节终卡 #cn(193)。依次递 #card("Sakura的日记：9月13日")、#card("中庭的Ayano同学")、#card("Ayano的回信：9月25日")]))
 ]
 

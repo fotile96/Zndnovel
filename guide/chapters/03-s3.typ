@@ -10,10 +10,10 @@
 
 章节 2 里任何回到「又是一如往常的生活」的分歧，在持有 #card("章节 2 梗概") 后都改为跳入章节 3。最短的走法是 #card("选择：周末的计划") 选 #opt("不去")；原博客用的是 #card("选择：对咒语的兴趣") 选 #opt("没什么特别的")，效果相同。
 
-#route-box[#story][
+#story-box[
   #card("午休的走廊") #arrow #card("选择：楼梯的传闻")（耗时 100）：默认只有 #opt("不知道") #arrow #card("选择：颇有意思的传闻")：默认只有 #opt("告诉我") #arrow #card("选择：传闻是指")（耗时 100）：默认 #opt("没兴趣") 与 #opt("不知道") 都进 #card("对传闻没兴趣") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("午休的走廊", [递 #card("课间休息")]),
     ("选择：楼梯的传闻", [无需递卡。做成后出现 #opt("告诉我")]),
@@ -22,10 +22,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：传闻是指") 选 #opt("闹鬼楼梯") #arrow #card("闹鬼楼梯") #arrow #card("选择：传闻的事……")：默认只有 #opt("随口打听") 与 #opt("姑且问问")，两项都只是各讲一小段就回到同一个选择，把两项都选一遍。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("闹鬼楼梯", [需先持有 #card("选择：传闻是指")；无需递卡]),
     ("随口打听", [无需递卡]),
@@ -46,10 +46,10 @@
 
 教室可以随时去，只是看看 Yuichi 的书包还在，与进度无关。
 
-#route-box[#story][
+#story-box[
   #card("选择：Yuichi的身影")：默认只有 #opt("跟上去") #arrow #card("跟上去") #arrow #card("亲吻")（入手 #card("老师不可信")）#arrow #card("章节 3：Ayano")（耗时 100）#arrow #card("飞奔离去的Ayano") #arrow #card("前往楼梯") #arrow #card("Yuichi的手") #arrow #card("天台", id: 85) #cn(85) #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("跟上去", [递 #card("夜晚的走廊")]),
     ("亲吻", [无需递卡]),
@@ -65,10 +65,10 @@
 
 == 不去图书室
 
-#route-box[#story][
+#story-box[
   #card("选择：Yuichi的身影") 选 #opt("不管他") #arrow #card("不管他") #arrow #card("田径部的传闻") #arrow #card("选择：要去的地方")：默认只有 #opt("前往图书室")，又会撞见接吻 #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("不管他", [递 #card("Yuichi的背影")]),
     ("田径部的传闻", [依次递 #card("小菊")、#card("想不起约定")]),
@@ -76,10 +76,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……")：默认只有 #opt("但总有一天会分开") #arrow #card("但总有一天会分开") #arrow 再次目击 #card("亲吻") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("与Yuichi前往楼梯", [递 #card("田径部的传闻")]),
     ("但总有一天会分开", [递 #card("亲吻")]),
@@ -89,10 +89,10 @@
 
 == 章节 3A 完成
 
-#route-box[#story][
+#story-box[
   #opt("不管他") #arrow #opt("前往楼梯") #arrow #opt("想一直在一起") #arrow #card("想一直在一起") #arrow 未持有 #card("章节 4B 梗概") 时直接 #card("与Yuichi接吻") #arrow #complete（章节 3A）
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("想一直在一起", [无需递卡]),
     ("与Yuichi接吻", [章节终卡 #cn(89)。需先持有 #card("对传闻没兴趣") 与 #card("Yuichi的手")；依次递 #card("午休的走廊")、#card("闹鬼楼梯")、#card("探索：放学后的学校", id: 74) #cn(74)、#card("不管他")、#card("田径部的传闻")、#card("与Yuichi前往楼梯")、#card("想一直在一起")]),

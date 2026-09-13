@@ -8,10 +8,10 @@
 
 == 进入章节 4，先折回一次章节 3
 
-#route-box[#story][
+#story-box[
   #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("口袋里的字条") #arrow #card("选择：天台的传闻")：默认只有 #opt("不是我") #arrow #card("不是我") #arrow 回到章节 3 的 #card("田径部的传闻")，之后按 3A 的走法讲完即可。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("口袋里的字条", [递 #card("选择：Yuichi的身影")]),
     ("不是我", [递 #card("田径部的传闻")]),
@@ -19,10 +19,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：天台的传闻") 选 #opt("有点在意呢") #arrow #card("有点在意呢")（耗时 100）#arrow #card("章节 4：Yuichi")（耗时 100）#arrow #card("图书室的老师") #arrow #card("好像在哪里见过的少女") #arrow #card("选择：看到字条时")：默认只有 #opt("没有兴趣") #arrow #card("没有兴趣") #arrow #card("探索：Ayano怎么了？")
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("有点在意呢", [递 #card("章节 3A 梗概")]),
     ("章节 4：Yuichi", [需先持有 #card("有点在意呢")；无需递卡]),
@@ -36,10 +36,10 @@
 
 地图七个点：教室、走廊、天台、音乐室、美术室、中庭、操场。*每个点各去两次*，然后第三次去走廊，探索结束。
 
-#route-box[#story][
+#story-box[
   探索结束 #arrow #card("走廊上的Yuichi") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("走廊上的Yuichi", [递 #card("约定不守可不行")]),
     ("探索：Ayano怎么了？", [递 #card("走廊上的Yuichi")]),
@@ -49,10 +49,10 @@
 
 == 字条、课桌、笔记本
 
-#route-box[#story][
+#story-box[
   #card("选择：看到字条时") 选 #opt("选择：字条的内容") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("觉得真无聊", [无需递卡]),
     ("翻倒的课桌", [递 #card("没有兴趣")]),
@@ -61,20 +61,20 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：字条的内容") 选 #opt("试着相信也无妨") #arrow #card("试着相信也无妨") #arrow #card("翻倒的课桌") #arrow #card("选择：Ayano的课桌")：默认只有 #opt("天台的人影") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("试着相信也无妨", [无需递卡]),
     ("选择：Ayano的课桌", [需先持有 #card("选择：字条的内容")；递 #card("试着相信也无妨")。做成后出现 #opt("检查课桌")]),
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：Ayano的课桌") 选 #opt("检查课桌") #arrow #card("查看Ayano的课桌") #arrow #card("选择：Ayano的笔记本")：默认只有 #opt("寻找Ayano") #arrow #card("天台的人影") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("查看Ayano的课桌", [无需递卡]),
     ("选择：Ayano的笔记本", [需先持有 #card("好像在哪里见过的少女")；依次递 #card("有点在意呢")、#card("Sakura")、#card("选择：看到字条时")、#card("试着相信也无妨")、#card("查看Ayano的课桌")。做成后出现 #opt("翻看笔记本")]),
@@ -83,10 +83,10 @@
 
 == 探索：Ayano 的下落，以及 4A 结局
 
-#route-box[#story][
+#story-box[
   #card("选择：Ayano的笔记本") 选 #opt("翻看笔记本") #arrow #card("写在笔记本上的名字") #arrow #card("探索：Ayano的下落")：地图八个点（比上次多一个图书室），*每个点各去两次*，然后第三次去天台 #arrow #card("选择：将Ayano――")：默认只有 #opt("抓住手臂") #arrow #card("抓住手臂") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("写在笔记本上的名字", [依次递 #card("不好的结果")、#card("橡皮上写名字")]),
     ("抓住手臂", [递 #card("Yuichi的背影")]),
@@ -95,10 +95,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：将Ayano――") 选 #opt("拉回来") #arrow #card("Ayano恢复意识") #arrow #card("选择：放学后的学校")：默认只有 #opt("回家") #arrow #card("消失的Sakura") #arrow #complete（章节 4A）
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("Ayano恢复意识", [递 #card("Yuichi救下Ayano")]),
     ("消失的Sakura", [章节终卡 #cn(176)。依次递 #card("选择：Ayano的笔记本")、#card("写在笔记本上的名字")、#card("Ayano恢复意识")、#card("有谁在呼唤")]),
@@ -109,13 +109,13 @@
 
 == 4B：等 Sakura
 
-#route-box[#frag][
+#frag-box[
   #make-cards(("选择：放学后的学校", [递 #card("章节 4A 梗概")。做成后出现 #opt("等Sakura")]))
 ]
-#route-box[#story][
+#story-box[
   #card("选择：放学后的学校") 选 #opt("等Sakura") #arrow #card("章节 4：Ayano")（耗时 100）#arrow #card("等Sakura") #arrow #complete（章节 4B）
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("章节 4：Ayano", [无需递卡]),
     ("等Sakura", [章节终卡 #cn(175)。需先持有 #card("消失的Sakura")；无需递卡]),

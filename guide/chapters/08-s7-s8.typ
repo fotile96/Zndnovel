@@ -28,10 +28,10 @@
 
 == 章节 8
 
-#route-box[#story][
+#story-box[
   按章节 4 的路线讲到 #card("选择：将Ayano――")，持有 #card("章节 7 梗概") 后出现第三项 #opt("恢复原样") #arrow #card("我的话语") #arrow #card("章节 8：Yuichi、直哉") #arrow #card("围栏的另一侧") #arrow #card("谁都没见过的晚霞") #arrow #complete
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(("谁都没见过的晚霞", [章节终卡 #cn(94)。递 #card("章节 7 梗概")]))
 ]
 

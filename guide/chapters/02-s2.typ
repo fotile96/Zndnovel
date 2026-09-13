@@ -8,27 +8,27 @@
 
 == 进入章节 2
 
-#route-box[#story][
+#story-box[
   #card("选择：放学后的约定") 选 #opt("没有约") #arrow #card("没有约") #arrow 因持有 #card("章节 1 梗概")，跳到章节 2。首次进入时既没有 #card("又是一如往常的生活") 也没有 #card("章节 2 梗概")，直接播 #card("又是一如往常的生活") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(("又是一如往常的生活", [递 #card("一如往常的生活")]))
 ]
 
-#route-box[#story][
+#story-box[
   再走一次 #opt("没有约")。这次持有 #card("又是一如往常的生活")，进入 #card("夏天的计划")（耗时 100）#arrow #card("选择：周末的计划")：默认只有 #opt("不去") #arrow 又回到 #card("又是一如往常的生活") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("夏天的计划", [无需递卡]),
     ("选择：周末的计划", [递 #card("又是一如往常的生活")。做成后出现 #opt("去")]),
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：周末的计划") 选 #opt("去") #arrow #card("课间休息") #arrow #card("选择：对咒语的兴趣")：默认三项 #opt("没什么特别的")、#opt("考试拿满分")、#opt("唱歌变好听") 都通向 #card("Sakura的叹息") #arrow #gameover
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("课间休息", [依次递 #card("放学后的钱仙")、#card("她的名字")]),
     ("Sakura的叹息", [递 #card("又是一如往常的生活")]),
@@ -38,7 +38,7 @@
 
 == 主线：Ayano 的心意与谜题
 
-#route-box[#story][
+#story-box[
   #card("选择：对咒语的兴趣") 选 #opt("想两情相悦") #arrow #card("章节 2：Ayano")（耗时 100）#arrow #card("与Yuichi的关系") #arrow #card("选择：对Yuichi的心意")：默认只有 #opt("明确说喜欢") #arrow #card("喜欢Yuichi") #arrow #card("选择：谜题")：未持选择卡时直接进入 Sakura 出的两道谜题。*第一次请故意答错至少一题*，答错走 #card("谜题答错") #arrow #card("出去玩的地方") #arrow #card("选择：出去玩的地方")：默认只有 #opt("游泳池") #arrow #card("游泳池的约定") #arrow #card("图书室") #arrow #card("选择：放学后的咒语")（耗时 100）。
 ]
 
@@ -54,7 +54,7 @@
   答对后入手关键词卡 #card("Sakura同学的谜题")。
 ]
 
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("章节 2：Ayano", [递 #card("故事的主人公")]),
     ("与Yuichi的关系", [无需递卡]),
@@ -64,10 +64,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #card("选择：对Yuichi的心意") 选 #opt("含糊其辞") #arrow #card("对Yuichi嘛……") #arrow 谜题这次全部答对 #arrow #card("谜题答对") #arrow #card("选择：出去玩的地方") 选 #opt("游泳池") #arrow 继续到沙漏满。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("对Yuichi嘛……", [无需递卡]),
     ("出去玩的地方", [递 #card("夏天的计划")]),
@@ -83,10 +83,10 @@
 
 #card("选择：放学后的咒语") 的选项集取决于*本轮*谜题结果：路线里有 #card("谜题答错") 时只有 #opt("边看夕阳边听歌") 与 #opt("教科书背面写名字")，答对（或用选择卡指定 #opt("谜题答对")）才出现 #opt("橡皮上写名字")。而只有 #opt("橡皮上写名字") 能把故事讲到夜晚。
 
-#route-box[#story][
+#story-box[
   #opt("明确说喜欢") #arrow #opt("谜题答对") #arrow #opt("游泳池") #arrow #opt("橡皮上写名字") #arrow #card("橡皮上写名字") #arrow #card("选择：咒语的效果")：默认只有 #opt("多半吧……") 与 #opt("觉得做了也不亏")，两条都到不了夜晚：讲过 #card("喜欢Yuichi") 时进 #card("回荡在走廊的声音")（入手 #card("中庭的人群")），否则进 #card("Yuichi的背影")，都是 #gameover。把这两条各走一遍，含糊其辞的那条用 #opt("含糊其辞") 进入。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("橡皮上写名字", [递 #card("约好了")]),
     ("觉得多半灵验", [无需递卡]),
@@ -98,10 +98,10 @@
   )
 ]
 
-#route-box[#story][
+#story-box[
   #opt("明确说喜欢") #arrow #opt("谜题答对") #arrow #opt("游泳池") #arrow #opt("橡皮上写名字") #arrow #opt("绝对灵验") #arrow #card("觉得绝对灵验") #arrow #card("咒语完成") #arrow 三个条件（喜欢、橡皮、绝对灵验）齐备，进入 #card("夜晚的走廊")（耗时 100）#arrow #card("游泳池") #arrow #card("咒语的效果") #arrow #complete
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("觉得绝对灵验", [无需递卡]),
     ("夜晚的走廊", [依次递 #card("Sakura的叹息")、#card("谜题答对")、#card("橡皮上写名字")、#card("觉得绝对灵验")]),
@@ -112,10 +112,10 @@
 
 == 收尾：天象馆与另一种咒语
 
-#route-box[#story][
+#story-box[
   #card("选择：出去玩的地方") 选 #opt("天象馆") #arrow #card("天象馆的约定") #arrow 咒语照旧选 #opt("橡皮上写名字")、#opt("绝对灵验") #arrow #card("夜晚的走廊") #arrow #card("天象馆") #arrow #card("咒语的效果")。再单独走一次 #card("选择：放学后的咒语") 选 #opt("边看夕阳边听歌")、效果选 #opt("多半吧……")，讲出 #card("咒语，成功了……？")。
 ]
-#route-box[#frag][
+#frag-box[
   #make-cards(
     ("天象馆的约定", [无需递卡]),
     ("天象馆", [无需递卡]),

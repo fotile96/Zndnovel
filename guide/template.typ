@@ -29,13 +29,17 @@
   let p = card-pos.at(str(id))
   box(text(font: f-sans, size: 0.72em, fill: c-gray)[#p.at(0)行#p.at(1)列])   // box：不许在数字与「行/列」之间折行
 }
+// 格位的全局开关：故事模式框里不需要找卡（不递卡），由 story-box 临时关掉
+#let show-cell-pos = state("show-cell-pos", true)
 // 卡名。同名卡（『探索：放学后的学校』20/74、『天台』85/119）用 id: 指定；pos: false 只出名字
 #let card(name, id: none, pos: true) = {
   assert(card-titles.at(name, default: none) != none,
     message: "未知卡名（不在 skeleton/cards.zh.yaml 定译里）: " + name)
   let n = if id != none { id } else { card-titles.at(name) }
   text(fill: c-card)[『#name』]
-  if pos [#h(0.1em)#box[#cell-swatch(n)#h(0.12em)#cell-pos(n)]]
+  if pos {
+    context if show-cell-pos.get() [#h(0.1em)#box[#cell-swatch(n)#h(0.12em)#cell-pos(n)]]
+  }
 }
 #let opt(name) = {
   assert(option-texts.at(name, default: none) != none,
@@ -64,7 +68,7 @@
 #let arrow = sym.arrow.r
 
 // 路线框：一段「故事模式」或「片段模式」的操作序列
-#let route-box(title, body) = block(
+#let route-box(title, body, show-pos: true) = block(
   width: 100%, fill: c-soft, stroke: (left: 2.5pt + c-accent),
   inset: (x: 12pt, y: 9pt), radius: 2pt, above: 1.0em, below: 1.0em,
 )[
@@ -72,8 +76,16 @@
   #title
   #v(3pt)
   #set text(size: 0.95em)
-  #body
+  #if show-pos { body } else {
+    show-cell-pos.update(false)
+    body
+    show-cell-pos.update(true)
+  }
 ]
+// 正文一律用这两个别名：故事模式只是「听」，不递卡，故不标格位（用户 2026-09-14 裁定）；
+// 片段模式要从手牌里翻卡，格位必须留。
+#let story-box(body) = route-box(story, body, show-pos: false)
+#let frag-box(body) = route-box(frag, body)
 
 // 做卡表：每行 (目标卡, 递出的答案卡或说明)
 #let make-cards(..rows) = {

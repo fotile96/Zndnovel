@@ -72,8 +72,10 @@ Typst 把紧跟的 `(`/`[` 当参数表；全角括号安全。`#route-box[#stor
 ## 加一章 / 改流程
 
 1. 改 `guide/chapters/NN-*.typ`，需要新章就加文件并在 `main.typ` 的 include 列表登记。
-2. 每段流程按「★故事模式：场景 → 选项 → 场景 …」＋「★片段模式：make-cards 表」成对写；
-   Game Over 用 `#gameover`，章节完成用 `#complete`。
+2. 每段流程按「`#story-box`：场景 → 选项 → 场景 …」＋「`#frag-box`：make-cards 表」成对写；
+   Game Over 用 `#gameover`，章节完成用 `#complete`。**一律用 `story-box`/`frag-box` 这两个
+   别名，不要直接调 `route-box`**：`story-box` 会把格位标注关掉（故事模式只是听、不递卡，
+   标了反而碍眼——用户 2026-09-14 裁定），走 `route-box` 就丢了这个行为。
 3. 递卡顺序**以 crd 脚本里 `oCard.selectCardObj` 之后的比较顺序为准**（`data/dag.json` 的
    `answers` 是集合、无序——2026-09-12 首版正是因此写反了 4 处）。`build_guide.check_hand_order()`
    把**每个要递卡的谜题**（103 个：80 单卡 + 23 多卡）的 make-cards 行与脚本逐张比对，

@@ -8,11 +8,14 @@
 
 == 进入章节 5，交出全部梗概
 
+#story-box(from: "s1s_35_sel", pick: ("约好了", "对答卷表示羡慕", "回学校", "……"))[
+  时间轴此时停在章节 3，先把章节 1 重新讲到底，好让『选择：声音的主人』回到时间轴上：#card("选择：放学后的约定") 选 #opt("约好了") #arrow … #arrow #card("选择：Yuichi的答卷") 选 #opt("对答卷表示羡慕") #arrow #card("选择：回学校") 选 #opt("回学校") #arrow … #arrow #card("选择：声音的主人") 选 #opt("……") #arrow #card("有谁在呼唤") #arrow #complete。全部持卡，一路跳过即可，零耗时。
+]
 #frag-box[
   #make-cards(("选择：声音的主人", [递 #card("总有一天你会看到的故事。")。做成后出现 #opt("Sakura同学")]))
 ]
-#story-box[
-  按章节 1 的正常路线讲到 #card("选择：声音的主人")，选 #opt("Sakura同学") #arrow #card("Sakura同学")（耗时 100）。
+#story-box(from: "s1s_260_sel", pick: ("Sakura同学",))[
+  回到 #card("选择：声音的主人") 选 #opt("Sakura同学") #arrow #card("Sakura同学")：耗时 100，#timeover
 ]
 #frag-box[
   #make-cards(("Sakura同学", [卡 177。需先持有 #card("选择：声音的主人")；依次递 #card("章节 1 梗概")、#card("章节 2 梗概")、#card("章节 3A 梗概")、#card("章节 3B 梗概")、#card("章节 4A 梗概")、#card("章节 4B 梗概")、#card("总有一天你会看到的故事。")]))
@@ -22,7 +25,18 @@
 
 == 读日记
 
-回到故事模式继续。下表是每个场景结束时彩野的提问要点和该递的卡。递卡界面无法取消，递错直接 #gameover，提示是「仔细听她的话，慎重选卡」。
+#warn-box(title: "本章一律不要跳过")[
+  日记卡一开始就全部在手，所以本章每个场景开头都会问「是否跳过」，一律选不跳过：跳过 #card("Sakura的日记：7月（未写完）") 就没有去中庭的选择；跳过 #card("Sakura的日记：9月16日（夜）") 直接 #gameover；跳过 #card("Sakura的日记：断片") 拿不到三张关键词卡。持卡场景本来就不耗沙漏，读完没有损失。
+]
+
+#story-box(from: "s5s_20", pick: ("去中庭",), noskip: ("s5s_140", "s5s_320", "s5s_580"))[
+  从 #card("Sakura同学") 接着讲 #arrow #card("章节 5：Sakura") #arrow #card("Sakura的日记：9月13日")（传闻是指？选 #opt("下雪")，另两项会绕回）#arrow #card("Sakura的日记：7月（未写完）")（去哪里？选 #opt("去中庭")）#arrow #card("中庭的Ayano同学")：首次未持卡耗时 100，#timeover
+]
+#frag-box[
+  #make-cards(("中庭的Ayano同学", [依次递 #card("Sakura的日记：9月13日")、#card("Sakura的日记：7月（未写完）")]))
+]
+
+回到故事模式从 #card("中庭的Ayano同学") 接着讲。下表是每个场景结束时彩野的提问要点和该递的卡。递卡界面无法取消，递错直接 #gameover，提示是「仔细听她的话，慎重选卡」。
 
 #set par(first-line-indent: 0em)
 #table(
@@ -46,16 +60,10 @@
 )
 #set par(first-line-indent: (amount: 2em, all: true))
 
-中途沙漏满了就去片段模式做 #card("中庭的Ayano同学")，它是本章唯一需要在片段模式做的日记场景：
-
-#frag-box[
-  #make-cards(("中庭的Ayano同学", [依次递 #card("Sakura的日记：9月13日")、#card("Sakura的日记：7月（未写完）")]))
-]
-
 == 章节 5 完成
 
-#story-box[
-  2 月 13 日的递卡全部正确 #arrow #card("章节 5：Ayano") #arrow #card("Ayano的回信：9月25日") #arrow #card("Ayano的回信：10月30日") #arrow #card("2月，中庭") #arrow #complete
+#story-box(from: "s5s_200", pick: ("不硬撑",), noskip: ("s5s_140", "s5s_320", "s5s_580"))[
+  从 #card("中庭的Ayano同学") 接着讲，按上表一路递卡（发作时选 #opt("不硬撑")）#arrow #card("Sakura的日记：2月13日") 的递卡全部正确 #arrow #card("章节 5：Ayano") #arrow #card("Ayano的回信：9月25日") #arrow #card("Ayano的回信：10月30日") #arrow #card("2月，中庭") #arrow #complete
 ]
 #frag-box[
   #make-cards(("2月，中庭", [章节终卡 #cn(193)。依次递 #card("Sakura的日记：9月13日")、#card("中庭的Ayano同学")、#card("Ayano的回信：9月25日")]))

@@ -8,16 +8,18 @@
 
 == 章节 3B
 
+#warn-box(title: "本轮路线必须包含「不是我」")[
+  #card("选择：烟花之下，与Yuichi") 里的 #opt("不接吻") 只在本轮讲过章节 4 的 #card("不是我") 时才出现。所以不能从章节 3 内部直接走，要从章节 4 折回。而这张选择卡本身要先把场景讲出来才能做，所以要走两趟。
+]
+
+#story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我", "前往楼梯", "想一直在一起", "接吻"))[
+  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("不是我") #arrow 回到 #card("田径部的传闻") #arrow #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……") 选 #opt("想一直在一起") #arrow 持有 #card("章节 4B 梗概") 后这里出现 #card("选择：烟花之下，与Yuichi")：未做卡时只有 #opt("接吻") #arrow #card("与Yuichi接吻") #arrow #complete（又一次 3A，零耗时）
+]
 #frag-box[
   #make-cards(("选择：烟花之下，与Yuichi", [依次递 #card("章节 3A 梗概")、#card("章节 4B 梗概")。做成后 #card("想一直在一起") 之后出现选择]))
 ]
-
-#warn-box(title: "本轮路线必须包含「不是我」")[
-  #card("选择：烟花之下，与Yuichi") 里的 #opt("不接吻") 只在本轮讲过章节 4 的 #card("不是我") 时才出现。所以不能从章节 3 内部直接走，要从章节 4 折回。
-]
-
-#story-box[
-  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("不是我") #arrow 回到 #card("田径部的传闻") #arrow #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……") 选 #opt("想一直在一起") #arrow #card("选择：烟花之下，与Yuichi") 选 #opt("不接吻") #arrow #card("不与Yuichi接吻") #arrow #complete（章节 3B）
+#story-box(from: "s3s_641_sel", pick: ("不接吻",))[
+  回到 #card("选择：烟花之下，与Yuichi") 选 #opt("不接吻")（本轮路线里有『不是我』才有此项）#arrow #card("不与Yuichi接吻") #arrow #complete（章节 3B）
 ]
 #frag-box[
   #make-cards(("不与Yuichi接吻", [章节终卡 #cn(91)。无需递卡]))

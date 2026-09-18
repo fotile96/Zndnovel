@@ -8,6 +8,7 @@
 
 == 章节 7
 
+#route(event: "s7f")
 主菜单选 Section 7 直接进入，没有选项分歧，只有一段连续的递卡。直哉在天台把整个故事重新拼一遍，每提到一个要素就要递出对应的卡，递错可重试：
 
 #set par(first-line-indent: 0em)
@@ -28,8 +29,8 @@
 
 == 章节 8
 
-#story-box[
-  按章节 4 的路线讲到 #card("选择：将Ayano――")，持有 #card("章节 7 梗概") 后出现第三项 #opt("恢复原样") #arrow #card("我的话语") #arrow #card("章节 8：Yuichi、直哉") #arrow #card("围栏的另一侧") #arrow #card("谁都没见过的晚霞") #arrow #complete
+#story-box(from: "s3s_50_sel", pick: ("告诉我", "闹鬼楼梯", "认真打听", "大声叫他", "有点在意呢", "被勾起了兴趣", "试着相信也无妨", "检查课桌", "翻看笔记本", "恢复原样"))[
+  时间轴停在章节 6，从 #card("选择：颇有意思的传闻") 起按章节 3、4 的主线一路选过去：#opt("告诉我") #arrow #opt("闹鬼楼梯") #arrow #opt("认真打听") #arrow #opt("大声叫他") #arrow #opt("有点在意呢") #arrow #opt("被勾起了兴趣") #arrow #opt("试着相信也无妨") #arrow #opt("检查课桌") #arrow #opt("翻看笔记本")，讲到 #card("选择：将Ayano――")，持有 #card("章节 7 梗概") 后出现第三项 #opt("恢复原样") #arrow #card("我的话语") #arrow #card("章节 8：Yuichi、直哉") #arrow #card("围栏的另一侧") #arrow #card("谁都没见过的晚霞") #arrow #complete。全部持卡，零耗时。
 ]
 #frag-box[
   #make-cards(("谁都没见过的晚霞", [章节终卡 #cn(94)。递 #card("章节 7 梗概")]))

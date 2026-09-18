@@ -8,11 +8,14 @@
 
 == 进入章节 6
 
+#story-box(from: "s1s_35_sel", pick: ("没有约", "不去", "不知道", "告诉我", "没兴趣"))[
+  时间轴停在章节 5，先把它讲回章节 3，让『选择：颇有意思的传闻』回到时间轴上：#card("选择：放学后的约定") 选 #opt("没有约") #arrow #card("夏天的计划") #arrow #card("选择：周末的计划") 选 #opt("不去") #arrow #card("午休的走廊") #arrow #card("选择：楼梯的传闻") 选 #opt("不知道") #arrow #card("选择：颇有意思的传闻") 选 #opt("告诉我") #arrow #card("选择：传闻是指") 选 #opt("没兴趣") #arrow #card("对传闻没兴趣") #arrow #gameover。除『选择：颇有意思的传闻』花 25 以外全部持卡跳过。
+]
 #frag-box[
   #make-cards(("选择：颇有意思的传闻", [递 #card("章节 5 梗概")。做成后出现 #opt("不听")]))
 ]
-#story-box[
-  #card("午休的走廊") #arrow #card("选择：楼梯的传闻") 选 #opt("不知道") #arrow #card("选择：颇有意思的传闻") 选 #opt("不听") #arrow #card("有冲击力的传闻") #arrow #card("章节 6：Ayano") #arrow #card("选择：在哪里读")：默认只有 #opt("在家读") #arrow #card("Sakura的来信") #arrow #gameover
+#story-box(from: "s3s_50_sel", pick: ("不听", "在家读"))[
+  回到 #card("选择：颇有意思的传闻") 选 #opt("不听") #arrow #card("有冲击力的传闻") #arrow #card("章节 6：Ayano") #arrow #card("选择：在哪里读")：默认只有 #opt("在家读") #arrow #card("Sakura的来信") #timeover（沙漏在 Game Over 画面之前就满了，效果一样）
 ]
 #frag-box[
   #make-cards(
@@ -25,19 +28,24 @@
 
 == 图书室的笔记本
 
-#story-box[
-  #card("选择：在哪里读") 选 #opt("在图书室读") #arrow #card("在图书室读")（耗时 100）#arrow #card("选择：笔记本")：默认只有 #opt("已失去的梦之物语") #arrow #card("已失去的梦之物语") #arrow #gameover
+#story-box(from: "s6s_60_sel", pick: ("在图书室读",))[
+  #card("选择：在哪里读") 选 #opt("在图书室读") #arrow #card("在图书室读")：耗时 100，#timeover
+]
+#frag-box[
+  #make-cards(("在图书室读", [做卡剧情里要给三个人物排座次，六选一，正确答案是 #opt("A.Ayano B.Sakura C.Yuichi")]))
+]
+#story-box(from: "s6s_110", pick: ("已失去的梦之物语",))[
+  从 #card("在图书室读") 接着讲 #arrow #card("选择：笔记本")：默认只有 #opt("已失去的梦之物语") #arrow #card("已失去的梦之物语") #arrow #gameover
 ]
 #frag-box[
   #make-cards(
     ("已失去的梦之物语", [无需递卡]),
-    ("在图书室读", [做卡剧情里要给三个人物排座次，六选一，正确答案是 #opt("A.Ayano B.Sakura C.Yuichi")]),
     ("选择：笔记本", [大谜题 #cn(103)。依次递 #card("已失去的梦之物语")、#card("章节 1 梗概")、#card("章节 2 梗概")、#card("章节 3A 梗概")、#card("章节 3B 梗概")、#card("章节 4A 梗概")、#card("章节 4B 梗概")、#card("章节 5 梗概")、#card("总有一天你会看到的故事。")、#card("口袋里的字条")。做成后出现 #opt("True Color")]),
   )
 ]
 
-#story-box[
-  #card("选择：笔记本") 选 #opt("True Color") #arrow #card("True Color") #arrow #card("选择：天台的归途")（耗时 100）：默认只有 #opt("还在这里") #arrow #gameover
+#story-box(from: "s6s_150_sel", pick: ("True Color",))[
+  #card("选择：笔记本") 选 #opt("True Color") #arrow #card("True Color") #arrow #card("选择：天台的归途")：耗时 100，选项弹出前 #timeover
 ]
 #frag-box[
   #make-cards(
@@ -48,8 +56,8 @@
 
 == 章节 6 完成
 
-#story-box[
-  #card("选择：天台的归途") 选 #opt("中庭的雪") #arrow #card("中庭的雪") #arrow #complete
+#story-box(from: "s6s_280_sel", pick: ("中庭的雪",))[
+  #card("选择：天台的归途") 选 #opt("中庭的雪")（#opt("还在这里") 是一个没有卡的 Game Over，不必走）#arrow #card("中庭的雪") #arrow #complete
 ]
 #frag-box[
   #make-cards(("中庭的雪", [章节终卡 #cn(110)。依次递 #card("有冲击力的传闻")、#card("在图书室读")、#card("True Color")、#card("Sakura")]))

@@ -65,6 +65,7 @@
 {"button": "sel_s4s_210_sel_e", "jp": "美術室", "zh": "美术室", "source": "本轮新译"}
 {"button": "sel_s4s_210_sel_f", "jp": "中庭", "zh": "中庭", "source": "既有语料"}
 {"button": "sel_s4s_210_sel_g", "jp": "校庭", "zh": "操场", "source": "本轮新译"}
+{"button": "sel_s4s_170_sel_a", "jp": "興味を惹かれた", "zh": "被勾起了兴趣", "source": "2026-09-19 游戏内目视纠错：此前无人工行，派生层把下一分支场景标题『選択：メモの内容』当成按钮文字烤了进去；定译沿用 cards.zh 卡 154『被勾起了兴趣』"}
 {"button": "sel_s4s_290_sel_a", "jp": "くだらない", "zh": "真无聊", "source": "本轮新译"}
 {"button": "sel_s4s_360_sel_a", "jp": "机を調べる", "zh": "检查课桌", "source": "既有语料"}
 {"button": "sel_s4s_420_sel_a", "jp": "ノートを調べる", "zh": "翻看笔记本", "source": "既有语料"}

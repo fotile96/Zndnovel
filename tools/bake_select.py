@@ -115,7 +115,7 @@ rectangle overwrite of TEXT_BOX's interior, never touching anything outside
 it -- see that function's docstring for why alpha_composite over the
 original ink would ghost instead (same reasoning as bake_scene.bake_cell).
 """
-import argparse, glob, json, os, sys
+import argparse, glob, json, os, re, sys
 from collections import Counter
 
 from PIL import Image, ImageDraw, ImageFont
@@ -145,6 +145,10 @@ BUILD_OPTION_MAP = os.path.join(REPO, "build", "select_option_map.json")
 BUILD_INK_VERIFY = os.path.join(REPO, "build", "select_ink_verify.json")
 
 CELL_W, CELL_H = 250, 26
+
+#: 派生层拒收的原文形状：以「選択：」「探索：」开头的只可能是场景标题
+#: （见 compute_coverage() 内的说明与 tests 里的 sel_s4s_170_sel_a 实案）。
+SCENE_TITLE_PREFIX_RE = re.compile(r"^(?:選択|探索)：")
 
 # ---------------------------------------------------------------------------
 # Geometry -- see module docstring "Layout" section for the measured
@@ -340,6 +344,18 @@ def compute_coverage():
         if r.get("confidence") == "exact":
             jp2zh.setdefault(r["jp"], set()).add(r["zh"])
 
+    # 守门：derive_select.py 顺着空过渡臂（如 s4s_280）追到下一个场景的
+    # `scene_X(id, "選択：…")` 时，交上来的是**场景标题**而不是按钮文字；
+    # 墨迹宽度校验对字数相近的串拦不住（实案 sel_s4s_170_sel_a：原图
+    # 「興味を惹かれた」7 字 vs 派生「選択：メモの内容」8 字，偏差 0.126
+    # 判 match），extra 查表又恰好命中卡 159 的标题，于是烤进盘里的是下一
+    # 分支的名字。按钮文字不可能以「選択：」「探索：」开头——这种派生结果
+    # 一律拒绝，让它落进 missing，逼人工补 select_buttons_zh.jsonl。
+    derived_rejected_scene_title = sorted(
+        b for b, jp in match_jp.items() if SCENE_TITLE_PREFIX_RE.match(jp))
+    for b in derived_rejected_scene_title:
+        del match_jp[b]
+
     derived_conflicts = []
     for b, jp in match_jp.items():
         zh_options = jp2zh.get(jp)
@@ -368,6 +384,7 @@ def compute_coverage():
         "ink_verify_match_total": sum(1 for r in ink_verify["results"] if r["status"] == "match"),
         "resolved_via_derived_layer": len(covered) - len(cov1) - sum(
             1 for b in cov2 if b not in cov1),
+        "derived_rejected_scene_title": derived_rejected_scene_title,
     }
     return covered, missing, evidence
 

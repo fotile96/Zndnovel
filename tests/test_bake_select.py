@@ -111,14 +111,18 @@ def test_compute_coverage_layer_breakdown_matches_known_survey_numbers():
     42 条走推导层——这是本轮任务交办文档记载的既有事实，用测试钉住，
     避免未来数据文件改动时这个"134/134"结论在无人察觉的情况下漂移。"""
     covered, missing, evidence = compute_coverage()
-    # 93：sel_s1s_260_sel_a 本轮补进 select_buttons_zh.jsonl —— 它此前没有
+    # 93：sel_s1s_260_sel_a 补进 select_buttons_zh.jsonl —— 它此前没有
     # 人工校订行，烤图直接沿用了带片假名的「サクラ同学」，违反 v19 C1 罗马音化。
-    assert evidence["src1_distinct_buttons"] == 93
+    # 94（2026-09-19）：sel_s4s_170_sel_a 补人工行 —— 派生层把下一分支场景
+    # 标题「選択：メモの内容」当成了按钮文字（原图「興味を惹かれた」）。
+    assert evidence["src1_distinct_buttons"] == 94
     assert evidence["src2_distinct_buttons"] == 69
     assert evidence["src1_src2_overlap"] == 69  # src2 ⊆ src1 today
-    # 41：sel_s1s_260_sel_a 本轮从派生层升格为 src1 人工校订行，故余量少 1
-    assert evidence["remaining_after_src1_src2"] == 41
-    assert evidence["resolved_via_derived_layer"] == 41
+    # 40：sel_s1s_260_sel_a、sel_s4s_170_sel_a 先后从派生层升格为 src1 人工校订行
+    assert evidence["remaining_after_src1_src2"] == 40
+    assert evidence["resolved_via_derived_layer"] == 40
+    # 有了人工行后它不再进派生层，守门自然也不再报它
+    assert evidence["derived_rejected_scene_title"] == []
     assert missing == []
 
 
@@ -136,6 +140,32 @@ def test_compute_coverage_raises_when_a_button_has_no_source_at_all(tmp_path, mo
     monkeypatch.setattr(bs, "real_button_bases", fake_bases)
     covered, missing, evidence = bs.compute_coverage()
     assert "sel_totally_fake_button_sel_z" in missing
+
+
+def test_derived_layer_rejects_scene_title_shaped_jp(tmp_path, monkeypatch):
+    """派生层守门：derive_select.py 顺着空过渡臂追到下一个场景的
+    `scene_X(id, "選択：…")`，会把**场景标题**当成按钮文字交上来；墨迹宽度
+    校验对"字数相近"的串拦不住（实案 sel_s4s_170_sel_a：原图「興味を惹かれた」
+    7 字，派生「選択：メモの内容」8 字，偏差 0.126 判 match，再经 extra
+    查表命中卡 159 标题，整条链无一环报警，烤进盘里的是下一分支的名字）。
+    按钮文字不可能以「選択：」「探索：」开头，这种派生结果必须落 missing，
+    不能被静默采用。"""
+    import tools.bake_select as bs
+
+    ink = json.load(open(bs.BUILD_INK_VERIFY, encoding="utf-8"))
+    victim = "sel_s4s_290_sel_b"   # 今天走派生层、且 status==match 的真实按钮
+    hit = [r for r in ink["results"] if r["button"] == victim]
+    assert hit and hit[0]["status"] == "match"
+    # 把它的派生原文改成一个真实存在 exact 译文的场景标题（卡 159）
+    hit[0]["jp"] = "選択：メモの内容"
+    bad_path = tmp_path / "ink_verify_scene_title.json"
+    bad_path.write_text(json.dumps(ink, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(bs, "BUILD_INK_VERIFY", str(bad_path))
+
+    covered, missing, evidence = bs.compute_coverage()
+    assert victim in missing
+    assert victim not in covered
+    assert victim in evidence["derived_rejected_scene_title"]
 
 
 def test_run_refuses_to_bake_when_coverage_incomplete(tmp_path, monkeypatch):

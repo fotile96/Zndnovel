@@ -44,6 +44,40 @@ def test_card1_is_a_real_answer():
         assert 1 in dag["crds"][str(n)]["answers"], f"data/dag.json 的 crd_{n} 又把卡 1 滤掉了，重跑 tools/build_dag.py"
 
 
+def test_route_feasible():
+    """正文的故事/片段交替按引擎规则（时间轴截断、沙漏、做卡前缀）必须走得通。
+
+    2026-09-19 玩家反馈 5 处「几轮压成一轮」「做卡顺序反」「场景已不在时间轴上」，
+    typst 断言与递卡顺序校验都抓不到，故加模拟器 tools/guide_route_check.py。"""
+    import guide_route_check
+
+    assert guide_route_check.check() == []
+
+
+def test_route_sim_engine_rules():
+    """模拟器本身钉住几条引擎事实（改 lua 解析或规则时先过这里）。"""
+    import guide_route_check as g
+
+    sim = g.Sim()
+    assert sim.story("s1s_20", [], set()) == "timeover"          # 首场固定 100
+    sim.make(2)
+    # 教程后从头讲：四个 25 的场景正好在『想起约定』沙漏满，讲不到『午休的教室』
+    assert sim.story("s1s_20", ["想不起约定"], set()) == "timeover"
+    assert sim.route[-1].scene == "s1s_60"
+    # 未持卡的耗时 100 选择场景：选项弹出前就 Time over
+    sim2 = g.Sim()
+    sim2.held |= {2, 3, 4, 5, 9, 10, 11, 133, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 48, 50, 51, 52, 55, 58, 59, 60, 61, 134}
+    sim2.story("s1s_20", ["没有约", "不去"], set())
+    assert sim2.route[-1].scene == "s3s_20_sel" and sim2.time >= 100
+    # 时间轴截断：回到分歧点重讲后，之前那条支线的场景不再能做卡
+    sim3 = g.Sim()
+    sim3.story("s1s_20", [], set()); sim3.make(2)
+    sim3.story("s1s_20", ["想不起约定"], set()); sim3.make(3); sim3.make(4)
+    sim3.story("s1s_35_sel", ["约好了"], set())
+    with pytest.raises(g.RouteError):
+        sim3.make(6)  # 『想不起约定』已被截掉
+
+
 def test_no_encore_mention():
     """用户裁定：攻略不提谢幕章。"""
     banned = ("encore", "谢幕", "snr_finale", "title_14")

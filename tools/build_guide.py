@@ -6,6 +6,7 @@
   gen    从定译数据源生成 guide/generated/*.typ 与 options.json 快照
   pdf    typst 编译 guide/main.typ → guide/dist/second-novel-guide-zh.pdf
   check  仅校验：generated/ 与数据源一致（无漂移）+ 能编译（编译期断言卡名/选项名）
+         + 递卡顺序与 crd 脚本一致 + 正文路线按引擎规则可行（tools/guide_route_check.py）
 
 定译数据源（只读，不在这里改）：
   skeleton/cards.zh.yaml + cards.jp.yaml   卡名定译（card → title_zh / title_jp / section_label）
@@ -460,6 +461,13 @@ def main() -> None:
             print("[build_guide] 递卡顺序:", p, file=sys.stderr)
         if problems:
             sys.exit("[build_guide] 递卡顺序与 crd 脚本不一致，拒绝出盘")
+        import guide_route_check  # noqa: WPS433
+
+        problems = guide_route_check.check()
+        for p in problems:
+            print("[build_guide] 路线:", p, file=sys.stderr)
+        if problems:
+            sys.exit("[build_guide] 正文路线按引擎规则走不通，拒绝出盘（tools/guide_route_check.py --trace 看细节）")
     if a.action in ("all", "gen"):
         do_gen()
     if a.action in ("all", "pdf"):

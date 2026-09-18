@@ -84,8 +84,12 @@
 ]
 // 正文一律用这两个别名：故事模式只是「听」，不递卡，故不标格位（用户 2026-09-14 裁定）；
 // 片段模式要从手牌里翻卡，格位必须留。
-#let story-box(body) = route-box(story, body, show-pos: false)
+// from / pick / noskip 是给 tools/guide_route_check.py 读的机读路线（从哪个场景重讲、沿途依次选什么），
+// 不渲染；每个 story-box 都必须写 from，否则校验器拒绝。
+#let story-box(body, from: none, pick: (), noskip: ()) = route-box(story, body, show-pos: false)
 #let frag-box(body) = route-box(frag, body)
+// 不渲染的路线步骤：表格化叙述（章节 5）或主菜单直入的现实层（event: "s7f"）
+#let route(from: none, pick: (), noskip: (), event: none) = none
 
 // 做卡表：每行 (目标卡, 递出的答案卡或说明)
 #let make-cards(..rows) = {

@@ -6,6 +6,8 @@
 不是独立翻译：卡名取 `skeleton/cards.zh.yaml`，选项取 `tools/bake_select.compute_coverage()`
 （与 `png/select/` 烤字用的同一个解析器）。
 
+流程正文必须过 `tools/guide_route_check.py` 的引擎模拟（见「路线校验」）。
+
 刻意不写的内容：**encore／谢幕章一字不提**（用户 2026-09-11 裁定：留给中文玩家的小惊喜），
 编外卡 196+ 也不入附录——`tools/build_guide.py::load_cards` 直接跳过 `card >= 196`。
 
@@ -89,8 +91,44 @@ Typst 把紧跟的 `(`/`[` 当参数表；全角括号安全。`#route-box[#stor
    本工具的 `> 1`、`extract_crd.py` 的 docstring），已一并修正，回归测试见
    `tests/test_guide.py::test_card1_is_a_real_answer`。校验只覆盖 make-cards 行——**散文式
    写递卡会逃过检查**（crd_2 当初即如此），要递卡就写成 make-cards 表。
-4. `uv run python tools/build_guide.py` 出盘，`pdftoppm -png -r 60 -f N -l N` 抽两页看版式。
-5. 提交：工具/模板改动与正文改动分开 commit，`dist/*.pdf` 随正文 commit 一起更新。
+4. **每个 `#story-box` 必须带机读路线** `from:`（时间轴上重讲的场景 id）与 `pick:`（沿途依次选的
+   选项定译），`tools/guide_route_check.py` 会按引擎规则把全书的故事/片段交替重放一遍（见下节
+   「路线校验」）。写正文前先用它当神谕：`--trace` 逐步打印沙漏与时间轴，确定这一轮到底讲到哪。
+5. `uv run python tools/build_guide.py` 出盘，`pdftoppm -png -r 60 -f N -l N` 抽两页看版式。
+6. 提交：工具/模板改动与正文改动分开 commit，`dist/*.pdf` 随正文 commit 一起更新。
+
+## 路线校验：正文写的流程必须按引擎真能走通（2026-09-19）
+
+玩家反馈 5 处错误（章节 1 两条支线压成一轮做卡、『有谁在呼唤』已被截出时间轴、章节 2 做卡顺序
+违反前缀要求、『选择：谜题』后还得再讲一轮、章节 3 耗时 100 的选择场景第一次根本选不了），
+根因都不在 `data/dag.json`（其状态图、耗时、门控与 lua 一致），而在**正文是照博客手写的，没有
+按引擎状态机核过**：typst 断言只管名字对不对，`check_hand_order` 只管一张卡内递卡顺序，谁都
+不管「这一轮到底讲到哪」「做卡时场景还在不在时间轴上」。
+
+`tools/guide_route_check.py` 补的就是这一层。它直接解析 `lua_scripts/snr_*_10_*.lua` 的调度器
+（if/elseif/while 语句树 + 场景函数的自带耗时/授卡/GameOver/可跳过）——刻意**不**用 dag.json 的
+`seq`（扁平事件流，丢了嵌套条件），也不另立一份手维护的 DAG（会漂）。模拟的引擎规则：
+
+- 故事模式选时间轴上某点重讲：ayanoTime 回到该点**开讲前**，该点及其后路线截断（`cClearNumStoryRoute`）。
+- 场景结束 `comSectionStoryEnd`：先追加路线，再在**未持该场景卡**时加耗时；≥100 立即 Time over 终止脚本，
+  选择场景的选项在其后才弹出——所以未持卡的耗时 100 选择场景第一次讲完就 Time over。
+- 片段模式做非 `_sel` 卡：场景在当前路线上，且其前所有非 `_sel` 场景已持卡；`_sel` 卡只要在路线上。
+  做成后其后各点 ayanoTime 扣掉该场景耗时（`comAyanoTimeRefresh`）。
+- 做卡：req 全持有；答案按 `expected_hand_order`；终卡 run `_f` 授章节梗概卡。持 136 未持 145 进片段模式先得 145。
+- 章节 5 的日记场景一开始就全部持卡，每场都问跳不跳：跳过 `s5s_140` 没有去中庭的选择、跳过 `s5s_320`
+  直接 Game Over（`s5s_380`）、跳过 `s5s_580` 拿不到三张关键词卡——正文用 `noskip:` 标出。
+- 探索地图、谜题按「照攻略做完」处理（循环体跳过）；谜题未持选择卡时用 pick `"谜题答对"`/`"谜题答错"` 指定结果。
+
+正文侧约定（`guide/template.typ`）：`#story-box(from: "s1s_35_sel", pick: ("没有约",), noskip: ())[…]`；
+表格化叙述用不渲染的 `#route(from:, pick:, noskip:)`；主菜单直入的现实层用 `#route(event: "s7f")`；
+`#frag-box` 的 make-cards 行按序就是做卡步骤。校验项：from 场景在时间轴上、pick 在当时可选且不多不少、
+正文 `#card()` 提到的场景卡按序出现在本轮讲到的场景里、`#timeover/#gameover/#complete` 标注与模拟一致、
+每张要做的卡在时间轴上且前缀/前置/答案齐备。`build_guide.py check/pdf` 与 `tests/test_guide.py::test_route_feasible`
+都跑它，不通过拒绝出盘。
+
+事实速记（模拟器算出、与玩家反馈一致）：教程后第一轮四个 25 的场景在『想起约定』就 Time over；章节 3 在做成
+『选择：颇有意思的传闻』（要章节 5 梗概）之前每轮都被它扣 25，所以本章前半每轮只推进一两个场景；章节 4 的
+两段探索都要走两遍（探索卡要递探索之后的场景）；章节 2 的两个 Game Over 互为前置，要来回走三趟。
 
 ## 数据源变了怎么办
 

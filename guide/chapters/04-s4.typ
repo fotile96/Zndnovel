@@ -43,14 +43,14 @@
   #make-cards(
     ("走廊上的Yuichi", [递 #card("约定不守可不行")]),
     ("探索：Ayano怎么了？", [递 #card("走廊上的Yuichi")]),
-    ("选择：看到字条时", [递 #card("走廊上的Yuichi")。做成后出现 #opt("选择：字条的内容")]),
+    ("选择：看到字条时", [递 #card("走廊上的Yuichi")。做成后出现 #opt("被勾起了兴趣")]),
   )
 ]
 
 == 字条、课桌、笔记本
 
 #story-box[
-  #card("选择：看到字条时") 选 #opt("选择：字条的内容") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影") #arrow #gameover
+  #card("选择：看到字条时") 选 #opt("被勾起了兴趣") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影") #arrow #gameover
 ]
 #frag-box[
   #make-cards(

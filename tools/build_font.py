@@ -17,6 +17,7 @@ size=-1 是 `pack_file_size` 的"索引与散文件都没找到"返回值，不�
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import re
 import subprocess
@@ -44,7 +45,7 @@ RUBY_PITCH_PX = 5
 RUBY_FONT_PX = 9
 #: 字体配方版本戳：影响 PGF 产物但不改变字集的参数（步进、声调加粗）变了就改这里，
 #: build_disc.stage_font 据此强制重建——字集不变时它原本只看 ucs.txt 有没有变。
-RECIPE = "lxgw17-regular-proportional-narrowfix / lxgw09-mono-pitch5-diacritic500 / 2026-09-12"
+RECIPE = "lxgw17-regular-proportional-narrowfix / lxgw09-mono-pitch5-diacritic500 / pgf-header-ft-metrics-72dpi / 2026-09-19"
 
 WIDEN_BODY_CHARS = '\u201c\u201d\u00b7'   # ""· — 在 LXGW Regular 里只有 5 px，挤在一起难看
 WIDEN_BODY_SIZES = {17}                      # 只改正文字体（17px），ruby 不受影响
@@ -222,6 +223,59 @@ def widen_body_narrow(ttf: Path, out: Path, cell_px: int = 17) -> Path:
     return out
 
 
+#: PGF 头部里的分辨率（dpi）。原字体 tsukuminpro_e_{17,09} 与 2026-08-31 补丁版 ttf_pgf 都写 72，
+#: 尺寸字段随之直接等于像素数（17.0 / 9.0）；上游 pgftool 写死 128 dpi、尺寸 = px·72/128。
+PGF_DPI = 72
+_PGF_MAGIC_OFF = 4          # b"PGF0"
+_PGF_SIZE_OFF = 0x24        # hSize, vSize, hResolution, vResolution（4 × s32，26.6 定点）
+_PGF_ASCENDER_OFF = 0xD4    # maxAscender, maxDescender（2 × s32，26.6 定点）
+
+
+def pgf_vertical_metrics(ttf: Path, px: int) -> tuple[int, int]:
+    """(ascender, descender)，26.6 定点，与 FreeType 的 size metrics 同算法：
+    hhea 的 ascent/descent 按像素尺寸缩放后，ascender 向上、descender 向下取整到整像素。
+
+    17px LXGW Regular → 16/−5，9px LXGW Mono → 9/−3——正是 2026-08-31 补丁版 ttf_pgf
+    （`ph->ascender = mt->ascender`）写进头部、并在 2026-09-02..11 全部游戏内验证里
+    生效的值；引擎按 `y + (ascender>>6) − bitmapTop + 1` 摆字形（EBOOT font_draw_string
+    0x5874），这个数直接决定 ruby 行与正文行的落点。
+    """
+    from fontTools.ttLib import TTFont
+
+    font = TTFont(str(ttf), lazy=True)
+    upm = font["head"].unitsPerEm
+    hhea = font["hhea"]
+    asc = math.ceil(hhea.ascent * px / upm)
+    desc = math.floor(hhea.descent * px / upm)
+    return asc << 6, desc << 6
+
+
+def patch_pgf_header(pgf: Path, px: int, ttf: Path) -> dict:
+    """把 ttf_pgf 产物的头部竖向量度改写成我们自己算的值，不再信任那个二进制。
+
+    起因（2026-09-19）：/tmp/pgftool/ttf_pgf 在 2026-09-12 被重编，2026-08-31 的头部
+    补丁（72 dpi、尺寸 = px、ascender/descender 取 FreeType 量度）没带上，源码也已不在；
+    两份 PGF 的 ascender 都回到上游写死的 0x3F5（15.83 px）。9px 槽的 ascender 从 9
+    变 15，ruby 整体下沉 6 px 压进正文上半（绘本拼音注音首先暴露）；17px 槽从 16 变
+    15，正文上浮 1 px。头部是 build 之后就地改写，与 ttf_pgf 的版本无关，测试钉住。
+    """
+    import struct
+
+    data = bytearray(pgf.read_bytes())
+    if data[_PGF_MAGIC_OFF:_PGF_MAGIC_OFF + 4] != b"PGF0":
+        raise ValueError(f"不是 PGF 文件（魔数不对）: {pgf}")
+    asc, desc = pgf_vertical_metrics(ttf, px)
+    struct.pack_into("<iiii", data, _PGF_SIZE_OFF, px << 6, px << 6, PGF_DPI << 6, PGF_DPI << 6)
+    struct.pack_into("<ii", data, _PGF_ASCENDER_OFF, asc, desc)
+    pgf.write_bytes(data)
+    # 回读核对——写完就验，别等到游戏里才发现
+    back = pgf.read_bytes()
+    if (struct.unpack_from("<iiii", back, _PGF_SIZE_OFF) != (px << 6, px << 6, PGF_DPI << 6, PGF_DPI << 6)
+            or struct.unpack_from("<ii", back, _PGF_ASCENDER_OFF) != (asc, desc)):
+        raise RuntimeError(f"PGF 头部回读与写入不一致: {pgf}")
+    return {"ascender": asc >> 6, "descender": desc >> 6}
+
+
 def _read_charset(charset_path: Path) -> tuple[int, list[int]]:
     """按 write_charset() 的格式解析字集文件。
 
@@ -304,8 +358,11 @@ def build(charset_path: Path, out_dir: Path, sizes=(17, 9), ruby_size=None) -> l
             sys.exit(f"ttf_pgf({size}px) 实际读到 {loaded} 个码位，"
                      f"与我们解析出的 {len(codes)} 个不一致: {charset_path}——"
                      f"两边对这份字集的理解分歧了，不能放行")
+        # 头部竖向量度自己写：ttf_pgf 二进制的头部逻辑曾经漂移过（见 patch_pgf_header）
+        metrics = patch_pgf_header(out, render, ttf)
         print(f"[font] {size}px(渲染 {render}px) <- {ttf.name} -> {out} "
-              f"({out.stat().st_size:,} B)")
+              f"({out.stat().st_size:,} B) 头部 ascender {metrics['ascender']} "
+              f"descender {metrics['descender']} @{PGF_DPI}dpi")
         made.append(out)
     return made
 

@@ -250,6 +250,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 
 - `vms` 消息 ID 关联已读标记与语音，翻译只替换第三参数字符串；`_n/_r/<漢字,かな>/≪≫/≦≧/【】/○/■` 控制码原样保留。
 - 文本行宽：`cBrStr` 按 24 字符硬折行（卡名用）；消息窗排版由引擎处理，但过长中文行仍可能溢出，需实测。
+- **PGF 头部 ascender 决定 ruby/正文落点，由 `build_font.patch_pgf_header` 自己写、测试钉住（17px→16、9px→9）**：引擎按 `y + (ascender>>6) − top + 1` 摆字形。2026-09-19 事故——`/tmp/pgftool/ttf_pgf` 被重编后丢了头部补丁，ascender 回到上游写死的 15.83，ruby 下沉 6 px 压进正文（绘本拼音）。ttf_pgf 二进制从此只管字形，头部量度与它的版本无关；改字体产物参数记得动 `build_font.RECIPE` 戳。
 - s7f 引用的给彩野的信文（『放課後、校庭で待っていて』）与 s5f_80 实物信（『屋上で待っていて。サクラ』）字面不同——原作即如此，翻译时保持各自原样，不要"修复"。
 - sceneId2aCard 表中大量 `sceneId2aCard.keyword = N` 是反编译噪声（键重复覆盖），仅真实场景键有效。
 - 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。

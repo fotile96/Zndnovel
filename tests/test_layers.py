@@ -496,12 +496,16 @@ def test_provenance_treats_empty_env_override_as_unset(tmp_path, monkeypatch):
 
 
 def _fake_ttf_pgf(path, honest=True):
-    """造一个假 ttf_pgf：touch 输出文件；`honest=True` 时还在 stderr 打印与真实
-    libpgf.c::load_ucs_list() 同形的「Load list from ... : N」（N 用 `wc -l` 数
-    第三个参数——字集文件——的实际行数），供 build() 第三道核对使用；`honest=False`
-    时只 touch、什么都不打印，用于测试"ttf_pgf 没吐这行"的失败分支。
+    """造一个假 ttf_pgf：写一个 PGF 形状的桩输出（0x200 字节、偏移 4 处魔数 "PGF0"——
+    build() 随后的 patch_pgf_header 会核对魔数并就地改写头部量度，空文件过不了）；
+    `honest=True` 时还在 stderr 打印与真实 libpgf.c::load_ucs_list() 同形的
+    「Load list from ... : N」（N 用 `wc -l` 数第三个参数——字集文件——的实际行数），
+    供 build() 第三道核对使用；`honest=False` 时只写桩、什么都不打印，用于测试
+    "ttf_pgf 没吐这行"的失败分支。
     """
-    body = "#!/bin/sh\ntouch \"$2\"\n"
+    body = ("#!/bin/sh\n"
+            "printf '\\0\\0\\0\\0PGF0' > \"$2\"\n"
+            "head -c 504 /dev/zero >> \"$2\"\n")
     if honest:
         body += "n=$(wc -l < \"$3\" | tr -d ' ')\necho \"Load list from $3 : $n\" >&2\n"
     path.write_text(body, encoding="utf-8")

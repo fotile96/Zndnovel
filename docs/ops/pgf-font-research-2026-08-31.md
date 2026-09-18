@@ -85,3 +85,22 @@
 + pgft->ph->h_size = h_size<<6; pgft->ph->v_size = h_size<<6;
 + pgft->ph->ascender = mt->ascender; pgft->ph->descender = mt->descender;
 ```
+
+## 补记（2026-09-19）：头部竖向量度改由 build_font 自己写，ttf_pgf 的头部补丁不再是依赖
+
+**事故**：sec5 绘本（s3fc-90，vms 11126 起 45 组单字拼音）的 ruby 注音整体压进正文上半。
+复现（PPSSPP，`build_disc.py --profile test --mode scene --scene s3fc-90` + `drives/glyph.py`）
+与用户实机截图一致。根因不在 EBOOT：`font_draw_string`（0x5874）的落点式
+`y + (maxAscender>>6) − bitmapTop + 1` 没变，变的是 PGF 头部——`/tmp/pgftool/ttf_pgf`
+在 2026-09-12 08:22 被重编（源码已不在目录里），上表第三段头部补丁没带上，2026-09-16 起
+产出的两份 PGF 都回到上游写死的 `ascender 0x3F5`（15.83 px）、`descender 0xFFFFFF75`、
+128 dpi、`size = px·72/128`（9px 槽的 `size` 字段成了 5.0625）。9px 槽 ascender 9→15，ruby
+下沉 6 px；17px 槽 16→15，正文上浮 1 px；相对错位 7 px，与截图量到的 7–8 px 吻合。
+2026-09-02 的产物（`build/inject/pgf/*-09.pgf`，ascender 9.0/size 9.0）是对照证据。
+
+**修法**：`tools/build_font.py::patch_pgf_header` 在 ttf_pgf 跑完后就地改写头部 6 个字段
+（hSize/vSize = px<<6、hResolution/vResolution = 72<<6、maxAscender/maxDescender =
+`pgf_vertical_metrics()`，即 FreeType size metrics 同算法：hhea ascent 向上、descent 向下取整
+到整像素），回读核对；`tests/test_build_font.py` 钉住 17px → 16/−5、9px → 9/−3 与字段偏移。
+`RECIPE` 戳加了 `pgf-header-ft-metrics-72dpi`，`stage_font` 据此强制重建。从此 ttf_pgf 二进制
+只负责字形与表，头部量度与它的版本无关——上表第三段 diff 保留作历史，不再需要打。

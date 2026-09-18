@@ -38,3 +38,50 @@ def test_widen_body_narrow_stretches_curly_quotes_and_interpunct(tmp_path):
     # 汉字与拉丁字母不受影响
     assert hmtx[cmap[ord("一")]][0] == upm           # 汉字本来就是 1000
     assert hmtx[cmap[ord("A")]][0] < upm             # 拉丁保持比例宽
+
+
+# ---------------------------------------------------------------------------
+# PGF 头部竖向量度由 build_font 自己写，不再信任 ttf_pgf 二进制（2026-09-19）
+# 起因：/tmp/pgftool/ttf_pgf 于 2026-09-12 被重编，丢了 2026-08-31 的头部补丁，
+# 两份 PGF 的 ascender 都回到上游写死的 0x3F5（15.83 px）；引擎按
+# `y + (ascender>>6) − top + 1` 摆字形，9px 槽的 ruby 因此整体下沉 6 px、压进正文。
+# ---------------------------------------------------------------------------
+import struct
+
+
+@pytest.mark.skipif(not MONO.exists() or not REGULAR.exists(), reason="缺 third_party TTF")
+def test_pgf_vertical_metrics_follow_freetype_size_metrics():
+    """与 FreeType 的 size metrics 同算法：ascender 向上取整、descender 向下取整到整像素，
+    26.6 定点。17px → 16/−5、9px → 9/−3，正是 2026-09-02 验证过的落点
+    （docs/ops/eboot-kinsoku-research-2026-09-04.md §6.3）。"""
+    assert bf.pgf_vertical_metrics(REGULAR, 17) == (16 << 6, -5 << 6)
+    assert bf.pgf_vertical_metrics(MONO, 9) == (9 << 6, -3 << 6)
+
+
+@pytest.mark.skipif(not MONO.exists(), reason="缺 third_party/LXGWWenKaiMono-Regular.ttf")
+def test_patch_pgf_header_rewrites_size_resolution_and_ascender(tmp_path):
+    """头部 6 个字段被改写成"px<<6 尺寸、72 dpi、FreeType 竖向量度"，其余字节原样。"""
+    buf = bytearray(0x200)
+    buf[4:8] = b"PGF0"
+    # 模拟上游 ttf_pgf 写死的值：size = px*72/128、128 dpi、ascender 0x3F5、descender 0xFFFFFF75
+    struct.pack_into("<iiii", buf, 0x24, int(9 * 72 / 128 * 64), int(9 * 72 / 128 * 64), 128 << 6, 128 << 6)
+    struct.pack_into("<ii", buf, 0xD4, 0x3F5, -139)
+    buf[0x100:0x110] = b"\xAA" * 16              # 头部其他字段的哨兵
+    p = tmp_path / "x.pgf"
+    p.write_bytes(buf)
+
+    got = bf.patch_pgf_header(p, 9, MONO)
+
+    data = p.read_bytes()
+    assert struct.unpack_from("<iiii", data, 0x24) == (9 << 6, 9 << 6, 72 << 6, 72 << 6)
+    assert struct.unpack_from("<ii", data, 0xD4) == (9 << 6, -3 << 6)
+    assert got == {"ascender": 9, "descender": -3}
+    assert data[0x100:0x110] == b"\xAA" * 16       # 没碰别的
+    assert len(data) == 0x200
+
+
+def test_patch_pgf_header_rejects_non_pgf(tmp_path):
+    p = tmp_path / "bad.pgf"
+    p.write_bytes(b"\0" * 0x200)
+    with pytest.raises(ValueError):
+        bf.patch_pgf_header(p, 9, MONO)

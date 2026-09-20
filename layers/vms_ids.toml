@@ -4,3 +4,11 @@
 owner    = "scripts/snr_finale.lua"
 vms      = [[17300, 17481]]
 card_msg = [[18201, 18207]]
+
+[[ranges]]
+owner = "overlays/novel-notice-s1f.toml"
+vms   = [[17500, 17507]]
+
+[[ranges]]
+owner = "overlays/novel-notice-entry.toml"
+vms   = [[17510, 17511]]

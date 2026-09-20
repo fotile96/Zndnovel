@@ -1,0 +1,29 @@
+target  = "snr_novel.lua"
+profile = "release"
+why     = """文库（library → novel）入口的一次性中文提示。章节 1 读完时的那组【■汉化说明】
+（novel-notice-s1f 层）只出现一次且不可重看；读他人存档或跳过通知的玩家第一次点进文库、
+看到日文原版页面时，正是最容易误以为漏译的时刻——在这里补两句自足的说明。
+
+只在**第一次**进入时显示：`systemSave.novelNoticeSeen`（新键）。旧系统数据没有这个键，
+读出 nil，`~= true` 即显示一次；main() 末尾原有的 autoSystemSave(0) 会把置好的 true 写盘，
+不必另加保存（finaleReadFlag 同款机制，见 finale-read-flag / title-logo-zh 层；
+runAutoLoad 是整表替换，新键随表往返）。刻意不改 snr_common 的 systemSave 字面表：
+那个锚点已被 finale-read-flag 层改写，再叠一层会让两层耦合，nil 守卫已足够。
+
+锚点 `systemConfig.unsetConfigButton()` 全文件唯一，位于「一本也没有」早退之后、
+advPart(false) 之前——原作在同一位置用 msg() 显示「まだ一冊も取得していません。」，
+证明此时消息窗可用。id 17510–17511 登记于 layers/vms_ids.toml。"""
+
+[[ops]]
+op     = "insert_before"
+anchor = '''
+    systemConfig.unsetConfigButton()
+'''
+text   = '''
+    if systemSave.novelNoticeSeen ~= true then
+        -- first visit only; nil on system data written before this key existed
+        vms(17510, "NONVOICE", "【■汉化说明】游戏内小说未作翻译，以下为日文原版页面。")
+        vms(17511, "NONVOICE", "【■汉化说明】中文社区早有网友译出的版本，欢迎自行检索阅读；也欢迎学会日语后再来重温。")
+        systemSave.novelNoticeSeen = true   -- persisted by the autoSystemSave(0) at the end of main()
+    end
+'''

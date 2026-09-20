@@ -30,7 +30,8 @@ def ledger_ids(ledger_rows):
 def test_every_release_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("release")
     assert [o["_name"] for o in applied] == [
-        "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh"]
+        "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
+        "novel-notice-s1f", "novel-notice-entry"]
     assert sources["snr_common.lua"].count('pgf/LXGWWenKai-Regular.pgf') == 1
     # cardname-halfwidth：cfontPrint 不再经 cHan2Zen（卡名拉丁半角），定义本身保留
     assert "cHan2Zen(l1_5)" not in sources["snr_common.lua"]
@@ -42,7 +43,8 @@ def test_every_release_overlay_hits_on_real_base():
 def test_every_test_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("test")
     assert [o["_name"] for o in applied] == [
-        "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh", "strip-ipl", "boot-handoff"]
+        "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
+        "novel-notice-s1f", "novel-notice-entry", "strip-ipl", "boot-handoff"]
     assert 'run(cGetFileName("script", "snr_test"))' in sources["snr_common.lua"]
     assert "layerMoveAlpha(0, 100, 120)" not in sources["snr_common.lua"]
 
@@ -241,3 +243,35 @@ print(table.concat(calls, ",") .. "|" .. tostring(systemSave.finaleReadFlag))
     proc = subprocess.run([str(lua), "-"], input=harness, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == f"{expect_call}|{expect_flag}"
+
+
+@pytest.mark.parametrize("layer", ["novel-notice-s1f", "novel-notice-entry"])
+def test_novel_notice_ids_are_inside_declared_range(layer):
+    """文库说明两层（2026-09-21）：层里新引入的 vms id 全部落在 vms_ids.toml 为它登记的段内。
+    范围从登记表读、不写死（同 finale 那条的理由）。check_ids 本身已会硬失败，这条是文档化证据。"""
+    import tomllib
+    with open(LAYERS / "vms_ids.toml", "rb") as f:
+        reg = tomllib.load(f)
+    entry = next(r for r in reg["ranges"] if r["owner"] == f"overlays/{layer}.toml")
+    lo, hi = entry["vms"][0]
+    ov = load_overlay(LAYERS / "overlays" / f"{layer}.toml")
+    ids = set()
+    for op in ov["ops"]:
+        ids |= set(collect_ids(op.get("text", "") + op.get("with", "")))
+    assert ids, f"{layer} 里一条 vms 都没扫到"
+    assert min(ids) >= lo and max(ids) <= hi
+
+
+def test_novel_notice_lands_where_intended():
+    """s1f 块插在 scene_s1f_complete 的淡出之前、原通知 17011 之后；入口块插在
+    「一本也没有」早退之后、advPart(false) 之前，且有 nil 安全的一次性守卫。"""
+    srcs, _, _ = build_final_sources("release")
+    s1f = srcs["snr_s1_10_f.lua"]
+    i_last_notice, i_new, i_fade = s1f.index("vms(17011,"), s1f.index("vms(17500,"), s1f.rindex("comEffectFadeOut(60)")
+    assert i_last_notice < i_new < i_fade
+    assert s1f.index("vms(17507,") < i_fade
+    novel = srcs["snr_novel.lua"]
+    i_empty, i_guard, i_adv = novel.index("run(cGetFileName(\"script\", \"snr_mainmenu\"))"), \
+        novel.index("if systemSave.novelNoticeSeen ~= true then"), novel.index("advPart(false)")
+    assert i_empty < i_guard < i_adv
+    assert "systemSave.novelNoticeSeen = true" in novel

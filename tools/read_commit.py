@@ -9,7 +9,8 @@
    却全落进了主仓 `data/`，一条都没生效。
 2. **dry-run 是默认**，`--apply` 才真写。
 3. **写前逐 id 播报既有 patch**（`add_patch.add(announce=True)` 内部完成）。
-4. **幂等键 `(id, ts)`**：`committed.json` 记已落地的草稿行；重复 `--apply` 是 no-op。
+4. **幂等键 `(id, ts)`**：`committed.json` 记已处理的草稿行——已落地的，以及**与车道
+   逐字相同、无需落地的**（编辑后又撤回的行）；重复 `--apply` 是 no-op。
    同 id 改判过多次（草稿 append-only）只落**最后一条**——中间态没有落地的意义，
    与 `polish_commit` 的「同 id 取最后一条」一致。
 
@@ -91,7 +92,13 @@ def commit(data_dir, repo=None, lane=DEFAULT_LANE, dry_run=True,
         zh, base = e.get("zh", ""), e.get("base_zh", "")
         now = cur.get(cid, "")
         if zh == now:
-            print(f"{tag} = id {cid} 与车道现值逐字相同，跳过（空 diff）", file=sys.stderr)
+            # 与车道逐字相同＝没有东西要落地（多半是编辑后又撤回）。记进 committed.json
+            # 视为已处理：否则它每轮都报一遍空 diff，而且日后车道被召回改成别的值时，
+            # 这条「撤回」会突然变成一条要把新值改回旧值的漂移补丁——与写它的人的本意相反。
+            print(f"{tag} = id {cid} 与车道现值逐字相同——无需落地，记为已处理", file=sys.stderr)
+            if not dry_run:
+                done.add((cid, ts))
+                _save_committed(done_path, done)
             continue
         if base != now and not allow_stale:
             print(f"{tag} ✗ 拒绝写入（漂移）：id {cid} 在你改完之后又被别处动过\n"

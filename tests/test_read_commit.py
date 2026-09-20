@@ -134,11 +134,24 @@ def test_warnings_can_be_forced(tmp_path):
     assert _zh(lane, 10) == "编【彩野】「啊」"
 
 
-def test_empty_diff_is_skipped(tmp_path):
-    """改完与车道现值逐字相同 → 不落空 diff patch。"""
+def test_empty_diff_is_skipped(tmp_path, capsys):
+    """改完与车道现值逐字相同 → 不落空 diff patch，但记为已处理：
+    下一轮不再报它；日后车道被召回改成别的值时，这条「撤回」也不会翻成一条漂移补丁。"""
     repo, lane = _repo(tmp_path, [{**CLEAN, "zh": "夜。"}])
     assert read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False) == []
     assert read_jsonl(lane / "patches.jsonl") == []
+    done = json.loads((repo / "pilot" / "read-edits" / "opus.committed.json").read_text("utf-8"))
+    assert [(x["id"], x["ts"]) for x in done["committed"]] == [(11, CLEAN["ts"])]
+    capsys.readouterr()
+    append_jsonl(lane / "patches.jsonl", [
+        {"id": 11, "zh": "召回改的", "reason": "recall", "glossary_v": 8, "ts": "t9"}])
+    assert read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False, allow_stale=True) == []
+    assert "11" not in capsys.readouterr().err
+    assert _zh(lane, 11) == "召回改的"
+    # dry-run 不记：预览不得改变任何状态
+    repo2, lane2 = _repo(tmp_path / "b", [{**CLEAN, "zh": "夜。"}])
+    read_commit.commit(lane2, repo=repo2, lane=LANE, dry_run=True)
+    assert not (repo2 / "pilot" / "read-edits" / "opus.committed.json").exists()
 
 
 def test_skipped_ids_stay_in_draft_for_next_round(tmp_path):

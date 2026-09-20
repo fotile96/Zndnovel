@@ -197,20 +197,37 @@ def stage_lua(ctx: BuildContext) -> dict:
 
 # ---------- B 字体 ----------
 
-def stage_font(ctx: BuildContext) -> dict:
-    """永远从 release 剖面的 lua/final 算字集（test 复用 release 字体）。
+def _font_source_dirs(ctx: BuildContext) -> list[Path]:
+    """字集取材的 lua/final 目录：**本剖面自己的** + release 的（去重，存在的才算）。
 
-    release 剖面若 lua/final 不存在则先跑 stage_lua（对 test 调用而言，是
-    先跑一遍 release 的 lua 阶段——两者互不干扰，各写各的 build/<profile>/）。
+    2026-09-21 事故：test 盘上新加的两层中文说明里「译」画成了下划线——stage_font 只看
+    release 的 lua/final，而那棵树是上一次 release 构建留下的、不含新层；test 剖面自己
+    刚由 stage_lua 写好的 final 里明明有这个字，却没被算进字集，于是走了「字集未变，
+    复用现役字体」。本剖面的 final 是同一次调用里 stage_lua 刚写的，永远是新的；release
+    的仍然并进来是「宁滥勿缺」——字集只许变大。
+    """
+    dirs = [ctx.root / "lua" / "final", REPO / "build" / "release" / "lua" / "final"]
+    out: list[Path] = []
+    for d in dirs:
+        if d.exists() and d not in out:
+            out.append(d)
+    return out
+
+
+def stage_font(ctx: BuildContext) -> dict:
+    """从本剖面 + release 的 lua/final 并集算字集（test 复用 release 字体产物）。
+
+    两棵树都不存在（裸跑 `--stage font`）则先跑 release 的 stage_lua。
+    ⚠ `--stage font` 单独跑不会刷新 lua/final；字集要反映新文本，按阶段序 `lua,font` 跑。
     """
     release_root = REPO / "build" / "release"
-    final_dir = release_root / "lua" / "final"
-    if not final_dir.exists():
+    if not _font_source_dirs(ctx):
         release_ctx = ctx if ctx.profile == "release" else replace(
             ctx, profile="release", root=release_root, switches={})
         stage_lua(release_ctx)
 
-    sources = [p.read_text(encoding="utf-8") for p in sorted(final_dir.glob("*.lua"))]
+    sources = [p.read_text(encoding="utf-8")
+               for d in _font_source_dirs(ctx) for p in sorted(d.glob("*.lua"))]
     ledger_jp = [r["jp"] for r in read_jsonl(REPO / ctx.manifest["base"]["ledger"])]
     ledger_jp += [r["jp"] for r in read_jsonl(REPO / ctx.manifest["base"]["ledger_extra"])]
     codes = layers.charset_of(sources, ledger_jp, list(build_font.ALWAYS))

@@ -421,3 +421,27 @@ def test_quantize_semi_transparent_image_still_uses_rgba_path():
     q = quantize_for_template(src, 256).convert("RGBA")
     alphas = set(q.getchannel("A").getdata())
     assert len(alphas) > 2
+
+
+# ---- stage_font 的字集取材（2026-09-21：test 盘新层的「译」画成下划线） ----
+
+def _font_ctx(root: Path, profile: str):
+    from tools.build_disc import BuildContext
+    return BuildContext(profile=profile, root=root, manifest={}, switches={}, mode_opts={})
+
+
+def test_font_sources_include_this_profile_and_release(tmp_path, monkeypatch):
+    """test 剖面：字集取材 = 自己刚写的 lua/final + release 的 lua/final（存在的才算，去重）。
+    以前只看 release 那棵树，而它是上一次 release 构建留下的——新层的字在 test 自己的 final
+    里、却进不了字集，走了「字集未变，复用现役字体」。"""
+    from tools import build_disc
+    monkeypatch.setattr(build_disc, "REPO", tmp_path)
+    rel = tmp_path / "build" / "release" / "lua" / "final"
+    tst = tmp_path / "build" / "test" / "lua" / "final"
+    assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "test", "test")) == []
+    rel.mkdir(parents=True)
+    assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "test", "test")) == [rel]
+    tst.mkdir(parents=True)
+    assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "test", "test")) == [tst, rel]
+    # release 剖面：自己的树就是 release 的树，不重复
+    assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "release", "release")) == [rel]

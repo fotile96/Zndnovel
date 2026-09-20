@@ -199,7 +199,45 @@ def test_round_trip_from_server_to_lane(tmp_path):
     assert _zh(lane, 11) == "夜晚。"
     # 清关后同一条草稿不再重复落地
     assert read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False) == []
-    # 车道追上之后，pending 不再报 stale（base 与现值仍相等？——现值已变，
-    # 故 stale=True，这正是「清关完了草稿还留着」时该有的提示）
+    # 清关完的行不再是待办（2026-09-21 之前这里会以 stale=True 的形态继续显示，
+    # 用户看到的就是一堆过时内容——现在 Reader 对着 committed.json 过滤）
     r2 = Reader(repo=repo, lane=LANE)
-    assert r2.unit_payload(1)["lines"][1]["pending"]["stale"] is True
+    assert r2.unit_payload(1)["lines"][1]["pending"] is None
+    assert r2.pending_payload()["total"] == 0
+
+
+# ---- 5. 归档（2026-09-21：清关完的 99 条在通读 UI 里继续显示为"未清关"） ----
+
+def test_prune_archives_closed_ids_and_keeps_open_ones(tmp_path):
+    """已关账 id（最后一条已清关）的全部行（含中间态）搬进 archive；
+    还开着的 id 整个不动，哪怕它更早的一行已清关过；committed.json 只留仍在草稿里的记录。"""
+    repo, lane = _repo(tmp_path, [
+        {**CLEAN, "zh": "第一版", "ts": "t1"},
+        {**CLEAN, "zh": "第二版", "ts": "t2"},
+        {**CLEAN, "id": 10, "zh": "【彩野】「呀」", "base_zh": "【彩野】「啊」", "jp": "【彩野】「あ」", "ts": "t3"},
+        {**CLEAN, "id": 10, "zh": "【彩野】「哎」", "base_zh": "【彩野】「啊」", "jp": "【彩野】「あ」", "ts": "t4"},
+    ])
+    draft = repo / "pilot" / "read-edits" / "opus.draft.jsonl"
+    done = draft.with_name("opus.committed.json")
+    done.write_text(json.dumps({"committed": [{"id": 11, "ts": "t2"}, {"id": 10, "ts": "t3"}]}),
+                    encoding="utf-8")
+    res = read_commit.prune(repo=repo, lane=LANE, dry_run=True)
+    assert res == {"archived": 2, "kept": 2}
+    assert not draft.with_name("opus.archive.jsonl").exists(), "dry-run 不写"
+    assert len(read_jsonl(draft)) == 4
+    res = read_commit.prune(repo=repo, lane=LANE, dry_run=False)
+    assert res == {"archived": 2, "kept": 2}
+    assert [r["zh"] for r in read_jsonl(draft.with_name("opus.archive.jsonl"))] == ["第一版", "第二版"]
+    assert [(r["id"], r["ts"]) for r in read_jsonl(draft)] == [(10, "t3"), (10, "t4")]
+    assert json.loads(done.read_text("utf-8"))["committed"] == [{"id": 10, "ts": "t3"}]
+    # 归档后再清关：只有 id 10 的第二条待办，id 11 不再出现
+    rows = read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False)
+    assert [r["id"] for r in rows] == [10] and _zh(lane, 10) == "【彩野】「哎」"
+
+
+def test_prune_cli_needs_no_data_dir(tmp_path, monkeypatch, capsys):
+    """归档不碰车道，不该被车道模式的 --data-dir 拒绝闸拦住。"""
+    repo, lane = _repo(tmp_path, [CLEAN])
+    monkeypatch.delenv("ZND_DATA", raising=False)
+    assert read_commit.main(["--prune", "--repo", str(repo)]) == 0
+    assert "prune" in capsys.readouterr().out

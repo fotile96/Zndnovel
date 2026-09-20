@@ -504,3 +504,23 @@ def test_untouched_line_is_not_mech_only(reader):
 ])
 def test_check_edit_speaker_presence_is_checked_against_jp(jp, old, new, frag):
     assert any(frag in w for w in check_edit(jp, old, new)), check_edit(jp, old, new)
+
+
+def test_committed_rows_are_not_pending(tmp_path):
+    """清关完的行不再算"未清关"：Reader 读草稿时对着 committed.json 过滤
+    （2026-09-21 之前清关完的 99 条在 UI 里照样显示为待办）。同 id 后来又改了一条
+    未清关的，则那条照常待办。"""
+    repo = _mini(tmp_path)
+    r = Reader(repo=repo)
+    r.record_edit({"id": 11, "zh": "第一版"})
+    ts1 = load_edits(r.edits_path)[11]["ts"]
+    r.edits_path.with_name("opus.committed.json").write_text(
+        json.dumps({"committed": [{"id": 11, "ts": ts1}]}), encoding="utf-8")
+    r2 = Reader(repo=repo)
+    assert r2.pending_payload()["total"] == 0
+    assert r2._pending_payload(11, "", r2.current[11]) is None
+    # 同一秒内再改一条会与上一条同 (id, ts)，故显式给一个更晚的 ts
+    append_edit(r2.edits_path, {"id": 11, "zh": "第二版", "note": "", "base_zh": "",
+                                "jp": "", "lane": "pilot/lanes/opus", "ts": "9999-01-01T00:00:00+00:00"})
+    r3 = Reader(repo=repo)
+    assert r3.pending_payload()["total"] == 1 and r3.edits[11]["zh"] == "第二版"

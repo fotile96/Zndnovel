@@ -159,6 +159,28 @@ def load_edits(path) -> dict:
     return out
 
 
+def committed_path(draft) -> Path:
+    """草稿旁的清关账：`<lane>.committed.json`，记已处理的 `(id, ts)`（`read_commit` 写）。"""
+    p = Path(draft)
+    return p.with_name(p.name.replace(DRAFT_SUFFIX, ".committed.json"))
+
+
+def load_committed(draft) -> set:
+    p = committed_path(draft)
+    if not p.exists():
+        return set()
+    data = json.loads(p.read_text(encoding="utf-8"))
+    return {(x["id"], x["ts"]) for x in data.get("committed", [])}
+
+
+def pending_edits(path) -> dict:
+    """→ `{id: 最后一条编辑记录}`，**只含尚未清关的**——最后一条 `(id, ts)` 已在
+    `committed.json` 里的 id 不算待办。2026-09-21 之前 Reader 直接用 `load_edits`，
+    于是清关完的 99 条在通读 UI 里继续显示为"未清关"，用户看到的是一堆过时内容。"""
+    done = load_committed(path)
+    return {i: e for i, e in load_edits(path).items() if (i, e.get("ts")) not in done}
+
+
 _RUBY_RE = re.compile(r"<([^,>]+),([^>]+)>")
 _SPK_RE = re.compile(r"^【([^】]*)】")
 _MARKS = "「」『』≪≫≦≧"
@@ -256,7 +278,7 @@ class Reader:
                     self.decisions[r["id"]].append({**r, "seg": seg})
 
         self.edits_path = edits_path(self.repo, lane)
-        self.edits = load_edits(self.edits_path)
+        self.edits = pending_edits(self.edits_path)
 
         self.units, self.by_seq = self._build_units()
 

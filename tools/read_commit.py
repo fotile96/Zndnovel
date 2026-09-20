@@ -13,6 +13,9 @@
    逐字相同、无需落地的**（编辑后又撤回的行）；重复 `--apply` 是 no-op。
    同 id 改判过多次（草稿 append-only）只落**最后一条**——中间态没有落地的意义，
    与 `polish_commit` 的「同 id 取最后一条」一致。
+5. **`--prune` 归档**：已关账 id 的草稿行搬进 `<lane>.archive.jsonl`（批注只在草稿里，
+   不能删），草稿只留待办；通读 UI 的"未清关"视图本身也不再显示已关账的行
+   （`read_server.pending_edits`），两道保险。
 
 ## 两道本工具特有的闸
 
@@ -36,19 +39,57 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import add_patch
 from tools.build_context import glossary_version
 from tools.pipelib import REPO, read_jsonl
-from tools.read_server import DEFAULT_LANE, check_edit, edits_path, load_edits
+from tools.read_server import (DEFAULT_LANE, DRAFT_SUFFIX, check_edit, committed_path,
+                               edits_path, load_committed, load_edits)
 from tools.resolve import resolve_map
 
 
 def _committed_path(p: Path) -> Path:
-    return p.with_name(p.name.replace(".draft.jsonl", ".committed.json"))
+    return committed_path(p)
 
 
 def _load_committed(p: Path) -> set:
-    if not p.exists():
-        return set()
-    data = json.loads(p.read_text(encoding="utf-8"))
-    return {(x["id"], x["ts"]) for x in data.get("committed", [])}
+    return load_committed(p.with_name(p.name.replace(".committed.json", DRAFT_SUFFIX)))
+
+
+def archive_path(draft: Path) -> Path:
+    return draft.with_name(draft.name.replace(DRAFT_SUFFIX, ".archive.jsonl"))
+
+
+def prune(repo=None, lane=DEFAULT_LANE, dry_run=True) -> dict:
+    """把**已关账的 id** 的全部草稿行搬进 `<lane>.archive.jsonl`，草稿只留还在待办的行。
+
+    「已关账」＝该 id 的最后一条 `(id, ts)` 在 `committed.json` 里（已落地，或撤回后与
+    车道相同而记为已处理）。它名下更早的中间态行一并归档——草稿是 append-only 的编辑
+    过程记录，批注（`note`）只存在这里、不进 patches，所以是**搬走**而不是删掉。
+    还开着的 id（最后一条未清关）整个不动，哪怕它更早的某一行已清关过。
+    归档后 `committed.json` 只留仍在草稿里的行的记录，账与草稿始终一一对应。
+    """
+    repo = Path(repo) if repo is not None else REPO
+    draft = edits_path(repo, lane)
+    rows = list(read_jsonl(draft)) if draft.exists() else []
+    done = load_committed(draft)
+    last_ts = {}
+    for r in rows:
+        last_ts[r["id"]] = r.get("ts")
+    closed = {i for i, ts in last_ts.items() if (i, ts) in done}
+    keep = [r for r in rows if r["id"] not in closed]
+    gone = [r for r in rows if r["id"] in closed]
+    tag = "[dry-run]" if dry_run else "[apply]"
+    for r in gone:
+        print(f"{tag} 归档 id={r['id']} ts={r.get('ts')} {r.get('zh', '')[:40]}", file=sys.stderr)
+    print(f"{tag} 草稿 {len(rows)} 行：归档 {len(gone)}（{len(closed)} 个已关账 id），留 {len(keep)}"
+          f"（{len(last_ts) - len(closed)} 个待办 id）", file=sys.stderr)
+    if not dry_run and gone:
+        arc = archive_path(draft)
+        with open(arc, "a", encoding="utf-8") as f:
+            for r in gone:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        draft.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep), encoding="utf-8")
+        kept_keys = {(r["id"], r.get("ts")) for r in keep}
+        _save_committed(committed_path(draft), {k for k in done if k in kept_keys})
+        print(f"{tag} 已写 {arc}", file=sys.stderr)
+    return {"archived": len(gone), "kept": len(keep)}
 
 
 def _save_committed(p: Path, done: set) -> None:
@@ -150,7 +191,15 @@ def main(argv=None):
     ap.add_argument("--repo", default=None, help="仓库根（测试传 tmp_path）")
     ap.add_argument("--skip", default="",
                     help="这一轮不清关的 id，逗号分隔（留在草稿里，下一轮再清）")
+    ap.add_argument("--prune", action="store_true",
+                    help="不清关，只把已关账 id 的草稿行搬进 <lane>.archive.jsonl（配 --apply 真写）")
     args = ap.parse_args(argv)
+
+    if args.prune:
+        res = prune(repo=args.repo, lane=args.lane, dry_run=not args.apply)
+        mode = "APPLY" if args.apply else "DRY-RUN"
+        print(f"read_commit[{mode}] prune: 归档 {res['archived']} 行，草稿留 {res['kept']} 行")
+        return 0
 
     skip = {int(x) for x in args.skip.split(",") if x.strip()}
     data_dir = add_patch.resolve_data_dir(args.data_dir, repo=args.repo)

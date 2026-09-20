@@ -66,6 +66,9 @@
 #let complete = box(fill: c-soft, inset: (x: 4pt, y: 1.5pt), radius: 2pt,
   text(font: f-sans, size: 0.85em, fill: c-accent, weight: "bold")[章节完成])
 #let arrow = sym.arrow.r
+// 沙漏用完的那一幕之后紧接着就是 Game Over：做完卡回来接着讲没有新剧情。
+// tools/guide_route_check.py 按引擎探针判定——该标必标、不该标不许标（用户 2026-09-20 提出）。
+#let deadend = text(size: 0.9em, fill: c-gray)[（这一幕之后紧接着就是 Game Over：做完卡回来若从这里接着讲，只会问一次要不要跳过，随即 Game Over，没有新剧情，下一轮直接换分支）]
 
 // 路线框：一段「故事模式」或「片段模式」的操作序列
 #let route-box(title, body, show-pos: true) = block(

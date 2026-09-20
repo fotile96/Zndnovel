@@ -465,6 +465,26 @@ class Sim:
         self.log(f"本轮终止：{terminal}；路线 {[r.scene for r in self.route]}")
         return terminal
 
+    def probe_deadend(self, last: str) -> bool:
+        """沙漏在 last 用完之后：做完它的卡再从它接着讲，是否只会问一次跳过就直接 GAME OVER、时间轴不添新场景。
+
+        玩家 2026-09-20 反馈：这种位置攻略直接换分支是对的，但「这里后面还有没有剧情」不明确，须显式标注。
+        探针在快照上跑：假定 last 的卡已持有，从 last 重讲、不给任何选项；只有「gameover 且路线只多回
+        last 自己」才算死胡同——弹出选择（RouteError）、再次 Time over（说明后面还有未持卡的新场景）、
+        章节完成都不算。"""
+        snap = (list(self.route), self.time, set(self.held), list(self.visited), self.trace)
+        self.trace = False
+        try:
+            self.held.add(self.scene2card[last])
+            n_before = len([r for r in self.route][: [i for i, r in enumerate(self.route) if r.scene == last][-1]])
+            try:
+                terminal = self.story(last, [], set())
+            except RouteError:
+                return False
+            return terminal == "gameover" and len(self.route) == n_before + 1
+        finally:
+            self.route, self.time, self.held, self.visited, self.trace = list(snap[0]), snap[1], set(snap[2]), list(snap[3]), snap[4]
+
     # -- 片段模式做一张卡 ---------------------------------------------------------------
     def enter_fragment(self):
         if 136 in self.held and 145 not in self.held:
@@ -645,6 +665,14 @@ def check(trace: bool = False) -> list[str]:
                         problems.append(f"{where} 正文标了 {marker}，模拟结果是 {terminal}")
                 if terminal == "timeover" and "#timeover" not in st.body and "沙漏" not in st.body:
                     problems.append(f"{where} 本轮在 {sim.sname(sim.route[-1].scene)} 沙漏满（Time over），正文没写")
+                if terminal == "timeover":
+                    last = sim.route[-1].scene
+                    dead = sim.probe_deadend(last)
+                    marked = "#deadend" in st.body
+                    if dead and not marked:
+                        problems.append(f"{where} 沙漏在 {sim.sname(last)} 用完，其后紧接 GAME OVER（做完卡回来接着讲没有新剧情），正文须标 #deadend")
+                    if marked and not dead:
+                        problems.append(f"{where} 标了 #deadend，但从 {sim.sname(last)} 接着讲并不是直接 GAME OVER")
             else:
                 sim.enter_fragment()
                 for n, ln in st.cards:

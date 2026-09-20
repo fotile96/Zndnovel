@@ -84,35 +84,42 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 
 ## 加一个新层的完整走查（示例：文库入口中文说明）
 
-`MEMORY.md` 记着一条待做项——文库（`snr_novel.lua`）入口加几行中文说明，告知玩家
-`png/novel/` 那 993 张竖排页图小说不烤字、只读日文原图，指引民间译本。**下面是这项改动
-在层管线里的完整走查，用来示范流程；截至本文写作时尚未实施，`layers/overlays/` 下没有
-这个文件，不要以为它已存在。**
+文库（`snr_novel.lua`）入口的中文说明——告知玩家 `png/novel/` 那 993 张竖排页图小说不烤字、
+只读日文原图，指引民间译本——**已于 2026-09-21 实施**，就是 `layers/overlays/novel-notice-entry.toml`
+（入口，一次性）与 `novel-notice-s1f.toml`（章节 1 读完、原作介绍 novel 模式处，八条）。方案、措辞、
+模拟器目检与踩到的字集坑见 `docs/ops/novel-notice-2026-09-21.md`。下面按它走一遍流程。
 
-1. **确定锚点与操作类型**。目标文件 `snr_novel.lua`，`main()` 里 `endLoading()`
-   （加载完素材、正式进入浏览循环之前）在全文件唯一出现一次，适合作 `insert_after` 锚点：
+1. **确定锚点与操作类型**。目标文件 `snr_novel.lua`，`main()` 里 `systemConfig.unsetConfigButton()`
+   在全文件唯一出现一次，位于「一本也没有」早退之后、`advPart(false)` 之前——原作在同一位置用 `msg()`
+   显示空列表提示，证明此时消息窗可用，适合作 `insert_before` 锚点：
 
    ```toml
-   # layers/overlays/novel-notice.toml
+   # layers/overlays/novel-notice-entry.toml（节录）
    target  = "snr_novel.lua"
    profile = "release"
-   why     = """文库页图小说不烤字（用户 2026-08-30 裁定，超出本项目范围），入口补一句
-   中文说明避免玩家误以为是漏译，并指引民间译本。"""
 
    [[ops]]
-   op     = "insert_after"
+   op     = "insert_before"
    anchor = '''
-       endLoading()
+       systemConfig.unsetConfigButton()
    '''
    text   = '''
-       vms(17500, "NONVOICE", "【■おしらせ】本文库为原始日文页图小说，未作汉化，另见民间译本。")
+       if systemSave.novelNoticeSeen ~= true then
+           vms(17510, "NONVOICE", "【■汉化说明】游戏内小说未作翻译，以下为日文原版页面。")
+           vms(17511, "NONVOICE", "【■汉化说明】中文社区早有网友译出的版本，欢迎自行检索阅读；也欢迎学会日语后再来重温。")
+           systemSave.novelNoticeSeen = true   -- persisted by the autoSystemSave(0) at the end of main()
+       end
    '''
    ```
 
-   新起的 vms id（示例用 17500，实际取号前先看 `vms_ids.toml` 已占段避免撞号）必须落在
-   账本 `1..17220` 与卡消息保留段 `18001..18195` 之外。
+   锚点是**代码文本**而不是字符串字面量：`layers.py check` 在纯净基座上验层、`build_disc.py` 在注入译文后的源上
+   施加层，含日文串的锚点只能命中其中一边。新起的 vms id 必须落在账本 `1..17220` 与卡消息保留段
+   `18001..18195` 之外，取号前先看 `vms_ids.toml` 已占段（谢幕章 17300–17481、本层 17500–17511）。
+   一次性显示靠**新系统键** `systemSave.novelNoticeSeen`：旧系统数据缺键读 nil，`~= true` 即显示一次，
+   由脚本末尾原有的 `autoSystemSave(0)` 落盘——同 `finaleReadFlag` 的 nil 守卫做法，刻意不改 `snr_common`
+   的 systemSave 字面表（那个锚点已被 `finale-read-flag` 层占用，再叠一层会让两层耦合）。
 
-2. **在 `manifest.toml` 排位**。`[overlays].order` 加 `"novel-notice"`——`load_manifest()`
+2. **在 `manifest.toml` 排位**。`[overlays].order` 加 `"novel-notice-entry"`——`load_manifest()`
    会校验 `order` 与 `layers/overlays/` 目录下实际文件一一对应，漏加或错拼直接报错。
    施加顺序是语义的一部分，一般排在末尾即可，除非新层与已有层改动同一文件的重叠区域。
 
@@ -120,8 +127,8 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 
    ```toml
    [[ranges]]
-   owner = "overlays/novel-notice.toml"
-   vms   = [[17500, 17500]]
+   owner = "overlays/novel-notice-entry.toml"
+   vms   = [[17510, 17511]]
    ```
 
    `layers.py check`（`check_ids()`）现在同时扫描两类来源：`manifest.toml` 的
@@ -155,8 +162,10 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
    ```
 
    `lua` 阶段会把这层实际施加到注入后的 `snr_novel.lua`，其余阶段按前面的阶段表照常走。
-   test 盘全解锁，主菜单进 library 子列选 novel 即可看到新说明是否正确渲染——走法参照
-   `tools/emu/drives/library.py`。
+   test 盘全解锁，主菜单进 library 子列选 novel 即可看到新说明是否正确渲染——驾驶脚本
+   `tools/emu/drives/novel_notice.py`（进两次，第二次不该再提示）；s1f 那层用 `--mode scene --scene s1f-complete`
+   + `novel_notice_s1f.py`。⚠ 新文本带来全库没出现过的字时，字集靠 `lua,font` 两阶段连跑才会更新
+   （2026-09-21 「译」画成下划线的坑，`39e27cb` 已让 test 剖面并入自己的 final）。
 
 ## 各道闸防的是什么
 

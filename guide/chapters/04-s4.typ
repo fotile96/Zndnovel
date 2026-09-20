@@ -60,7 +60,7 @@
 == 字条、课桌、笔记本
 
 #story-box(from: "s4s_160_sel", pick: ("被勾起了兴趣", "真无聊"))[
-  #card("选择：看到字条时") 选 #opt("被勾起了兴趣") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影")：沙漏在这里满 #timeover（再往下本来是 Game Over）
+  #card("选择：看到字条时") 选 #opt("被勾起了兴趣") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影")：沙漏在这里满 #timeover #deadend
 ]
 #frag-box[
   #make-cards(
@@ -94,7 +94,7 @@
 == 探索：Ayano 的下落，以及 4A 结局
 
 #story-box(from: "s4s_420_sel", pick: ("翻看笔记本", "抓住手臂"))[
-  #card("选择：Ayano的笔记本") 选 #opt("翻看笔记本") #arrow #card("写在笔记本上的名字") #arrow #card("探索：Ayano的下落")：地图八个点（比上次多一个图书室），*每个点各去两次*，然后第三次去天台 #arrow #card("选择：将Ayano――")：默认只有 #opt("抓住手臂") #arrow #card("抓住手臂") #timeover。这段探索同样只走一遍：它的卡要递『选择：将Ayano――』，后者又要递『抓住手臂』，两张都已在这一轮讲到。
+  #card("选择：Ayano的笔记本") 选 #opt("翻看笔记本") #arrow #card("写在笔记本上的名字") #arrow #card("探索：Ayano的下落")：地图八个点（比上次多一个图书室），*每个点各去两次*，然后第三次去天台 #arrow #card("选择：将Ayano――")：默认只有 #opt("抓住手臂") #arrow #card("抓住手臂") #timeover #deadend。这段探索同样只走一遍：它的卡要递『选择：将Ayano――』，后者又要递『抓住手臂』，两张都已在这一轮讲到。
 ]
 #frag-box[
   #make-cards(

@@ -15,7 +15,7 @@
   #make-cards(("选择：颇有意思的传闻", [递 #card("章节 5 梗概")。做成后出现 #opt("不听")]))
 ]
 #story-box(from: "s3s_50_sel", pick: ("不听", "在家读"))[
-  回到 #card("选择：颇有意思的传闻") 选 #opt("不听") #arrow #card("有冲击力的传闻") #arrow #card("章节 6：Ayano") #arrow #card("选择：在哪里读")：默认只有 #opt("在家读") #arrow #card("Sakura的来信") #timeover（沙漏在 Game Over 画面之前就满了，效果一样）
+  回到 #card("选择：颇有意思的传闻") 选 #opt("不听") #arrow #card("有冲击力的传闻") #arrow #card("章节 6：Ayano") #arrow #card("选择：在哪里读")：默认只有 #opt("在家读") #arrow #card("Sakura的来信") #timeover #deadend
 ]
 #frag-box[
   #make-cards(

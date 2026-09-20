@@ -93,7 +93,7 @@
   )
 ]
 #story-box(from: "s3s_375")[
-  从 #card("章节 3：Ayano") 接着讲 #arrow #card("飞奔离去的Ayano") #arrow #card("前往楼梯") #arrow #card("Yuichi的手") #arrow #card("天台", id: 85) #cn(85)：沙漏在这里满 #timeover（再往下本来是 Game Over）
+  从 #card("章节 3：Ayano") 接着讲 #arrow #card("飞奔离去的Ayano") #arrow #card("前往楼梯") #arrow #card("Yuichi的手") #arrow #card("天台", id: 85) #cn(85)：沙漏在这里满 #timeover #deadend
 ]
 #frag-box[
   #make-cards(

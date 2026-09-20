@@ -58,8 +58,12 @@ def _save_committed(p: Path, done: set) -> None:
 
 
 def commit(data_dir, repo=None, lane=DEFAULT_LANE, dry_run=True,
-           allow_stale=False, allow_warn=False) -> list:
+           allow_stale=False, allow_warn=False, skip=()) -> list:
+    """`skip`：这一轮**不清关**的 id 集合。被跳过的行原样留在草稿里、不进
+    `committed.json`，下一轮不带 `--skip` 照常落地——用于「这几条要先和人商量」
+    而其余几十条不必陪着等的场合。跳过的行逐条打印，不静默。"""
     repo = Path(repo) if repo is not None else REPO
+    skip = set(skip)
     data_dir = Path(data_dir)
     draft = edits_path(repo, lane)
     edits = load_edits(draft)
@@ -80,6 +84,9 @@ def commit(data_dir, repo=None, lane=DEFAULT_LANE, dry_run=True,
         e = edits[cid]
         ts = e.get("ts")
         if (cid, ts) in done:
+            continue
+        if cid in skip:
+            print(f"{tag} - id {cid} 按 --skip 跳过（仍留在草稿里，下一轮再清）", file=sys.stderr)
             continue
         zh, base = e.get("zh", ""), e.get("base_zh", "")
         now = cur.get(cid, "")
@@ -134,11 +141,14 @@ def main(argv=None):
     ap.add_argument("--allow-warn", action="store_true",
                     help="放行机械体检有警告的行（默认拒写）")
     ap.add_argument("--repo", default=None, help="仓库根（测试传 tmp_path）")
+    ap.add_argument("--skip", default="",
+                    help="这一轮不清关的 id，逗号分隔（留在草稿里，下一轮再清）")
     args = ap.parse_args(argv)
 
+    skip = {int(x) for x in args.skip.split(",") if x.strip()}
     data_dir = add_patch.resolve_data_dir(args.data_dir, repo=args.repo)
     rows = commit(data_dir, repo=args.repo, lane=args.lane, dry_run=not args.apply,
-                  allow_stale=args.allow_stale, allow_warn=args.allow_warn)
+                  allow_stale=args.allow_stale, allow_warn=args.allow_warn, skip=skip)
     mode = "APPLY" if args.apply else "DRY-RUN"
     tail = f"已写入 {data_dir}" if args.apply else "未写入任何文件——加 --apply 才真写"
     print(f"read_commit[{mode}]: 共 {len(rows)} 条 patch（{tail}）")

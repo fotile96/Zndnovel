@@ -141,6 +141,20 @@ def test_empty_diff_is_skipped(tmp_path):
     assert read_jsonl(lane / "patches.jsonl") == []
 
 
+def test_skipped_ids_stay_in_draft_for_next_round(tmp_path):
+    """`--skip`：这一轮不清的 id 不写 patch、不进 committed.json，其余照常落地；
+    下一轮不带 skip 时它照常清关（2026-09-21：几条要先商量的行不该拖住其余几十条）。"""
+    other = {**CLEAN, "id": 10, "zh": "【彩野】「呀」", "base_zh": "【彩野】「啊」",
+             "jp": "【彩野】「あ」"}
+    repo, lane = _repo(tmp_path, [CLEAN, other])
+    rows = read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False, skip={10})
+    assert [r["id"] for r in rows] == [11]
+    assert _zh(lane, 10) == "【彩野】「啊」" and _zh(lane, 11) == "夜晚。"
+    rows = read_commit.commit(lane, repo=repo, lane=LANE, dry_run=False)
+    assert [r["id"] for r in rows] == [10]
+    assert _zh(lane, 10) == "【彩野】「呀」"
+
+
 # ---- 4. 车道模式拒绝闸（2026-08-02 事故的复用） ----
 
 def test_cli_refuses_without_data_dir_in_lane_mode(tmp_path, monkeypatch):

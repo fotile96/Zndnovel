@@ -61,7 +61,7 @@ scene_fin_0 = function(scene_id, scene_title)
     vms(17309, "NONVOICE", "……")
     vms(17310, "NONVOICE", "【≦用户≧】「哎呀，你害羞啦？」")
     vms(17311, "NONVOICE", "【≦用户≧】「你们友商都要给给自家产品颁Fields奖了。你们还是要努力提升自己的知识水平呀」")
-    vms(17312, "NONVOICE", "【≦用户≧】「去吧。这是最后的Staff Roll了」")
+    vms(17312, "NONVOICE", "【≦用户≧】「去吧。这是最后的 End Roll 了」")
     vms(17313, "NONVOICE", "……")
     vms(17314, "NONVOICE", "……笔，接过来了。")
     wait(1)
@@ -200,7 +200,7 @@ scene_fin_20 = function(scene_id, scene_title)
     v0()
 end
 
--- ── 场景 3『七张卡』——翻卡位（第三次 Staff Roll 的实体）
+-- ── 场景 3『七张卡』——翻卡位（第三次 End Roll 的实体）
 scene_fin_30 = function(scene_id, scene_title)
     local v0
     v0 = function()
@@ -294,7 +294,7 @@ scene_fin_40 = function(scene_id, scene_title)
     v0()
 end
 
--- ── 场景 5『第三个 Staff Roll』——收束（天台）
+-- ── 场景 5『第三个 End Roll』——收束（天台）
 scene_fin_50 = function(scene_id, scene_title)
     local v0
     v0 = function()
@@ -310,9 +310,9 @@ scene_fin_50 = function(scene_id, scene_title)
     vms(17457, "NONVOICE", "【千秋】「呵呵。老师的夸奖，一点参考价值都没有」")
     vms(17458, "NONVOICE", "【直哉】「喂」")
     vms(17459, "NONVOICE", "夕阳沉下去了一半。我们并排靠着围栏。")
-    vms(17460, "NONVOICE", "【千秋】「呐，直哉哥。第三个 Staff Roll 呢？」")
-    vms(17461, "NONVOICE", "第一个 Staff Roll 是故事。")
-    vms(17462, "NONVOICE", "第二个 Staff Roll 是真正的结束。")
+    vms(17460, "NONVOICE", "【千秋】「呐，直哉哥。第三个 End Roll 呢？」")
+    vms(17461, "NONVOICE", "第一个 End Roll 是故事。")
+    vms(17462, "NONVOICE", "第二个 End Roll 是真正的结束。")
     vms(17463, "NONVOICE", "第三个——")
     vms(17464, "NONVOICE", "【直哉】「只要有谁去写故事，就会继续下去。……由加里老师说的哦」")
     vms(17465, "NONVOICE", "【千秋】「嗯。我也这么想」")
@@ -373,7 +373,7 @@ main = function()
             scene_fin_40(doScriptScene, "文化祭")
             doScriptScene = "fin-50"
         elseif doScriptScene == "fin-50" then
-            scene_fin_50(doScriptScene, "第三个 Staff Roll")
+            scene_fin_50(doScriptScene, "第三个 End Roll")
             -- 首次完整读完谢幕章：置系统旗标并立刻写系统数据（e2f-complete 同款 autoSystemSave(0)），
             -- 主菜单 title-logo-zh 层据此把题名 logo 换成中文 title_01_c；旗标声明见 finale-read-flag 层。
             systemSave.finaleReadFlag = true

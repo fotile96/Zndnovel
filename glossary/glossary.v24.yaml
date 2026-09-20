@@ -1,0 +1,67 @@
+# 术语表 v24 —— 2026-09-21，エンドロール／スタッフロール → End Roll（Staff Roll 作废）
+#
+# append-only：本文件只增不改，v23 的全部条目继续有效。本版只做一件事：
+# 把 v12 `endroll-staff-roll` 定下的 `Staff Roll` 改成 **`End Roll`**——理由是与语音资源一致：
+# 4755/4756/4757（YUK04880/YUK04890/YUI03640）念的是「エンドロール」，玩家听到 endo-rōru、
+# 看到 Staff Roll，对不上；原作场景标题 s7f/s8f 用的「スタッフロール」也一并跟随，
+# 中文侧不为两个日文词形分家（v12 本就把它们当同族）。形制不变：半角拉丁、与汉字间各留一个半角空格。
+#
+# ★★ 召回范围：主轨 5 行（patches，reason=recall，glossary_v=24：4700/4755/4756/4757/12985）
+#   + extra 轨 2 键（data/extra_translated.jsonl → forward_extra：snr_s7_10_f:2247、snr_s8_10_f:626）
+#   + 谢幕章 layers/scripts/snr_finale.lua（17312/17460/17461/17462 + fin-50 场景标题）
+#   + style.md「保留英文的词」节 + active.json
+#   + 题库 config/ayano_qa/seg6-s8-e1.yaml（q18 参考答案）+ 攻略 guide/chapters/08 + docs/finale 现行稿
+#   skeleton 不涉（anchors/cards.zh 零命中，无须 skeleton 召回、无须重烤任何图）；
+#   e1s 场景标题「然后，故事迎来了片尾」（2026-08-08 行宽例外）**维持不动**（用户 2026-09-21 裁定）。
+
+version: 24
+date: 2026-09-21
+segment: p5-postscript
+track: P5-prep
+lane: opus
+active_json: "エンドロール: Staff Roll → End Roll；新增 スタッフロール: End Roll"
+recall: "无 skeleton 召回；主轨 5 行 + extra 2 键 + 谢幕章 + 文档面"
+
+revisions:
+  - id: endroll-end-roll
+    title: エンドロール／スタッフロール → End Roll（v12 的 Staff Roll 作废）
+    decided_by: user
+    date: 2026-09-21
+    supersedes: v12 endroll-staff-roll
+    scope: 主轨 5 行 + extra 2 键 + 谢幕章 5 处 + 文档面
+    patches:
+      - id: 4700
+        zh_before: 故事迎来了 Staff Roll。
+        zh_after: 故事迎来了 End Roll。
+      - id: 4755
+        zh_before: 【教师】「第一个 Staff Roll 是故事」
+        zh_after: 【教师】「第一个 End Roll 是故事」
+      - id: 4756
+        zh_before: 【教师】「第二个 Staff Roll 是真正的结束」
+        zh_after: 【教师】「第二个 End Roll 是真正的结束」
+      - id: 4757
+        zh_before: 【男学生】「第三个 Staff Roll 呢？」
+        zh_after: 【男学生】「第三个 End Roll 呢？」
+      - id: 12985
+        zh_before: 要如何让故事完结，主导权在彩野同学手上。Staff Roll 的所有权，属于她。
+        zh_after: 要如何让故事完结，主导权在彩野同学手上。End Roll 的所有权，属于她。
+    extra:
+      "snr_s7_10_f:2247": "Staff Roll → End Roll（场景标题，进 gameSave.sceneName，cfontPrint；release 已去 cHan2Zen，半角安全）"
+      "snr_s8_10_f:626": "Staff Roll 2 → End Roll 2"
+      "snr_e1_10_s:1693": "「然后，故事迎来了片尾」维持不动——2026-08-08 的 145×15 场景名条行宽例外，用户 2026-09-21 裁定简单起见不动"
+    finale:
+      17312: "「去吧。这是最后的Staff Roll了」→「去吧。这是最后的 End Roll 了」（顺手补上 v12 形制要求的半角空格）"
+      17460: "「呐，直哉哥。第三个 Staff Roll 呢？」→ End Roll"
+      17461: "第一个 Staff Roll 是故事。→ End Roll"
+      17462: "第二个 Staff Roll 是真正的结束。→ End Roll"
+      fin-50: "场景标题「第三个 Staff Roll」→「第三个 End Roll」"
+    rationale: >
+      与语音一致。三连台词是有配音的（YUK04880/YUK04890/YUI03640），玩家一边听「エンドロール」
+      一边读「Staff Roll」是两个词；End Roll 是同一个词的转写，且比 Staff Roll 短两字。
+      形制沿 v12：半角拉丁、前后与汉字各留一个半角空格，句末标点全角。
+    measured: >
+      msg_layout_check：5 行主轨 + 谢幕章 4 行改后均为 1 段、零告警（End Roll 比 Staff Roll 窄）。
+      场景标题走 cfontPrint，不经消息窗，无行宽闸；「End Roll 2」比「Staff Roll 2」窄。
+    not_affected: >
+      谢幕卡 crd_201..207 与 encore 菜单图不含该词，不重烤；config/ui_terms.yaml 无此词条；
+      skeleton 零命中；draft-finale-v0/v1/v2 与 mainmenu-entry-plan 是历史稿，不动。

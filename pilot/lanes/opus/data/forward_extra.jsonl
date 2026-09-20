@@ -1076,3 +1076,5 @@
 {"key":"snr_s7_10_f:2091","kind":"dispatch_text","zh":"在故事里，那个女孩担当的是向Ayano同学递上『传闻』的角色――","source":"model+review:data/extra_translated.jsonl","glossary_v":22,"ts":"2026-09-07T17:00:29+00:00"}
 {"key":"plotTitle:1","kind":"plot_title","zh":"有个女孩子来学校的故事","source":"cards.zh:card=1","glossary_v":22,"ts":"2026-09-07T17:00:29+00:00"}
 {"key":"plotTitle:131","kind":"plot_title","zh":"和那个女孩见面的约定","source":"cards.zh:card=131","glossary_v":22,"ts":"2026-09-07T17:00:29+00:00"}
+{"key":"snr_s7_10_f:2247","kind":"scene_title","zh":"End Roll","source":"model+review:data/extra_translated.jsonl","glossary_v":24,"ts":"2026-09-20T17:43:55+00:00"}
+{"key":"snr_s8_10_f:626","kind":"scene_title","zh":"End Roll 2","source":"model+review:data/extra_translated.jsonl","glossary_v":24,"ts":"2026-09-20T17:43:55+00:00"}

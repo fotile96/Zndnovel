@@ -3,7 +3,7 @@
 > 起因：`png/novel/` 993 张竖排页图小说不烤字（用户 2026-08-30 裁定出范围）。玩家日后点进文库看到日文原图
 > 会以为是漏译。用户 2026-09-21 要求在 lua 里第一次介绍 novel 模式的位置加几句解释，并就「标题界面进 novel
 > 时要不要也提示」征求建议。本文是方案 + 措辞 + 落地记录；两层叠加文件已写好、过闸、模拟器目检通过，
-> **措辞待用户复看后再提交**。
+> 措辞经用户复看**采纳原样**（2026-09-21），两层已提交（`fd658fb`）并随即重刷正式盘。
 
 ## 1. 原作在哪里介绍 novel 模式
 
@@ -15,7 +15,7 @@ memory 模式重放 s1f 时 `if memoryFlag == true then run snr_memory` 早退�
 
 文库本身（`snr_novel.lua`）是纯图片 UI，唯一的文字是空列表时的 `msg("まだ一冊も取得していません。")`。
 
-## 2. 施工方案（已落地为两层，未提交）
+## 2. 施工方案（已落地为两层）
 
 | 层 | 目标 | 锚点 | 内容 |
 |---|---|---|---|
@@ -33,7 +33,7 @@ memory 模式重放 s1f 时 `if memoryFlag == true then run snr_memory` 早退�
 - 字体：字集由 `layers.py` 从 release 最终源机械算出，新字自动进字集，`build_disc.py` 的 fonts 阶段重生成即可。
 - 不动 EBOOT、不烤图、不进 storyRoute、不进存档 gameSave。
 
-## 3. 措辞（待复看）
+## 3. 措辞（用户 2026-09-21 复看采纳，原样落地）
 
 约束：消息窗 4 行 × 25 格；沿用原通知的「・小标题_n_r正文」体例；系统口吻用书面语（style.md「UI 与系统文本」）。
 全部经 `msg_layout_check` 模拟，最多 3 行、零告警。
@@ -93,7 +93,7 @@ s1f 层独立成立。
   lua/final 算字集，那棵树是上一次 release 构建留下的、不含新层。现在字集取本剖面 final ∪ release final。
   「译」是本次新增的唯一新字（字集 3390 → 3391）。
 
-## 6. 落地清单（提交时）
+## 6. 落地清单（已全部完成）
 
 - `layers/overlays/novel-notice-s1f.toml`、`layers/overlays/novel-notice-entry.toml`（新）
 - `layers/manifest.toml`：`[overlays].order` 加两层（在 `title-logo-zh` 之后、`strip-ipl` 之前）

@@ -71,7 +71,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 阶段 | 做什么 |
 |---|---|
 | `lua` | 译文注入 `lua_scripts` → 按剖面施加叠加层（release 层两剖面都施加，test 层只在 test；test 剖面先跑 `testboot.generate()` 产 `root/generated/`，其 `snr_test.lua` 与递卡短路等层随后一并施加）→ id 登记检查 → 写 `build/<profile>/lua/final/` |
-| `font` | 永远从 **release** 剖面的 `lua/final` 算字集（test 复用 release 字体，探针文本不计入字集）→ 与 `build/font/ucs.txt` 比对内容，不等或 pgf 缺失才重建 → `build/font/{lxgw17,lxgw09}.pgf`（跨剖面共享） |
+| `font` | 从**本剖面 + release** 两棵 `lua/final` 的并集算字集（2026-09-21 起；此前只看 release 那棵、test 盘新层的字会漏。test 复用 release 字体产物，探针文本随之计入字集——字集只许变大）→ 与 `build/font/ucs.txt` 比对内容，不等或 pgf 缺失才重建 → `build/font/{lxgw17,lxgw09}.pgf`（跨剖面共享） |
 | `members` | `build/<profile>/members/`：先清空再重建。编译 `lua/final/*.lua`（校 PSP ABI 头）；gim 按 `manifest.toml` 的 `[gim]` 两表编码（经 `build/cache/gim/` 内容哈希缓存，`--force` 绕过）；字体拷入 |
 | `stage` | `build/databin` --APFS clone--> `build/<profile>/stage`，覆入 members，新成员按名排序位插入（引擎二分查找依赖有序性） |
 | `pack` | `databin pack stage` → `build/<profile>/DATA.BIN`，记下这次打包对应的 stage 树指纹到 `build/<profile>/stage_fingerprint.txt`。**不碰 `build/dist/`**——发布产物只能由通过发布断言的 `iso` 阶段写入 |

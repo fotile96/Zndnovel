@@ -13,7 +13,7 @@
 ]
 
 #story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我", "前往楼梯", "想一直在一起", "接吻"))[
-  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("不是我") #arrow 回到 #card("田径部的传闻") #arrow #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……") 选 #opt("想一直在一起") #arrow 持有 #card("章节 4B 梗概") 后这里出现 #card("选择：烟花之下，与Yuichi")：未做卡时只有 #opt("接吻") #arrow #card("与Yuichi接吻") #arrow #complete（又一次 3A，零耗时）
+  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("不是我") #arrow 回到 #card("田径部的传闻") #arrow #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……") 选 #opt("想一直在一起") #arrow 持有 #card("章节 4B 梗概") 后这里出现 #card("选择：烟花之下，与Yuichi")：未做卡时只有 #opt("接吻") #arrow #card("与Yuichi接吻") #arrow #complete（又一次 3A；除这幕新选择花 25 外全部持卡）
 ]
 #frag-box[
   #make-cards(("选择：烟花之下，与Yuichi", [依次递 #card("章节 3A 梗概")、#card("章节 4B 梗概")。做成后 #card("想一直在一起") 之后出现选择]))

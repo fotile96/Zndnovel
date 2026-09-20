@@ -8,8 +8,8 @@
 
 == 进入章节 4
 
-#story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我"))[
-  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("口袋里的字条") #arrow #card("选择：天台的传闻")：默认只有 #opt("不是我") #arrow #card("不是我") #timeover。它本来会折回章节 3 的『田径部的传闻』，不过沙漏在这里就满了，3A 也不必再讲一遍。
+#story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我", "前往楼梯", "想一直在一起"))[
+  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("口袋里的字条") #arrow #card("选择：天台的传闻")：默认只有 #opt("不是我") #arrow #card("不是我") #arrow 折回章节 3 的 #card("田径部的传闻")。之后全是持卡场景，#card("选择：要去的地方") 选 #opt("前往楼梯")、#card("选择：与Yuichi……") 选 #opt("想一直在一起")，一路跳过到章节 3A #complete（零耗时）。
 ]
 #frag-box[
   #make-cards(
@@ -31,13 +31,14 @@
 #frag-box[
   #make-cards(("章节 4：Yuichi", [需先持有 #card("有点在意呢")；无需递卡]))
 ]
-#story-box(from: "s4s_60")[
-  从 #card("章节 4：Yuichi") 接着讲 #arrow #card("图书室的老师") #arrow #card("好像在哪里见过的少女") #arrow #card("选择：看到字条时")：选项弹出前 #timeover
+#story-box(from: "s4s_60", pick: ("没有兴趣",))[
+  从 #card("章节 4：Yuichi") 接着讲 #arrow #card("图书室的老师") #arrow #card("好像在哪里见过的少女") #arrow #card("选择：看到字条时")：默认只有 #opt("没有兴趣") #arrow #card("没有兴趣") #timeover
 ]
 #frag-box[
   #make-cards(
     ("图书室的老师", [递 #card("亲吻")]),
     ("好像在哪里见过的少女", [递 #card("Sakura")]),
+    ("没有兴趣", [递 #card("中庭的人群")]),
   )
 ]
 
@@ -46,13 +47,7 @@
 地图七个点：教室、走廊、天台、音乐室、美术室、中庭、操场。*每个点各去两次*，然后第三次去走廊，探索结束。探索途中沙漏不动，结束时计 25。
 
 #story-box(from: "s4s_160_sel", pick: ("没有兴趣",))[
-  从 #card("选择：看到字条时") 接着讲：默认只有 #opt("没有兴趣") #arrow #card("没有兴趣") #arrow #card("探索：Ayano怎么了？") #arrow 探索一结束沙漏就满 #timeover
-]
-#frag-box[
-  #make-cards(("没有兴趣", [递 #card("中庭的人群")]))
-]
-#story-box(from: "s4s_210_sel")[
-  从 #card("探索：Ayano怎么了？") 接着讲。探索卡还做不了（要递『走廊上的Yuichi』），所以地图要再走一遍 #arrow #card("走廊上的Yuichi") #timeover
+  从 #card("选择：看到字条时") 接着讲，选 #opt("没有兴趣") #arrow #card("没有兴趣")（已持卡，跳过）#arrow #card("探索：Ayano怎么了？") #arrow #card("走廊上的Yuichi") #arrow #gameover。探索只需走这一遍：它的卡要递『走廊上的Yuichi』，而这一轮已经把『走廊上的Yuichi』讲到了。
 ]
 #frag-box[
   #make-cards(
@@ -65,19 +60,12 @@
 == 字条、课桌、笔记本
 
 #story-box(from: "s4s_160_sel", pick: ("被勾起了兴趣", "真无聊"))[
-  #card("选择：看到字条时") 选 #opt("被勾起了兴趣") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #timeover
+  #card("选择：看到字条时") 选 #opt("被勾起了兴趣") #arrow #card("选择：字条的内容")：默认只有 #opt("真无聊") #arrow #card("觉得真无聊") #arrow #card("翻倒的课桌") #arrow 没有「相信」就只能 #card("天台的人影")：沙漏在这里满 #timeover（再往下本来是 Game Over）
 ]
 #frag-box[
   #make-cards(
     ("觉得真无聊", [无需递卡]),
     ("翻倒的课桌", [递 #card("没有兴趣")]),
-  )
-]
-#story-box(from: "s4s_330")[
-  从 #card("翻倒的课桌") 接着讲 #arrow 没有「相信」就只能 #card("天台的人影") #arrow #gameover
-]
-#frag-box[
-  #make-cards(
     ("天台的人影", [递 #card("走廊上的Yuichi")]),
     ("选择：字条的内容", [递 #card("天台的人影")。做成后出现 #opt("试着相信也无妨")]),
   )
@@ -105,17 +93,12 @@
 
 == 探索：Ayano 的下落，以及 4A 结局
 
-#story-box(from: "s4s_420_sel", pick: ("翻看笔记本",))[
-  #card("选择：Ayano的笔记本") 选 #opt("翻看笔记本") #arrow #card("写在笔记本上的名字") #arrow #card("探索：Ayano的下落")：地图八个点（比上次多一个图书室），*每个点各去两次*，然后第三次去天台 #arrow #card("选择：将Ayano――")：选项弹出前 #timeover
-]
-#frag-box[
-  #make-cards(("写在笔记本上的名字", [依次递 #card("不好的结果")、#card("橡皮上写名字")]))
-]
-#story-box(from: "s4s_450_sel", pick: ("抓住手臂",))[
-  从 #card("探索：Ayano的下落") 接着讲（探索卡还做不了，地图再走一遍）#arrow #card("选择：将Ayano――")：默认只有 #opt("抓住手臂") #arrow #card("抓住手臂") #timeover
+#story-box(from: "s4s_420_sel", pick: ("翻看笔记本", "抓住手臂"))[
+  #card("选择：Ayano的笔记本") 选 #opt("翻看笔记本") #arrow #card("写在笔记本上的名字") #arrow #card("探索：Ayano的下落")：地图八个点（比上次多一个图书室），*每个点各去两次*，然后第三次去天台 #arrow #card("选择：将Ayano――")：默认只有 #opt("抓住手臂") #arrow #card("抓住手臂") #timeover。这段探索同样只走一遍：它的卡要递『选择：将Ayano――』，后者又要递『抓住手臂』，两张都已在这一轮讲到。
 ]
 #frag-box[
   #make-cards(
+    ("写在笔记本上的名字", [依次递 #card("不好的结果")、#card("橡皮上写名字")]),
     ("抓住手臂", [递 #card("Yuichi的背影")]),
     ("选择：将Ayano――", [递 #card("抓住手臂")。做成后出现 #opt("拉回来")]),
     ("探索：Ayano的下落", [递 #card("选择：将Ayano――")]),
@@ -123,7 +106,7 @@
 ]
 
 #story-box(from: "s4s_490_sel", pick: ("拉回来", "回家"))[
-  #card("选择：将Ayano――") 选 #opt("拉回来") #arrow #card("Ayano恢复意识") #arrow #card("选择：放学后的学校")：默认只有 #opt("回家") #arrow #card("消失的Sakura") #timeover。章节 4A 的收尾场景已经在时间轴上，直接做卡。
+  #card("选择：将Ayano――") 选 #opt("拉回来") #arrow #card("Ayano恢复意识") #arrow #card("选择：放学后的学校")：默认只有 #opt("回家") #arrow #card("消失的Sakura") #arrow #complete（章节 4A）
 ]
 #frag-box[
   #make-cards(

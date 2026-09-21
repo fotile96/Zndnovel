@@ -1,0 +1,18 @@
+target  = "snr_graphic.lua"
+profile = "release"
+why     = """CG 画廊登记谢幕章文化祭 CG 的鲸客人变体 `event/eve_74_z`（新成员，模板 eve_74_x，
+tools/bake_finale_event.py 产出）：把第 8 页第 7 格 `{"eve_74_x"}` 扩成 `{"eve_74_x", "eve_74_z"}`，
+与 eve_73_a/b 那种「一格多变体」同型——画廊代码按 `#cgNumber[页][格]` 遍历变体、逐张查
+`systemSave.cgFlag[name] == true`，无需别的改动；缩略图沿用该格既有的 thumbnail 图。
+
+cgFlag 由 snr_common 的 cGetFileName("event", name) 在加载时自动置位（L836–840），所以
+谢幕章 fin-40 溶解到 eve_74_z 的那一刻就登记为已见；没读过谢幕章的存档里这个键不存在，
+取值 nil，`== true` 判断即未解锁——老存档零迁移，只是从此画廊多一张待收集的图
+（攻略不提谢幕章的裁定不受影响：画廊只在读过之后才显示它）。
+
+锚点 `{"eve_74_x"}}` 全库唯一（该行是 cgNumber[8] 的收尾）。"""
+
+[[ops]]
+op   = "replace"
+find = '{"eve_74_x"}}'
+with = '{"eve_74_x", "eve_74_z"}}'

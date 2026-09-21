@@ -31,7 +31,7 @@ def test_every_release_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("release")
     assert [o["_name"] for o in applied] == [
         "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
-        "novel-notice-s1f", "novel-notice-entry", "boot-dedication"]
+        "finale-gallery-cg", "novel-notice-s1f", "novel-notice-entry", "boot-dedication"]
     assert sources["snr_common.lua"].count('pgf/LXGWWenKai-Regular.pgf') == 1
     # cardname-halfwidth：cfontPrint 不再经 cHan2Zen（卡名拉丁半角），定义本身保留
     assert "cHan2Zen(l1_5)" not in sources["snr_common.lua"]
@@ -44,7 +44,7 @@ def test_every_test_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("test")
     assert [o["_name"] for o in applied] == [
         "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
-        "novel-notice-s1f", "novel-notice-entry", "boot-dedication", "strip-ipl", "boot-handoff"]
+        "finale-gallery-cg", "novel-notice-s1f", "novel-notice-entry", "boot-dedication", "strip-ipl", "boot-handoff"]
     assert 'run(cGetFileName("script", "snr_test"))' in sources["snr_common.lua"]
     assert "layerMoveAlpha(0, 100, 120)" not in sources["snr_common.lua"]
 

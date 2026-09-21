@@ -178,7 +178,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
    - `select/` 278 张：全部选项按钮文字（`sel_<场景>_<a/b/c>_{on,off}`）+ 地图点名。
    - `card/` 197 张卡面：**含完整梗概正文段落**（标题+正文+セクション栏），是隐藏叙事语料，必须逐张翻译重排。
    - `plot/` 4 张缩略图集（60 卡/张，82×48 格）与 `scene/` 4 张场景名条集（145×15 格，3 列）：标题烤字。
-   - `sysgim/` 103 张：标题 logo（title_01_a）、菜单项（title_02..13）、暂停菜单（sys_20_c）、各确认对话框（sys_5_*、sys_12/13_*）、卡片模式 UI（sys_11_*）、选项画面（sys_21..24_*）。
+   - `sysgim/` 103 张：标题 logo（title_01_a）、菜单项（title_02..13）、暂停菜单（sys_20_c）、各确认对话框（sys_5_*、sys_12/13_*）、卡片模式 UI（sys_11_*）、选项画面（sys_21..24_*）。**开机链第五卡 `IPL03`**（2026-09-21 新增成员：汉化组署名＋献词，`tools/bake_boot_dedication.py` 纯排版生成，`layers/overlays/boot-dedication.toml` 插在 `snr_common.main()` 的版权页之后、自动存档告知之前；署名只写文字**不画 ∀**——组名是 Anthropic 的 A 转 180° 的梗，画出来即破；bake-decisions Y17）。
    - ~~`novel/` 993 张~~ ❌ **已出本项目范围**（用户 2026-08-30 裁定，不烤、不立项）。玩家侧说明已就位（2026-09-21）：章节 1 读完的原作 novel 介绍之后接八条【■汉化说明】、文库入口一次性两条（`layers/overlays/novel-notice-{s1f,entry}.toml`，vms 17500–17511，守卫键 `systemSave.novelNoticeSeen`；docs/ops/novel-notice-2026-09-21.md）。存档记录：5 本竖排小说整页渲染，**存储时顺时针旋转 90°**（PSP 横持阅读），novel05 长达 452 页。作为剧情参考读图时仍需先旋转（见「常用操作」）。
    - `music/` `graphic/` 画廊框文字；`bg/` 少量含字（黑板板书等）；`event/` CG 个别含字。
 3. **音频**（不在本仓库）：voice/*.at3 按 ID 对应 vms；无字幕外文本。

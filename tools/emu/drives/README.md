@@ -15,7 +15,8 @@
 | `finale_full.py` | 谢幕全章 fin-10..50 跑通回主菜单（约 15 分钟） | `--profile test --mode mainmenu` | p010..p350 每 10 句一帧；end* 回主菜单 |
 | `title_logo.py` | 题名 logo 双态：开机日文 → 跑完谢幕章回主菜单换中文 `title_01_c` → 重启仍中文（`finaleReadFlag` 已随 autoSystemSave 写进 NPJH50279SYSTEM）；logo 区与合成期望图按 MSE 判态；跑前备份、跑完恢复模拟器系统数据（`--keep-save` 保留） | 同上 | `判定: {'before_ja': True, 'after_zh': True, 'reboot_zh': True, …}`；ERROR 只有 `ILLEGAL_THID=sceKernelWaitThreadEnd` 这条 HLE 噪声（开机 1 条、谢幕全章约 8 条） |
 | `glyph.py` | 直入场景逐句截图；缺省验 fin-10 的 7 个曾缺字 | `--profile test --mode scene --scene fin-10` | p05「啥」、p11「颁…奖」有字形 |
-| `release_iso.py` | 发布 ISO 完整 IPL 开机链、标题初始形态 | `--profile release`（到 iso） | 02 帧 Prologue/load/option 三项 |
+| `release_iso.py` | 发布 ISO 完整开场五卡开机链、标题初始形态；全程不按键（2026-09-21 起：菜单就位后按 CIRCLE 会直接开序章） | `--profile release`（到 iso） | 00/01/02 帧（45/50/55 s）至少两帧是 Prologue/load/option 三项（约每 10 s 一帧白闪盖住菜单项）；ERROR 0 或 1 条 ILLEGAL_THID 噪声 |
+| `boot_dedication.py` | 开机五卡顺序与新增第五卡 `IPL03`（汉化组署名＋献词）：逐帧直读 VRAM，与本盘 stage 里五张卡的解码图按 MSE 判满亮帧，得首次命中序列 | `--profile test --mode mainmenu --no-fast-boot`（没有 `--no-fast-boot` 整段开场被剥掉）；或 `--disc build/dist/game_zh.iso` | `判定: {'order_ok': True, 'ipl03_held': True, …}`，seq 恰为 IPL01→IPL02→sys_1_a→IPL03→autosave；退出码 0 |
 | `font_probe.py` | 字体/ruby/禁则探针逐页截图（`testboot.py` 的 `FONT_PAGES`，含 K1–K4/R1） | `--profile test --mode font` | K 帧标点悬挂/提前换行；R1 帧注音居中不裁 |
 | `regtrace.py` | 断点 + 寄存器/内存转储 + 单步（研究 EBOOT 补丁用，见 `docs/ops/eboot-hacking-runbook.md` §5.6） | 同上 | 命中断点后逐条打印寄存器 |
 | `save_roundtrip.py` | 存档往返：毒化旧结构区 → 暂停菜单「保存」走完 PSP 对话框（覆盖确认 ←○、完成 ✕）→ 推进两句 → 「读取」→ 核对恢复到存档那句、旧区仍全 0xEE；判据 saved/resumed/poison 三项 | `--profile test --mode scene --scene <id> [--bloat]`，用 `--patched` 读 savebuf 扩容布局 | `判定: {'saved_ok': True, 'resumed_ok': True, 'poison_ok': True}` |
@@ -35,8 +36,12 @@ uv run python tools/emu/drives/title_logo.py
 uv run python tools/build_disc.py --profile test --mode scene --scene fin-10
 uv run python tools/emu/drives/glyph.py
 
+uv run python tools/build_disc.py --profile test --mode mainmenu --no-fast-boot
+uv run python tools/emu/drives/boot_dedication.py
+
 uv run python tools/build_disc.py --profile release
 uv run python tools/emu/drives/release_iso.py
+uv run python tools/emu/drives/boot_dedication.py --disc build/dist/game_zh.iso
 
 uv run python tools/build_disc.py --profile test --mode map
 uv run python tools/emu/drives/map.py

@@ -1,0 +1,38 @@
+target  = "snr_common.lua"
+profile = "release"
+why     = """开机链第五卡：原开发商版权页（sys_1_a，层 2）之后、自动存档告知（autosave，层 3）
+之前插一张汉化组署名＋献词卡 `sysgim/IPL03`（新成员，tools/bake_boot_dedication.py 纯排版
+生成，manifest [gim].new 以 IPL01 为模板进包）。用户 2026-09-21 裁定；文案两段：
+「全称量词汉化组」／「谨以此本地化作品献给盛夏、提前合上书页的年轻生命与被留在故事里的人们」。
+
+**落点**：main() 里四张卡各占工作层 0..3，节奏全同——layerMoveAlpha 淡入 120、keyWait(180)
+停留、淡出 120、wait(120)。本卡用层 4（cInitGame 之前无人使用，之后与 0..3 一起被
+cInitLayer 清掉），节奏逐帧照抄，圆钮同样只能跳过停留段。锚点是层 2 淡出的那两行，
+全文件唯一。
+
+**layerLoad 放在块内而不是跟文件头四个 layerLoad 并列**：这样整块都落在 strip-ipl 层
+（test 剖面快启动）的 delete_span 区间里——test 盘剥开场时连 IPL03 的引用一起剥掉，
+没烤 boot_dedication 面的 test 盘不会在开机时去载不存在的成员；`--no-fast-boot` 时整块保留。
+同步 layerLoad 发生在两张全黑帧之间（层 2 已淡到 0、层 4 还是 0），UMD 读取的顿挫不可见。
+故本层在 manifest 的 order 里必须排在 strip-ipl 之前。
+
+**署名只写文字，不画 ∀ 记号**：组名是对 Anthropic 的"A"转 180° 的梗，寓意"用 AI 多做
+好事少吵架"，画出来就破梗（用户 2026-09-21）。厂牌卡 IPL01/IPL02 与题名 logo 仍按
+bake-decisions Y3 不动。开机因此多约 7 秒；tools/emu/drives/boot_dedication.py 按帧验五卡顺序。
+"""
+
+[[ops]]
+op     = "insert_after"
+anchor = '''
+    layerMoveAlpha(2, 0, 120)
+    wait(120)
+'''
+text   = '''
+    layerLoad(4, cGetFileName("sysgim", "IPL03"))
+    layerAlpha(4, 0)
+    layerMoveAlpha(4, 100, 120)
+    wait(120)
+    keyWait(180)
+    layerMoveAlpha(4, 0, 120)
+    wait(120)
+'''

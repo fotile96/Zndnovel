@@ -31,7 +31,7 @@ def test_every_release_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("release")
     assert [o["_name"] for o in applied] == [
         "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
-        "novel-notice-s1f", "novel-notice-entry"]
+        "novel-notice-s1f", "novel-notice-entry", "boot-dedication"]
     assert sources["snr_common.lua"].count('pgf/LXGWWenKai-Regular.pgf') == 1
     # cardname-halfwidth：cfontPrint 不再经 cHan2Zen（卡名拉丁半角），定义本身保留
     assert "cHan2Zen(l1_5)" not in sources["snr_common.lua"]
@@ -44,7 +44,7 @@ def test_every_test_overlay_hits_on_real_base():
     sources, applied, _ = build_final_sources("test")
     assert [o["_name"] for o in applied] == [
         "fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh",
-        "novel-notice-s1f", "novel-notice-entry", "strip-ipl", "boot-handoff"]
+        "novel-notice-s1f", "novel-notice-entry", "boot-dedication", "strip-ipl", "boot-handoff"]
     assert 'run(cGetFileName("script", "snr_test"))' in sources["snr_common.lua"]
     assert "layerMoveAlpha(0, 100, 120)" not in sources["snr_common.lua"]
 
@@ -275,3 +275,46 @@ def test_novel_notice_lands_where_intended():
         novel.index("if systemSave.novelNoticeSeen ~= true then"), novel.index("advPart(false)")
     assert i_empty < i_guard < i_adv
     assert "systemSave.novelNoticeSeen = true" in novel
+
+
+def test_boot_dedication_card_lands_between_copyright_and_autosave():
+    """开机第五卡：层 4 整块（载入→淡入→停留→淡出）恰在层 2 淡出之后、层 3 淡入之前，
+    节奏与前四卡逐帧相同；cInitGame 之前层 4 没有别的用途。"""
+    src = build_final_sources("release")[0]["snr_common.lua"]
+    body = src[src.index("main = function()"):]
+    block = ('    layerLoad(4, cGetFileName("sysgim", "IPL03"))\n'
+             '    layerAlpha(4, 0)\n'
+             '    layerMoveAlpha(4, 100, 120)\n'
+             '    wait(120)\n'
+             '    keyWait(180)\n'
+             '    layerMoveAlpha(4, 0, 120)\n'
+             '    wait(120)\n')
+    assert body.count(block) == 1
+    i2, i4, i3 = (body.index("layerMoveAlpha(2, 0, 120)\n    wait(120)\n"),
+                  body.index(block), body.index("layerMoveAlpha(3, 100, 120)"))
+    assert i2 < i4 < i3
+    assert body[i2:i4] == "layerMoveAlpha(2, 0, 120)\n    wait(120)\n"   # 紧接层 2 淡出
+    assert body[i4 + len(block):].startswith("    layerMoveAlpha(3, 100, 120)")  # 紧接层 3 淡入
+    pre = body[:body.index("cInitGame()")]
+    assert pre.count("layerLoad(4,") == 1 and "layerCopy(4" not in pre
+    # 前四卡的节奏没被动到
+    for n in range(4):
+        assert f"layerMoveAlpha({n}, 100, 120)" in body and f"layerMoveAlpha({n}, 0, 120)" in body
+
+
+def test_fast_boot_strips_the_dedication_card_with_the_rest_of_the_ipl():
+    """test 剖面快启动：strip-ipl 的 delete_span 连第五卡整块一起剥掉（否则没烤该面的 test 盘
+    开机会去载不存在的 IPL03）；`--no-fast-boot` 时整块保留。"""
+    sources, applied, _ = build_final_sources("test")
+    names = [o["_name"] for o in applied]
+    assert names.index("boot-dedication") < names.index("strip-ipl")
+    assert "IPL03" not in sources["snr_common.lua"]
+    sources, _, _ = build_final_sources("test", switches={"fast-boot": False})
+    assert sources["snr_common.lua"].count('cGetFileName("sysgim", "IPL03")') == 1
+
+
+def test_boot_dedication_member_is_registered_with_ipl01_as_template(manifest):
+    assert ["boot_dedication", "sysgim", "sysgim/IPL01.gim"] in \
+        [list(x) for x in manifest["gim"]["new"]]
+    why = load_overlay(LAYERS / "overlays" / "boot-dedication.toml")["why"]
+    assert "∀" in why and "不画" in why          # 「只写文字不画 ∀」的裁定留在层里，别被后人"补上"

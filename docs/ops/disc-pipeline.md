@@ -63,6 +63,11 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 烤字图（卡面/选项/系统 UI 等新增或替换的 PNG）不在上表——那条链路是「先跑对应
 `tools/bake_*.py` 产 `build/<面>_zh/*.png`」，再由 `manifest.toml` 的 `[gim].replace`/`[gim].new`
 两张表在 `members` 阶段拾取编码，与「层」无关，不需要碰 `layers/`。
+两者兼有的例子是开机第五卡（2026-09-21）：`tools/bake_boot_dedication.py` 纯排版产
+`build/boot_dedication/IPL03.png`，`[gim].new` 以 `sysgim/IPL01.gim` 为模板编成新成员 `sysgim/IPL03.gim`，
+而把它插进 `snr_common.main()` 开场链（版权页之后、自动存档告知之前，工作层 4）的是叠加层
+`layers/overlays/boot-dedication.toml`——它必须排在 `strip-ipl` 之前，test 剖面快启动才会连它一起剥掉；
+验证用 `tools/emu/drives/boot_dedication.py`（test 盘须 `--no-fast-boot`）。
 
 ## 阶段表
 

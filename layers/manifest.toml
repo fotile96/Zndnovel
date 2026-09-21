@@ -11,7 +11,7 @@ luac       = "~/pyluadec-refactor/build/luac_sz4"   # 环境变量 SNDL_LUAC 覆
 header_hex = "1b4c75615100010404040800"
 
 [overlays]
-order = ["fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh", "novel-notice-s1f", "novel-notice-entry", "strip-ipl", "boot-handoff"]   # 文件名去 .toml，施加顺序
+order = ["fonts", "cardname-halfwidth", "encore-menu", "finale-read-flag", "title-logo-zh", "novel-notice-s1f", "novel-notice-entry", "boot-dedication", "strip-ipl", "boot-handoff"]   # 文件名去 .toml，施加顺序
 
 [[scripts]]
 file    = "scripts/snr_finale.lua"
@@ -26,7 +26,8 @@ replace = [["card_zh", "card"], ["select_zh", "select"], ["select_voice_zh", "se
            ["mode_zh", ""], ["memory_thumb_zh", ""]]           # (build 产物目录, 成员前缀)
 new     = [["finale_cards", "card", "card/crd_1_a.gim"],
            ["finale_menu", "sysgim", "sysgim/title_13_a.gim"],
-           ["finale_title", "sysgim", "sysgim/title_01_a.gim"]]  # + 模板成员
+           ["finale_title", "sysgim", "sysgim/title_01_a.gim"],
+           ["boot_dedication", "sysgim", "sysgim/IPL01.gim"]]  # + 模板成员
 
 [[fonts]]
 size = 17

@@ -67,12 +67,16 @@ def test_finale_ids_are_inside_declared_range():
     with open(LAYERS / "vms_ids.toml", "rb") as f:
         reg = tomllib.load(f)
     entry = next(r for r in reg["ranges"] if r["owner"] == "scripts/snr_finale.lua")
-    lo, hi = entry["vms"][0]
+    segments = [range(lo, hi + 1) for lo, hi in entry["vms"]]   # 可登记多段（v3 起两段）
 
     text = (LAYERS / "scripts" / "snr_finale.lua").read_text(encoding="utf-8")
     ids = collect_ids(text)
     assert ids, "snr_finale.lua 里一条 vms 都没扫到——正则或文件出了问题"
-    assert min(ids) >= lo and max(ids) <= hi
+    stray = sorted(i for i in ids if not any(i in seg for seg in segments))
+    assert not stray, f"越出登记段的 id: {stray[:10]}"
+    # 每一段都真的在用：登记了却一条不占，说明段是多余的或写错了
+    for seg in segments:
+        assert any(i in seg for i in ids), f"登记段 {seg} 里没有任何 vms"
 
 
 def test_finale_dispatch_lands_in_the_card_140_menu_form():

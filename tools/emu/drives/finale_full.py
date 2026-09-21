@@ -1,9 +1,9 @@
 #!/usr/bin/env -S uv run python
-"""谢幕全章：主菜单定位 encore → 连按 CIRCLE 350 次跑完 fin-10..50 → 回主菜单。
+"""谢幕全章：主菜单定位 encore → 连按 CIRCLE 560 次跑完 fin-10..50（v3 后约 290 条消息＋动画） → 回主菜单。
 
 光标定位靠颜色：亮态项深蓝核心像素（r<100 ∧ b>210）占墨迹比 ≈0.35，暗态 ≈0.1
 （2026-09-02 对 nav 截图实测校准）。逐步导航、每步复核，可上可下。
-前置同 menu.py。期望：每 10 句一帧 p010..p350，末尾 end0..2 回到主菜单；ERROR 0 条。
+前置同 menu.py。期望：每 10 句一帧 p010..p560，末尾 end0..2 回到主菜单；ERROR 0 条。
 """
 import asyncio
 import sys
@@ -57,7 +57,7 @@ async def run():
             sys.exit("未能定位 finale 光标")
         await cli.buttons_press("circle", duration=3)
         await asyncio.sleep(5.0)
-        for i in range(1, 351):
+        for i in range(1, 561):
             await cli.buttons_press("circle", duration=3)
             await asyncio.sleep(2.2)
             if i % 10 == 0:

@@ -12,7 +12,7 @@
 --             bgm/bgm_fin_1（fin-30/35 翻卡与转述的 BGM，用户自供 remix，整曲循环；
 --             成员缺席时引擎 ATRAC 线程静默退出、无声不报错——测试盘可先无曲跑通）。
 
-local scene_fin_0, scene_fin_10, scene_fin_20, scene_fin_30, scene_fin_35, scene_fin_40, scene_fin_50, finSectionBegin, finShowBlankCard
+local scene_fin_0, scene_fin_10, scene_fin_20, scene_fin_30, scene_fin_35, scene_fin_40, scene_fin_50, finSectionBegin, finShowBlankCard, finAnswerFlash
 
 -- 内联开场（等价 comSectionNonLabelBegin，章节名固定『谢幕』）
 finSectionBegin = function(scene_id, scene_title)
@@ -42,6 +42,35 @@ finShowBlankCard = function(p0)
     wait(30)
     layerLoad(layerName.pose1, "")
     switchScreen(0, "", 30)
+end
+
+-- 「递对卡」的反馈（用户 2026-09-22 提议）：抄 oCard.cardAnswerTrue 的白光爆闪 + 按键音——
+-- effectWhite（常驻层 205，eve_0_a 全白图）复制到工作层 pose5，ADD 混合，alpha 0→80 同时缩到 0 并
+-- 旋转 100°（爆闪收束），再一次微弱的白闪（alpha 10→0）当「闪烁」，音效 viewCard→arrowKey→getCard
+-- 与原函数同序。去掉了原函数里卡片模式专用的底图缩放（pose4 ← bg_1_a_0）与彩野立绘。
+-- 97 张做卡脚本的 resolve 都以 cardAnswerTrue 开场，玩家对这套光与声的记忆即「答对了」。
+finAnswerFlash = function()
+    layerCopy(layerName.pose5, layerName.effectWhite)
+    layerVisible(layerName.pose5, false)
+    layerBlend(layerName.pose5, "ADD")
+    layerAlpha(layerName.pose5, 0)
+    layerScale(layerName.pose5, 100, 100)
+    layerRotate(layerName.pose5, 0, 0, 0)
+    wait(1)
+    keyPlaySE(seName.viewCard)
+    layerVisible(layerName.pose5, true)
+    layerMoveAlpha(layerName.pose5, 80, 30)
+    layerMoveScale(layerName.pose5, 0, 0, 30)
+    layerMoveRotate(layerName.pose5, 0, 0, 100, 30)
+    wait(45)
+    keyPlaySE(seName.arrowKey)
+    layerScale(layerName.pose5, 100, 100)
+    layerRotate(layerName.pose5, 0, 0, 0)
+    layerAlpha(layerName.pose5, 10)
+    layerMoveAlpha(layerName.pose5, 0, 30)
+    wait(30)
+    keyPlaySE(seName.getCard)
+    layerLoad(layerName.pose5, "")
 end
 
 -- ── 场景 0『递笔』——发起人执笔的 e2s 体例切入段。黑屏静场纯文字。
@@ -271,6 +300,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17603, "NONVOICE", "她从我手里，把第一张卡抽了回去。")
     -- 201 反编译轨
     oCard.showMiniIn(cGetFileName("card", "crd_201_a"))
+    finAnswerFlash()
     vms(17604, "NONVOICE", "第一个讲述者，是那个一个字一个字地较真的「考古大师」。")
     vms(17605, "NONVOICE", "交到他手上的故事，比出土的竹简还难翻动——那是一卷微缩胶卷。")
     vms(17606, "NONVOICE", "他说，自己像极了那个看不见的少女，只能靠一点一点的摩挲。")
@@ -284,6 +314,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17613, "NONVOICE", "【千秋】「嗯。他是这么说的」")
     -- 202 骨架轨
     oCard.showMiniIn(cGetFileName("card", "crd_202_a"))
+    finAnswerFlash()
     vms(17614, "NONVOICE", "第二个讲述者，是最先走进那间教室的人。")
     vms(17615, "NONVOICE", "她只用了一个傍晚，就把散落一地的故事片段从头读到了尾。")
     vms(17616, "NONVOICE", "最让她震动的，不是谜底。")
@@ -301,6 +332,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17627, "NONVOICE", "【千秋】「……嗯。是我寄的」")
     -- 203 初翻轨
     oCard.showMiniIn(cGetFileName("card", "crd_203_a"))
+    finAnswerFlash()
     vms(17628, "NONVOICE", "第三个讲述者，是第一个把故事讲出声的人。")
     vms(17629, "NONVOICE", "他说，最难的不是用词，是知情。")
     vms(17630, "NONVOICE", "「还没讲到天台，我就已经知道了结局。知道那个名字底下，其实是谁」")
@@ -318,6 +350,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17641, "NONVOICE", "【千秋】「嗯。第二次了」")
     -- 204 裁决与召回轨
     oCard.showMiniIn(cGetFileName("card", "crd_204_a"))
+    finAnswerFlash()
     vms(17642, "NONVOICE", "第四个讲述者，讲得很慢。")
     vms(17643, "NONVOICE", "他说，这个故事里最要紧的东西不是天台，是那本笔记。")
     vms(17644, "NONVOICE", "「写下规矩的人，自己也不会记得写过。所以笔记必须替她记着」")
@@ -333,6 +366,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17653, "NONVOICE", "【千秋】「而是没有一次改口，被悄悄擦掉」")
     -- 205 润色轨
     oCard.showMiniIn(cGetFileName("card", "crd_205_a"))
+    finAnswerFlash()
     vms(17654, "NONVOICE", "第五个讲述者，是把故事从头读了两遍的人。")
     vms(17655, "NONVOICE", "她说，最难的不是改，是不改。")
     vms(17656, "NONVOICE", "「第一次核对，账上写着十句要紧的话一个字没动。重新数，动了五句」")
@@ -352,6 +386,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17669, "NONVOICE", "【千秋】「不许学」")
     -- 206 烤字轨
     oCard.showMiniIn(cGetFileName("card", "crd_206_a"))
+    finAnswerFlash()
     vms(17670, "NONVOICE", "第六个讲述者，是重绘卡片的那双手。")
     vms(17671, "NONVOICE", "她不讲新的句子。只量好每一张卡，让海这边的字住进远方的字住过的地方。")
     vms(17672, "NONVOICE", "她最挂心的，是字的颜色。")
@@ -369,6 +404,7 @@ scene_fin_35 = function(scene_id, scene_title)
     vms(17683, "NONVOICE", "【千秋】「我也是」")
     -- 207 审计与判分轨
     oCard.showMiniIn(cGetFileName("card", "crd_207_a"))
+    finAnswerFlash()
     vms(17684, "NONVOICE", "最后一个讲述者，讲得飞快。")
     vms(17685, "NONVOICE", "她说，接到卡片的时候，什么都没有。没有开头，只有一副梗概，和一句话。")
     vms(17686, "NONVOICE", "「从上一个人停下的地方，接着讲」")
@@ -446,6 +482,10 @@ scene_fin_40 = function(scene_id, scene_title)
     vms(17733, "NONVOICE", "【≦红背心的少女≧】「——你这家伙，又在胡说八道！」")
     vms(17734, "NONVOICE", "正在窗边暴风吸入章鱼烧的、外面套着绛红色背心的少女闻言丢下食物，扬起拳头就朝说怪话的青年轰去。")
     vms(17735, "NONVOICE", "站在他身侧、许是指导教师的年长女性看着这一幕，思考了大约半秒钟，然后一脸宠溺地退开半步，给红背心的少女让开空间。")
+    -- 拳头落下：正篇 s4s_10 アヤノ揍ユウイチ的语法（se_79 + 黄闪 30 帧），用户 2026-09-22 提议
+    cLoadPlaySE(cGetFileName("se", "se_79"), false)
+    comEffectYellowIn(30)
+    wait(30)
     vms(17736, "NONVOICE", "……")
     vms(17737, "NONVOICE", "客人对自己搞出来的节目效果，看上去很是满意。她吸了口气，敛了敛笑意，继续说道。")
     vms(17738, "NONVOICE", "【≦客人≧】「但是，我们想要讲述的，用海那边的文字写下的版本，一定是『谁都没见过的晚霞』」")

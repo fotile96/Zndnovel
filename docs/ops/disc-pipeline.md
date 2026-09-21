@@ -50,7 +50,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 规范化要解决的核心事故（此前两个剖面共用同一棵注入与组装产物树，一次测试盘构建就把
 发布产物换成了带探针的封包）。
 
-## 四类改动各自的落点与命令
+## 五类改动各自的落点与命令
 
 | 改动 | 落点 | 命令 |
 |---|---|---|
@@ -58,6 +58,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 改谢幕章台词/演出 | `layers/scripts/snr_finale.lua` | 直接改文件，再 `build_disc.py` |
 | 新增本地化文本（选项按钮、地图点名、系统提示等新文案） | 新建 `layers/overlays/<名>.toml`；在 `manifest.toml` 的 `[overlays].order` 排位；若引入新的 `vms`/`msg` 数字 id，在 `vms_ids.toml` 登记区段 | `uv run python tools/layers.py check` 过闸后 `build_disc.py` |
 | 测试捷径（跳 IPL、直入场景、全解锁主菜单等） | 不改任何文件——`tools/testboot.py` 在 test 剖面按 `--mode` 现场生成 | `build_disc.py --profile test --mode {font,scene,ruby,card,cutin,mainmenu,choices,map} [--scene ID] [--card N]` |
+| 新增音频（BGM/环境音进 SOUND.BIN） | 用户 PCM 放 `assets/audio/`（不入库）→ `tools/at3p.py encode` 产 `layers/audio/<名>.at3`（AT3+ 128 kbps、本作同款 RIFF 头、必带 smpl；入库）→ `manifest.toml` 的 `[[sound.tracks]]` 登记成员名/两侧 sha256/循环起点/裁尾/响度；Lua 侧 `cPlayBGMWrap(cGetFileName("bgm", "<名>"))` 即可。原 99 成员不改、不能撞名（名单 `data/sound_members.json`）。编码器 `tools/build_atracdenc.sh` 构建 | `uv run python tools/at3p.py encode assets/audio/x.wav layers/audio/x.at3 --loop-start 0 --trim-end 196 --lufs -21`；`at3p.py verify` 对照；`layers.py check` 过闸后 `build_disc.py`（`sound` 阶段）；模拟器 `tools/emu/drives/bgm_probe.py` 听回绕 |
 | 改引擎行为（EBOOT 二进制：禁则表、ruby 算式等） | 新建 `layers/eboot/<名>.toml`（原字节锚点 + 新字节/字符串，`why` 必填）；在 `manifest.toml` 的 `[eboot].order` 排位。源是 PPSSPP dump 的解密 EBOOT `assets/EBOOT.dec.elf`（版权物不入库，指纹钉在 `[eboot].sha256`；取得步骤见 `docs/ops/eboot-kinsoku-research-2026-09-04.md` §1） | `uv run python tools/eboot_patch.py check assets/EBOOT.dec.elf` / `layers.py check` 过闸后 `build_disc.py`（`eboot` 阶段） |
 
 烤字图（卡面/选项/系统 UI 等新增或替换的 PNG）不在上表——那条链路是「先跑对应
@@ -80,9 +81,10 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | `members` | `build/<profile>/members/`：先清空再重建。编译 `lua/final/*.lua`（校 PSP ABI 头）；gim 按 `manifest.toml` 的 `[gim]` 两表编码（经 `build/cache/gim/` 内容哈希缓存，`--force` 绕过）；字体拷入 |
 | `stage` | `build/databin` --APFS clone--> `build/<profile>/stage`，覆入 members，新成员按名排序位插入（引擎二分查找依赖有序性） |
 | `pack` | `databin pack stage` → `build/<profile>/DATA.BIN`，记下这次打包对应的 stage 树指纹到 `build/<profile>/stage_fingerprint.txt`。**不碰 `build/dist/`**——发布产物只能由通过发布断言的 `iso` 阶段写入 |
+| `sound` | 按 `manifest.toml` 的 `[sound]`：原版 SOUND.BIN（首次自 `assets/orig.iso` 解出到 `build/sound/orig/`）+ `layers/audio/*.at3` 按名有序插入（原成员逐字节不动）→ `build/<profile>/SOUND.BIN`。先过 `layers._check_sound`（指纹/固件头部规则/循环起点/撞名）。无曲目则空转 |
 | `eboot` | 按 `manifest.toml` 的 `[eboot]` 给解密引擎 ELF 施加 `layers/eboot/*.toml` 的字节补丁（`tools/eboot_patch.py`：逐补丁核对原字节锚点，幂等，任一不中整体失败）→ `build/<profile>/EBOOT.BIN`。没有 `[eboot]` 节则空转，盘里沿用原加密 EBOOT |
-| `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN` 与（有 `[eboot]` 时）`EBOOT.BIN`，供 PPSSPP 目录引导 |
-| `iso` | 仅 release：三道断言（有 `[eboot]` 时四道）全过，才把 `DATA.BIN`/`EBOOT.BIN` 拷到 `build/dist/`、`umdiso` 就地替换两个文件 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
+| `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN` 与（有 `[eboot]` 时）`EBOOT.BIN`、（有 `[sound]` 曲目时）`SOUND.BIN`，供 PPSSPP 目录引导 |
+| `iso` | 仅 release：三道断言（有 `[eboot]` 时四道，有 `[sound]` 曲目时五道——SOUND.BIN 须逐字节等于「原版 + 当前音频层重新装配」）全过，才把 `DATA.BIN`/`EBOOT.BIN`/`SOUND.BIN` 拷到 `build/dist/`、`umdiso` 就地替换这些文件 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
 | `boot` | PPSSPP 引导冒烟 + 截图序列，opt-in，不在缺省阶段集合内 |
 
 不论这次跑了哪些阶段，结束时都会写 `build/<profile>/provenance.json`。

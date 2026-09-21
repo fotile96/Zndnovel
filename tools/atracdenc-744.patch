@@ -1,0 +1,26 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6c9187d..d0939c0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -38,7 +38,7 @@ endif()
+ 
+ # build universal binary on macos
+ if(APPLE)
+-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
++    set(CMAKE_OSX_ARCHITECTURES "arm64")
+ endif()
+ 
+ if (UNIX)
+diff --git a/src/atrac/at3p/at3p.cpp b/src/atrac/at3p/at3p.cpp
+index 97fbe04..25779d6 100644
+--- a/src/atrac/at3p/at3p.cpp
++++ b/src/atrac/at3p/at3p.cpp
+@@ -37,7 +37,7 @@ namespace NAtracDEnc {
+ class TAt3PEnc::TImpl {
+ public:
+     TImpl(ICompressedOutput* out, int channels, TSettings settings)
+-        : BitStream(out, 2048)
++        : BitStream(out, 744)
+         , ChannelCtx(channels)
+         , GhaProcessor(MakeGhaProcessor0(channels == 2, settings.UseGha & TSettings::GHA_WIDEBAND, settings.WidebandRefineMode))
+         , Settings(settings)

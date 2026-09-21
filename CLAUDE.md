@@ -36,6 +36,8 @@ tools/                          分析提取脚本（可复跑，路径相对仓
   gimcodec.py                   GIM 纹理编解码 decode/encode/verify-pngdir/verify-identity（index4/8+RGBA8888、
                                 swizzle、多帧、大端老版全支持；编码走模板回填=只换像素与色板 payload，
                                 未改图逐字节还原；已对全部 2153 张与 png/ 双向全量验证）
+  at3p.py                       ATRAC3+ 曲目 encode/inspect/verify（本作 SOUND.BIN 同款 RIFF 头、必带 smpl；
+                                编码器 build_atracdenc.sh + atracdenc-744.patch；原 99 成员名单 data/sound_members.json）
   umdiso.py                     UMD ISO list/extract/replace/verify——**就地替换不重建**（通用刻录工具
                                 会 Joliet 改名/重排 LBA，造成模拟器好好的、实机黑屏）；恒等替换逐字节还原，
                                 变尺寸时平移尾部并更新 PVD/path table/目录记录三类扇区号引用
@@ -49,8 +51,9 @@ glossary/                       术语层：glossary.v1..vN.yaml（append-only�
                                 + style.md（风格与润色尺度）+ voices/ 7 份角色口调表
 layers/                         本地化改动层（基座只读，一切改动落在这里）：manifest.toml（清单：
                                 基座/账本/车道/编译器路径、overlays 施加顺序、编外脚本、gim 面映射、
-                                字体成员）+ vms_ids.toml（id 区段登记）+ overlays/*.toml（叠加操作，
+                                字体成员、[sound] 新曲）+ vms_ids.toml（id 区段登记）+ overlays/*.toml（叠加操作，
                                 锚点=代码文本）+ scripts/*.lua（编外新增整篇脚本，如 snr_finale.lua）
+                                + audio/*.at3（新曲编码定稿，进 SOUND.BIN；源 PCM 在 assets/audio/ 不入库）
 guide/                          面向玩家的中文攻略（Typst）：chapters/ 手写正文 + generated/（由 tools/build_guide.py
                                 从 cards.zh / dag.json / 选项烤字定译生成：定译字典、附录表、选卡界面格位 swatch）
                                 + dist/second-novel-guide-zh.pdf 成品。卡名/选项名经模板断言必须命中定译；
@@ -140,10 +143,20 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     ——编外脚本刻意不入 `lua_scripts/`（那是只读基座，混入中文正文会打破基座与原始字节码的
     逐字节等价）；由 `layers/manifest.toml` 的 `[[scripts]]` 登记，`build_disc.py` 的 `lua`
     阶段经 `tools/layers.py::build_final_sources` 装配为新成员 `script/snr_finale.lua`。场景
-    fin-10..50，主菜单 encore 项直达（卡 144 门控，`snr_mainmenu` 第 5 形态，改动落在
-    `layers/overlays/encore-menu.toml`），**绝不进 storyRoute**；vms 17300–17481 + 卡消息
-    18201–18207 已实测冻结（登记见 `layers/vms_ids.toml`）。谢幕卡 crd_201..207 与菜单图
+    fin-10..50（2026-09-22 v3 加 fin-35『讲述者们』：千秋以 fin-20 说书体转述七张谢幕卡的
+    【所思所想】，卡面挂 mini 位；文稿与决定记录 `docs/finale/draft-finale-v3.md`），主菜单
+    encore 项直达（卡 144 门控，`snr_mainmenu` 第 5 形态，改动落在
+    `layers/overlays/encore-menu.toml`），**绝不进 storyRoute**；vms 17300–17481（v2，冻结）
+    + 17600–17799（v3：fin-35 17600–17700、fin-40 新行 17720–17746、fin-50 新行 17760–17763）
+    + 卡消息 18201–18207（登记见 `layers/vms_ids.toml`）。谢幕卡 crd_201..207 与菜单图
     title_14_a 经 `layers/manifest.toml` 的 `[gim].new` 表进包（模板 crd_1_a/title_13_a）。
+    **fin-40 文化祭的客人＝DeepSeek 拟人鲸少女**（用户 2026-09-21 定，代表全部 AI 朋友；
+    对白核心段用户执笔）：CG 新成员 `event/eve_74_z`（源 `docs/finale/assets/eve_74_z.src.png`，
+    `tools/bake_finale_event.py` 降采样+预量化 256 色，模板 eve_74_x），客人到场时同层溶解，
+    e2f_340 仍用原图；画廊叠加层 `finale-gallery-cg` 把 eve_74 格扩成双变体。**翻卡段 BGM**
+    `bgm/bgm_fin_1`（用户自供 `bgm_5_x` remix 3:21，整曲循环、裁到 3:16、−21 LUFS；前 1:20 8bit、
+    1:29 起吉他）走 `[sound]` 管线（下文「新增音频」），fin-30 只加轻量延时不为读速兜底。
+    谢幕卡面与 `docs/finale/cards/*.md` 的原话不改（七卡「统稿零改字」纪律），转述可以换比方。
     **题名 logo 双态**（2026-09-11）：fin-50 跑完置 `systemSave.finaleReadFlag = true` 并
     `autoSystemSave(0)`（缺省 false 由 `layers/overlays/finale-read-flag.toml` 写进 snr_common 的
     systemSave 字面表；旧系统数据缺键取 nil 即 false，零迁移）；主菜单 `title-logo-zh` 层据此把
@@ -204,7 +217,10 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
   全解锁主菜单等）→ `build_disc.py --profile test --mode …`；改引擎行为（禁则表、ruby 算式等
   EBOOT 二进制）→ `layers/eboot/<名>.toml` 字节补丁层 + `manifest.toml` 的 `[eboot].order`
   登记（源 `assets/EBOOT.dec.elf` 是 PPSSPP dump 的解密 EBOOT，指纹钉在 manifest；
-  `tools/eboot_patch.py`；研究/改引擎的完整走法与陷阱见 `docs/ops/eboot-hacking-runbook.md`）；永远不要手改 `lua_scripts/`。
+  `tools/eboot_patch.py`；研究/改引擎的完整走法与陷阱见 `docs/ops/eboot-hacking-runbook.md`）；
+  新增音频 → `tools/at3p.py encode` 产 `layers/audio/<名>.at3` + `manifest.toml` 的 `[[sound.tracks]]`
+  登记（成员名/两侧 sha256/循环起点/裁尾/响度；原 99 成员不改不撞名），`build_disc` 的 `sound`
+  阶段装进 SOUND.BIN，`tools/emu/drives/bgm_probe.py` 听回绕；永远不要手改 `lua_scripts/`。
   加层后先 `tools/layers.py check` 过闸再出盘，完整走查见 `docs/ops/disc-pipeline.md`。
 - **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。
@@ -261,6 +277,6 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。
 - 主线术语的既有官方英文（Prologue/Story/Fragment/library/memory 等菜单词）在图片里成对出现（英+日）。⚠ 2026-09-01 裁定 E22 已定稿为**只留英文大词、小注只擦不写**（7px 注芯下中文糊成一团），encore 项同族处理。
 - **层号 200 以下不能常驻**（2026-09-02 实测）：`cInitGame→cInitLayer` 清掉 <200 的层，"86–199 无人使用"实为"无人能用"；常驻区 201–255 已满。需要新图的场合走"绘制期同步 layerLoad 直载工作层"（encore 菜单图即此做法）。
-- **DATA.BIN 可新增成员**：按名排序位插入（引擎二分查找），build_disc.stage_stage 已内建；script/card/sysgim/pgf 四面实测通过。BGM 不在 DATA.BIN（在 SOUND.BIN），lua 引用即可。
+- **DATA.BIN 可新增成员**：按名排序位插入（引擎二分查找），build_disc.stage_stage 已内建；script/card/sysgim/pgf/event 五面实测通过。BGM 不在 DATA.BIN 而在 **SOUND.BIN**（同款 pack 容器，99 成员；引擎只吃 ATRAC3+ 且文件必须带 `smpl` 块，缺了 `sceAtracSetLoopNum` 就失败、线程静默退出——**曲子放不出来不报错**，成员缺席同样静默）；新曲走 `[sound]` 管线（`docs/superpowers/specs/2026-09-17-encore-bgm-injection-design.md`），2026-09-22 首曲 bgm_fin_1 模拟器实测起播与整曲回绕。
 - **存档 = Pluto 序列化整个 `mainThread` 协程**（2026-09-05 逆向 EBOOT，`docs/ops/eboot-savedata-research-2026-09-05.md`）：`runListSave()` 只置标志并 yield，引擎随后用 Pluto 把 `gameSave` 表（容量 30720 B）和挂起中的章节脚本协程——**含正在运行脚本的整棵 Proto 树，即整份字节码**——写进一个 406120 B 的 bss 存档结构，线程 blob 定长 **327680 B**，写入回调**无边界检查**，超容量即溢出砸坏后续字段与别的全局（"中日双语翻倍 vms 后大章节存档崩溃"的根因；原版 s1s 章已占 78%，中文版 71%）。`build_disc.py` 的 members 阶段用 `tools/pluto_size.py` 按字节码估算把关（release 超容量拒绝出盘；容量从层推导）；实测用 `tools/emu/drives/save_probe.py`，存→读往返用 `save_roundtrip.py`。**扩容层 `layers/eboot/savebuf.toml`**（把结构搬到 bss 新尾部、线程区 +256 KiB；`tools/eboot_relscan.py move-plan` 生成，测试重推对账）现只在 test 剖面生效，已在 PPSSPP 上用翻倍 s1s 完成红/绿与往返验证；要上发布盘改 profile 即可，代价是与旧布局存档不兼容、内存少 716 KB。**IDB 里 bss 对象的地址比链接时 VA 高 0x6DA40**（IDA 重定位 bug），运行时 = IDA 地址 − 0x6DA40 + 0x08804000，代码/rodata 不受影响（runbook §1）。
 - **消息窗排版是引擎侧定宽网格**（2026-09-04 逆向 EBOOT 得出）：原版每个 UTF-8 字符恒占 17 px 一格、25 格/行、26 px 行距、4 行/页，第 5 行起静默不画；正文缓冲与 backlog 每槽 500 字节且 `sprintf` 无界；行头/行末禁则靠 .rodata 两条 UTF-8 表（VA 0x663E0 / 0x66462）做 `strstr`，只收日文标点——中文 `，…：）` 会落行首，`（` 会落行尾（`layers/eboot/kinsoku.toml` 已换成中文表）。**2026-09-12 起 `layers/eboot/msgcol-px.toml` 把列计数改成像素**：汉字仍 17 px 一格（无 ASCII 的文本版面逐像素不变），拉丁字母按 17px 字体真实步进（比例宽，"Ayano" 85→48 px），ruby 先画 base 取真实宽再居中；卡名的全角拉丁是 Lua 侧 `cHan2Zen` 造成的，由 `layers/overlays/cardname-halfwidth.toml` 去掉。校验器 `msg_layout_check.py` 同步为像素模型，步进表 `data/font_advances_17.json`（改 17px 字体后 `tools/pgf_inspect.py export-advances` 重生成，测试钉住）。规则全貌见 `docs/ops/eboot-kinsoku-research-2026-09-04.md` §3/§9。**打 EBOOT 补丁的三条硬规矩**（编码一律用 `tools/mips_asm.py`，先拿纯净段往返验证，范式 `tools/msgcol_px.py`）：Allegrex 没有整数 `mul`（SPECIAL2 只有 halt），用 sll/addu 拼；字形推进 `advanceH>>6` 截断成整数像素，ruby/拼音的步进只能取整数 px（§7.4）；换掉带重定位条目的字（jal/j、lui/addiu 对）必须同时把该条目改成 R_MIPS_NONE，否则装载器照样往新指令里加基址（§7.5，实测砸过 s4）。

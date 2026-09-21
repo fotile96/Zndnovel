@@ -120,7 +120,7 @@ LAYERS = REPO / "layers"
 PROFILES = ("release", "test")
 CARD_MSG_RESERVED = range(18001, 18196)   # oCard.show 动态 id = 18000 + 卡号（卡 1..195）
 
-_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot"}
+_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot", "sound"}
 _OVERLAY_KEYS = {"target", "profile", "why", "switch", "ops"}
 
 
@@ -184,6 +184,16 @@ def load_manifest(root: Path = LAYERS) -> dict:
                 f"manifest.toml 的 eboot.order 与 layers/eboot/ 下的文件不一致：\n"
                 f"  order  = {sorted(eb['order'])}\n  on disk = {on_disk}")
     man.setdefault("eboot", None)
+    # [sound]：新增曲目（tools/at3p.py 产物）进 SOUND.BIN。可选；给了就要完整。
+    snd = man.get("sound")
+    if snd is not None:
+        if "iso_path" not in snd:
+            raise OverlayError("manifest.toml [sound] 缺 iso_path")
+        for t in snd.get("tracks", []):
+            missing = {"member", "source", "source_sha256", "artifact", "sha256", "loop_start"} - set(t)
+            if missing:
+                raise OverlayError(f"manifest.toml [[sound.tracks]] {t.get('member')} 缺 {sorted(missing)}")
+    man.setdefault("sound", None)
     return man
 
 
@@ -565,6 +575,7 @@ def main(argv=None) -> int:
         return _compare_compiled(sources, Path(args.compare_compiled), manifest)
     print("[layers] 全部层命中 ✓")
     _check_eboot(manifest, args.profile)
+    _check_sound(manifest)
     _check_msg_layout(sources, hard=True)
     return 0
 
@@ -577,6 +588,40 @@ def _check_msg_layout(sources: dict[str, str], hard: bool) -> None:
     print(mlc.format_report(findings, stats, limit=8))
     if stats["errors"] and hard:
         raise OverlayError(f"消息窗排版校验有 {stats['errors']} 处错误（见上），拒绝放行")
+
+
+def _check_sound(manifest: dict, root: Path = LAYERS) -> None:
+    """[sound] 曲目的闸：产物在、指纹对、头部过固件规则（tools/at3p.py inspect）、循环起点与登记
+    一致、成员名不与原 SOUND.BIN 的 99 个撞（原曲本项目不改）且是 bgm/ 或 se/ 下的 .at3。
+    原成员名单钉在 data/sound_members.json——不依赖本机有资产，云端也能过闸。"""
+    cfg = manifest.get("sound")
+    if not cfg or not cfg.get("tracks"):
+        return
+    import json as _json
+    from tools import at3p
+    orig = set(_json.loads((REPO / "data" / "sound_members.json").read_text(encoding="utf-8")))
+    seen: set[str] = set()
+    for t in cfg["tracks"]:
+        member, artifact = t["member"], root / t["artifact"]
+        if not (member.startswith(("bgm/", "se/")) and member.endswith(".at3")):
+            raise OverlayError(f"[sound] 成员名 {member} 须是 bgm/ 或 se/ 下的 .at3")
+        if member in orig:
+            raise OverlayError(f"[sound] {member} 已是原 SOUND.BIN 成员——本项目不改原曲，换个名字")
+        if member in seen:
+            raise OverlayError(f"[sound] 成员 {member} 登记了两次")
+        if not artifact.exists():
+            raise OverlayError(f"[sound] 缺产物 {artifact}（tools/at3p.py encode 生成）")
+        data = artifact.read_bytes()
+        if _sha256(artifact) != t["sha256"]:
+            raise OverlayError(f"[sound] {artifact.name} 的 sha256 与清单不符——重编后要更新清单")
+        info, problems = at3p.inspect(data)
+        if problems:
+            raise OverlayError(f"[sound] {artifact.name} 头部不过固件规则: " + "; ".join(problems))
+        want = round(float(t["loop_start"]) * at3p.SR)
+        if info["loop_start_src"] != want:
+            raise OverlayError(f"[sound] {artifact.name} 循环起点 {info['loop_start_src']} ≠ 清单 {want}")
+        seen.add(member)
+    print(f"[layers] sound: {len(seen)} 首新曲——指纹、头部规则、循环起点、成员名全部核对 ✓")
 
 
 def _check_eboot(manifest: dict, profile: str) -> None:

@@ -12,7 +12,9 @@
 | `menu.py` | 12 项菜单版面、encore 亮暗态、CIRCLE 进谢幕章 | `--profile test --mode mainmenu` | 00 帧 12 项；03 帧 encore 亮；04 帧已进 fin-10 |
 | `library.py` | library 子列展开/收合四项齐全（`#layerKeyCur` 修正） | 同上 | 01 帧四子项；02 帧收合 |
 | `no_card144.py` | 无卡 144 时回到原版 11 项形态 | 同上，但需在 `build/test/lua/final/snr_test.lua` 全卡循环后补 `gameSave.myCard[144].hold = -1`，再跑 `--profile test --stage members,stage,pack,disc`（跳过 lua，否则被重新生成覆盖） | 00 帧 11 项；下 4 次到 option |
-| `finale_full.py` | 谢幕全章 fin-10..50 跑通回主菜单（约 15 分钟） | `--profile test --mode mainmenu` | p010..p350 每 10 句一帧；end* 回主菜单 |
+| `finale_full.py` | 谢幕全章 fin-10..50 跑通回主菜单（v3 后约 290 条消息，约 22 分钟） | `--profile test --mode mainmenu` | p010..p560 每 10 句一帧；end* 回主菜单 |
+| `finale_scene.py` | 直入谢幕某场景逐句截图（`FIN_PRESSES`/`FIN_EVERY`/`FIN_SLEEP` 环境变量控制按键数/截帧间隔/间隔秒） | `--profile test --mode scene --scene fin-30`（或 fin-35/40/50） | 2026-09-22 fin-30 起 330 按：七张卡+空白卡→fin-35 右侧 mini 位七张卡→fin-40 p133 溶解到鲸客人 CG→fin-50 尾巴对话→p226 回主菜单（题名已换中文） |
+| `bgm_probe.py` | 新曲探针：开 `DumpAudio` 直入场景静置 → 录音与 `at3p encode` 的 44.1k 参照做包络互相关，报首次对齐/整曲回绕/ncc，ppsspp.ini 用 try/finally 还原 | `--profile test --mode scene --scene fin-30`（含 sound 阶段） | `PASS`：full_pass_ncc ≥ 0.9、wrap_delta ≈ 曲长、无 E[Atrac] |
 | `title_logo.py` | 题名 logo 双态：开机日文 → 跑完谢幕章回主菜单换中文 `title_01_c` → 重启仍中文（`finaleReadFlag` 已随 autoSystemSave 写进 NPJH50279SYSTEM）；logo 区与合成期望图按 MSE 判态；跑前备份、跑完恢复模拟器系统数据（`--keep-save` 保留） | 同上 | `判定: {'before_ja': True, 'after_zh': True, 'reboot_zh': True, …}`；ERROR 只有 `ILLEGAL_THID=sceKernelWaitThreadEnd` 这条 HLE 噪声（开机 1 条、谢幕全章约 8 条） |
 | `glyph.py` | 直入场景逐句截图；缺省验 fin-10 的 7 个曾缺字 | `--profile test --mode scene --scene fin-10` | p05「啥」、p11「颁…奖」有字形 |
 | `release_iso.py` | 发布 ISO 完整开场五卡开机链、标题初始形态；全程不按键（2026-09-21 起：菜单就位后按 CIRCLE 会直接开序章） | `--profile release`（到 iso） | 00/01/02 帧（45/50/55 s）至少两帧是 Prologue/load/option 三项（约每 10 s 一帧白闪盖住菜单项）；ERROR 0 或 1 条 ILLEGAL_THID 噪声 |

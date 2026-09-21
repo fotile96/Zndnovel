@@ -701,6 +701,84 @@ def stage_pack(ctx: BuildContext) -> dict:
 
 # ---------- F 盘目录 ----------
 
+# ---------- E1 音频包 ----------
+
+SOUND_ORIG = REPO / "build" / "sound" / "orig" / "SOUND.BIN"
+
+
+def _orig_sound_bin() -> Path:
+    """原版 SOUND.BIN：首次自 assets/orig.iso 解出到 build/sound/orig/（99 成员，名单钉在
+    data/sound_members.json，layers.py 的 _check_sound 靠那份名单在无资产环境也能过闸）。"""
+    if SOUND_ORIG.exists():
+        return SOUND_ORIG
+    if not ORIG_ISO.exists():
+        die(f"缺 {ORIG_ISO}，无法解出原版 SOUND.BIN")
+    from tools.umdiso import Iso, SECTOR
+    SOUND_ORIG.parent.mkdir(parents=True, exist_ok=True)
+    with Iso(str(ORIG_ISO)) as iso:
+        rec = iso.find("/PSP_GAME/USRDIR/SOUND.BIN")
+        iso.f.seek(rec.lba * SECTOR)
+        SOUND_ORIG.write_bytes(iso.f.read(rec.size))
+    log(f"sound: 首次自 {ORIG_ISO.name} 解出 SOUND.BIN（{SOUND_ORIG.stat().st_size} B）")
+    return SOUND_ORIG
+
+
+def build_sound_container(orig_bin: Path, tracks: list[tuple[str, bytes]]) -> tuple[bytes, list[str]]:
+    """原成员逐字节原样 + 新成员按名有序插入（引擎按名二分查找，与 DATA.BIN 同律）→ 容器字节。
+
+    返回 (容器字节, 有序成员名)。新成员与原成员撞名即拒绝：本项目不改原曲。
+    """
+    import io
+    from tools.databin import read_toc, write_container
+    with open(orig_bin, "rb") as f:
+        entries = read_toc(f)
+        merged: dict[str, bytes] = {}
+        for name, off, length in entries:
+            f.seek(off)
+            merged[name] = f.read(length)
+    names = list(merged)
+    if names != sorted(names):
+        die("原 SOUND.BIN 成员不是按名升序——与已知格式不符，拒绝装配")
+    for name, blob in tracks:
+        if name in merged:
+            die(f"sound: {name} 已是原 SOUND.BIN 成员——本项目不改原曲，换个成员名")
+        merged[name] = blob
+    ordered = sorted(merged)
+    buf = io.BytesIO()
+    write_container([(n, merged[n]) for n in ordered], buf)
+    return buf.getvalue(), ordered
+
+
+def _sound_tracks(ctx: BuildContext) -> list[tuple[str, bytes]]:
+    cfg = ctx.manifest.get("sound")
+    if not cfg or not cfg.get("tracks"):
+        return []
+    return [(t["member"], (layers.LAYERS / t["artifact"]).read_bytes()) for t in cfg["tracks"]]
+
+
+def stage_sound(ctx: BuildContext) -> dict:
+    """按 manifest [sound] 把新曲装进 SOUND.BIN → build/<profile>/SOUND.BIN。无曲目则空转。"""
+    tracks = _sound_tracks(ctx)
+    if not tracks:
+        log("sound: manifest 无 [sound] 曲目，跳过（沿用原 SOUND.BIN）")
+        return {"skipped": True}
+    layers._check_sound(ctx.manifest)      # 与 layers.py check 同一道闸：指纹/头部规则/撞名
+    blob, ordered = build_sound_container(_orig_sound_bin(), tracks)
+    out = ctx.root / "SOUND.BIN"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(blob)
+    fp = hashlib.sha256(blob).hexdigest()
+    log(f"sound: {len(tracks)} 首新曲（{', '.join(n for n, _ in tracks)}）→ {out}"
+        f"（{len(blob)} B，成员 {len(ordered)}，有序✓）")
+    return {"SOUND.BIN": str(out), "members": len(ordered), "added": len(tracks), "sha256": fp}
+
+
+def _expected_sound(ctx: BuildContext) -> bytes:
+    """stage_iso 断言⑤用的独立重算：原版 + 当前 layers/audio 产物重新装配。"""
+    blob, _ = build_sound_container(_orig_sound_bin(), _sound_tracks(ctx))
+    return blob
+
+
 # ---------- E2 引擎补丁 ----------
 
 def stage_eboot(ctx: BuildContext) -> dict:
@@ -771,6 +849,12 @@ def stage_disc(ctx: BuildContext) -> dict:
             die(f"缺 {eboot}（先跑 eboot 阶段）")
         shutil.copyfile(eboot, game / "PSP_GAME" / "SYSDIR" / "EBOOT.BIN")
         log(f"disc: EBOOT.BIN（已补丁）已覆入 {game}")
+    if _sound_tracks(ctx):
+        sound = ctx.root / "SOUND.BIN"
+        if not sound.exists():
+            die(f"缺 {sound}（先跑 sound 阶段）")
+        shutil.copyfile(sound, game / "PSP_GAME" / "USRDIR" / "SOUND.BIN")
+        log(f"disc: SOUND.BIN（含新曲）已覆入 {game}")
     return {"game": str(game)}
 
 
@@ -844,10 +928,25 @@ def stage_iso(ctx: BuildContext) -> dict:
         log("iso: 断言④通过（EBOOT.BIN 与层重算结果逐字节相同）")
         pairs.append((cfg["iso_path"], str(eboot)))
 
+    snd = ctx.manifest.get("sound")
+    if _sound_tracks(ctx):
+        # 断言⑤：要出盘的 SOUND.BIN 必须逐字节等于「原版 + 当前 layers/audio 产物重新装配」
+        # ——原 99 成员未动、新成员就是清单登记的那份（layers._check_sound 已核指纹与头部）。
+        sound = ctx.root / "SOUND.BIN"
+        if not sound.exists():
+            die(f"缺 {sound}（先跑 sound 阶段）")
+        layers._check_sound(ctx.manifest)
+        if sound.read_bytes() != _expected_sound(ctx):
+            die("iso: SOUND.BIN 与原版+当前音频层重新装配的结果不一致——重跑 sound 阶段")
+        log("iso: 断言⑤通过（SOUND.BIN 与音频层重算结果逐字节相同，原成员未动）")
+        pairs.append((snd["iso_path"], str(sound)))
+
     DIST.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, DIST / "DATA.BIN")     # Finding 1：只有闸过了才能发布
     if cfg:
         shutil.copyfile(ctx.root / "EBOOT.BIN", DIST / "EBOOT.BIN")
+    if _sound_tracks(ctx):
+        shutil.copyfile(ctx.root / "SOUND.BIN", DIST / "SOUND.BIN")
     out = DIST / "game_zh.iso"
     replace(str(ORIG_ISO), str(out), pairs, log=log)
     if not verify(str(out), against=str(ORIG_ISO), log=log):
@@ -916,6 +1015,8 @@ def _write_provenance(ctx: BuildContext, results: dict[str, dict]) -> None:
     outputs = {"DATA.BIN": _hash_or_absent(ctx.root / "DATA.BIN")}
     if ctx.manifest.get("eboot"):
         outputs["EBOOT.BIN"] = _hash_or_absent(ctx.root / "EBOOT.BIN")
+    if _sound_tracks(ctx):
+        outputs["SOUND.BIN"] = _hash_or_absent(ctx.root / "SOUND.BIN")
     if ctx.profile == "release":
         outputs["game_zh.iso"] = _hash_or_absent(DIST / "game_zh.iso")
 
@@ -942,9 +1043,9 @@ def _write_provenance(ctx: BuildContext, results: dict[str, dict]) -> None:
 
 # ---------- CLI ----------
 
-STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "eboot", "disc", "iso", "boot"]
+STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "sound", "eboot", "disc", "iso", "boot"]
 STAGES = {"lua": stage_lua, "font": stage_font, "members": stage_members,
-          "stage": stage_stage, "pack": stage_pack, "eboot": stage_eboot,
+          "stage": stage_stage, "pack": stage_pack, "sound": stage_sound, "eboot": stage_eboot,
           "disc": stage_disc, "iso": stage_iso, "boot": stage_boot}
 #: 缺省 all 时各剖面跑到哪一站——均不含 boot（opt-in）。
 DEFAULT_STOP = {"release": "iso", "test": "disc"}

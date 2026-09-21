@@ -5,6 +5,14 @@
 > 管线设计，§8 是需要用户拍板的点。探针脚本与产物在 `build/sound/`（gitignore，一次性，
 > 不入库）；本文所有数字都可按 §附 重跑复现。
 
+> **实施状态（2026-09-22）**：已按 §9 落地——`tools/at3p.py`（encode/inspect/verify）、
+> `tools/build_atracdenc.sh` + `tools/atracdenc-744.patch`、`manifest.toml` 的 `[sound]`/`[[sound.tracks]]`
+> （比 §4.1 的写法多一层 `tracks`：TOML 里同名的表与表数组不能并存）、`layers.py check` 的
+> `_check_sound`、`build_disc.py` 的 `sound` 阶段与断言⑤、`tools/emu/drives/bgm_probe.py`、
+> `tests/test_at3p.py`/`test_build_disc_sound.py`。首曲 `bgm/bgm_fin_1.at3`（用户自供 `bgm_5_x` remix，
+> 整曲循环、裁到 3:16、−21 LUFS）登记进包，用于谢幕章 fin-30/35。§8 的裁定见
+> `docs/finale/draft-finale-v3.md` D4；实机（CFW）试听仍待用户。
+
 ---
 
 ## 0. 结论摘要

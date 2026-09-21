@@ -42,3 +42,20 @@ source   = "assets/EBOOT.dec.elf"     # PPSSPP dump 的解密 EBOOT 截到 elf_s
 sha256   = "8737f1d35db01e9cde98efb09c8272c835195f46321b4b2b75fdb36a6ece2c50"
 iso_path = "/PSP_GAME/SYSDIR/EBOOT.BIN"
 order    = ["kinsoku", "ruby-p5", "msgcol-px", "savebuf"]     # layers/eboot/*.toml 施加顺序（区间不得重叠）
+
+[sound]
+# 新增曲目进 SOUND.BIN（pack 容器，原 99 成员逐字节不动，新成员按名有序插入；引擎只吃带 smpl 的 AT3+，
+# 详见 docs/superpowers/specs/2026-09-17-encore-bgm-injection-design.md）。编码：tools/at3p.py encode；
+# 闸：layers.py check 的 _check_sound（指纹、头部规则、不与原成员撞名）；build_disc 的 sound 阶段装配。
+iso_path = "/PSP_GAME/USRDIR/SOUND.BIN"
+encoder  = "build/atracdenc/build/src/atracdenc"   # tools/build_atracdenc.sh 产物；SNDL_ATRACDENC 覆盖
+
+[[sound.tracks]]
+member        = "bgm/bgm_fin_1.at3"          # cGetFileName("bgm", "bgm_fin_1")：谢幕章 fin-30/35 翻卡与转述
+source        = "assets/audio/bgm_5_x_edit.wav"   # 用户自供 bgm_5_x remix（48 kHz 立体声 3:21），不入库
+source_sha256 = "3c8b4d20638758d5b60d47b93dca26e1be2330a270fccc7a955fd31f9a67adcd"
+artifact      = "audio/bgm_fin_1.at3"        # layers/ 相对路径；发布字节的唯一真源，入库
+sha256        = "e47d45e857258bc6330363d7e42710fdfcb2f411ed97dce4931262e31f105f9c"
+loop_start    = 0.0                          # 秒（源 PCM 时基）；整曲循环——用户 2026-09-21 裁定回绕到 8bit 开头
+trim_end      = 196.0                        # 3:16 裁尾：3:16–3:18 数字静音后的 3 秒残段不要
+target_lufs   = -21.0                        # 源 −14.5 LUFS → 增益 −6.5 dB，峰值 −6.5 dBFS

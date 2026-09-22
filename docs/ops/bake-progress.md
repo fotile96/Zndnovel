@@ -531,3 +531,15 @@ uv run python tools/check_ui_terms.py \
 ⚠ 原先这里写的是 `check_ui_terms.py data/*.jsonl`，**现在会直接崩**——`data/` 后来多了
 `api_ledger.jsonl`、`ledger.jsonl` 等没有 jp/zh 字段的文件，闸拒绝解析（这是对的行为）。
 故此处**显式列出**七个标签文件，而不是靠通配。
+
+### 追记 2026-09-23：`skeleton-v6`（glossary v25）—— card 93 已重烤
+
+卡 93『アヤノの返信：９月２５日』末句「ユウイチがお見舞いに来た日、あったね！」由「Yuichi来探病的那天，
+真的有过呢！」改为「Yuichi来探病的那天，还记得吧！」（解读与裁定见
+`docs/ops/card93-attane-recall-2026-09-23.md`）。只动 `body_zh`，**不涉 plot/scene/select**。
+
+- `bake_card` 196 张：validation gate max_diff 52 / 阈值 60，0 超阈；overflow 全 0；pixel-preservation 0 违规。
+- 卡 93 烤字输出三行「Sakura酱，最近好吗？／对了对了，Yuichi来／探病的那天，还记得吧！」，
+  yaml 换行按 v21 口径写成与输出相同。
+- release 出盘 rc=0；members 阶段只新编码这一张 gim，报「超阈(15.0) 1 张 MSE 20.26」——
+  **同族卡面固有损耗**（改前 20.27，卡 191/92/1/178 为 19.5–20.4），单卡召回必现，非退化。

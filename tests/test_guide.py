@@ -78,6 +78,21 @@ def test_route_sim_engine_rules():
         sim3.make(6)  # 『想不起约定』已被截掉
 
 
+def test_no_real_name_spoiler():
+    """用户 2026-09-22 裁定：攻略里不写 Sakura 的真名「佐仓雪乃／雪乃」，一律用 Sakura。
+
+    游戏到章节 5 的现实层才说出这个名字，攻略第 1 章的人名说明与 EX2 导语曾提前写出。
+    只查会渲染的文件；generated/data.typ 的场景标题字典里有「雪乃」这个键，但正文不引用它。"""
+    banned = ("雪乃", "佐仓", "佐倉")
+    files = list((build_guide.GUIDE / "chapters").glob("*.typ")) + list((build_guide.GUIDE / "appendix").glob("*.typ"))
+    files += [build_guide.GUIDE / "main.typ", build_guide.GUIDE / "template.typ",
+              build_guide.GEN / "cards-table.typ", build_guide.GEN / "options-table.typ"]
+    for p in files:
+        text = p.read_text(encoding="utf-8")
+        for w in banned:
+            assert w not in text, f"{p.name} 写出了真名 {w!r}"
+
+
 def test_no_encore_mention():
     """用户裁定：攻略不提谢幕章。"""
     banned = ("encore", "谢幕", "snr_finale", "title_14")

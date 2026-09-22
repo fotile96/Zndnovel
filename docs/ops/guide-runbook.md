@@ -10,6 +10,8 @@
 
 刻意不写的内容：**encore／谢幕章一字不提**（用户 2026-09-11 裁定：留给中文玩家的小惊喜），
 编外卡 196+ 也不入附录——`tools/build_guide.py::load_cards` 直接跳过 `card >= 196`。
+**Sakura 的真名「佐仓雪乃／雪乃」也不写**（用户 2026-09-22 裁定）：游戏到章节 5 的现实层才揭晓，攻略
+通篇用 Sakura。两条都由 `tests/test_guide.py` 的 `test_no_encore_mention` / `test_no_real_name_spoiler` 守着。
 
 ## 一条命令
 

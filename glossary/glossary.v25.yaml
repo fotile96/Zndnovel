@@ -1,0 +1,54 @@
+# 术语表 v25 —— 2026-09-23，卡 93『アヤノの返信：９月２５日』卡面末句改译（skeleton 召回）
+#
+# append-only：本文件只增不改，v24 的全部条目继续有效。本版只做一件事：
+# 卡 93 body_zh 末句「ユウイチがお見舞いに来た日、あったね！」由「Yuichi来探病的那天，真的有过呢！」
+# 改为「Yuichi来探病的那天，还记得吧！」（用户 2026-09-23 采纳）。
+# 解读依据与剧情链条：docs/ops/card93-attane-recall-2026-09-23.md
+#
+# ★★ 召回范围：skeleton 卡 93 `body_zh`（cards.zh.yaml + cards.zh/batch_02.yaml）；tag skeleton-v6。
+#   主轨不涉（该句只在卡面，vms 无同文）；extra 轨不涉（卡 93 只派生 title_zh，标题未动）；
+#   plot/scene/select 不涉（同源于 title_zh）；攻略不涉（build_guide 只取 title_zh）；
+#   谢幕章不涉；active.json 无变化（句级改译，不是术语映射）。
+#   须重烤：png/card/crd_93_a（build/card_zh，不入库）→ build_disc release 全阶段出盘。
+
+version: 25
+date: 2026-09-23
+segment: p5-postscript
+track: P5-prep
+lane: opus
+active_json: "无变化（句级改译，不入术语映射）"
+recall: "skeleton 召回令（卡 93 body_zh）；tag skeleton-v6"
+
+revisions:
+  - id: card93-attane
+    title: 卡 93 末句「〜日、あったね！」：「真的有过呢」→「还记得吧」
+    decided_by: user
+    date: 2026-09-23
+    scope: skeleton 卡 93 body_zh 一处
+    cards:
+      93:
+        jp: "サクラちゃん、元気？ そうそう、ユウイチがお見舞いに来た日、あったね！"
+        zh_before: "Sakura酱，最近好吗？\n对了对了，Yuichi来探病\n的那天，真的有过呢！"
+        zh_after: "Sakura酱，最近好吗？\n对了对了，Yuichi来\n探病的那天，还记得吧！"
+    reading: >
+      卡 93 是 s5s_806「アヤノの返信：９月２５日」的梗概，写成 Ayano 给 Sakura 回信的开头。
+      「〜日、あったね！」是口语里省掉「が」的「〜日があったね」：回信开场把「Yuichi 来探病
+      的那一天」当作两人共有的记忆唤起来，接着正文讲那天的事；「ね」求的是对方的共同回忆，
+      不是在确认此事发生过。旧译「真的有过呢」把语气推成辩白式强调，反而暗示探病的真实性
+      有疑问——而游戏里有疑问的从来不是探病是否发生，而是来的人是谁（s7f_520：Yuichi 怕医院，
+      只在彩野住院时来过一次；常来的是直哉）。
+    evidence: >
+      9/16 Sakura 日记（s5s_260）：真 Yuichi 唯一一次探病即此日，同日甜甜圈青年在中庭遇到
+      Sakura，Ayano 跑来问「刚才 Yuichi 是不是来过这边」，误认自此开始；
+      9/25 Ayano 回信（s5s_806）：讲的是真 Yuichi 坐立不安、怕医院、从小怕打针的那次探病；
+      9/29 Sakura 日记（s5s_550）：她看着天天来的甜甜圈青年嘀咕「Yuichi 明明怕医院的……」，
+      这句只能来自 9/25 的回信，误认在此焊死。
+    alternative_not_taken: >
+      「对了对了，有过Yuichi来探病的那么一天呢！」（更贴「あった」的字面，保留「只有那么一次」
+      的线索感）——用户选了把「ね」的共有记忆语气明写出来的「还记得吧」。
+    measured: >
+      bake_card.plan_body 重排为 3 行（无超宽无截断），断点落在词边界「来／探病」
+      （zh_wrap 的 DP 词边界优先 + 行长均衡）；yaml 换行按 v21 口径写成与烤字输出相同。
+    followup: >
+      须重烤 png/card/crd_93_a（build/card_zh，不入库）并 build_disc release 出盘。
+      本版落地时一并执行。

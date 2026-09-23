@@ -275,7 +275,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - **e2f 4838–4847 的字幕与配音是两套台词**（有意演出，全库唯一）：`≪≫` 内是雪乃写的故事，配音（NAO+CHI）念的是直哉
   坦白自己不是ユウイチ的另一段对话。中文版按用户裁定（2026-09-21）在同一消息里 `_r` 换行后用 `「」` 补出配音内容，
   `check_edit` 的「」计数警告对这十行是已知放行；转写与清点见 docs/ops/e2f-voice-text-divergence-2026-09-21.md。
-- **OP/ED 影片在 PPSSPP 正式版（≤ v1.20.4）上不播**（2026-09-24）：引擎走 sceMp4（libmp4），旧版 HLE 全是空桩，起播 1 帧即返回、剧情照常；无任何设置可救。开发版 ≥ v1.20.4-1841（PR #22309）默认 LLE 真 libmp4，首次开盘自动装入本作 UMD 自带的 6.20 固件，实测 OP 音画同步全程正常（影片帧在 fb1，探针只读 fb0 会误判黑屏）。新版同时默认 LLE 真 libfont，中文字体表现**未定论**。详见 `docs/ops/movie-playback-ppsspp-2026-09-24.md`；e2e 基线 `~/ppsspp` 仍是 1ee9168，新版在 `~/ppsspp-new`。
+- **OP/ED 影片在 PPSSPP 正式版（≤ v1.20.4）上不播**（2026-09-24）：引擎走 sceMp4（libmp4），旧版 HLE 全是空桩，起播 1 帧即返回、剧情照常；无任何设置可救。开发版 ≥ v1.20.4-1841（PR #22309）默认 LLE 真 libmp4，首次开盘自动装入本作 UMD 自带的 6.20 固件，实测 OP 音画同步全程正常（影片帧在 fb1，探针只读 fb0 会误判黑屏）。新版同时默认 LLE 真 libfont，中文字体表现**未定论**。**iOS 商店版（1.20.4）可行解已实验跑通**：固件 libmp4/mp4msv 改库名（`zndMp4`/`zndmsv`）由 EBOOT 自行从盘上加载，外加 AAC 输入长度跳板、sceMpegCreate 条件假 ringbuffer、AvcDecode 保 pts 与 44.1k 音轨（绕开 1.20.4 的 48k vaudio 重采样破音），产品化待定。详见 `docs/ops/movie-playback-ppsspp-2026-09-24.md`；e2e 基线 `~/ppsspp` 仍是 1ee9168，新版在 `~/ppsspp-new`。
 - s7f 引用的给彩野的信文（『放課後、校庭で待っていて』）与 s5f_80 实物信（『屋上で待っていて。サクラ』）字面不同——原作即如此，翻译时保持各自原样，不要"修复"。
 - sceneId2aCard 表中大量 `sceneId2aCard.keyword = N` 是反编译噪声（键重复覆盖），仅真实场景键有效。
 - 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。

@@ -61,7 +61,8 @@ LLE 需要 NAND 里有 `flash0:/kd/libmp4.prx` + `mp4msv.prx`（6.00 以上固�
 
 - 正式版 ≤ v1.20.4（Windows/Android/iOS 当前全部正式版，iOS 商店版 1.20.4 / 2026-05-19）：OP/ED 自动跳过，不影响游戏。
 - 能播的版本：**开发版 ≥ v1.20.4-1841**（ppsspp.org/devbuilds，只有 Windows zip/安装包、Android APK，
-  含 legacy/VR/UWP；无 macOS、无 iOS）；或下一个正式版（PR 称约两个月后）。iOS 只能等商店正式版。
+  含 legacy/VR/UWP；无 macOS、无 iOS）；或下一个正式版（PR 称约两个月后）。iOS：商店版 1.20.4 可用下文「iOS 变体盘」
+  （实验已通、待产品化），否则只能等商店正式版。
 - 固件：首次开游戏自动从本作盘内装 6.20（屏上有进度条），无需另找固件。若 ISO 被「去除 UPDATE」压缩过
   （部分 CSO 工具有此选项），需在 设置 › 工具 › PSP Firmware 手动安装。
 - Android：开发版 APK 包名 `org.ppsspp.ppsspp` 与商店免费版相同，签名不同可能装不上 → 先备份存档再卸载商店版；
@@ -73,22 +74,56 @@ LLE 需要 NAND 里有 `flash0:/kd/libmp4.prx` + `mp4msv.prx`（6.00 以上固�
 临时探针与分析脚本在 `build/movie_debug/`（不入库）：`probe_movie*.py`、`movie_sync_probe.py`（DumpAudio + 定时截 fb0/fb1
 + 记录录音长度）、`movie_sync_analyze.py`（`uv run --with numpy`；逐帧匹配 + 包络互相关）、`elf_imports.py`（EBOOT 导入表）。
 
-## 追记：iOS（商店版 1.20.4）有没有办法（2026-09-24，源码核查）
+## 追记：iOS（商店版 1.20.4）——改库名走 LLE，实验已跑通（2026-09-24）
 
-结论：**没有「补 prx 走 LLE」的路**，iOS 玩家只能等商店正式版更新（下一个正式版）。依据（`git show v1.20.4:…`，本机 1ee9168 同）：
+> 同日早先的源码核查结论「没有补 prx 走 LLE 的路」**已被推翻**：它漏看了一点——真 libmp4 自己就导入
+> `sceMpegbase::sceMpegBasePESpacketCopy`，用 LLI 链把 AU 交给解码器；而 1.20.4 的 HLE 恰好在
+> `PESpacketCopy` 记下 LLI、在 `sceMpegAvcDecode` 里走「PMP 路径」用 FFmpeg 直接解。所以真 libmp4 一旦在
+> 1.20.4 下跑起来，画面自动走通，缺的 sceVideocodec 根本用不到。
 
-1. **视频解码层不存在**：v1.20.4 没有 sceVideocodec 的 HLE 实现（09-07 的 184c2cb4 才加），sceMpegbase 只有
-   `PESpacketCopy`。真 `mpeg.prx` 靠这两层解 H.264，LLE sceMpeg 在 1.20.4 必然无画面；而 HLE 的
-   `sceMpegAvcDecode` 只吃 PSMF ringbuffer（或 PMP 的 PESpacketCopy 路径），游戏的 MP4 路径两者都不走。
-2. **HLE 优先绑定**：`ImportFuncSymbol` 对 HLE 已知库（`sceMp4` 在 HLE 表里）直接写 syscall；之后加载的真
-   libmp4 导出被 `ExportFuncSymbol` 忽略（"already implemented in HLE"）。要绕开只能同时改 EBOOT 导入库名
-   与 prx 导出库名。
-3. **没有固件模块加载**：1.20.4 的 `sceUtilityLoadModule(0x308)` 只登记 HLE，不读 flash0 模块（09-12 的 4df01fd9 才加）；
-   iOS 上 flash0 在 app 包内，玩家也放不进文件。
-4. 即便 2 靠改名解决、libmp4 真跑起来，也只能得到解复用与（可能有问题的）AAC 音频，画面仍卡在 1。
+**思路（用户提出）**：两侧同时改库名，让 1.20.4 不把 EBOOT 的 sceMp4 导入钉死在 HLE 空桩上。`ImportFuncSymbol`
+遇到 HLE 表里没有的库名会「暂存待解析」，真模块加载后 `ExportFuncSymbol` 自动补绑——自造名即可，不必借现成系统库名。
 
-唯一盘内可行路线是另写一个走 PSMF（sceMpeg ringbuffer 或 scePsmfPlayer HLE）的备用播放器（自编 PRX + EBOOT 钩子 +
-重编码 .pmf + ISO 增文件），工作量大；**用户 2026-09-24 裁定：暂不做，万策尽了再说**。
+### 实测通过的全部改动（实验盘 `build/movie_debug/iosdisc`）
+
+| # | 位置 | 改动 | 为什么 |
+|---|---|---|---|
+| M1 | libmp4 / mp4msv（取自本作 UMD 自带 6.20 升级包，解密） | 导出库名 `sceMp4`→`zndMp4`；libmp4 导入与 mp4msv 导出 `mp4msv`→`zndmsv`（同长度原地改） | 1.20.4 的 HLE 表里有这两个库（空桩），不改名就被 HLE 优先绑定 |
+| M2 | libmp4 0x487c / 0x6054 | `jal sceAudiocodecDecode` 改指向跳板（放在游戏不用的导出 `sceMp4GetAvcAuWithoutSampleBuf` 入口，前 14 字无重定位）：`srcBytesRead(0x1C) = byte[0x2C] ? 0x609 : 0x600` 后 `b` 回导入桩 | 1.20.4 拿输出字段 0x1C 当 AAC 输入长度，首帧为 0 → 永远静音；规则同上游 b561de3f，新版不读 0x1C 无副作用 |
+| M3 | libmp4 导入表 | `ModuleMgrForUser::0xD2FBC957`（取回调 gp，1.20.4 缺）计数清零，桩改 `jr ra; li v0,-1` | 缺函数的桩不设 v0 → gp 槽得垃圾；返回负值让 libmp4 走自带兜底（取当前 gp） |
+| E1 | EBOOT VA 0x657D0 | 导入库名 `sceMp4`→`zndMp4` | 与 M1 配对 |
+| E2 | EBOOT 0x624C8（`sceGumLookAt`，零引用死代码）+ 调用点 0xB470 | 47 字加载例程：`bal` 取 PC、`addiu` 算导入桩地址 `jalr`，依次 `sceKernelLoadModule/StartModule` `disc0:/PSP_GAME/USRDIR/module/{mp4msv,libmp4}.prx`；0xB470 的 `jal sceUtilityLoadModule(0x308)` 改跳这里；**重定位条目 file 0x84188/0x84198 改 R_MIPS_NONE** | 1.20.4 不从 flash0 装固件模块；插件目录也不行（插件加载器等 module_start 线程返回，这两个库没有 module_start → 开机死锁） |
+| E3 | EBOOT 0x6262C + 调用点 0xB4F4 | `sceMpegCreate` 条件包装：仅当 `$a6`（DecTopAddr）== 0x10000000（1.20.x HLE 伪值）时 ringbuffer 参数 = mpeg 工作区 +0x7000 | 1.20.x `sceMpegAvcDecode` 无 ringbuffer 报 Bogus 返回 −1；新版/实机原样传 NULL |
+| E4 | EBOOT 0x625D8 + 调用点 0xEA94 | `sceMpegAvcDecode` 保 pts 包装：调用前存 AU 前 8 字节、调用后写回 | PMP 路径解码后把 AU.pts 改写为 0，`sub_E9DC` 随后按 pts 登记帧 → 画面卡在首帧 |
+| V1 | `movie/op.mp4`、`ed.mp4` | 音轨重采样为 AAC-LC 44.1k 160k，视频流原样拷贝（`ffmpeg -c:v copy -c:a aac -ar 44100 -b:a 160k -brand MSNV`） | 1.20.4 混音器 SRC 重采样 bug：每块 128 值弹出 `128×48000/44100=139`（截断且为奇数）→ 慢 0.229%、每 1.45 ms 左右声道错位＝破音。游戏按音轨采样率开 vaudio（全局 IDA 0x39CE3C 实测随之变为 44100），44.1k 时不走重采样 |
+
+踩过的坑：E2 第一次没清洞里的重定位条目，装载器把 `lw s1,20(sp)`/`lw s0,24(sp)` 改成 `0x894(sp)`/`0x4018(sp)`
+→ 越过 0x0A000000 → JIT/IR 下宿主进程段错误（1.20.4 macOS 没装内存异常处理器）；纯解释器（CPUCore=0）吞掉越界
+访问才看得到解码日志，内存断点（`memory.breakpoint.add`）一次定位到出错 PC。
+
+### 实测（本机 v1.20.4 fa50bb19 构建 `~/ppsspp-1204`；1.20.4 调试器靠 ini `RemoteDebuggerOnStartup/RemoteISOPort`）
+
+| 场景 | 画面 | 声音（分段互相关 / 漂移） | 音画差中位（范围） |
+|---|---|---|---|
+| OP，1.20.4 JIT | 45 帧逐帧对上原片 | 1.000 / 0 | −0.067 s（−0.098…−0.031） |
+| OP，1.20.4 IR 解释器（iOS 默认同类） | 同上 | 1.000 / 0 | −0.095 s（−0.171…−0.036） |
+| ED（可跳过调法），1.20.4 JIT | 56 帧 | 1.000 / 0 | −0.086 s（−0.126…−0.040） |
+| ED 跳过 | 任意键即跳（按键名为空串 = 任意键）；重播后正常推进 | — | — |
+| 同一 iOS 盘，最新 master（LLE sceMpeg） | 正常 | 1.000 / 0 | −0.053 s |
+
+未改音轨时（48k）的对照：画面正常但声音破音（分段相关 0.3–0.76、慢 0.23%）；未修 M2 时全程静音。用户在本机
+PPSSPP 1.20.4 窗口人工盯完 OP 与 ED 全程，确认音画正常。
+
+### 产品化待办（尚未开工，待用户确认）
+
+- iOS 变体出盘：EBOOT 层（E1–E4，含重定位条目改 NONE）、两个模块（解密原件放 `assets/`、sha256 钉 manifest，
+  补丁工具入库）、44.1k 影片、`umdiso.py` 增加「新增文件」能力（`module/` 目录加两条记录、数据追加卷尾）。
+- 模块来源：本作 UMD 自带 6.20 升级包内的 Sony 固件模块（解密后改名打补丁随 iOS 盘分发）——分发形态需用户定夺。
+- 中文字幕版 OP 若落地，iOS 变体应用同一母带重采样 44.1k。
+- 实机未测（iOS 盘不面向实机）。
+
+临时脚本：`build/movie_debug/{prx_relocs,patch_libmp4,cave_loader,cave_avcwrap,cave_createwrap,ppsspp1204,
+movie_sync_probe,movie_sync_analyze,audio_local_align,skip1204}.py`（不入库）。
 
 附：若做中文字幕版 OP，仍须是 libmp4 能吃的 MP4——建议沿用原片参数（H.264 Main L2.1、480×272、29.97fps、
 AAC-LC 48k 立体声、MSNV 品牌），出片后在新 PPSSPP（LLE）与实机各验一遍。

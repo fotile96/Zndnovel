@@ -157,6 +157,9 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     `bgm/bgm_fin_1`（用户自供 `bgm_5_x` remix 3:21，整曲循环、裁到 3:16、−21 LUFS；前 1:20 8bit、
     1:29 起吉他）走 `[sound]` 管线（下文「新增音频」），fin-30 只加轻量延时不为读速兜底。
     谢幕卡面与 `docs/finale/cards/*.md` 的原话不改（七卡「统稿零改字」纪律），转述可以换比方。
+    **fin-0『递笔』动笔音效**（2026-09-23）：沿 e2 写手层语法「翻页 se_101 → 按笔芯 se_51」（crd_2「カチカチ、と
+    ペンの芯をのばし」同款；本作无写字沙沙声：se_46 转笔、se_71 撕纸、se_48/se_69 门、se_30 卡片滑入、se_79 出拳），
+    `tools/emu/drives/se_probe.py` 开 DumpAudio 录音后按参照 SE 包络互相关核对。
     **题名 logo 双态**（2026-09-11）：fin-50 跑完置 `systemSave.finaleReadFlag = true` 并
     `autoSystemSave(0)`（缺省 false 由 `layers/overlays/finale-read-flag.toml` 写进 snr_common 的
     systemSave 字面表；旧系统数据缺键取 nil 即 false，零迁移）；主菜单 `title-logo-zh` 层据此把

@@ -96,8 +96,18 @@ scene_fin_0 = function(scene_id, scene_title)
     vms(17311, "NONVOICE", "【≦用户≧】「你们友商都要给给自家产品颁Fields奖了。你们还是要努力提升自己的知识水平呀」")
     vms(17312, "NONVOICE", "【≦用户≧】「去吧。这是最后的 End Roll 了」")
     vms(17313, "NONVOICE", "……")
+    -- 动笔（用户 2026-09-23 提议，沿 e2 章写手层的音效语法）：e2s_10 开场与 e2f_50 执笔段都是
+    -- 「翻页 se_101 → 按笔芯 se_51」再进独白，e2s 结尾『ゆっくり書けばいい』之后千秋也以一声 se_51 收场；
+    -- crd_2 直哉写第一张卡的原文「カチカチ、とペンの芯をのばし」配的就是 se_51（两声咔嗒，0.83 s）。
+    -- 这里翻到空白的一页（e2f 末尾『ここから先のページは空白で』），按出笔芯，笔才算接过来。
+    -- 本作没有「沙沙写字」的 SE：se_46 是转笔、se_48/se_69 是门、se_71 是撕纸（s5s/s6s『書けない』段）。
+    wait(60)
+    cLoadPlaySE(cGetFileName("se", "se_101"), false)
+    wait(90)
+    cLoadPlaySE(cGetFileName("se", "se_51"), false)
+    wait(60)
     vms(17314, "NONVOICE", "……笔，接过来了。")
-    wait(1)
+    wait(60)
     comEffectWhiteOut(120)
     wait(120)
     v0()

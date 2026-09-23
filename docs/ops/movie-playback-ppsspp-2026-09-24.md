@@ -72,3 +72,23 @@ LLE 需要 NAND 里有 `flash0:/kd/libmp4.prx` + `mp4msv.prx`（6.00 以上固�
 
 临时探针与分析脚本在 `build/movie_debug/`（不入库）：`probe_movie*.py`、`movie_sync_probe.py`（DumpAudio + 定时截 fb0/fb1
 + 记录录音长度）、`movie_sync_analyze.py`（`uv run --with numpy`；逐帧匹配 + 包络互相关）、`elf_imports.py`（EBOOT 导入表）。
+
+## 追记：iOS（商店版 1.20.4）有没有办法（2026-09-24，源码核查）
+
+结论：**没有「补 prx 走 LLE」的路**，iOS 玩家只能等商店正式版更新（下一个正式版）。依据（`git show v1.20.4:…`，本机 1ee9168 同）：
+
+1. **视频解码层不存在**：v1.20.4 没有 sceVideocodec 的 HLE 实现（09-07 的 184c2cb4 才加），sceMpegbase 只有
+   `PESpacketCopy`。真 `mpeg.prx` 靠这两层解 H.264，LLE sceMpeg 在 1.20.4 必然无画面；而 HLE 的
+   `sceMpegAvcDecode` 只吃 PSMF ringbuffer（或 PMP 的 PESpacketCopy 路径），游戏的 MP4 路径两者都不走。
+2. **HLE 优先绑定**：`ImportFuncSymbol` 对 HLE 已知库（`sceMp4` 在 HLE 表里）直接写 syscall；之后加载的真
+   libmp4 导出被 `ExportFuncSymbol` 忽略（"already implemented in HLE"）。要绕开只能同时改 EBOOT 导入库名
+   与 prx 导出库名。
+3. **没有固件模块加载**：1.20.4 的 `sceUtilityLoadModule(0x308)` 只登记 HLE，不读 flash0 模块（09-12 的 4df01fd9 才加）；
+   iOS 上 flash0 在 app 包内，玩家也放不进文件。
+4. 即便 2 靠改名解决、libmp4 真跑起来，也只能得到解复用与（可能有问题的）AAC 音频，画面仍卡在 1。
+
+唯一盘内可行路线是另写一个走 PSMF（sceMpeg ringbuffer 或 scePsmfPlayer HLE）的备用播放器（自编 PRX + EBOOT 钩子 +
+重编码 .pmf + ISO 增文件），工作量大；**用户 2026-09-24 裁定：暂不做，万策尽了再说**。
+
+附：若做中文字幕版 OP，仍须是 libmp4 能吃的 MP4——建议沿用原片参数（H.264 Main L2.1、480×272、29.97fps、
+AAC-LC 48k 立体声、MSNV 品牌），出片后在新 PPSSPP（LLE）与实机各验一遍。

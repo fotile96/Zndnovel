@@ -445,3 +445,28 @@ def test_font_sources_include_this_profile_and_release(tmp_path, monkeypatch):
     assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "test", "test")) == [tst, rel]
     # release 剖面：自己的树就是 release 的树，不重复
     assert build_disc._font_source_dirs(_font_ctx(tmp_path / "build" / "release", "release")) == [rel]
+
+
+def test_ios_stage_requires_prerequisite_in_same_invocation(tmp_path):
+    """--ios 只复用同一次调用里刚产出的盘：release 要求本次跑过 iso、test 要求本次跑过 disc。"""
+    from tools.build_disc import BuildContext, stage_ios
+    ctx = BuildContext(profile="release", root=tmp_path, manifest={}, switches={}, mode_opts={})
+    with pytest.raises(SystemExit, match="iso"):
+        stage_ios(ctx, results={})
+    ctx_t = BuildContext(profile="test", root=tmp_path, manifest={}, switches={}, mode_opts={})
+    with pytest.raises(SystemExit, match="disc"):
+        stage_ios(ctx_t, results={"iso": {}})
+
+
+def test_new_release_iso_drops_stale_ios_variant(tmp_path, monkeypatch):
+    """新 game_zh.iso 写出后，dist/ 里旧的 iOS 变体盘（与新盘不同源）连同 provenance 一并删除，
+    防止两版并行发布时把新现行盘和旧 iOS 盘打包在一起。"""
+    import tools.build_disc as bd
+    monkeypatch.setattr(bd, "DIST", tmp_path)
+    (tmp_path / "game_zh_ios.iso").write_bytes(b"old")
+    (tmp_path / "game_zh_ios.iso.provenance.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "game_zh.iso").write_bytes(b"new")
+    ctx = bd.BuildContext(profile="release", root=tmp_path / "root", switches={}, mode_opts={},
+                          manifest={"ios": {"iso_name": "game_zh_ios.iso"}})
+    bd._drop_stale_ios(ctx)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["game_zh.iso"]

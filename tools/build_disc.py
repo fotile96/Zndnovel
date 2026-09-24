@@ -43,6 +43,12 @@
            重新施加当前层」逐字节相同）全过，才把 DATA.BIN/EBOOT.BIN 拷到
            build/dist/、umdiso 就地替换 → build/dist/game_zh.iso + provenance
            副本；任一断言不过就拒绝出盘，不写任何 build/dist/ 文件。
+  ios      仅 --ios（opt-in）：iOS 变体（只推荐 iOS 商店版 PPSSPP 1.20.x，见
+           docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」）。只复用**同一次调用**
+           里刚产出的盘（release 须本次跑过 iso、test 须本次跑过 disc），EBOOT 多施加
+           profile=ios 的层，加两个改名固件模块（tools/ios_fwmod.py）与 44.1k op/ed
+           （tools/ios_movie.py）→ release：build/dist/game_zh_ios.iso + provenance；
+           test：build/test/game_ios/。现行盘一字不变。
   boot     PPSSPP 引导冒烟 + 截图序列（opt-in，不在缺省阶段集合内）。
 
 不论这次跑了哪些阶段，结束时都会写 build/<profile>/provenance.json。
@@ -807,7 +813,8 @@ def stage_eboot(ctx: BuildContext) -> dict:
     dst = ctx.root / "EBOOT.BIN"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(out)
-    log(f"eboot: {len(patches)} 条补丁（{', '.join(cfg['order'])}）→ {dst}（{len(out)} B）")
+    applied = [n for n in cfg["order"] if any(p.layer == n for p in patches)]
+    log(f"eboot: {len(patches)} 条补丁（{', '.join(applied)}）→ {dst}（{len(out)} B）")
     return {"EBOOT.BIN": str(dst), "patches": len(patches), "sha256": eboot_patch.sha256(out)}
 
 
@@ -952,7 +959,83 @@ def stage_iso(ctx: BuildContext) -> dict:
     if not verify(str(out), against=str(ORIG_ISO), log=log):
         die("iso: 结构自检未过")
     log(f"iso: {out}（{out.stat().st_size} B）")
+    _drop_stale_ios(ctx)
     return {"game_zh.iso": str(out)}
+
+
+# ---------- F3 iOS 变体盘（--ios，opt-in）----------
+
+IOS_BUILD = REPO / "build" / "ios"      # 模块/影片产物（跨剖面共享、带指纹核对）
+
+
+def _drop_stale_ios(ctx: BuildContext) -> None:
+    """新 game_zh.iso 一旦写出，dist/ 里既有的 iOS 变体盘就与它不同源了——连同 provenance 删掉，
+    免得两版并行发布时把新现行盘和旧 iOS 盘一起打包。要 iOS 盘就加 --ios（同一次调用里紧接着重出）。"""
+    name = (ctx.manifest.get("ios") or {}).get("iso_name")
+    if not name:
+        return
+    for stale in (DIST / name, DIST / f"{name}.provenance.json"):
+        if stale.exists():
+            stale.unlink()
+            log(f"iso: 删除过期的 {stale.name}（与新 game_zh.iso 不同源；需要时加 --ios 重出）")
+
+
+def stage_ios(ctx: BuildContext, results: dict) -> dict:
+    """iOS 变体：EBOOT 多施加 profile=ios 的层，加两个改名固件模块与 44.1k 影片。
+
+    只复用**同一次调用里**已产出并（release）通过发布断言的 DATA.BIN/SOUND.BIN——
+    release 要求本次跑过 iso、test 要求本次跑过 disc，否则拒绝，防旧产物冒充。
+    两个剖面的 EBOOT 都按 release 层 + ios 层施加：test 目录盘驾驶验证的就是要发的那份 EBOOT。
+    """
+    need = "iso" if ctx.profile == "release" else "disc"
+    if need not in results:
+        die(f"--ios 需要本次调用同时跑 {need} 阶段（防止拿旧产物出 iOS 盘）")
+    from tools import eboot_patch, ios_fwmod, ios_movie
+    from tools.umdiso import DATA_BIN_PATH, add_files, replace, verify
+
+    cfg, ios = ctx.manifest["eboot"], ctx.manifest["ios"]
+    pristine = (REPO / cfg["source"]).read_bytes()
+    if eboot_patch.sha256(pristine) != cfg["sha256"]:
+        die(f"{cfg['source']} 的 sha256 与 manifest [eboot].sha256 不符")
+    eb, _ = eboot_patch.apply(pristine, eboot_patch.load_layers(cfg["order"], profile="release", ios=True))
+    eb_path = ctx.root / "EBOOT.ios.BIN"
+    eb_path.write_bytes(eb)
+    mods = ios_fwmod.build(IOS_BUILD / "module")
+    movies = ios_movie.build(IOS_BUILD / "movie", ios["movies"], ORIG_ISO)
+    log(f"ios: EBOOT.ios.BIN（{eboot_patch.sha256(eb)[:12]}…）、模块 {list(mods)}、影片 {list(movies)}")
+
+    if ctx.profile == "test":
+        game, dst = ctx.root / "game", ctx.root / "game_ios"
+        if dst.exists():
+            shutil.rmtree(dst)
+        subprocess.run(["cp", "-Rc", str(game), str(dst)], check=True)   # APFS clone，秒级
+        shutil.copyfile(eb_path, dst / "PSP_GAME" / "SYSDIR" / "EBOOT.BIN")
+        for name in ios["modules"]:
+            shutil.copyfile(mods[name], dst / ios["module_dir"].lstrip("/") / name)
+        for name, p in movies.items():
+            shutil.copyfile(p, dst / "PSP_GAME" / "USRDIR" / "movie" / name)
+        log(f"ios: 目录盘 {dst}")
+        return {"game_ios": str(dst)}
+
+    pairs = [(DATA_BIN_PATH, str(DIST / "DATA.BIN")), (cfg["iso_path"], str(eb_path))]
+    if _sound_tracks(ctx):
+        pairs.append((ctx.manifest["sound"]["iso_path"], str(DIST / "SOUND.BIN")))
+    pairs += [(f"/PSP_GAME/USRDIR/movie/{n}", str(p)) for n, p in movies.items()]
+    out = DIST / ios["iso_name"]
+    partial = DIST / f"{ios['iso_name']}.partial"      # 自检过了才改名，失败不在 dist/ 留半成品
+    replace(str(ORIG_ISO), str(partial), pairs, log=log)
+    add_files(str(partial), [(f"{ios['module_dir']}/{n}", str(mods[n])) for n in ios["modules"]], log=log)
+    if not verify(str(partial), against=str(ORIG_ISO), log=log):
+        die(f"ios: 结构自检未过（半成品留在 {partial}）")
+    partial.replace(out)
+    (DIST / f"{ios['iso_name']}.provenance.json").write_text(json.dumps({
+        "base_iso": _hash_or_absent(DIST / "game_zh.iso"),
+        "EBOOT.ios.BIN": eboot_patch.sha256(eb),
+        "modules": {n: _hash_or_absent(p) for n, p in mods.items()},
+        "movies": {n: _hash_or_absent(p) for n, p in movies.items()},
+        "iso": _hash_or_absent(out)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    log(f"ios: {out}（{out.stat().st_size} B）")
+    return {ios["iso_name"]: str(out)}
 
 
 # ---------- G 引导冒烟 ----------
@@ -1043,11 +1126,11 @@ def _write_provenance(ctx: BuildContext, results: dict[str, dict]) -> None:
 
 # ---------- CLI ----------
 
-STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "sound", "eboot", "disc", "iso", "boot"]
+STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "sound", "eboot", "disc", "iso", "ios", "boot"]
 STAGES = {"lua": stage_lua, "font": stage_font, "members": stage_members,
           "stage": stage_stage, "pack": stage_pack, "sound": stage_sound, "eboot": stage_eboot,
-          "disc": stage_disc, "iso": stage_iso, "boot": stage_boot}
-#: 缺省 all 时各剖面跑到哪一站——均不含 boot（opt-in）。
+          "disc": stage_disc, "iso": stage_iso, "ios": stage_ios, "boot": stage_boot}
+#: 缺省 all 时各剖面跑到哪一站——均不含 ios/boot（opt-in：--ios / --stage …,boot）。
 DEFAULT_STOP = {"release": "iso", "test": "disc"}
 
 
@@ -1068,12 +1151,17 @@ def main() -> None:
     ap.add_argument("--no-cards", action="store_true", help="test 剖面 scene/mainmenu 模式不预置全卡")
     ap.add_argument("--bloat", action="store_true",
                     help="test 剖面 scene 模式：把目标章节脚本的 vms 翻倍，复现存档线程 blob 超容量")
+    ap.add_argument("--movie", default="op", choices=["op", "ed"], help="test 剖面 movie 模式：循环播哪一部")
+    ap.add_argument("--skippable", action="store_true", help="test 剖面 movie 模式：以可跳过方式调用 playMovie")
+    ap.add_argument("--ios", action="store_true",
+                    help="另出 iOS 变体（release：build/dist/game_zh_ios.iso；test：build/test/game_ios/）")
     args = ap.parse_args()
 
     manifest = layers.load_manifest()
     switches = {"fast-boot": False} if args.no_fast_boot else {}
     mode_opts = {"mode": args.mode, "scene": args.scene, "card": args.card,
-                "hold": args.hold, "no_cards": args.no_cards, "bloat": args.bloat}
+                "hold": args.hold, "no_cards": args.no_cards, "bloat": args.bloat,
+                "movie": args.movie, "skippable": args.skippable}
     ctx = BuildContext(profile=args.profile, root=REPO / "build" / args.profile,
                        manifest=manifest, switches=switches, mode_opts=mode_opts,
                        force=args.force)
@@ -1083,6 +1171,8 @@ def main() -> None:
         wanted = STAGE_ORDER[:STAGE_ORDER.index(stop) + 1]
     else:
         wanted = args.stage.split(",")
+    if args.ios and "ios" not in wanted:
+        wanted.append("ios")
     unknown = set(wanted) - set(STAGES)
     if unknown:
         die(f"未知阶段: {unknown}（可选 {STAGE_ORDER}）")
@@ -1092,7 +1182,7 @@ def main() -> None:
         if name not in wanted:
             continue
         log(f"=== 剖面 {ctx.profile} · 阶段 {name} ===")
-        results[name] = STAGES[name](ctx) or {}
+        results[name] = (STAGES[name](ctx, results) if name == "ios" else STAGES[name](ctx)) or {}
 
     _write_provenance(ctx, results)
     log("完成")

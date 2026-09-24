@@ -127,3 +127,20 @@ def test_story_route_presets_card_scenes_in_story_order():
     carded = set(re.findall(r"sceneId2aCard\.(\w+) = \d+", txt))
     assert all(i in carded for i in ids), [i for i in ids if i not in carded]
     assert ids[0] == "s1s_20"
+
+
+def test_movie_mode_can_play_ed_skippably(out_dir):
+    generate("movie", out_dir, movie="ed", skippable=True)
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+    assert 'playMovie("movie/ed.mp4", true)' in src
+
+
+def test_movie_mode_defaults_to_op_like_the_real_call(out_dir):
+    generate("movie", out_dir)                    # snr_crd_2 的真调用：playMovie("movie/op.mp4", false)
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+    assert 'playMovie("movie/op.mp4", false)' in src
+
+
+def test_movie_mode_rejects_unknown_movie(out_dir):
+    with pytest.raises(SystemExit, match="op/ed"):
+        generate("movie", out_dir, movie="xx")

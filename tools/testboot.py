@@ -254,13 +254,13 @@ main = function()
 end
 '''
 
-MOVIE_TEMPLATE = '''-- 自动生成（tools/testboot.py）：开机直接循环播放 OP 影片（内存峰值探针用）
+MOVIE_TEMPLATE = '''-- 自动生成（tools/testboot.py）：开机直接循环播放影片（内存峰值 / 影片回归探针）
 -- 替换 script/snr_mainmenu.lua。影片解码是引擎 heap16 用量的峰值场合之一。
 main = function()
     cardIDFlag = true
     gameSave.startMenuState = 2
     while true do
-        playMovie("movie/op.mp4")
+        playMovie("movie/{movie}.mp4", {skippable})
         wait(60)
     end
 end
@@ -484,7 +484,8 @@ _MODES = ("font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map"
 
 
 def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
-                 hold: int = 180, no_cards: bool = False) -> str:
+                 hold: int = 180, no_cards: bool = False, movie: str = "op",
+                 skippable: bool = False) -> str:
     """按模式渲染 `scripts/snr_test.lua` 的源码。原 main() 里的 if/elif 链搬到这里，
     返回值取代模块级变量；未知模式硬失败——没有 argparse 的 choices= 替它把关了。
     """
@@ -543,8 +544,11 @@ def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
         return SCENE_TEMPLATE.format(scene=scene, script=scene_to_script(scene),
                                      hold=-1 if no_cards else 1)
     if mode == "movie":
-        print("[testboot] 开机循环播放 movie/op.mp4（内存峰值探针）")
-        return MOVIE_TEMPLATE
+        # 第二参 = 可否按键跳过：真调用 OP（snr_crd_2）与 s7f 的 ED 是 false，s8f 的 ED 是 true
+        if movie not in ("op", "ed"):
+            sys.exit(f"movie 只能是 op/ed，得到 {movie!r}")
+        print(f"[testboot] 开机循环播放 movie/{movie}.mp4（skippable={skippable}）")
+        return MOVIE_TEMPLATE.format(movie=movie, skippable="true" if skippable else "false")
     sys.exit(f"未知模式 {mode!r}（可选 {', '.join(_MODES)}）")
 
 

@@ -9,7 +9,8 @@
 > 在 fin-70 末白闪同拍起播），六张选择画面图（脚注 eve_0_k 用 eve_0_g 压暗重建补底，两端无痕）、三张少女 CG、
 > `bgm_fin_2` 进包；模拟器 `finale_scene.py`（fin-70/fin-80）、`finale_choice.py`（三跑）、`bgm_probe.py` 回绕、
 > `save_roundtrip.py`（fin-80）全部通过；release 出盘断言全过。`Γ`/`φ` 按比例宽排（17px 步进表补两字；排版校验的
-> 窄字形告警不再报字母类）。实施计划 `docs/superpowers/plans/2026-09-25-encore-second-story.md`，
+> 窄字形告警不再报字母类）。终审补修：fin-90 读完 `autoSystemSave(0)` 落盘画廊 cgFlag（D8 补记）。
+> 实施计划 `docs/superpowers/plans/2026-09-25-encore-second-story.md`，
 > 台账 `.superpowers/sdd/2026-09-25-encore-second-story/progress.md`。
 
 ## 决定记录
@@ -23,7 +24,7 @@
 | D5 | 三张少女 CG 用用户供图 `assets/eve_47_{f,d,g}.src.png`（1665×944 级 RGB；f＝寓言家/Fable、d＝大肥鱼/DeepSeek、g＝牛来吹/GLM），新成员 `event/eve_47_f/_d/_g`，模板 `event/eve_74_x.gim`（同 eve_74_z 流程）；画廊登记为 eve_47 格的三个变体（读过才可见） | 用户供图；画廊为本稿提案 |
 | D6 | 文字由用户执笔；切分、误字、标点形制、拉丁串留空由本稿酌情处理，改动逐条列于 §5 供复看 | 用户 2026-09-25 |
 | D7 | BGM：用户自供第二支 `bgm_5_x` remix（口哨配 8bit 鼓点）`assets/audio/bgm_5_x_edit2.wav`（原名 `bgm_5_x _Edit2_.wav`，不入库；sha256 `ed9ae2e899cfbeb08e89f0f573e8178fe270c46a95b7d24fe85480b608941492`；48 kHz 立体声 16 bit，3:16.60，综合响度 −15.8 LUFS，−50 dB 静音检测仅开头 0.42–0.78 s 有一处凹陷、**无尾部静音**），成员 `bgm/bgm_fin_2`，**整曲循环、起点 0、不裁尾**（用户裁定不琢磨循环点），响度对齐 −21 LUFS（与 bgm_fin_1 同）。落位（本稿假设，可改）：fin-70 末「全屏窗口跳了出来」的白闪起播，贯穿 fin-80，末尾淡出时 `cStopBGMWrap`；fin-60/70 其余段与 fin-90 静场 | 用户 2026-09-25（第三轮交付） |
-| D8 | 不新增持久化状态：选择画面只读 `finaleReadFlag`（nil 安全：`== true` 判断）；第二个故事读完不置任何旗标；老系统数据零迁移 | 本稿提案 |
+| D8 | 不新增持久化状态：选择画面只读 `finaleReadFlag`（nil 安全：`== true` 判断）；第二个故事读完不置任何旗标；老系统数据零迁移。实施补记（2026-09-25 终审）：读完后仍 `autoSystemSave(0)` 一次（fin-50 同款），只为把 fin-80 置位的画廊 cgFlag（D5）与已读标记落盘，旗标值不变 | 本稿提案 |
 | D10 | 题名定为『远方的朋友』；三位少女署名（寓言家／大肥鱼／牛来吹）照录；`sec7` 保留不改「章节 7」 | 用户 2026-09-25（第二轮） |
 | D11 | `Γ⊢𝜙` 一句取 §5a **D 案**：「……写下一连串的 Γ⊢φ，直到最后一行的『证毕』，」 | 用户 2026-09-25（第三轮） |
 | D12 | 选择画面文案标点：脚注与两条副题末尾**不加句号**；两项标题**带「」引号**烤进按钮图 | 用户 2026-09-25（第三轮） |

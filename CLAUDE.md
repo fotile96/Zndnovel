@@ -183,7 +183,8 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     `bake_finale_event.py` 清单化），fin-80 依次同层溶解接替彩野的座位，画廊 eve_47 格四变体；纸箱特写复用
     `cutin/cut_62`（s5f_80 语法）；BGM `bgm/bgm_fin_2`（用户第二支 bgm_5_x remix，整曲循环不裁尾，−21 LUFS），
     fin-70 末「全屏窗口跳了出来」白闪同拍起播、贯穿 fin-80（fin-80 开头再调一次保直入自给）；
-    vms 17800–17999；读完不置旗标、不写系统数据。`Γ⊢φ` 按比例宽排（排版校验的窄字形告警不报字母类）。
+    vms 17800–17999；读完不置旗标，只在 fin-90 之后 `autoSystemSave(0)` 把画廊 cgFlag 与已读标记落盘（不写则要等
+    下次存档/改设置，关机即丢）。`Γ⊢φ` 按比例宽排（排版校验的窄字形告警不报字母类）。
     测试捷径 `build_disc.py --profile test --mode mainmenu --finale-read`，驾驶 `tools/emu/drives/finale_choice.py`
     （FIN_PICK=0/1/2；⚠ 本机模拟器那份系统数据已带旗标，PICK=0 会先挪开、跑完放回）。
     文稿与决定记录 `docs/finale/draft-encore2-v0.md`，实施台账 `.superpowers/sdd/2026-09-25-encore-second-story/progress.md`。

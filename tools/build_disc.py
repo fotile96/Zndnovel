@@ -965,7 +965,7 @@ def stage_iso(ctx: BuildContext) -> dict:
     return {"game_zh.iso": str(out)}
 
 
-# ---------- F3 iOS 变体盘（--ios，opt-in）----------
+# ---------- F3 iOS 变体盘（release 随 iso 必出；test 要 --ios）----------
 
 IOS_BUILD = REPO / "build" / "ios"      # 模块/影片产物（跨剖面共享、带指纹核对）
 IOS_FW = REPO / "assets" / "fw"         # 解密固件模块原件（版权物不入库），tools/ios_fwmod.py 的输入
@@ -1005,7 +1005,7 @@ def stage_ios(ctx: BuildContext, results: dict) -> dict:
     """
     need = "iso" if ctx.profile == "release" else "disc"
     if need not in results:
-        die(f"--ios 需要本次调用同时跑 {need} 阶段（防止拿旧产物出 iOS 盘）")
+        die(f"ios 阶段需要本次调用同时跑 {need} 阶段（防止拿旧产物出 iOS 盘）")
     from tools import eboot_patch, ios_fwmod, ios_movie
     from tools.umdiso import DATA_BIN_PATH, add_files, replace, verify
 

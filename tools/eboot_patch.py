@@ -11,7 +11,7 @@
 层文件格式（layers/eboot/<name>.toml）：
 
     why     = \"\"\"这层为什么存在（必填，见 layers/overlays 同款约定）\"\"\"
-    profile = "release"          # release：两剖面都打；test：只在 test 剖面打；ios：只在 build_disc --ios 的 iOS 变体打
+    profile = "release"          # release：两剖面都打；test：只在 test 剖面打；ios：只在 build_disc 的 ios 阶段（iOS 变体）打
     [[patches]]
     va   = "0x663E0"             # ELF 内虚拟地址（PRX 型 ELF 基址 0；装载后 +0x08804000）
     # 或 off = "0x735F0"         # 文件偏移——只给不在任何 PT_LOAD 段里的字节用（如重定位表）
@@ -142,7 +142,7 @@ def load_layers(order: list[str], root: Path | None = None, profile: str = "rele
                 *, ios: bool = False) -> list[Patch]:
     """按 order 读层、按剖面筛选，并拒绝任何区间重叠（施加顺序在重叠时会决定结果，
     那是隐式语义，宁可不允许）。root 缺省在调用时才取 EBOOT_LAYERS，测试可 monkeypatch。
-    profile="ios" 的层只在 ios=True（build_disc --ios 出 iOS 变体）时收入，两个构建剖面缺省都不含。"""
+    profile="ios" 的层只在 ios=True（build_disc 的 ios 阶段出 iOS 变体）时收入，两个构建剖面缺省都不含。"""
     root = root or EBOOT_LAYERS
     if profile not in PROFILES:
         raise PatchError(f"未知剖面 {profile!r}")

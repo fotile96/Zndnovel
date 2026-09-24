@@ -125,7 +125,7 @@ WHY = """iOS 变体（仅推荐 iOS 商店版 PPSSPP 1.20.x）播放 OP/ED：配
 libmp4/mp4msv（EBOOT 自行从盘上加载）与 tools/ios_movie.py 的 44.1k 影片。E1 导入改名、E2 洞内加载例程
 （sceGumLookAt 死代码；洞内 HI16/LO16 及共用该 LO16 的死代码 HI16 共三条重定位改 NONE）、E3 sceMpegCreate
 条件假 ringbuffer（仅 1.20.x HLE 的 DecTopAddr 伪值 0x10000000 生效）、E4 sceMpegAvcDecode 保 pts。
-只在 build_disc.py --ios 施加。
+只在 build_disc.py 的 ios 阶段施加（release 出盘随 iso 必跑，test 要 --ios）。
 生成器 tools/ios_eboot.py；依据 docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」。"""
 
 

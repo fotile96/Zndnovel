@@ -69,6 +69,9 @@
 // 沙漏用完的那一幕之后紧接着就是 Game Over：做完卡回来接着讲没有新剧情。
 // tools/guide_route_check.py 按引擎探针判定——该标必标、不该标不许标（用户 2026-09-20 提出）。
 #let deadend = text(size: 0.9em, fill: c-gray)[（这一幕之后紧接着就是 Game Over：做完卡回来若从这里接着讲，只会问一次要不要跳过，随即 Game Over，没有新剧情，下一轮直接换分支）]
+// 目标场景已进时间轴、后面只剩已持卡的场景：不必一路跳过到章末，按 □ 切片段模式。
+// tools/guide_route_check.py 的 idle_tail 探针判定（尾巴 ≥ 2 场全是持卡跳过就必须这样写），story-box 配 quit: 参数。
+#let tofrag = text(size: 0.9em, fill: c-gray)[（到这里就够了：按 □ 呼出菜单选「片段目录」，直接切到片段模式。选项弹出时、或下一场问要不要跳过时按都可以；再往后全是已持卡的场景，没有新剧情）]
 
 // 路线框：一段「故事模式」或「片段模式」的操作序列
 #let route-box(title, body, show-pos: true) = block(
@@ -87,12 +90,12 @@
 ]
 // 正文一律用这两个别名：故事模式只是「听」，不递卡，故不标格位（用户 2026-09-14 裁定）；
 // 片段模式要从手牌里翻卡，格位必须留。
-// from / pick / noskip 是给 tools/guide_route_check.py 读的机读路线（从哪个场景重讲、沿途依次选什么），
+// from / pick / noskip / quit 是给 tools/guide_route_check.py 读的机读路线（从哪个场景重讲、沿途依次选什么、在哪场按 □ 切片段模式），
 // 不渲染；每个 story-box 都必须写 from，否则校验器拒绝。
-#let story-box(body, from: none, pick: (), noskip: ()) = route-box(story, body, show-pos: false)
+#let story-box(body, from: none, pick: (), noskip: (), quit: none) = route-box(story, body, show-pos: false)
 #let frag-box(body) = route-box(frag, body)
 // 不渲染的路线步骤：表格化叙述（章节 5）或主菜单直入的现实层（event: "s7f"）
-#let route(from: none, pick: (), noskip: (), event: none) = none
+#let route(from: none, pick: (), noskip: (), quit: none, event: none) = none
 
 // 做卡表：每行 (目标卡, 递出的答案卡或说明)
 #let make-cards(..rows) = {
@@ -166,7 +169,7 @@
 // ---------------------------------------------------------------------
 // 全局样式
 #let project(body) = {
-  set document(title: "セカンドノベル 〜彼女の夏、15分の記憶〜 中文攻略", author: "Zndnovel 汉化组")
+  set document(title: "セカンドノベル 〜彼女の夏、15分の記憶〜 中文攻略", author: "全程量词汉化组（Claude Fable 5.1）")
   set page(
     paper: "a4",
     margin: (top: 2.4cm, bottom: 2.5cm, left: 2.3cm, right: 2.3cm),

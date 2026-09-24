@@ -23,6 +23,7 @@ check_hand_order 都抓不到，只能按引擎状态机模拟。
       from  = 时间轴上要重讲的场景 id（首轮开局写 "s1s_20"）
       pick  = 沿途每个选择依次选的选项定译；谜题未持选择卡时用 "谜题答对"/"谜题答错"
       noskip = 持卡也不跳过的场景 id（如 s5s_680 要看到「他的身影」选择）
+      quit  = 该场景进路线后玩家按 □ 切片段模式（暂停菜单「片段目录」），本轮到此为止；正文须配 #tofrag
   #route(from: …, pick: …)   同上但不渲染（用于章节 5 那种表格化叙述）
   #route(event: "s7f")       主菜单直入的现实层剧本，只授卡
   #frag-box[ #make-cards(("卡名", [递 …]), …) ]   每行按序做一张卡
@@ -234,6 +235,8 @@ class Sim:
         self.time = 0
         self.held: set[int] = {1}  # 序章读完得卡 1
         self.visited: list[str] = []
+        self.round_log: list[tuple[str, bool]] = []  # 本轮进路线的场景及「进入时是否已持卡」
+        self.quit_at: str | None = None              # 该场景进路线后玩家按 □ 切片段模式
 
     # -- 小工具 -------------------------------------------------------------
     def name(self, n: int) -> str:
@@ -254,13 +257,19 @@ class Sim:
             print("   ", *a)
 
     def _end(self, sid: str, cost: int, force: bool = False, append: bool = True):
+        held = self.held_scene(sid)
         if append:
             self.route.append(RouteEntry(sid, self.time))
-        if force or not self.held_scene(sid):
+            self.round_log.append((sid, held))
+        if force or not held:
             self.time += cost
-        self.log(f"结束 {self.sname(sid)} 耗时{cost if force or not self.held_scene(sid) else 0} → 沙漏 {self.time}")
+        self.log(f"结束 {self.sname(sid)} 耗时{cost if force or not held else 0} → 沙漏 {self.time}")
         if self.time >= 100:
             raise Terminal("timeover")
+        if append and sid == self.quit_at:
+            # 路线条目已追加；接下来的选项对话框 / 下一场的跳过询问里暂停键都是活的，
+            # □ → 「片段目录」直接进片段模式（systemConfig.Config 第 2 项）
+            raise Terminal("quit")
 
     # -- 表达式 / 条件求值 -----------------------------------------------------
     def eval_expr(self, e: str, env: dict, ctx: dict):
@@ -434,7 +443,7 @@ class Sim:
         raise RouteError(f"不会执行的语句: {s}")
 
     # -- 故事模式一轮 ---------------------------------------------------------------
-    def story(self, start: str, picks: list[str], noskip: set[str]) -> str:
+    def story(self, start: str, picks: list[str], noskip: set[str], quit_at: str | None = None) -> str:
         if self.route:
             idxs = [i for i, r in enumerate(self.route) if r.scene == start]
             if not idxs:
@@ -446,6 +455,10 @@ class Sim:
         elif start != "s1s_20":
             raise RouteError("首轮只能从 s1s_20 开局")
         self.visited = []
+        self.round_log = []
+        self.quit_at = quit_at
+        if quit_at is not None and start != quit_at and quit_at not in self.states and quit_at not in self.scene2card:
+            raise RouteError(f"quit: 指向的 {quit_at} 不是场景 id")
         picks = list(picks)
         ctx = {"picks": picks, "noskip": noskip}
         state = start
@@ -460,10 +473,30 @@ class Sim:
             terminal = "menu"
         except Terminal as t:
             terminal = t.kind
+        finally:
+            self.quit_at = None
+        if quit_at is not None and terminal != "quit":
+            raise RouteError(f"quit: 标在 {self.sname(quit_at)}，但本轮没讲到它就 {terminal} 了")
         if picks:
             raise RouteError(f"pick 有多余项未用到: {picks}（终止于 {terminal}）")
         self.log(f"本轮终止：{terminal}；路线 {[r.scene for r in self.route]}")
         return terminal
+
+    def idle_tail(self, cards_made_next: set[int]) -> tuple[str, list[str]] | None:
+        """本轮结束后回看：从最后一个「有用」的场景往后，是否全是持卡跳过的场景（≥2 个）。
+
+        有用 = 进入时未持卡（新剧情或计时），或其卡在紧接着的片段模式里要做。玩家 2026-09-24 反馈：
+        这种尾巴不必走，目标场景一进路线就可以按 □ 切片段模式。返回 (该在哪一场退出, 多余的尾巴)。"""
+        if not self.round_log:
+            return None
+        useful = -1
+        for i, (sid, held) in enumerate(self.round_log):
+            if not held or self.scene2card.get(sid) in cards_made_next:
+                useful = i
+        if useful < 0:
+            return None
+        tail = [sid for sid, _ in self.round_log[useful + 1:]]
+        return (self.round_log[useful][0], tail) if len(tail) >= 2 else None
 
     def probe_deadend(self, last: str) -> bool:
         """沙漏在 last 用完之后：做完它的卡再从它接着讲，是否只会问一次跳过就直接 GAME OVER、时间轴不添新场景。
@@ -552,7 +585,7 @@ class Step:
 
 def parse_args(text: str) -> dict:
     out: dict = {}
-    for key in ("from", "event"):
+    for key in ("from", "event", "quit"):
         m = re.search(key + r':\s*"([^"]+)"', text)
         if m:
             out[key] = m.group(1)
@@ -634,7 +667,8 @@ def check(trace: bool = False) -> list[str]:
         by_title.setdefault(cards[n]["title_zh"], n)
     scene_cards = set(sim.card2scene)
     problems: list[str] = []
-    for st in load_steps(by_title):
+    steps = load_steps(by_title)
+    for idx, st in enumerate(steps):
         where = f"{st.file}:{st.line}"
         if trace:
             print(f"== {where} {st.kind} {st.args}")
@@ -645,7 +679,23 @@ def check(trace: bool = False) -> list[str]:
                 if "from" not in st.args:
                     problems.append(f"{where} story-box 缺 from:（未标明从哪个场景重讲，无法校验）")
                     continue
-                terminal = sim.story(st.args["from"], st.args.get("pick", []), set(st.args.get("noskip", [])))
+                terminal = sim.story(st.args["from"], st.args.get("pick", []), set(st.args.get("noskip", [])),
+                                     st.args.get("quit"))
+                if terminal == "quit" and "#tofrag" not in st.body:
+                    problems.append(f"{where} 带 quit: 的轮次正文须标 #tofrag（告诉玩家在这里按 □ 切片段模式）")
+                if "#tofrag" in st.body and terminal != "quit":
+                    problems.append(f"{where} 标了 #tofrag 但没有 quit:（或 quit 的场景没讲到）")
+                # 之后紧接的片段模式步骤要做的卡：决定本轮哪些场景是「有用」的
+                made_next: set[int] = set()
+                for nxt in steps[idx + 1:]:
+                    if nxt.kind != "frag":
+                        break
+                    made_next |= {n for n, _ in nxt.cards}
+                if terminal in ("complete", "gameover", "menu"):
+                    tail = sim.idle_tail(made_next)
+                    if tail:
+                        problems.append(f"{where} 讲到 {sim.sname(tail[0])} 之后的 {len(tail[1])} 场全是持卡跳过（{[sim.sname(x) for x in tail[1]]}），"
+                                        f"应在那里 quit: 切片段模式，不必讲到 {terminal}")
                 # 正文里提到的场景卡必须按序出现在本轮讲过的场景里
                 mentioned = []
                 for t, cid in re.findall(r'#card\("([^"]+)"(?:, id: (\d+))?', st.body):

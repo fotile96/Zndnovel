@@ -22,6 +22,7 @@ UMDReplaceK 已通读核对），按格式知识重写。
     python3 tools/umdiso.py list    <iso> [--gaps]
     python3 tools/umdiso.py extract <iso> <盘内路径> <输出文件>
     python3 tools/umdiso.py replace <iso> <输出iso> <盘内路径> <新文件> [<路径> <文件> ...]
+    python3 tools/umdiso.py add     <iso> <盘内路径> <本地文件> [...]   # 就地追加新文件
     python3 tools/umdiso.py verify  <iso> [--against <原iso>]
 
 盘内路径形如 `/PSP_GAME/USRDIR/DATA.BIN`（大小写敏感，`;1` 版本号可省）。
@@ -305,6 +306,98 @@ def replace(src: str, dst: str, pairs: list[tuple[str, str]],
     log(f"写出 {dst}（{os.path.getsize(dst)} 字节）")
 
 
+# ---------------------------------------------------------------- 追加
+
+def _clone_record(template: bytes, name: bytes, lba: int, size: int) -> bytes:
+    """按兄弟文件记录的格式造一条新记录：日期/标志/卷序号/系统使用区（XA 尾）照抄，只换名字、LBA、大小。"""
+    tnlen = template[DR_NAMELEN]
+    sys_use = template[DR_NAME + tnlen + ((tnlen + 1) & 1):]      # 名字后的对齐填充之后
+    body = bytearray(template[:DR_NAME]) + name
+    if len(body) % 2:
+        body += b"\0"
+    body += sys_use
+    _put_both(body, DR_EXTENT, lba)
+    _put_both(body, DR_SIZE, size)
+    body[DR_NAMELEN] = len(name)
+    body[0] = len(body)
+    return bytes(body)
+
+
+def add_files(iso_path: str, adds: list[tuple[str, str]], log=print) -> None:
+    """就地往既有目录追加新文件：数据按 2048 对齐追加到卷尾，父目录（单扇区）插入按名排序的新记录，
+    PVD 卷总扇区相应增加。其余字节一律不动——追加在卷尾，不需要平移任何扇区号引用。
+
+    任何检查不过（父目录不存在、重名、目录区放不下）都在动笔之前抛 ValueError，原盘不受影响。
+    """
+    with Iso(iso_path) as iso:
+        vol = iso.volume_sectors
+        if iso.size != vol * SECTOR:
+            raise ValueError(f"文件大小 {iso.size} 与卷总扇区 {vol} 不符，拒绝追加")
+        by_dir: dict[tuple[int, int], list[bytes]] = {}
+        plan = []
+        next_lba = vol
+        for inner, local in adds:
+            inner = "/" + inner.strip("/").split(";")[0]                # 与 find() 同一规范化
+            parent, _, leaf = inner.rpartition("/")
+            parent = parent or "/"
+            if parent == "/":
+                dir_lba, dir_size = iso.root_lba, iso.root_size
+            else:
+                d = [r for r in iso.records if r.is_dir and r.path == parent]
+                if not d:
+                    raise ValueError(f"父目录不存在: {parent}")
+                dir_lba, dir_size = d[0].lba, d[0].size
+            present = [r for r in iso.records if r.dir_lba == dir_lba]   # 文件与子目录都算重名
+            if any(r.path == inner for r in present) or \
+               any(p[0] == inner for p in plan):
+                raise ValueError(f"盘内已存在: {inner}")
+            siblings = [r for r in present if not r.is_dir]
+            if not siblings:
+                raise ValueError(f"{parent} 里没有可克隆格式的兄弟文件记录")
+            size = os.path.getsize(local)
+            style_v1 = siblings[0].name.endswith(";1")
+            name = (leaf + (";1" if style_v1 else "")).encode("ascii")
+            rlen = iso._read_at(siblings[0].pos, 1)[0]
+            template = iso._read_at(siblings[0].pos, rlen)
+            plan.append((inner, local, size, next_lba))
+            by_dir.setdefault((dir_lba, dir_size), []).append(
+                _clone_record(template, name, next_lba, size))
+            next_lba += (size + SECTOR - 1) // SECTOR
+
+        new_dirs = {}
+        for (dir_lba, dir_size), new_recs in by_dir.items():
+            if dir_size != SECTOR:
+                raise ValueError(f"目录区 LBA {dir_lba} 占 {dir_size} 字节，本工具只支持单扇区目录")
+            data = iso._read_at(dir_lba * SECTOR, SECTOR)
+            recs, off = [], 0
+            while off < SECTOR and data[off]:
+                recs.append(data[off:off + data[off]])
+                off += data[off]
+            dots, entries = recs[:2], recs[2:]
+            merged = sorted(entries + new_recs, key=lambda r: r[DR_NAME:DR_NAME + r[DR_NAMELEN]])
+            blob = b"".join(dots + merged)
+            if len(blob) > SECTOR:
+                raise ValueError(f"目录区 LBA {dir_lba} 放不下新记录（需要 {len(blob)} 字节）")
+            new_dirs[dir_lba] = blob.ljust(SECTOR, b"\0")
+        pvd = bytearray(iso.pvd)
+        _put_both(pvd, PVD_VOL_SPACE, next_lba)
+
+    with open(iso_path, "r+b") as out:
+        out.seek(vol * SECTOR)
+        for inner, local, size, lba in plan:
+            assert out.tell() == lba * SECTOR
+            with open(local, "rb") as g:
+                written = _copy_stream(g, out)
+            out.write(b"\0" * ((-written) % SECTOR))
+            log(f"  + {inner}: {size} 字节 @ LBA {lba}")
+        for dir_lba, blob in new_dirs.items():
+            out.seek(dir_lba * SECTOR)
+            out.write(blob)
+        out.seek(PVD_LBA * SECTOR)
+        out.write(pvd)
+    log(f"  卷总扇区 {vol} → {next_lba}")
+
+
 def _copy_range(fin, fout, start: int, end: int) -> None:
     fin.seek(start)
     remain = end - start
@@ -366,6 +459,16 @@ def cmd_replace(args):
              for i in range(0, len(args.pairs), 2)]
     print(f"就地替换 {args.iso} → {args.out}")
     replace(args.iso, args.out, pairs)
+
+
+def cmd_add(args):
+    if len(args.items) % 2:
+        raise SystemExit("add 需要成对的 <盘内路径> <本地文件>")
+    pairs = list(zip(args.items[::2], args.items[1::2]))
+    print(f"就地追加 {args.iso}")
+    add_files(args.iso, pairs)
+    if not verify(args.iso):
+        raise SystemExit(1)
 
 
 def verify(iso_path: str, against: str | None = None, log=print) -> bool:
@@ -489,6 +592,11 @@ def main():
     p.add_argument("out")
     p.add_argument("pairs", nargs="+", metavar="盘内路径 新文件")
     p.set_defaults(func=cmd_replace)
+
+    p = sub.add_parser("add", help="就地往既有目录追加新文件（数据追加卷尾）")
+    p.add_argument("iso")
+    p.add_argument("items", nargs="+", metavar="盘内路径 本地文件")
+    p.set_defaults(func=cmd_add)
 
     p = sub.add_parser("verify", help="结构自检（可与原盘比对差异区间）")
     p.add_argument("iso")

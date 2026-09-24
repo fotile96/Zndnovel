@@ -286,6 +286,72 @@ def test_replace_in_subdir(tmp_path):
     assert got["/FILE_C.BIN"] == contents["/FILE_C.BIN"]
 
 
+# ---------------------------------------------------------------- 追加新文件
+
+def test_add_file_into_subdir(tmp_path):
+    from tools.umdiso import add_files
+    iso_path = tmp_path / "t.iso"
+    contents = make_iso(iso_path)
+    new = tmp_path / "NEW.BIN"
+    payload = bytes((i * 31 + 5) % 256 for i in range(5000))
+    new.write_bytes(payload)
+    before_sectors = os.path.getsize(iso_path) // SECTOR
+    add_files(str(iso_path), [("/SUB/FILE_A2.BIN", str(new))], log=lambda *_: None)
+    got = all_files(iso_path)
+    assert got["/SUB/FILE_A2.BIN"] == payload
+    for k, v in contents.items():
+        assert got[k] == v
+    assert os.path.getsize(iso_path) // SECTOR == before_sectors + 3   # 5000 B → 3 扇区
+    assert verify(str(iso_path), log=lambda *_: None)
+    with Iso(str(iso_path)) as iso:
+        names = [r.name for r in iso.records if r.path.startswith("/SUB/")]
+    assert names == ["FILE_A2.BIN;1", "FILE_B.BIN;1"]            # 按名字节序、克隆 ;1 风格
+
+
+def test_add_file_rejects_existing_name(tmp_path):
+    from tools.umdiso import add_files
+    iso_path = tmp_path / "t.iso"
+    make_iso(iso_path)
+    f = tmp_path / "x"
+    f.write_bytes(b"x")
+    with pytest.raises(ValueError, match="已存在"):
+        add_files(str(iso_path), [("/SUB/FILE_B.BIN", str(f))], log=lambda *_: None)
+
+
+def test_add_file_rejects_missing_parent(tmp_path):
+    from tools.umdiso import add_files
+    iso_path = tmp_path / "t.iso"
+    make_iso(iso_path)
+    f = tmp_path / "x"
+    f.write_bytes(b"x")
+    with pytest.raises(ValueError, match="父目录"):
+        add_files(str(iso_path), [("/NOPE/A.BIN", str(f))], log=lambda *_: None)
+
+
+def test_add_file_rejects_full_directory_sector(tmp_path):
+    from tools.umdiso import add_files
+    iso_path = tmp_path / "t.iso"
+    make_iso(iso_path)
+    before = iso_path.read_bytes()
+    f = tmp_path / "x"
+    f.write_bytes(b"x")
+    adds = [(f"/SUB/F{i:04d}_{'X' * 60}.BIN", str(f)) for i in range(40)]  # ~106 B/条 × 40 > 2048
+    with pytest.raises(ValueError, match="放不下"):
+        add_files(str(iso_path), adds, log=lambda *_: None)
+    assert iso_path.read_bytes() == before                        # 失败时不得写坏原盘
+
+
+@needs_iso
+def test_real_module_dir_record_style():
+    """真盘 module/ 目录：小写名、无 ;1、每条带 14 字节 XA 尾——add_files 靠克隆兄弟记录保持同款。"""
+    with Iso(str(ORIG_ISO)) as iso:
+        rec = iso.find("/PSP_GAME/USRDIR/module/libfont.prx")
+        assert rec.name == "libfont.prx"
+        iso.f.seek(rec.pos)
+        raw = iso.f.read(58)
+    assert raw[0] == 58 and raw[33 + 11:][-14:][4:8] == b"\x0dUXA"
+
+
 # ---------------------------------------------------------------- verify 抓错
 
 def test_verify_catches_wrong_volume_size(tmp_path):
@@ -332,6 +398,21 @@ def test_cli_list_extract_replace(tmp_path):
     cli("replace", str(src), str(dst), "/FILE_A.BIN", str(new))
     assert all_files(dst)["/FILE_A.BIN"] == b"Q" * 4096
     assert "✓" in cli("verify", str(dst), "--against", str(src))
+
+
+def test_cli_add_appends_and_rejects_odd_args(tmp_path):
+    iso_path = tmp_path / "t.iso"
+    contents = make_iso(iso_path)
+    new = tmp_path / "n.bin"
+    new.write_bytes(b"N" * 2100)
+    r = subprocess.run([sys.executable, "tools/umdiso.py", "add", str(iso_path), "/NEW.BIN", str(new)],
+                       cwd=REPO, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    got = all_files(iso_path)
+    assert got["/NEW.BIN"] == b"N" * 2100 and got["/FILE_A.BIN"] == contents["/FILE_A.BIN"]
+    r = subprocess.run([sys.executable, "tools/umdiso.py", "add", str(iso_path), "/ODD.BIN"],
+                       cwd=REPO, capture_output=True, text=True)
+    assert r.returncode != 0 and "成对" in r.stderr
 
 
 # ---------------------------------------------------------------- 真盘

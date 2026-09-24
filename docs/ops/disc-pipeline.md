@@ -12,10 +12,12 @@ ISO 就地替换机理等）仍然成立，值得作为背景读。设计依据
 ```bash
 uv run python tools/build_disc.py                     # release 剖面，缺省跑到 iso
 uv run python tools/build_disc.py --profile test --mode mainmenu   # test 剖面，全解锁主菜单
+uv run python tools/build_disc.py --ios               # release + 另出 iOS 变体盘
 ```
 
 第一条产 `build/dist/game_zh.iso`（发布断言全过才写盘）；第二条产
-`build/test/game/`，供模拟器直接目录引导，见下文「验证」一节。
+`build/test/game/`，供模拟器直接目录引导，见下文「验证」一节；第三条在第一条之外另出
+`build/dist/game_zh_ios.iso`（只推荐 iOS 商店版 PPSSPP，见下文「iOS 变体盘」）。
 
 ## 三个概念
 
@@ -57,7 +59,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | 改一行译文 | `pilot/lanes/opus/data/patches.jsonl`（`read_commit.py --apply` 写入） | `uv run python tools/read_commit.py --data-dir pilot/lanes/opus/data --apply` 后 `build_disc.py` |
 | 改谢幕章台词/演出 | `layers/scripts/snr_finale.lua` | 直接改文件，再 `build_disc.py` |
 | 新增本地化文本（选项按钮、地图点名、系统提示等新文案） | 新建 `layers/overlays/<名>.toml`；在 `manifest.toml` 的 `[overlays].order` 排位；若引入新的 `vms`/`msg` 数字 id，在 `vms_ids.toml` 登记区段 | `uv run python tools/layers.py check` 过闸后 `build_disc.py` |
-| 测试捷径（跳 IPL、直入场景、全解锁主菜单等） | 不改任何文件——`tools/testboot.py` 在 test 剖面按 `--mode` 现场生成 | `build_disc.py --profile test --mode {font,scene,ruby,card,cutin,mainmenu,choices,map} [--scene ID] [--card N]` |
+| 测试捷径（跳 IPL、直入场景、全解锁主菜单、开机循环播影片等） | 不改任何文件——`tools/testboot.py` 在 test 剖面按 `--mode` 现场生成 | `build_disc.py --profile test --mode {font,scene,ruby,card,cutin,mainmenu,choices,map,movie} [--scene ID] [--card N] [--movie op\|ed] [--skippable]` |
 | 新增音频（BGM/环境音进 SOUND.BIN） | 用户 PCM 放 `assets/audio/`（不入库）→ `tools/at3p.py encode` 产 `layers/audio/<名>.at3`（AT3+ 128 kbps、本作同款 RIFF 头、必带 smpl；入库）→ `manifest.toml` 的 `[[sound.tracks]]` 登记成员名/两侧 sha256/循环起点/裁尾/响度；Lua 侧 `cPlayBGMWrap(cGetFileName("bgm", "<名>"))` 即可。原 99 成员不改、不能撞名（名单 `data/sound_members.json`）。编码器 `tools/build_atracdenc.sh` 构建 | `uv run python tools/at3p.py encode assets/audio/x.wav layers/audio/x.at3 --loop-start 0 --trim-end 196 --lufs -21`；`at3p.py verify` 对照；`layers.py check` 过闸后 `build_disc.py`（`sound` 阶段）；模拟器 `tools/emu/drives/bgm_probe.py` 听回绕 |
 | 改引擎行为（EBOOT 二进制：禁则表、ruby 算式等） | 新建 `layers/eboot/<名>.toml`（原字节锚点 + 新字节/字符串，`why` 必填）；在 `manifest.toml` 的 `[eboot].order` 排位。源是 PPSSPP dump 的解密 EBOOT `assets/EBOOT.dec.elf`（版权物不入库，指纹钉在 `[eboot].sha256`；取得步骤见 `docs/ops/eboot-kinsoku-research-2026-09-04.md` §1） | `uv run python tools/eboot_patch.py check assets/EBOOT.dec.elf` / `layers.py check` 过闸后 `build_disc.py`（`eboot` 阶段） |
 
@@ -72,7 +74,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 
 ## 阶段表
 
-`--stage` 逗号分隔，缺省 `all`（release 到 `iso`、test 到 `disc`，均不含 `boot`）：
+`--stage` 逗号分隔，缺省 `all`（release 到 `iso`、test 到 `disc`，均不含 `ios`/`boot`；`--ios` 把 `ios` 追加进来）：
 
 | 阶段 | 做什么 |
 |---|---|
@@ -85,9 +87,40 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | `eboot` | 按 `manifest.toml` 的 `[eboot]` 给解密引擎 ELF 施加 `layers/eboot/*.toml` 的字节补丁（`tools/eboot_patch.py`：逐补丁核对原字节锚点，幂等，任一不中整体失败）→ `build/<profile>/EBOOT.BIN`。没有 `[eboot]` 节则空转，盘里沿用原加密 EBOOT |
 | `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN` 与（有 `[eboot]` 时）`EBOOT.BIN`、（有 `[sound]` 曲目时）`SOUND.BIN`，供 PPSSPP 目录引导 |
 | `iso` | 仅 release：三道断言（有 `[eboot]` 时四道，有 `[sound]` 曲目时五道——SOUND.BIN 须逐字节等于「原版 + 当前音频层重新装配」）全过，才把 `DATA.BIN`/`EBOOT.BIN`/`SOUND.BIN` 拷到 `build/dist/`、`umdiso` 就地替换这些文件 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
+| `ios` | 仅 `--ios`（opt-in）：iOS 变体。只复用**本次调用**刚产出的盘——release 须本次跑过 `iso`、test 须本次跑过 `disc`，否则拒绝。EBOOT 另施加 `profile = "ios"` 的层，加两个改名固件模块与 44.1k op/ed → release：`build/dist/game_zh_ios.iso` + provenance；test：`build/test/game_ios/`。详见下文「iOS 变体盘」 |
 | `boot` | PPSSPP 引导冒烟 + 截图序列，opt-in，不在缺省阶段集合内 |
 
 不论这次跑了哪些阶段，结束时都会写 `build/<profile>/provenance.json`。
+
+## iOS 变体盘（`--ios`）
+
+PPSSPP 正式版（≤ 1.20.4，iOS 商店版就是它）的 sceMp4 是空桩，OP/ED 放不出来；iOS 变体让游戏自己从盘上加载改过库名的
+固件 libmp4/mp4msv，绕开空桩（原理与实测：`docs/ops/movie-playback-ppsspp-2026-09-24.md`「追记：iOS」与「产品化」）。
+**只推荐 iOS 商店版 PPSSPP**；其余平台模拟器与实机一律用现行盘。现行盘不受影响：带不带 `--ios`，`game_zh.iso`
+逐字节相同（`tests/test_ios_eboot.py` 钉住现行 EBOOT 指纹，2026-09-24 端到端核过）。
+
+| 部件 | 来源 | 落点 |
+|---|---|---|
+| EBOOT | 现行层 + `layers/eboot/ios-movie.toml`（`profile = "ios"`：`eboot_patch.load_layers(..., ios=True)` 才收入，release/test 缺省都不含；`tools/ios_eboot.py` 生成） | `build/<profile>/EBOOT.ios.BIN` |
+| `module/{mp4msv,libmp4}.prx` | `assets/fw/*.dec.prx`（本作 UMD 自带 6.20 升级包解密出的 Sony 模块，版权物不入库；取得方法见 movie 文档）→ `tools/ios_fwmod.py` 打补丁 | `build/ios/module/`（跨剖面共享，输入输出指纹是工具常量） |
+| `movie/{op,ed}.mp4` | 原盘影片 → `tools/ios_movie.py`（视频原样、音轨重采样 44.1k、bitexact） | `build/ios/movie/`（指纹钉 `manifest.toml [ios.movies]`，已在则复用） |
+
+两个剖面的 EBOOT 都按 release 层 + ios 层施加：test 目录盘驾驶验证的就是要发的那份 EBOOT（代价：`game_ios/` 没有
+test 专用的 savebuf 层，存档扩容类探针在它上面没意义）。release 侧：`umdiso replace`（DATA/EBOOT/SOUND/两部影片）
+写到 `game_zh_ios.iso.partial` → `umdiso add` 把两个模块追加到卷尾、插进 `module/` 目录 → `verify` 过了才改名为
+`game_zh_ios.iso`，并写 `game_zh_ios.iso.provenance.json`（记 base_iso 指纹）。`iso` 阶段每写出一张新 `game_zh.iso`，
+就删掉 `build/dist/` 里旧的 iOS 盘及其 provenance——两版并行发布时，新现行盘不能和按旧译文出的 iOS 盘摆在一起；
+要 iOS 盘就同一次调用加 `--ios`。
+
+验证（需要 `~/ppsspp-1204` 本机 v1.20.4 构建与 `~/ppsspp-new` 新版构建）：
+
+```bash
+uv run python tools/build_disc.py --profile test --mode movie [--movie ed --skippable] --ios
+uv run --with numpy python tools/emu/drives/movie_probe.py --ppsspp 1204 --core 2 --movie op --seconds 225 --disc build/test/game_ios
+uv run --with numpy python tools/emu/drives/movie_probe.py --ppsspp new --movie ed --seconds 70 --check-dectop --disc build/test/game_ios
+```
+
+FFmpeg 升级后 `ios_movie` 产物字节变了会硬失败：先按上面在 1.20.4 上复测 PASS，再更新 `[ios.movies]` 指纹。
 
 ## 加一个新层的完整走查（示例：文库入口中文说明）
 

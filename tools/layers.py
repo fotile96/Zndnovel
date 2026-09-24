@@ -120,7 +120,7 @@ LAYERS = REPO / "layers"
 PROFILES = ("release", "test")
 CARD_MSG_RESERVED = range(18001, 18196)   # oCard.show 动态 id = 18000 + 卡号（卡 1..195）
 
-_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot", "sound"}
+_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot", "sound", "ios"}
 _OVERLAY_KEYS = {"target", "profile", "why", "switch", "ops"}
 
 
@@ -632,6 +632,7 @@ def _check_eboot(manifest: dict, profile: str) -> None:
     if not cfg:
         return
     patches = eboot_patch.load_layers(cfg["order"], profile=profile)
+    ios_patches = eboot_patch.load_layers(cfg["order"], profile=profile, ios=True)   # iOS 变体也要过重叠校验
     src = REPO / cfg["source"]
     if not src.exists():
         print(f"[layers] ⚠ eboot 源 {src} 不在本机，跳过锚点核对（层文件本身已校验）")
@@ -644,6 +645,11 @@ def _check_eboot(manifest: dict, profile: str) -> None:
         raise OverlayError("eboot 补丁锚点在纯净源上不匹配: " +
                            ", ".join(f"{r['layer']}@{r['where']}={r['state']}" for r in bad))
     print(f"[layers] eboot: {len(patches)} 条补丁锚点在纯净源上全部命中 ✓")
+    bad = [r for r in eboot_patch.check(data, ios_patches) if r["state"] != "pristine"]
+    if bad:
+        raise OverlayError("iOS 变体 eboot 补丁锚点在纯净源上不匹配: " +
+                           ", ".join(f"{r['layer']}@{r['where']}={r['state']}" for r in bad))
+    print(f"[layers] eboot（iOS 变体）: {len(ios_patches)} 条补丁锚点全部命中 ✓")
 
 
 def _compare_compiled(sources: dict[str, str], ref_dir: Path, manifest: dict) -> int:

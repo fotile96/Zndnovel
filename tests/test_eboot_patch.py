@@ -100,6 +100,13 @@ def test_test_profile_layer_is_skipped_in_release(tmp_path):
     assert len(ep.load_layers(["a"], root, profile="test")) == 1
 
 
+def test_ios_layer_only_with_ios_flag(tmp_path):
+    root = _layers(tmp_path, a=HEAD.replace("release", "ios") + '[[patches]]\nva = "0x1000"\nfrom = "41"\nto = "42"\n')
+    assert ep.load_layers(["a"], root, profile="release") == []
+    assert ep.load_layers(["a"], root, profile="test") == []
+    assert len(ep.load_layers(["a"], root, profile="release", ios=True)) == 1
+
+
 def test_encrypted_container_is_rejected():
     with pytest.raises(SystemExit):
         ep.Image(b"~PSP" + b"\0" * 400)
@@ -160,3 +167,28 @@ def test_ruby_layer_space_advance_matches_font_pitch():
     word = int.from_bytes(c.after[:4], "little")
     assert word >> 26 == 9 and (word >> 16) & 0x1F == 22 and (word >> 21) & 0x1F == 22   # addiu s6,s6,imm
     assert word & 0xFFFF == build_font.RUBY_PITCH_PX
+
+
+def test_layers_gate_rejects_mismatched_ios_anchor(tmp_path, monkeypatch):
+    from tools import layers
+    src = tmp_path / "src.elf"
+    src.write_bytes(_elf(b"ABCD"))
+    root = _layers(tmp_path, a=HEAD + '[[patches]]\nva = "0x1000"\nfrom = "41"\nto = "61"\n',
+                   b=HEAD.replace("release", "ios") + '[[patches]]\nva = "0x1002"\nfrom = "58"\nto = "78"\n')
+    monkeypatch.setattr(ep, "EBOOT_LAYERS", root)
+    cfg = {"source": str(src), "sha256": ep.sha256(src.read_bytes()), "order": ["a", "b"]}
+    with pytest.raises(layers.OverlayError, match="iOS 变体"):
+        layers._check_eboot({"eboot": cfg}, "release")
+
+
+def test_layers_gate_reports_ios_anchors_hit(tmp_path, monkeypatch, capsys):
+    from tools import layers
+    src = tmp_path / "src.elf"
+    src.write_bytes(_elf(b"ABCD"))
+    root = _layers(tmp_path, a=HEAD + '[[patches]]\nva = "0x1000"\nfrom = "41"\nto = "61"\n',
+                   b=HEAD.replace("release", "ios") + '[[patches]]\nva = "0x1002"\nfrom = "43"\nto = "63"\n')
+    monkeypatch.setattr(ep, "EBOOT_LAYERS", root)
+    cfg = {"source": str(src), "sha256": ep.sha256(src.read_bytes()), "order": ["a", "b"]}
+    layers._check_eboot({"eboot": cfg}, "release")
+    out = capsys.readouterr().out
+    assert "eboot: 1 条" in out and "eboot（iOS 变体）: 2 条" in out

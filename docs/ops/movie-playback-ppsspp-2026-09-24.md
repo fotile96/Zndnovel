@@ -191,6 +191,10 @@ iOS EBOOT 与实验盘因此只差 0x84194 这一个字节。②影片加了 bit
 - E3：实机的 `sceMpegAvcResourceGetAvcDecTopAddr` 返回真实地址（新版 PPSSPP LLE 实测 `$a6` = 0x08C00000）→ 条件包装走原样
   NULL 分支，与原版一致。E4、M2、M3：新版 PPSSPP 下 libmp4/mpeg 跑的就是 Sony 原代码（LLE），带着这三处补丁 ED 全程
   音画正常——强证据。其中 M2 只写输出字段 0x1C（真解码器会覆盖），M3 让 libmp4 取当前 gp 调回调。
+  E4 包装只开 16 字节栈帧、把 pts/s0/ra 存在 0–12(sp)：若按 o32 约定，被调方可把参数溢出到调用方这段「参数保存区」而
+  冲掉 ra（终审提出）。但 PSP 用 EABI：游戏调 `sceMpegAvcDecode` 时第 5 参数走 `$t0`（0xEA88 `addiu a4, sp, 4`，
+  o32 下该放 16(sp)），EABI 没有调用方预留的参数保存区；游戏自己的 `sub_E9DC` 也把活数据放在 0(sp)/4(sp)、跨多次
+  固件调用后再读（0xEAC8、0xEAEC）——固件若往调用方 0–15(sp) 写，原版在实机上就坏了。故 E4 的栈帧在实机上同样安全。
 - 44.1k MP4：新版 PPSSPP 用真 libmp4 正常解复用本变体影片；vaudio 本就支持 44.1k（游戏按音轨采样率开通道）。
 - 重定位表：iOS EBOOT 有 3 条 NONE（现行盘 1 条、实机正常）、0 个悬空 HI16。
 - 风险点：libmp4 属性 0x0006（独占加载/启动），本变体只在开机加载一次（`sub_B444` 唯一调用点 0xAAE8）；

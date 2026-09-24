@@ -43,6 +43,17 @@ sha256   = "8737f1d35db01e9cde98efb09c8272c835195f46321b4b2b75fdb36a6ece2c50"
 iso_path = "/PSP_GAME/SYSDIR/EBOOT.BIN"
 order    = ["kinsoku", "ruby-p5", "msgcol-px", "savebuf", "ios-movie"]     # layers/eboot/*.toml 施加顺序（区间不得重叠；ios-movie 层 profile="ios"，只在 build_disc --ios 施加）
 
+[ios]
+# iOS 变体盘（build_disc.py --ios）：仅推荐 iOS 商店版 PPSSPP（1.20.x）。现行盘不受影响。
+# 依据 docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」；固件模块取自本作 UMD 自带 6.20 升级包（解密）。
+iso_name   = "game_zh_ios.iso"
+module_dir = "/PSP_GAME/USRDIR/module"          # 加载例程写死的 disc0 路径与此一致（tools/ios_eboot.py PATHS）
+modules    = ["mp4msv.prx", "libmp4.prx"]       # tools/ios_fwmod.py 产物（输入/输出指纹钉在该工具常量里）
+
+[ios.movies]                                     # tools/ios_movie.py 产物指纹（FFmpeg 9.0.1，bitexact）
+"op.mp4" = "01ce192fbc40cc93e8d691d39a83f5d5c1f756d1822cf37847c800635fc161cb"
+"ed.mp4" = "be97c0d1708aaf57b1c3a1cc6409c523f687f5c32ce3408e2591d239a89a7446"
+
 [sound]
 # 新增曲目进 SOUND.BIN（pack 容器，原 99 成员逐字节不动，新成员按名有序插入；引擎只吃带 smpl 的 AT3+，
 # 详见 docs/superpowers/specs/2026-09-17-encore-bgm-injection-design.md）。编码：tools/at3p.py encode；

@@ -18,6 +18,7 @@ def test_recipe_keeps_video_and_resamples_audio():
 
 
 def test_pin_mismatch_names_ffmpeg_version(tmp_path, monkeypatch):
+    monkeypatch.setattr(im, "require_ffmpeg", lambda: None)             # 无 ffmpeg 的机器上也要能跑
     monkeypatch.setattr(im, "_extract", lambda iso, inner, dst: dst.write_bytes(b"src"))
     monkeypatch.setattr(im, "resample", lambda s, d: d.write_bytes(b"out"))
     monkeypatch.setattr(im, "probe", lambda p: {"audio_rate": 44100, "audio_codec": "aac", "channels": 2,
@@ -37,3 +38,9 @@ def test_real_op_resample_structure(tmp_path):
     p = im.probe(dst)
     assert (p["audio_rate"], p["audio_codec"], p["channels"]) == (44100, "aac", 2)
     assert im.video_md5(dst) == im.video_md5(src)
+
+
+def test_build_without_ffmpeg_says_so_before_touching_the_iso(tmp_path, monkeypatch):
+    monkeypatch.setattr(im.shutil, "which", lambda name: None)
+    with pytest.raises(SystemExit, match="ffmpeg"):
+        im.build(tmp_path, {"op.mp4": "0" * 64, "ed.mp4": "0" * 64}, tmp_path / "no.iso")

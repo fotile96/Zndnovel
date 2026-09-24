@@ -470,3 +470,53 @@ def test_new_release_iso_drops_stale_ios_variant(tmp_path, monkeypatch):
                           manifest={"ios": {"iso_name": "game_zh_ios.iso"}})
     bd._drop_stale_ios(ctx)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["game_zh.iso"]
+
+
+@pytest.mark.parametrize("profile,stage,ios_flag,has_ios", [
+    ("release", "all", False, True),            # 缺省出盘：现行盘与 iOS 盘总是同出
+    ("release", "iso", False, True),            # 显式只跑 iso 也一样
+    ("release", "lua,font", False, False),      # 没跑 iso 就不碰 dist，也不出 iOS 盘
+    ("test", "all", False, False),              # test 剖面仍是 opt-in
+    ("test", "all", True, True),
+])
+def test_release_iso_always_brings_ios_stage(profile, stage, ios_flag, has_ios):
+    import tools.build_disc as bd
+    wanted = bd._wanted_stages(profile, stage, ios=ios_flag)
+    assert ("ios" in wanted) is has_ios
+    assert "boot" not in wanted
+
+
+def _ios_ctx(tmp_path, pins):
+    import tools.build_disc as bd
+    return bd.BuildContext(profile="release", root=tmp_path / "root", switches={}, mode_opts={},
+                           manifest={"ios": {"iso_name": "game_zh_ios.iso", "movies": pins}})
+
+
+def test_ios_preflight_fails_fast_without_firmware_modules(tmp_path, monkeypatch):
+    import tools.build_disc as bd
+    monkeypatch.setattr(bd, "IOS_FW", tmp_path / "fw")               # 空目录：两个模块都缺
+    with pytest.raises(SystemExit, match="固件模块的取得"):
+        bd._preflight_ios(_ios_ctx(tmp_path, {"op.mp4": "0" * 64, "ed.mp4": "0" * 64}))
+
+
+def test_ios_preflight_needs_ffmpeg_only_when_movie_cache_is_stale(tmp_path, monkeypatch):
+    import hashlib
+    import tools.build_disc as bd
+    from tools import ios_movie
+    fw = tmp_path / "fw"
+    fw.mkdir()
+    for n in ("libmp4.dec.prx", "mp4msv.dec.prx"):
+        (fw / n).write_bytes(b"x")
+    monkeypatch.setattr(bd, "IOS_FW", fw)
+    monkeypatch.setattr(bd, "IOS_BUILD", tmp_path / "ios")
+    monkeypatch.setattr(ios_movie.shutil, "which", lambda name: None)  # 本机没有 ffmpeg/ffprobe
+    movie_dir = tmp_path / "ios" / "movie"
+    movie_dir.mkdir(parents=True)
+    pins = {}
+    for n in ("op.mp4", "ed.mp4"):
+        (movie_dir / n).write_bytes(n.encode())
+        pins[n] = hashlib.sha256(n.encode()).hexdigest()
+    bd._preflight_ios(_ios_ctx(tmp_path, pins))                        # 缓存有效：不需要 ffmpeg
+    (movie_dir / "ed.mp4").write_bytes(b"stale")
+    with pytest.raises(SystemExit, match="ffmpeg"):
+        bd._preflight_ios(_ios_ctx(tmp_path, pins))

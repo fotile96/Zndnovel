@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,16 @@ FFMPEG_ARGS = ["-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy", "-c:a", "aac", 
 
 def _sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def require_ffmpeg() -> None:
+    if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
+        raise SystemExit("缺 ffmpeg/ffprobe（本机用 Homebrew：brew install ffmpeg）——iOS 盘要从原盘影片重采样 44.1k 音轨")
+
+
+def cached(out_dir: Path, pins: dict[str, str]) -> bool:
+    """op/ed 产物都在且指纹与登记相符（build 会直接复用，不需要 ffmpeg）。"""
+    return all((out_dir / n).exists() and _sha(out_dir / n) == pins[n] for n in MOVIES)
 
 
 def ffmpeg_version() -> str:
@@ -73,6 +84,7 @@ def build(out_dir: Path, pins: dict[str, str], orig_iso: Path) -> dict[str, Path
         if dst.exists() and _sha(dst) == pins[name]:
             res[name] = dst
             continue
+        require_ffmpeg()
         src = out_dir / f"{name}.orig"
         _extract(orig_iso, inner, src)
         resample(src, dst)

@@ -43,12 +43,14 @@
            重新施加当前层」逐字节相同）全过，才把 DATA.BIN/EBOOT.BIN 拷到
            build/dist/、umdiso 就地替换 → build/dist/game_zh.iso + provenance
            副本；任一断言不过就拒绝出盘，不写任何 build/dist/ 文件。
-  ios      仅 --ios（opt-in）：iOS 变体（只推荐 iOS 商店版 PPSSPP 1.20.x，见
-           docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」）。只复用**同一次调用**
-           里刚产出的盘（release 须本次跑过 iso、test 须本次跑过 disc），EBOOT 多施加
-           profile=ios 的层，加两个改名固件模块（tools/ios_fwmod.py）与 44.1k op/ed
-           （tools/ios_movie.py）→ release：build/dist/game_zh_ios.iso + provenance；
-           test：build/test/game_ios/。现行盘一字不变。
+  ios      iOS 变体（只推荐 iOS 商店版 PPSSPP 1.20.x，见
+           docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」）。release：只要跑了 iso
+           就自动跟着跑——dist 里的现行盘与 iOS 盘总是同出（2026-09-24 用户裁定）；test：--ios
+           才跑。只复用**同一次调用**里刚产出的盘（release 须本次跑过 iso、test 须本次跑过
+           disc），EBOOT 多施加 profile=ios 的层，加两个改名固件模块（tools/ios_fwmod.py）与
+           44.1k op/ed（tools/ios_movie.py）→ release：build/dist/game_zh_ios.iso + provenance；
+           test：build/test/game_ios/。现行盘一字不变。前置条件（assets/fw 两个模块、影片缓存
+           无效时的 ffmpeg）在任何阶段动手前就核对，缺了立刻失败。
   boot     PPSSPP 引导冒烟 + 截图序列（opt-in，不在缺省阶段集合内）。
 
 不论这次跑了哪些阶段，结束时都会写 build/<profile>/provenance.json。
@@ -966,23 +968,37 @@ def stage_iso(ctx: BuildContext) -> dict:
 # ---------- F3 iOS 变体盘（--ios，opt-in）----------
 
 IOS_BUILD = REPO / "build" / "ios"      # 模块/影片产物（跨剖面共享、带指纹核对）
+IOS_FW = REPO / "assets" / "fw"         # 解密固件模块原件（版权物不入库），tools/ios_fwmod.py 的输入
 
 
 def _drop_stale_ios(ctx: BuildContext) -> None:
-    """新 game_zh.iso 一旦写出，dist/ 里既有的 iOS 变体盘就与它不同源了——连同 provenance 删掉，
-    免得两版并行发布时把新现行盘和旧 iOS 盘一起打包。要 iOS 盘就加 --ios（同一次调用里紧接着重出）。"""
+    """新 game_zh.iso 一旦写出，dist/ 里既有的 iOS 变体盘就与它不同源了——连同 provenance 先删掉。
+    release 下 ios 阶段紧接着按新盘重出；这里是兜底：万一 ios 阶段失败，dist 里也不会摆着一对不匹配的盘。"""
     name = (ctx.manifest.get("ios") or {}).get("iso_name")
     if not name:
         return
     for stale in (DIST / name, DIST / f"{name}.provenance.json"):
         if stale.exists():
             stale.unlink()
-            log(f"iso: 删除过期的 {stale.name}（与新 game_zh.iso 不同源；需要时加 --ios 重出）")
+            log(f"iso: 删除旧的 {stale.name}（与新 game_zh.iso 不同源；ios 阶段随后按新盘重出）")
+
+
+def _preflight_ios(ctx: BuildContext) -> None:
+    """ios 阶段的前置条件在任何阶段动手之前核对：release 下 ios 紧跟 iso，缺东西若拖到那时才失败，
+    dist 里的现行盘已经重写、iOS 盘却出不来。"""
+    from tools import ios_movie
+    missing = [p for p in (IOS_FW / "libmp4.dec.prx", IOS_FW / "mp4msv.dec.prx") if not p.exists()]
+    if missing:
+        die(f"iOS 盘需要解密固件模块 {', '.join(str(p) for p in missing)}——取得方法见 "
+            "docs/ops/movie-playback-ppsspp-2026-09-24.md「固件模块的取得」")
+    if not ios_movie.cached(IOS_BUILD / "movie", ctx.manifest["ios"]["movies"]):
+        ios_movie.require_ffmpeg()
 
 
 def stage_ios(ctx: BuildContext, results: dict) -> dict:
     """iOS 变体：EBOOT 多施加 profile=ios 的层，加两个改名固件模块与 44.1k 影片。
 
+    release 由 iso 阶段自动带出（_wanted_stages），test 要 --ios。
     只复用**同一次调用里**已产出并（release）通过发布断言的 DATA.BIN/SOUND.BIN——
     release 要求本次跑过 iso、test 要求本次跑过 disc，否则拒绝，防旧产物冒充。
     两个剖面的 EBOOT 都按 release 层 + ios 层施加：test 目录盘驾驶验证的就是要发的那份 EBOOT。
@@ -1000,7 +1016,7 @@ def stage_ios(ctx: BuildContext, results: dict) -> dict:
     eb, _ = eboot_patch.apply(pristine, eboot_patch.load_layers(cfg["order"], profile="release", ios=True))
     eb_path = ctx.root / "EBOOT.ios.BIN"
     eb_path.write_bytes(eb)
-    mods = ios_fwmod.build(IOS_BUILD / "module")
+    mods = ios_fwmod.build(IOS_BUILD / "module", fw_dir=IOS_FW)
     movies = ios_movie.build(IOS_BUILD / "movie", ios["movies"], ORIG_ISO)
     log(f"ios: EBOOT.ios.BIN（{eboot_patch.sha256(eb)[:12]}…）、模块 {list(mods)}、影片 {list(movies)}")
 
@@ -1130,8 +1146,20 @@ STAGE_ORDER = ["lua", "font", "members", "stage", "pack", "sound", "eboot", "dis
 STAGES = {"lua": stage_lua, "font": stage_font, "members": stage_members,
           "stage": stage_stage, "pack": stage_pack, "sound": stage_sound, "eboot": stage_eboot,
           "disc": stage_disc, "iso": stage_iso, "ios": stage_ios, "boot": stage_boot}
-#: 缺省 all 时各剖面跑到哪一站——均不含 ios/boot（opt-in：--ios / --stage …,boot）。
+#: 缺省 all 时各剖面跑到哪一站——均不含 boot（opt-in）；release 跑到 iso 时自动追加 ios（见 _wanted_stages）。
 DEFAULT_STOP = {"release": "iso", "test": "disc"}
+
+
+def _wanted_stages(profile: str, stage: str, *, ios: bool) -> list[str]:
+    """要跑的阶段。release 只要跑 iso（写 dist）就必跑 ios：dist 里现行盘与 iOS 盘总是同出
+    （用户 2026-09-24 裁定，不设关闭开关）；test 剖面的 ios 仍是 opt-in（--ios）。"""
+    if stage == "all":
+        wanted = STAGE_ORDER[:STAGE_ORDER.index(DEFAULT_STOP[profile]) + 1]
+    else:
+        wanted = stage.split(",")
+    if (ios or (profile == "release" and "iso" in wanted)) and "ios" not in wanted:
+        wanted.append("ios")
+    return wanted
 
 
 def main() -> None:
@@ -1154,7 +1182,8 @@ def main() -> None:
     ap.add_argument("--movie", default="op", choices=["op", "ed"], help="test 剖面 movie 模式：循环播哪一部")
     ap.add_argument("--skippable", action="store_true", help="test 剖面 movie 模式：以可跳过方式调用 playMovie")
     ap.add_argument("--ios", action="store_true",
-                    help="另出 iOS 变体（release：build/dist/game_zh_ios.iso；test：build/test/game_ios/）")
+                    help="test 剖面另出 iOS 目录盘 build/test/game_ios/（release 只要跑 iso 就总会同出 "
+                         "build/dist/game_zh_ios.iso，不需要此项）")
     args = ap.parse_args()
 
     manifest = layers.load_manifest()
@@ -1166,16 +1195,12 @@ def main() -> None:
                        manifest=manifest, switches=switches, mode_opts=mode_opts,
                        force=args.force)
 
-    if args.stage == "all":
-        stop = DEFAULT_STOP[ctx.profile]
-        wanted = STAGE_ORDER[:STAGE_ORDER.index(stop) + 1]
-    else:
-        wanted = args.stage.split(",")
-    if args.ios and "ios" not in wanted:
-        wanted.append("ios")
+    wanted = _wanted_stages(ctx.profile, args.stage, ios=args.ios)
     unknown = set(wanted) - set(STAGES)
     if unknown:
         die(f"未知阶段: {unknown}（可选 {STAGE_ORDER}）")
+    if "ios" in wanted:
+        _preflight_ios(ctx)
 
     results: dict[str, dict] = {}
     for name in STAGE_ORDER:

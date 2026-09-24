@@ -322,3 +322,45 @@ def test_boot_dedication_member_is_registered_with_ipl01_as_template(manifest):
         [list(x) for x in manifest["gim"]["new"]]
     why = load_overlay(LAYERS / "overlays" / "boot-dedication.toml")["why"]
     assert "∀" in why and "不画" in why          # 「只写文字不画 ∀」的裁定留在层里，别被后人"补上"
+
+
+def test_second_story_is_wired(manifest):
+    """谢幕第二段『远方的朋友』（docs/finale/draft-encore2-v0.md）：入口只读旗标、四个场景可分发、
+    资产登记齐、读完不写系统数据、直入 fin-80 自给、纸箱特写撤干净、画廊四变体。"""
+    import re
+    sources, _, _ = build_final_sources("release")
+    fin = sources["snr_finale.lua"]
+    code = "\n".join(l for l in fin.splitlines() if not l.lstrip().startswith("--"))   # 注释里也提到这些调用
+    # 入口：只允许 nil 安全的整行判断；选项调用照抄序章 s0f（初始项 1 = 猛按○走第一个故事）
+    assert "            if systemSave.finaleReadFlag == true then\n                v16 = finChooseStory()" in fin
+    call = ('comDlgSelectItem(false, false, false, false, 1, "none", 0, 0, '
+            '"sel_fin1_sel_a", 0, 38, 1, "sel_fin2_sel_a", 0, 132, 2)')
+    assert fin.count(call) == 1
+    for sid in ("fin-60", "fin-70", "fin-80", "fin-90"):
+        assert f'doScriptScene == "{sid}"' in fin, sid
+    for name in ("eve_0_g", "eve_0_j", "eve_0_k", "eve_47_x", "eve_47_f", "eve_47_d", "eve_47_g"):
+        assert f'cGetFileName("event", "{name}")' in fin, name
+    assert 'cGetFileName("cutin", "cut_62")' in fin
+    assert 'cGetFileName("bgm", "bgm_fin_2")' in fin
+    # 第二个故事读完不置旗标、不写系统数据：两句都只在 fin-50 出现一次
+    assert code.count("systemSave.finaleReadFlag = true") == 1
+    assert code.count("autoSystemSave(0)") == 1
+    # BGM 在 fin-70 末「全屏窗口跳了出来」的白闪同一拍起播（spec D7），先于白场
+    body70 = fin[fin.index("scene_fin_70 = function"):fin.index("scene_fin_80 = function")]
+    bgm_at = body70.index('cPlayBGMWrap(cGetFileName("bgm", "bgm_fin_2"))')
+    assert "comEffectWhiteOut(120)" in body70[bgm_at:]
+    # 直入 fin-80 自给：场景开头就起 BGM（顺读时按曲名去重、不重启）并白入彩野
+    head = re.search(r"scene_fin_80 = function\(scene_id, scene_title\)(.*?)vms\(17856,", fin, re.S).group(1)
+    assert 'cPlayBGMWrap(cGetFileName("bgm", "bgm_fin_2"))' in head
+    assert 'layerLoad(layerName.event, cGetFileName("event", "eve_47_x"))' in head and "comEffectWhiteIn(120)" in head
+    # 纸箱特写撤干净：cut_62 之后、fin-80 之前必有 pose3 清空
+    cut_at = fin.index('cGetFileName("cutin", "cut_62")')
+    assert 'layerLoad(layerName.pose3, "")' in fin[cut_at:fin.index("scene_fin_80 = function")]
+    # 资产登记
+    faces = {tuple(x) for x in manifest["gim"]["new"]}
+    assert ("finale_voice", "event", "event/eve_0_i.gim") in faces
+    assert ("finale_select", "select", "select/sel_voice1_sel_a_on.gim") in faces
+    tracks = {t["member"]: t for t in manifest["sound"]["tracks"]}
+    assert tracks["bgm/bgm_fin_2.at3"]["loop_start"] == 0.0 and "trim_end" not in tracks["bgm/bgm_fin_2.at3"]
+    # 画廊：eve_47 格四变体
+    assert '{"eve_47_x", "eve_47_f", "eve_47_d", "eve_47_g"}, {"eve_48_x"}' in sources["snr_graphic.lua"]

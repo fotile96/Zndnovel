@@ -32,3 +32,9 @@ Task 2: 目检 — eve_0_j「你的声音是——」居中（w=136）；六张�
 Task 2: complete (commits f795323..e4a3347, tests: uv run pytest tests/test_bake_finale_voice.py tests/test_bake_finale_event.py -q → 12 passed in 1.61s)
 
 Task 3: 编码 — at3p encode：增益 −5.2 dB（源 −15.8 LUFS、峰值 −3.9 dBFS → −21.0 LUFS、−9.1 dBFS，未限幅），loop_start 0、无 trim_end，196.63 s／4234 帧，产物 sha256 d34f0f61…bcaf；inspect ✓（ch=2 frame=744 S=0）；verify ncc 0.9988；prepared_wav＝build/sound/work/bgm_fin_2.44k.wav（T6 的 BGM_REF 路径与计划一致）。反证：清单 sha256 改错一位 → `[sound] … sha256 与清单不符`、check exit 1，已复原。check 告警仍为基线 32。
+Task 3: complete (commits e4a3347..1ce719a, tests: uv run python tools/layers.py check --profile release →     snr_s1_10_s 7596: 多字节字符 ['×'] 在 17 px 字体里是窄字形（[10] px）：会挤在一起)
+
+Task 4: Ruling: 守门测试的两条计数（`systemSave.finaleReadFlag = true`、`autoSystemSave(0)` 各 1 次）改为只数非注释行 — 计划原样写 `fin.count(...)`，但既有 main() 第 607 行注释里就含「autoSystemSave(0)」，照抄会在实现正确时误报 2 次 — cost if wrong: 无（注释行本就不执行）。
+Task 4: Ruling: 守门测试另加一条断言钉住 Pre-flight 裁定：fin-70 体内 `cPlayBGMWrap(bgm_fin_2)` 出现在 `comEffectWhiteOut(120)` 之前 — 让 D7「白闪同一拍起播」有测试兜底 — cost if wrong: 改落位时顺手改这条断言。
+Task 4: 实施 — Lua 由计划 Task 4 的 5 个代码块程序化提取装入（非手抄），116 条 vms 与工作稿 §3 逐字比对 0 差异、无需转义；fin-70 收尾按 Pre-flight 裁定；luac -p 通过。corpus 20 passed；check exit 0，消息 17211→17327，告警仍为基线 32、无 178xx/179xx；--show 17831 第 2 行「AI 助手账号一键登出了」」；17927/17888/17896 均 2 行无掰断。build_disc release lua,font,members：9 张新 gim 编码（无撞名/无对应成员报错），最大损耗 sel_fin2_sel_a_on MSE 11.72（阈 15）；字集重建含 U+0393/22A2/03C6（lxgw17 有字形）；pluto：snr_finale 24.7%（HEAD 版 21.4%；计划写的「现 18.1%」是旧口径），<35%。
+Task 4: note — 说话人名「女学生（寓言家 饰）」等 158 px，为全库最宽（此前最宽 ≦红背心的少女≧ 136 px）；名牌层 192×22、从 x=5 画，放得下；名牌底图视觉宽度留待 Task 6 截图目检。

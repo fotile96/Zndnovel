@@ -10,9 +10,16 @@ cgFlag 由 snr_common 的 cGetFileName("event", name) 在加载时自动置位�
 取值 nil，`== true` 判断即未解锁——老存档零迁移，只是从此画廊多一张待收集的图
 （攻略不提谢幕章的裁定不受影响：画廊只在读过之后才显示它）。
 
-锚点 `{"eve_74_x"}}` 全库唯一（该行是 cgNumber[8] 的收尾）。"""
+锚点 `{"eve_74_x"}}` 全库唯一（该行是 cgNumber[8] 的收尾）。
+
+2026-09-25 第二个谢幕故事 fin-80 的三位少女 CG eve_47_f/_d/_g（母本 eve_47_x）同法登记为 eve_47 格的变体——四变体格与 eve_20/eve_46 同型；锚点 {"eve_47_x"}, {"eve_48_x"} 全库唯一。"""
 
 [[ops]]
 op   = "replace"
 find = '{"eve_74_x"}}'
 with = '{"eve_74_x", "eve_74_z"}}'
+
+[[ops]]
+op   = "replace"
+find = '{"eve_47_x"}, {"eve_48_x"}'
+with = '{"eve_47_x", "eve_47_f", "eve_47_d", "eve_47_g"}, {"eve_48_x"}'

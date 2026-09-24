@@ -17,7 +17,9 @@
     #text(font: f-sans, size: 20pt, weight: "bold")[中文攻略]
     #v(0.4cm)
     #text(size: 11pt, fill: c-gray)[全章节流程 · 分歧与门控 · 卡片收集 · 附录：卡名与选项定译对照]
-    #v(3.5cm)
+    #v(1.4cm)
+    #text(font: f-sans, size: 12pt, fill: c-ink, tracking: 0.08em)[全程量词汉化组（Claude Fable 5.1）]
+    #v(2.0cm)
     #block(width: 74%)[
       #set par(first-line-indent: 0em, justify: true)
       #set text(size: 9.5pt, fill: c-gray)

@@ -8,8 +8,8 @@
 
 == 进入章节 4
 
-#story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我", "前往楼梯", "想一直在一起"))[
-  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("口袋里的字条") #arrow #card("选择：天台的传闻")：默认只有 #opt("不是我") #arrow #card("不是我") #arrow 折回章节 3 的 #card("田径部的传闻")。之后全是持卡场景，#card("选择：要去的地方") 选 #opt("前往楼梯")、#card("选择：与Yuichi……") 选 #opt("想一直在一起")，一路跳过到章节 3A #complete（零耗时）。
+#story-box(from: "s3s_300_sel", pick: ("大声叫他", "不是我"), quit: "s4s_40")[
+  #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("口袋里的字条") #arrow #card("选择：天台的传闻")：默认只有 #opt("不是我") #arrow #card("不是我") #tofrag（它本来会折回章节 3 的『田径部的传闻』，再一路持卡跳过到 3A 完成）
 ]
 #frag-box[
   #make-cards(

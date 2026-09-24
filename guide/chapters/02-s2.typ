@@ -157,8 +157,8 @@
 
 == 收尾：天象馆与另一种咒语
 
-#story-box(from: "s2s_260_sel", pick: ("边看夕阳边听歌", "多半吧……"))[
-  先补另一种咒语：回到 #card("选择：放学后的咒语") 选 #opt("边看夕阳边听歌") #arrow #card("咒语，成功了……？") #arrow 效果选 #opt("多半吧……") #arrow #card("咒语完成") #arrow #card("回荡在走廊的声音") #arrow #gameover
+#story-box(from: "s2s_260_sel", pick: ("边看夕阳边听歌",), quit: "s2s_293")[
+  先补另一种咒语：回到 #card("选择：放学后的咒语") 选 #opt("边看夕阳边听歌") #arrow #card("咒语，成功了……？") #tofrag（再往下是咒语效果的选择与『回荡在走廊的声音』，都已持卡，直到 Game Over）
 ]
 #frag-box[
   #make-cards(("咒语，成功了……？", [依次递 #card("回荡在走廊的声音")、#card("Yuichi的背影")]))

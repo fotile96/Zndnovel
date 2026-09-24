@@ -8,8 +8,8 @@
 
 == 进入章节 6
 
-#story-box(from: "s1s_35_sel", pick: ("没有约", "不去", "不知道", "告诉我", "没兴趣"))[
-  时间轴停在章节 5，先把它讲回章节 3，让『选择：颇有意思的传闻』回到时间轴上：#card("选择：放学后的约定") 选 #opt("没有约") #arrow #card("夏天的计划") #arrow #card("选择：周末的计划") 选 #opt("不去") #arrow #card("午休的走廊") #arrow #card("选择：楼梯的传闻") 选 #opt("不知道") #arrow #card("选择：颇有意思的传闻") 选 #opt("告诉我") #arrow #card("选择：传闻是指") 选 #opt("没兴趣") #arrow #card("对传闻没兴趣") #arrow #gameover。除『选择：颇有意思的传闻』花 25 以外全部持卡跳过。
+#story-box(from: "s1s_35_sel", pick: ("没有约", "不去", "不知道"), quit: "s3s_50_sel")[
+  时间轴停在章节 5，先把它讲回章节 3，让『选择：颇有意思的传闻』回到时间轴上：#card("选择：放学后的约定") 选 #opt("没有约") #arrow #card("夏天的计划") #arrow #card("选择：周末的计划") 选 #opt("不去") #arrow #card("午休的走廊") #arrow #card("选择：楼梯的传闻") 选 #opt("不知道") #arrow #card("选择：颇有意思的传闻")：这一幕花 25，选项弹出时 #tofrag。前面全部持卡跳过。
 ]
 #frag-box[
   #make-cards(("选择：颇有意思的传闻", [递 #card("章节 5 梗概")。做成后出现 #opt("不听")]))

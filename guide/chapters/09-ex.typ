@@ -8,8 +8,8 @@
 
 == 章节 EX1：Yukari
 
-#story-box(from: "s3s_50_sel", pick: ("告诉我", "闹鬼楼梯", "认真打听", "大声叫他", "有点在意呢", "不接受", "被勾起了兴趣", "试着相信也无妨", "检查课桌", "翻看笔记本", "拉回来", "回家"))[
-  从 #card("选择：颇有意思的传闻") 起按章节 3 的主线讲到 #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("有点在意呢") #arrow #card("章节 4：Yuichi") #arrow #card("图书室的老师") #arrow 持有 #card("章节 8 梗概") 后此处出现 #card("选择：Yukari老师")：默认只有 #opt("不接受")，选它回到章节 4 的正常流程，随后 #opt("被勾起了兴趣") #arrow #opt("试着相信也无妨") #arrow #opt("检查课桌") #arrow #opt("翻看笔记本") #arrow #opt("拉回来") #arrow #opt("回家") 讲到 #card("消失的Sakura") #arrow #complete。全部持卡，零耗时。
+#story-box(from: "s3s_50_sel", pick: ("告诉我", "闹鬼楼梯", "认真打听", "大声叫他", "有点在意呢"), quit: "s4s_100_sel")[
+  从 #card("选择：颇有意思的传闻") 起按章节 3 的主线讲到 #card("选择：Yuichi的身影") 选 #opt("大声叫他") #arrow #card("选择：天台的传闻") 选 #opt("有点在意呢") #arrow #card("章节 4：Yuichi") #arrow #card("图书室的老师") #arrow 持有 #card("章节 8 梗概") 后此处出现 #card("选择：Yukari老师")：默认只有 #opt("不接受")，不用选 #tofrag。到这里全部持卡，零耗时。
 ]
 #frag-box[
   #make-cards(("选择：Yukari老师", [递 #card("章节 8 梗概")。做成后出现 #opt("接受")]))

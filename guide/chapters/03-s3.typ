@@ -106,8 +106,8 @@
 
 == 不去图书室
 
-#story-box(from: "s3s_300_sel", pick: ("不管他", "前往图书室"))[
-  #card("选择：Yuichi的身影") 选 #opt("不管他") #arrow #card("不管他") #arrow #card("田径部的传闻") #arrow #card("选择：要去的地方")：默认只有 #opt("前往图书室")，又会撞见接吻，之后全是持卡场景，一路跳过到 #card("天台", id: 85) #arrow #gameover
+#story-box(from: "s3s_300_sel", pick: ("不管他",), quit: "s3s_350_sel")[
+  #card("选择：Yuichi的身影") 选 #opt("不管他") #arrow #card("不管他") #arrow #card("田径部的传闻") #arrow #card("选择：要去的地方")：默认只有 #opt("前往图书室")，不用选 #tofrag（选了也只是又撞见接吻，然后一路持卡跳过到『天台』Game Over）
 ]
 #frag-box[
   #make-cards(
@@ -117,8 +117,8 @@
   )
 ]
 
-#story-box(from: "s3s_350_sel", pick: ("前往楼梯", "但总有一天会分开"))[
-  #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……")：默认只有 #opt("但总有一天会分开") #arrow #card("但总有一天会分开") #arrow 再次目击 #card("亲吻")，之后一路跳过到 #card("天台", id: 85) #arrow #gameover
+#story-box(from: "s3s_350_sel", pick: ("前往楼梯", "但总有一天会分开"), quit: "s3s_590")[
+  #card("选择：要去的地方") 选 #opt("前往楼梯") #arrow #card("章节 3：Ayano") #arrow #card("前往楼梯") #arrow #card("与Yuichi前往楼梯") #arrow #card("选择：与Yuichi……")：默认只有 #opt("但总有一天会分开") #arrow #card("但总有一天会分开") #tofrag（接着又会目击『亲吻』，再一路持卡跳过到『天台』Game Over）
 ]
 #frag-box[
   #make-cards(

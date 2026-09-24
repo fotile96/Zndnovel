@@ -212,6 +212,16 @@ def test_narrow_multibyte_glyph_warns():
     assert "narrow-glyph" in codes(lay2, "warn")
 
 
+def test_narrow_glyph_skips_letters_they_are_proportional_like_latin():
+    """希腊字母（谢幕第二段 17927 的 Γ⊢φ）、带附加符号的拉丁字母是字母，本就按比例宽排、与 ASCII 拉丁
+    同理，不是该占满一格的符号；窄字形告警只针对 × “” · 这类夹在汉字里的符号/标点。"""
+    lay = sim("写下一连串的 Γ⊢φ，直到最后")
+    assert "narrow-glyph" not in codes(lay)
+    assert mlc.advance("Γ") < 17 and mlc.advance("φ") < 17          # 字形没被撑宽
+    assert lay.line_px[0] == 12 * 17 + mlc.advance(" ") + mlc.advance("Γ") + mlc.advance("φ")   # 仍按真实步进推进
+    assert "narrow-glyph" in codes(sim("Γ×φ"), "warn")   # 同一句里夹了符号照报
+
+
 def test_ruby_with_ascii_base_centers_on_real_width():
     lay = sim("<Story,故事>")
     rb = lay.rubies[0]

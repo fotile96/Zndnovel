@@ -27,6 +27,7 @@ import json
 import re
 import sys
 import tomllib
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -371,7 +372,10 @@ def simulate(text: str, msg: Msg | None = None, *, head: str, tail: str, pitch: 
         if overflow():
             return L
         adv = advance(ch)
-        if len(ch.encode("utf-8")) > 1 and adv < CJK_EST_PX and ch not in narrow:
+        # 字母（希腊/西里尔/带附加符号的拉丁，category L*）本就按比例宽排、与 ASCII 拉丁同理；
+        # 只报本该占满一格的窄符号/标点（× “” · …）
+        if len(ch.encode("utf-8")) > 1 and adv < CJK_EST_PX and ch not in narrow \
+                and not unicodedata.category(ch).startswith("L"):
             narrow.append(ch)
         place(ch)
         col += adv

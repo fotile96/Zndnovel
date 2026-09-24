@@ -423,6 +423,81 @@ def test_quantize_semi_transparent_image_still_uses_rgba_path():
     assert len(alphas) > 2
 
 
+# ---- 色板 0 号＝最透明色（2026-09-24：encore 菜单图 title_14_a 右缘竖缝） ----
+#
+# gimcodec 模板回填把 stride/高度对齐的填充区一律写索引 0——原包 1801/1801 张有填充的
+# 索引图都是这个惯例（逐字节还原的前提），且原包 0 号绝大多数是全透明色。量化器若把
+# 不透明色排到 0 号，填充区就成了图外一圈不透明纹素：放大渲染 + 双线性时最右列/最末行
+# 混进它，出一条细缝。title_14_a 的 0 号曾是不透明白（最右列是透明黑 → 中点半透明灰缝），
+# 卡面 0 号曾是不透明纸色。
+
+def _palette0(q):
+    return tuple(q.getpalette(rawmode="RGBA")[:4])
+
+
+def _min_alpha(q):
+    pal = q.getpalette(rawmode="RGBA")
+    return min(pal[3::4])
+
+
+def test_quantize_exact_palette_puts_transparent_first():
+    from PIL import Image
+    from tools.build_disc import quantize_for_template
+    src = Image.open("docs/finale/assets/title_14_a.png").convert("RGBA")
+    assert src.getcolors(256) is not None          # 走精确色板分支
+    q = quantize_for_template(src, 256)
+    assert _palette0(q)[3] == 0
+    assert list(q.convert("RGBA").getdata()) == list(src.getdata())   # 只换序，像素无损
+
+
+def test_quantize_exact_palette_adds_transparent_slot_for_opaque_image():
+    """整图不透明但色板有空位：白送一个全透明 0 号给填充区，像素不变。"""
+    from PIL import Image
+    from tools.build_disc import quantize_for_template
+    src = Image.new("RGBA", (5, 3), (200, 10, 10, 255))
+    src.putpixel((4, 2), (10, 200, 10, 255))
+    q = quantize_for_template(src, 16)
+    assert _palette0(q) == (0, 0, 0, 0)
+    assert list(q.convert("RGBA").getdata()) == list(src.getdata())
+
+
+def test_quantize_binary_alpha_puts_transparent_first():
+    from tools.build_disc import quantize_for_template
+    src = _binary_alpha_photo()
+    q = quantize_for_template(src, 256)
+    assert _palette0(q) == (0, 0, 0, 0)
+    assert list(q.convert("RGBA").getchannel("A").getdata()) == list(src.getchannel("A").getdata())
+
+
+def test_quantize_full_opaque_palette_puts_edge_color_first():
+    """整图不透明且 256 色用满（plot 缩略图集）：腾不出透明项，0 号取图边最常见色，填充贴边无缝。"""
+    from tools.build_disc import quantize_for_template
+    src = _binary_alpha_photo()
+    src.putalpha(255)
+    w, h = src.size
+    for y in range(h):
+        src.putpixel((w - 1, y), (3, 20, 7, 255))       # 深色右缘（plot 集最右列即如此）
+    assert src.getcolors(256) is None
+    q = quantize_for_template(src, 256)
+    assert len(q.getpalette(rawmode="RGBA")) // 4 == 256    # 确实用满
+    assert all(q.getpixel((w - 1, y)) == 0 for y in range(h))
+
+
+def test_quantize_rgba_path_puts_lowest_alpha_first():
+    from PIL import Image
+    from tools.build_disc import quantize_for_template
+    src = Image.open("png/bg/bg_1_a_0.png").convert("RGBA")
+    px = src.load()
+    for y in range(272):
+        for x in range(480):
+            r, g, b, _ = px[x, y]
+            px[x, y] = (r, g, b, 40 + (x * 215) // 479)   # 最低 alpha 40，不含全透明
+    before = quantize_for_template(src, 256).convert("RGBA")
+    q = quantize_for_template(src, 256)
+    assert _palette0(q)[3] == _min_alpha(q)
+    assert list(q.convert("RGBA").getdata()) == list(before.getdata())   # 换序不改像素
+
+
 # ---- stage_font 的字集取材（2026-09-21：test 盘新层的「译」画成下划线） ----
 
 def _font_ctx(root: Path, profile: str):

@@ -67,6 +67,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -95,7 +96,7 @@ QUANT_MSE_WARN = 15.0        # 经验阈：>256 色烤字图落 256 色板的典
 #: 数手动 +1：旧缓存条目从此在键空间里再也不会被命中，会被当作未命中重新编码。
 #: 不这样做的后果：改了编码器却忘了清缓存，687 张图会静默继续用旧编码器的产物，
 #: release_assertions 也查不出来——它只逐字节核对 script/*.lua，不比对任何 gim 成员。
-GIM_CACHE_VERSION = 2      # 2：二值 alpha 的图改走 MEDIANCUT（2026-09-07），旧缓存作废
+GIM_CACHE_VERSION = 3      # 2：二值 alpha 的图改走 MEDIANCUT（2026-09-07）；3：色板 0 号＝最透明色（2026-09-24，填充区不再是不透明纹素），旧缓存作废
 
 #: 测试引导（tools/testboot.py）注入的**新成员**，绝不能进发布盘。
 TESTBOOT_MEMBER = "script/snr_test.lua"
@@ -347,24 +348,53 @@ def quantize_for_template(im: Image.Image, cap: int) -> Image.Image:
 
     颜色数本就 ≤cap 时走无损精确调色板；否则 FASTOCTREE 量化（RGBA 感知）。
     量化损耗按 CLAUDE.md 规约需目检——产物即最终进包像素，QA 看 build/<profile>/members。
+    三条路径出口统一过 `_transparent_first`：色板 0 号＝最透明色（见其 docstring）。
     """
     im = im.convert("RGBA")
     colors = im.getcolors(cap)
     if colors is not None:
-        pal_img = Image.new("P", (1, 1))
         palette, lut = [], {}
         for i, (_, rgba) in enumerate(colors):
             palette.extend(rgba)
             lut[rgba] = i
-        pal_img.putpalette(palette, rawmode="RGBA")
         out = Image.new("P", im.size)
         out.putdata([lut[px] for px in im.getdata()])
         out.putpalette(palette, rawmode="RGBA")
-        return out
+        return _transparent_first(out, cap)
     alphas = {a for _n, a in im.getchannel("A").getcolors(256)}
     if alphas <= {0, 255}:
-        return _quantize_binary_alpha(im, cap, transparent=0 in alphas)
-    return im.quantize(colors=cap, method=Image.Quantize.FASTOCTREE)
+        return _transparent_first(_quantize_binary_alpha(im, cap, transparent=0 in alphas), cap)
+    return _transparent_first(im.quantize(colors=cap, method=Image.Quantize.FASTOCTREE), cap)
+
+
+def _transparent_first(q: Image.Image, cap: int) -> Image.Image:
+    """把色板里 alpha 最低的一项换到 0 号；全无全透明项而色板有空位时补一个 (0,0,0,0) 当 0 号；
+    整图不透明且色板用满时，0 号取图边（最右列＋最末行）最常见的那一色。
+
+    gimcodec 回填把 stride/高度对齐的填充区一律写索引 0（原包 1801/1801 张同此惯例，
+    是逐字节还原的前提），原包的 0 号绝大多数是全透明色。0 号若是不透明色，填充区就是
+    图外一圈不透明纹素，放大渲染 + 双线性时最右列/最末行混进它出细缝（2026-09-24
+    title_14_a：0 号不透明白，右缘半透明灰缝；卡面 0 号是不透明纸色）。腾不出透明项的
+    （plot 缩略图集：最右列深色，原包填充是深色半透明）退而求贴边色。只换序、不改像素。
+    """
+    pal = q.getpalette(rawmode="RGBA")
+    entries = [tuple(pal[i:i + 4]) for i in range(0, len(pal), 4)]
+    k = min(range(len(entries)), key=lambda i: (entries[i][3], i))
+    if entries[k][3] > 0 and len(entries) < cap:
+        entries.append((0, 0, 0, 0))
+        k = len(entries) - 1
+    elif entries[k][3] == 255:
+        w, h = q.size
+        edge = [q.getpixel((w - 1, y)) for y in range(h)] + [q.getpixel((x, h - 1)) for x in range(w)]
+        k = Counter(edge).most_common(1)[0][0]
+    if k == 0:
+        return q
+    order = [k] + [i for i in range(len(entries)) if i != k]
+    new_of = {old: new for new, old in enumerate(order)}
+    table = bytes(new_of.get(i, i) for i in range(256))
+    out = Image.frombytes("P", q.size, q.tobytes().translate(table))
+    out.putpalette(b"".join(bytes(entries[i]) for i in order), rawmode="RGBA")
+    return out
 
 
 def _quantize_binary_alpha(im: Image.Image, cap: int, transparent: bool) -> Image.Image:

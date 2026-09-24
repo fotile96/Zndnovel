@@ -274,6 +274,9 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 图片均为 PSP 480×272 逻辑分辨率素材；改图（烤字 png）进游戏 = 量化到模板色板容量后
   `uv run python tools/gimcodec.py encode <原包同名模板.gim> <烤字.png> <out.gim>`，再经 databin.py 回封。
   索引图色板 16/256 色（RGBA8888），量化损耗需在烤字 QA 时目检。
+  ⚠ 回填把 stride/高度对齐的填充区写成**索引 0**（原包惯例），0 号若不透明，放大渲染＋双线性时
+  图的右/下缘会出细缝（2026-09-24 encore 菜单图右缘竖缝、全部卡面同病）。`build_disc` 的
+  `quantize_for_template` 已保证 0 号＝最透明色；手工量化喂 `gimcodec encode` 时须自行保证。
 
 ## 已知坑与注意事项
 

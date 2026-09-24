@@ -1,7 +1,8 @@
 why = """iOS 变体（仅推荐 iOS 商店版 PPSSPP 1.20.x）播放 OP/ED：配合 tools/ios_fwmod.py 改过库名的固件
 libmp4/mp4msv（EBOOT 自行从盘上加载）与 tools/ios_movie.py 的 44.1k 影片。E1 导入改名、E2 洞内加载例程
-（sceGumLookAt 死代码，洞内两个 HI16/LO16 条目改 NONE）、E3 sceMpegCreate 条件假 ringbuffer（仅 1.20.x
-HLE 的 DecTopAddr 伪值 0x10000000 生效）、E4 sceMpegAvcDecode 保 pts。只在 build_disc.py --ios 施加。
+（sceGumLookAt 死代码；洞内 HI16/LO16 及共用该 LO16 的死代码 HI16 共三条重定位改 NONE）、E3 sceMpegCreate
+条件假 ringbuffer（仅 1.20.x HLE 的 DecTopAddr 伪值 0x10000000 生效）、E4 sceMpegAvcDecode 保 pts。
+只在 build_disc.py --ios 施加。
 生成器 tools/ios_eboot.py；依据 docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」。"""
 profile = "ios"
 
@@ -105,7 +106,7 @@ to   = """
 
 [[patches]]
 off = "0x84188"
-note = "洞内被覆盖字的重定位条目 → R_MIPS_NONE"
+note = "洞内被覆盖字（及共用其 LO16 的死代码 HI16）的重定位条目 → R_MIPS_NONE"
 from = """
     70 25 06 00 05 00 00 00
 """
@@ -114,8 +115,18 @@ to   = """
 """
 
 [[patches]]
+off = "0x84190"
+note = "洞内被覆盖字（及共用其 LO16 的死代码 HI16）的重定位条目 → R_MIPS_NONE"
+from = """
+    74 2b 06 00 05 00 00 00
+"""
+to   = """
+    74 2b 06 00 00 00 00 00
+"""
+
+[[patches]]
 off = "0x84198"
-note = "洞内被覆盖字的重定位条目 → R_MIPS_NONE"
+note = "洞内被覆盖字（及共用其 LO16 的死代码 HI16）的重定位条目 → R_MIPS_NONE"
 from = """
     74 25 06 00 06 00 00 00
 """

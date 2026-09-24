@@ -41,10 +41,10 @@ member = "pgf/LXGWWenKai-Regular-09.pgf"
 source   = "assets/EBOOT.dec.elf"     # PPSSPP dump 的解密 EBOOT 截到 elf_size（584689 B）；版权物，不入库
 sha256   = "8737f1d35db01e9cde98efb09c8272c835195f46321b4b2b75fdb36a6ece2c50"
 iso_path = "/PSP_GAME/SYSDIR/EBOOT.BIN"
-order    = ["kinsoku", "ruby-p5", "msgcol-px", "savebuf", "ios-movie"]     # layers/eboot/*.toml 施加顺序（区间不得重叠；ios-movie 层 profile="ios"，只在 build_disc --ios 施加）
+order    = ["kinsoku", "ruby-p5", "msgcol-px", "savebuf", "ios-movie"]     # layers/eboot/*.toml 施加顺序（区间不得重叠；ios-movie 层 profile="ios"，只在 build_disc 的 ios 阶段施加）
 
 [ios]
-# iOS 变体盘（build_disc.py --ios）：仅推荐 iOS 商店版 PPSSPP（1.20.x）。现行盘不受影响。
+# iOS 变体盘 game_zh_ios.iso：release 出盘随 iso 必出（test 剖面要 --ios）；仅推荐 iOS 商店版 PPSSPP（1.20.x）。现行盘不受影响。
 # 依据 docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」；固件模块取自本作 UMD 自带 6.20 升级包（解密）。
 iso_name   = "game_zh_ios.iso"
 module_dir = "/PSP_GAME/USRDIR/module"          # 加载例程写死的 disc0 路径与此一致（tools/ios_eboot.py PATHS）

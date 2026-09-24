@@ -22,3 +22,10 @@ Pre-flight: Ruling: fin-70 末白闪按 spec 写 `cLoadPlaySE(se_102)` → `cPla
 
 Task 1: Ruling: compose_ab 里 `im.convert("RGB")` 改为 `im.convert("RGBA").convert("RGB")`（加一行注释）— 新测试首次覆盖 bake()，模板 eve_74_x.png 是带 transparency 字节的 P 图，直转 RGB 触发 PIL UserWarning（旧 main() 同样触发，只是没人测）；两种转法 RGB 值相同，QA 图 _ab_eve_74_z_2x.png 前后 sha256 一致已核 — cost if wrong: 无（只影响 QA 图，且像素相同）。
 Task 1: 目检 — 三位少女 MEDIANCUT MSE 14.12/13.29/12.70（均低于 eve_74_z 先例 15.37；鲸客人 sha256 01301d83… 前后一致、方法 MEDIANCUT 15.37 不变）；3× 放大看左下日照地板有轻微色阶（256 色不抖动的固有代价，与 eve_74_z 同法），人物发丝/尾鳍/眼罩 Z/笔与橡皮细节清楚、平涂面无噪点。
+Task 1: complete (commits 2f6da56..f795323, tests: uv run pytest tests/test_bake_finale_event.py -q → 6 passed in 1.24s)
+
+Task 2: Ruling: 脚注 eve_0_k 的擦字改用新 helper `ev._toned_patch(img, src, box, feather)`（bake_eve_0_h 加可选 `patch_src`，bake_finale_voice 传 eve_0_g），计划的 `_interpolate_bg(…, feather)` 照写、照测但只作缺省路径 — 计划做法实跑后两端竖缝消失，但右端（旧字「…できます。」所在）仍有一块淡平涂：竖向插值把背景斜向光带抹平，不满足计划自己的验收「两端不得有竖缝或浅色块」；实测 eve_0_h≈0.556·eve_0_g（框外逐通道线性拟合残差均值 0.6–0.9、p99 ≤4.6），用压暗后的 eve_0_g 重建框内，3× 对比度下也看不出补底框；新增单测 `test_toned_patch_rebuilds_a_dimmed_background_from_its_clean_source` 先红后绿；eve_0_h/eve_0_i 缺省产物与改前逐像素一致（getbbox None）— cost if wrong: 多 ~40 行代码；回退只需去掉 patch_src 参数。
+Task 2: Ruling: bake_finale_voice 缺省输出目录走 `bake_out.out_dir(FACE)`（认 ZND_BUILD_TAG），不照计划写死 `REPO / "build"` — 同计划的 bake_finale_event 与其余烤字工具都走 out_dir，换字体评估时标签目录才能配套；无标签时路径与计划相同 — cost if wrong: 无（无标签时行为一致）。
+Task 2: Ruling: 测试里两处 `Image.open(原图).convert("RGB")` 改为 `.convert("RGBA").convert("RGB")` — 原图是带 tRNS 的 P 图，直转触发 PIL UserWarning；RGB 值相同，断言强度不变 — cost if wrong: 无。
+Task 2: Ruling: 计划「layers.py check 零错误零告警」按「exit 0、错误 0、且本计划消息（17800–17999）不产生告警」执行 — 基线在任何改动之前就有 32 条告警（hang-deep 31、narrow-glyph 1，全在既有正文 snr_crd_*/snr_s1_10_s），与本计划无关；后续每次过闸核对告警数仍为 32 且无 178xx/179xx 条目 — cost if wrong: 若用户要求清零既有告警，那是另一项工作。
+Task 2: 目检 — eve_0_j「你的声音是——」居中（w=136）；六张拼成真实画面三帧（提示／选 1／选 2）：标题带「」、21 字标题墨迹在 8..472 内、副题居中；eve_0_k 脚注两端无竖缝无浅色块（4× 与 3× 对比度对照老烤法）。

@@ -28,7 +28,9 @@ new     = [["finale_cards", "card", "card/crd_1_a.gim"],
            ["finale_menu", "sysgim", "sysgim/title_13_a.gim"],
            ["finale_title", "sysgim", "sysgim/title_01_a.gim"],
            ["boot_dedication", "sysgim", "sysgim/IPL01.gim"],
-           ["finale_event", "event", "event/eve_74_x.gim"]]  # + 模板成员
+           ["finale_event", "event", "event/eve_74_x.gim"],
+           ["finale_voice", "event", "event/eve_0_i.gim"],
+           ["finale_select", "select", "select/sel_voice1_sel_a_on.gim"]]  # + 模板成员
 
 [[fonts]]
 size = 17

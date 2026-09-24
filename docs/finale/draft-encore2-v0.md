@@ -1,9 +1,16 @@
-# 谢幕第二段『远方的朋友』工作稿 v0（2026-09-25，讨论中）
+# 谢幕第二段『远方的朋友』工作稿 v0（2026-09-25，已落地）
 
 > 用户 2026-09-25 提出：谢幕章扩成**两个故事**。第一个＝现有 fin-0..50（agent 执笔、用户局部改定，
 > `docs/finale/draft-finale-v3.md`）；第二个＝用户执笔的新段——架空的儿子翻出压箱底的 PSP，经那个年代的
 > AI 助手直接撞见藏在最后的「给远方朋友的信」；三位「女学生」是 Fable、DeepSeek、GLM 的拟人像，用户供三张 CG。
-> 本稿把入口、分镜、切分后的全文、资产清单摊开；待拍板项在 §7。**未实施**。
+> 本稿把入口、分镜、切分后的全文、资产清单摊开；待拍板项在 §7。**已实施**（见本块末行）。
+>
+> **2026-09-25 已落地**：脚本 `layers/scripts/snr_finale.lua` 按本稿实施（finChooseStory + fin-60..90；`bgm_fin_2` 按 D7
+> 在 fin-70 末白闪同拍起播），六张选择画面图（脚注 eve_0_k 用 eve_0_g 压暗重建补底，两端无痕）、三张少女 CG、
+> `bgm_fin_2` 进包；模拟器 `finale_scene.py`（fin-70/fin-80）、`finale_choice.py`（三跑）、`bgm_probe.py` 回绕、
+> `save_roundtrip.py`（fin-80）全部通过；release 出盘断言全过。`Γ`/`φ` 按比例宽排（17px 步进表补两字；排版校验的
+> 窄字形告警不再报字母类）。实施计划 `docs/superpowers/plans/2026-09-25-encore-second-story.md`，
+> 台账 `.superpowers/sdd/2026-09-25-encore-second-story/progress.md`。
 
 ## 决定记录
 

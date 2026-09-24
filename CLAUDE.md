@@ -174,6 +174,19 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
     故事层 s8f/e2f 结尾的 title_01_a 落版刻意未动。端到端驾驶 `tools/emu/drives/title_logo.py`。
     实施与验证台账：docs/ops/finale-stage-impl-2026-09-02.md（已被 docs/ops/disc-pipeline.md
     取代为现行命令面，历史记录仍有效）。
+    **第二个故事『远方的朋友』（2026-09-25，用户执笔）**：fin-60..90（还笔／储藏间／全屏窗口／模拟器）。
+    读过第一个故事（`finaleReadFlag`）之后再点 encore，先出序章 s0f 同款『声』选择画面（`finChooseStory`：
+    新成员 `event/eve_0_j` 提示「你的声音是——」、`eve_0_k` 脚注、`select/sel_fin1/2_sel_a_{on,off}` 光晕按钮，
+    `tools/bake_finale_voice.py`；脚注擦字用 eve_0_g 压暗重建——eve_0_h≈0.556·eve_0_g），光标默认第一项，
+    选二进第二个故事；旗标非 true（旧系统数据缺键、无系统数据）直入 fin-0。三位 AI 少女 CG
+    `event/eve_47_{f,d,g}`（母本 eve_47_x＝彩野伏案改写『物語』；源 `docs/finale/assets/eve_47_*.src.png`，
+    `bake_finale_event.py` 清单化），fin-80 依次同层溶解接替彩野的座位，画廊 eve_47 格四变体；纸箱特写复用
+    `cutin/cut_62`（s5f_80 语法）；BGM `bgm/bgm_fin_2`（用户第二支 bgm_5_x remix，整曲循环不裁尾，−21 LUFS），
+    fin-70 末「全屏窗口跳了出来」白闪同拍起播、贯穿 fin-80（fin-80 开头再调一次保直入自给）；
+    vms 17800–17999；读完不置旗标、不写系统数据。`Γ⊢φ` 按比例宽排（排版校验的窄字形告警不报字母类）。
+    测试捷径 `build_disc.py --profile test --mode mainmenu --finale-read`，驾驶 `tools/emu/drives/finale_choice.py`
+    （FIN_PICK=0/1/2；⚠ 本机模拟器那份系统数据已带旗标，PICK=0 会先挪开、跑完放回）。
+    文稿与决定记录 `docs/finale/draft-encore2-v0.md`，实施台账 `.superpowers/sdd/2026-09-25-encore-second-story/progress.md`。
   - e1s：ユカリ第一人称一本道（回忆 25 连场）；e1f 仅 1 场。
   - e2s：千秋（多年后）的调查——**只有对方半边的电话/拜访独白**（老教师/筑紫(きくちゃん)/护士/雪乃生父/酒吧老板/彩野母）；e2f：雪乃弥留之际"编纂"的if 幸福线（标题回收章）。
 - GAMEOVER/COMPLETE/TIMEOVER 都进 `comStorySceneEnd` 三选单（回 Story/去 Fragment/回菜单）。

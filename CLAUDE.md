@@ -260,13 +260,16 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - 解包/回封游戏资源包：`python3 tools/databin.py unpack assets/DATA.BIN build/databin`、`pack build/databin build/DATA.new.BIN`（`assets/` 为本机 gitignore 资产，不入库；回封无压缩，顺序按 manifest.jsonl 行序 = 原封包序）。
 - 产实机盘：先 `uv run python tools/layers.py check --profile release` 过闸（秒级，不产盘），
   再 `uv run python tools/build_disc.py`（缺省 `--profile release --stage all`，跑到 `iso` 止）
-  → `build/dist/game_zh.iso`（就地替换 `assets/orig.iso` 里的 DATA.BIN；发布断言不过拒绝出盘）；
+  → `build/dist/game_zh.iso`（就地替换 `assets/orig.iso` 里的 DATA.BIN；发布断言不过拒绝出盘），**并总是同出**
+  iOS 变体盘 `build/dist/game_zh_ios.iso`（见下条）；
   单独用工具则 `python3 tools/umdiso.py replace <原iso> <新iso> /PSP_GAME/USRDIR/DATA.BIN <新DATA.BIN>`，
   改完必 `verify --against <原iso>` 看差异区间。剖面/层/阶段全貌见 `docs/ops/disc-pipeline.md`。
-- 出 iOS 变体盘（只推荐 iOS 商店版 PPSSPP 1.20.x）：`uv run python tools/build_disc.py --ios` → 在 `game_zh.iso`
-  之外另出 `build/dist/game_zh_ios.iso`（现行盘逐字节不变）。需要 `assets/fw/{libmp4,mp4msv}.dec.prx`（取得方法见
-  `docs/ops/movie-playback-ppsspp-2026-09-24.md`「产品化」）与 ffmpeg；验收用 `tools/emu/drives/movie_probe.py`
-  （`--ppsspp 1204` 走 `~/ppsspp-1204` 本机 v1.20.4 构建）。管线说明见 `docs/ops/disc-pipeline.md`「iOS 变体盘」。
+- iOS 变体盘 `build/dist/game_zh_ios.iso`（只推荐 iOS 商店版 PPSSPP 1.20.x）：release 出盘只要跑了 `iso` 就自动
+  跟着重出（用户 2026-09-24 裁定，不设关闭开关，dist 里两张盘永远配套；现行盘逐字节不受影响）。因此 release 出盘
+  需要 `assets/fw/{libmp4,mp4msv}.dec.prx`（取得方法见 `docs/ops/movie-playback-ppsspp-2026-09-24.md`「产品化」）、
+  首次或改了 `[ios.movies]` 时还要 ffmpeg——开跑前就核对，缺了立刻失败。test 剖面目录盘要 `--profile test --mode movie
+  --ios`（→ `build/test/game_ios/`）；验收用 `tools/emu/drives/movie_probe.py`（`--ppsspp 1204` 走 `~/ppsspp-1204`
+  本机 v1.20.4 构建）。管线说明见 `docs/ops/disc-pipeline.md`「iOS 变体盘」。
 - 读 novel 页图前先旋转：`python3 -c "from PIL import Image; Image.open(p).rotate(-90, expand=True).save(out)"`。
 - 图片均为 PSP 480×272 逻辑分辨率素材；改图（烤字 png）进游戏 = 量化到模板色板容量后
   `uv run python tools/gimcodec.py encode <原包同名模板.gim> <烤字.png> <out.gim>`，再经 databin.py 回封。
@@ -280,7 +283,7 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
 - **e2f 4838–4847 的字幕与配音是两套台词**（有意演出，全库唯一）：`≪≫` 内是雪乃写的故事，配音（NAO+CHI）念的是直哉
   坦白自己不是ユウイチ的另一段对话。中文版按用户裁定（2026-09-21）在同一消息里 `_r` 换行后用 `「」` 补出配音内容，
   `check_edit` 的「」计数警告对这十行是已知放行；转写与清点见 docs/ops/e2f-voice-text-divergence-2026-09-21.md。
-- **OP/ED 影片在 PPSSPP 正式版（≤ v1.20.4）上不播**（2026-09-24）：引擎走 sceMp4（libmp4），旧版 HLE 全是空桩，起播 1 帧即返回、剧情照常；无任何设置可救。开发版 ≥ v1.20.4-1841（PR #22309）默认 LLE 真 libmp4，首次开盘自动装入本作 UMD 自带的 6.20 固件，实测 OP 音画同步全程正常（影片帧在 fb1，探针只读 fb0 会误判黑屏）。新版同时默认 LLE 真 libfont，中文字体表现**未定论**。**iOS 商店版（1.20.4）已产品化**（2026-09-24）：`build_disc.py --ios` 另出 `build/dist/game_zh_ios.iso`（只推荐 iOS 商店版 PPSSPP，其余平台与实机用现行盘）——固件 libmp4/mp4msv 改库名（`zndMp4`/`zndmsv`）由 EBOOT 自行从盘上加载，外加 AAC 输入长度跳板、sceMpegCreate 条件假 ringbuffer、AvcDecode 保 pts 与 44.1k 音轨（绕开 1.20.4 的 48k vaudio 重采样破音）；EBOOT 改动是 `profile = "ios"` 的层 `layers/eboot/ios-movie.toml`，只在 `--ios` 施加。详见 `docs/ops/movie-playback-ppsspp-2026-09-24.md`；e2e 基线 `~/ppsspp` 仍是 1ee9168，新版在 `~/ppsspp-new`。
+- **OP/ED 影片在 PPSSPP 正式版（≤ v1.20.4）上不播**（2026-09-24）：引擎走 sceMp4（libmp4），旧版 HLE 全是空桩，起播 1 帧即返回、剧情照常；无任何设置可救。开发版 ≥ v1.20.4-1841（PR #22309）默认 LLE 真 libmp4，首次开盘自动装入本作 UMD 自带的 6.20 固件，实测 OP 音画同步全程正常（影片帧在 fb1，探针只读 fb0 会误判黑屏）。新版同时默认 LLE 真 libfont，中文字体表现**未定论**。**iOS 商店版（1.20.4）已产品化**（2026-09-24）：release 出盘总是同出 `build/dist/game_zh_ios.iso`（只推荐 iOS 商店版 PPSSPP，其余平台与实机用现行盘）——固件 libmp4/mp4msv 改库名（`zndMp4`/`zndmsv`）由 EBOOT 自行从盘上加载，外加 AAC 输入长度跳板、sceMpegCreate 条件假 ringbuffer、AvcDecode 保 pts 与 44.1k 音轨（绕开 1.20.4 的 48k vaudio 重采样破音）；EBOOT 改动是 `profile = "ios"` 的层 `layers/eboot/ios-movie.toml`，只在 `build_disc.py` 的 ios 阶段施加。详见 `docs/ops/movie-playback-ppsspp-2026-09-24.md`；e2e 基线 `~/ppsspp` 仍是 1ee9168，新版在 `~/ppsspp-new`。
 - s7f 引用的给彩野的信文（『放課後、校庭で待っていて』）与 s5f_80 实物信（『屋上で待っていて。サクラ』）字面不同——原作即如此，翻译时保持各自原样，不要"修复"。
 - sceneId2aCard 表中大量 `sceneId2aCard.keyword = N` 是反编译噪声（键重复覆盖），仅真实场景键有效。
 - 反编译代码有冗余（重复 `layerCopy`、未用变量 g3/i3 等），修改时最小触碰。

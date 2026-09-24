@@ -10,14 +10,13 @@ ISO 就地替换机理等）仍然成立，值得作为背景读。设计依据
 ## 一条命令
 
 ```bash
-uv run python tools/build_disc.py                     # release 剖面，缺省跑到 iso
+uv run python tools/build_disc.py                     # release 剖面，缺省跑到 iso（+ 自动跟着的 ios）
 uv run python tools/build_disc.py --profile test --mode mainmenu   # test 剖面，全解锁主菜单
-uv run python tools/build_disc.py --ios               # release + 另出 iOS 变体盘
 ```
 
-第一条产 `build/dist/game_zh.iso`（发布断言全过才写盘）；第二条产
-`build/test/game/`，供模拟器直接目录引导，见下文「验证」一节；第三条在第一条之外另出
-`build/dist/game_zh_ios.iso`（只推荐 iOS 商店版 PPSSPP，见下文「iOS 变体盘」）。
+第一条产 `build/dist/game_zh.iso`（发布断言全过才写盘），并**总是同出** `build/dist/game_zh_ios.iso`
+（iOS 变体，只推荐 iOS 商店版 PPSSPP，见下文「iOS 变体盘」）；第二条产 `build/test/game/`，供模拟器直接
+目录引导，见下文「验证」一节。
 
 ## 三个概念
 
@@ -74,7 +73,7 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 
 ## 阶段表
 
-`--stage` 逗号分隔，缺省 `all`（release 到 `iso`、test 到 `disc`，均不含 `ios`/`boot`；`--ios` 把 `ios` 追加进来）：
+`--stage` 逗号分隔，缺省 `all`（release 到 `iso`、test 到 `disc`，均不含 `boot`）。release 只要跑了 `iso`（缺省或显式）就自动追加 `ios`；test 剖面要 `--ios` 才跑 `ios`：
 
 | 阶段 | 做什么 |
 |---|---|
@@ -87,17 +86,24 @@ test 的任何产物结构上不可能落进 release 的树，也不可能落进
 | `eboot` | 按 `manifest.toml` 的 `[eboot]` 给解密引擎 ELF 施加 `layers/eboot/*.toml` 的字节补丁（`tools/eboot_patch.py`：逐补丁核对原字节锚点，幂等，任一不中整体失败）→ `build/<profile>/EBOOT.BIN`。没有 `[eboot]` 节则空转，盘里沿用原加密 EBOOT |
 | `disc` | 刷新 `build/<profile>/game/`（首次自 `assets/orig.iso` 解出）+ 覆入 `DATA.BIN` 与（有 `[eboot]` 时）`EBOOT.BIN`、（有 `[sound]` 曲目时）`SOUND.BIN`，供 PPSSPP 目录引导 |
 | `iso` | 仅 release：三道断言（有 `[eboot]` 时四道，有 `[sound]` 曲目时五道——SOUND.BIN 须逐字节等于「原版 + 当前音频层重新装配」）全过，才把 `DATA.BIN`/`EBOOT.BIN`/`SOUND.BIN` 拷到 `build/dist/`、`umdiso` 就地替换这些文件 → `build/dist/game_zh.iso` + provenance 副本；任一断言不过就拒绝出盘，不写任何 `build/dist/` 文件（见下「各道闸」） |
-| `ios` | 仅 `--ios`（opt-in）：iOS 变体。只复用**本次调用**刚产出的盘——release 须本次跑过 `iso`、test 须本次跑过 `disc`，否则拒绝。EBOOT 另施加 `profile = "ios"` 的层，加两个改名固件模块与 44.1k op/ed → release：`build/dist/game_zh_ios.iso` + provenance；test：`build/test/game_ios/`。详见下文「iOS 变体盘」 |
+| `ios` | iOS 变体。release：跑了 `iso` 就自动跟着跑（dist 里现行盘与 iOS 盘总是同出）；test：`--ios` 才跑。只复用**本次调用**刚产出的盘——release 须本次跑过 `iso`、test 须本次跑过 `disc`，否则拒绝；前置条件（固件模块、必要时 ffmpeg）在任何阶段动手前核对。EBOOT 另施加 `profile = "ios"` 的层，加两个改名固件模块与 44.1k op/ed → release：`build/dist/game_zh_ios.iso` + provenance；test：`build/test/game_ios/`。详见下文「iOS 变体盘」 |
 | `boot` | PPSSPP 引导冒烟 + 截图序列，opt-in，不在缺省阶段集合内 |
 
 不论这次跑了哪些阶段，结束时都会写 `build/<profile>/provenance.json`。
 
-## iOS 变体盘（`--ios`）
+## iOS 变体盘（`game_zh_ios.iso`）
 
 PPSSPP 正式版（≤ 1.20.4，iOS 商店版就是它）的 sceMp4 是空桩，OP/ED 放不出来；iOS 变体让游戏自己从盘上加载改过库名的
 固件 libmp4/mp4msv，绕开空桩（原理与实测：`docs/ops/movie-playback-ppsspp-2026-09-24.md`「追记：iOS」与「产品化」）。
-**只推荐 iOS 商店版 PPSSPP**；其余平台模拟器与实机一律用现行盘。现行盘不受影响：带不带 `--ios`，`game_zh.iso`
-逐字节相同（`tests/test_ios_eboot.py` 钉住现行 EBOOT 指纹，2026-09-24 端到端核过）。
+**只推荐 iOS 商店版 PPSSPP**；其余平台模拟器与实机一律用现行盘。
+
+**release 出盘总是同出**（2026-09-24 用户裁定，不设关闭开关）：只要跑了 `iso` 阶段写 `game_zh.iso`，`ios` 阶段就自动
+跟着按新盘重出 `game_zh_ios.iso`，dist 里两张盘永远配套。现行盘不受影响：`game_zh.iso` 与没有 iOS 变体时逐字节相同
+（`tests/test_ios_eboot.py` 钉住现行 EBOOT 指纹，2026-09-24 端到端核过）。因此 release 出盘多了两个前置条件——
+`assets/fw/{libmp4,mp4msv}.dec.prx`（取得方法见 movie 文档「固件模块的取得」），以及 `build/ios/movie/` 缓存无效时
+（首次、或改了 `[ios.movies]`）的 ffmpeg/ffprobe；`build_disc.py` 在任何阶段动手前就核对，缺了立刻失败并指明取法，
+不会等现行盘重写完才发现 iOS 盘出不来。缓存命中时每次出盘多约 5 秒（多写一张约 650 MB 的 ISO）。
+test 剖面的 iOS 目录盘仍是 opt-in：`--profile test … --ios` → `build/test/game_ios/`（驾驶用）。
 
 | 部件 | 来源 | 落点 |
 |---|---|---|
@@ -109,8 +115,8 @@ PPSSPP 正式版（≤ 1.20.4，iOS 商店版就是它）的 sceMp4 是空桩，
 test 专用的 savebuf 层，存档扩容类探针在它上面没意义）。release 侧：`umdiso replace`（DATA/EBOOT/SOUND/两部影片）
 写到 `game_zh_ios.iso.partial` → `umdiso add` 把两个模块追加到卷尾、插进 `module/` 目录 → `verify` 过了才改名为
 `game_zh_ios.iso`，并写 `game_zh_ios.iso.provenance.json`（记 base_iso 指纹）。`iso` 阶段每写出一张新 `game_zh.iso`，
-就删掉 `build/dist/` 里旧的 iOS 盘及其 provenance——两版并行发布时，新现行盘不能和按旧译文出的 iOS 盘摆在一起；
-要 iOS 盘就同一次调用加 `--ios`。
+先删掉 `build/dist/` 里旧的 iOS 盘及其 provenance，再由紧跟的 `ios` 阶段重出——这是兜底：万一 `ios` 阶段失败，
+dist 里也不会摆着新现行盘配按旧译文出的 iOS 盘。
 
 验证（需要 `~/ppsspp-1204` 本机 v1.20.4 构建与 `~/ppsspp-new` 新版构建）：
 

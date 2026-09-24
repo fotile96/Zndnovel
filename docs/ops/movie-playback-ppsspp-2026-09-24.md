@@ -118,14 +118,15 @@ PPSSPP 1.20.4 窗口人工盯完 OP 与 ED 全程，确认音画正常。
 ### 产品化（2026-09-24 落地）
 
 用户裁定（2026-09-24）：①产品化；②接受随 iOS 盘分发改过的 Sony 固件模块；③两个平行版本——hack 版
-`game_zh_ios.iso` 只推荐 iOS 商店版 PPSSPP，其余平台模拟器与实机一律用现行版 `game_zh.iso`。
+`game_zh_ios.iso` 只推荐 iOS 商店版 PPSSPP，其余平台模拟器与实机一律用现行版 `game_zh.iso`；④（同日追加）以正式模式
+重出 `game_zh.iso` 时总是一并重出 `game_zh_ios.iso`——做进 `build_disc.py`，不靠 runbook 提醒。
 实施计划 `docs/superpowers/plans/2026-09-24-ios-movie-variant.md`，执行台账（含全部偏离计划的决定）
 `.superpowers/sdd/2026-09-24-ios-movie-variant/progress.md`。
 
 **命令面**（管线说明见 `docs/ops/disc-pipeline.md`「iOS 变体盘」）：
 
 ```bash
-uv run python tools/build_disc.py --ios        # 现行盘 build/dist/game_zh.iso + iOS 盘 build/dist/game_zh_ios.iso
+uv run python tools/build_disc.py              # 现行盘 build/dist/game_zh.iso 与 iOS 盘 game_zh_ios.iso 总是同出
 uv run python tools/build_disc.py --profile test --mode movie [--movie ed --skippable] --ios   # 目录盘 build/test/game_ios/
 uv run --with numpy python tools/emu/drives/movie_probe.py --ppsspp 1204 --core 2 --movie op --seconds 225 --disc build/test/game_ios
 ```
@@ -133,7 +134,7 @@ uv run --with numpy python tools/emu/drives/movie_probe.py --ppsspp 1204 --core 
 | 部件 | 工具 / 落点 | 钉住方式 |
 |---|---|---|
 | M1–M3 固件模块 | `tools/ios_fwmod.py`（type-B 重定位解码、改库名、AAC 跳板、GP 桩兜底）；原件 `assets/fw/{libmp4,mp4msv}.dec.prx`（不入库） | 输入/输出 sha256 是该工具常量 |
-| E1–E4 EBOOT | `tools/ios_eboot.py` 生成 `layers/eboot/ios-movie.toml`（层 `profile = "ios"`，只在 `--ios` 施加） | `tests/test_ios_eboot.py`：重生成逐字相同、现行 EBOOT 指纹不变、洞内重定位全 NONE、无悬空 HI16 |
+| E1–E4 EBOOT | `tools/ios_eboot.py` 生成 `layers/eboot/ios-movie.toml`（层 `profile = "ios"`，只在 `build_disc.py` 的 ios 阶段施加：release 出盘随 iso 必跑，test 要 `--ios`） | `tests/test_ios_eboot.py`：重生成逐字相同、现行 EBOOT 指纹不变、洞内重定位全 NONE、无悬空 HI16 |
 | V1 44.1k 影片 | `tools/ios_movie.py`（原盘抽 op/ed → FFmpeg `-c:v copy -c:a aac -ar 44100 -b:a 160k -brand MSNV` + bitexact） | 产物 sha256 钉 `layers/manifest.toml [ios.movies]`；FFmpeg 升级字节变了硬失败，先在 1.20.4 上跑 `movie_probe` 复测再改指纹 |
 | 往 ISO 加文件 | `tools/umdiso.py add`（数据追加卷尾、克隆兄弟目录记录格式、按名插入；目录区放不下/重名硬失败） | `tests/test_umdiso.py` |
 | 驾驶 | `tools/emu/drives/movie_probe.py`（DumpAudio + fb0/fb1 截帧 → `tools/emu/movielab.py` 判定）、`tools/emu/legacy.py`（1.20.x 的 ini 调试器会话） | `tests/test_movielab.py` |

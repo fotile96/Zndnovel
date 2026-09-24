@@ -1211,6 +1211,8 @@ def main() -> None:
                     help="test 剖面 scene 模式：把目标章节脚本的 vms 翻倍，复现存档线程 blob 超容量")
     ap.add_argument("--movie", default="op", choices=["op", "ed"], help="test 剖面 movie 模式：循环播哪一部")
     ap.add_argument("--skippable", action="store_true", help="test 剖面 movie 模式：以可跳过方式调用 playMovie")
+    ap.add_argument("--finale-read", action="store_true",
+                    help="test 剖面 mainmenu/scene 模式：预置 systemSave.finaleReadFlag = true（谢幕『声』选择画面）")
     ap.add_argument("--ios", action="store_true",
                     help="test 剖面另出 iOS 目录盘 build/test/game_ios/（release 只要跑 iso 就总会同出 "
                          "build/dist/game_zh_ios.iso，不需要此项）")
@@ -1220,7 +1222,7 @@ def main() -> None:
     switches = {"fast-boot": False} if args.no_fast_boot else {}
     mode_opts = {"mode": args.mode, "scene": args.scene, "card": args.card,
                 "hold": args.hold, "no_cards": args.no_cards, "bloat": args.bloat,
-                "movie": args.movie, "skippable": args.skippable}
+                "movie": args.movie, "skippable": args.skippable, "finale_read": args.finale_read}
     ctx = BuildContext(profile=args.profile, root=REPO / "build" / args.profile,
                        manifest=manifest, switches=switches, mode_opts=mode_opts,
                        force=args.force)

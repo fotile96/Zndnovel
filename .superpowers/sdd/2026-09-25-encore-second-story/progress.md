@@ -38,3 +38,6 @@ Task 4: Ruling: 守门测试的两条计数（`systemSave.finaleReadFlag = true`
 Task 4: Ruling: 守门测试另加一条断言钉住 Pre-flight 裁定：fin-70 体内 `cPlayBGMWrap(bgm_fin_2)` 出现在 `comEffectWhiteOut(120)` 之前 — 让 D7「白闪同一拍起播」有测试兜底 — cost if wrong: 改落位时顺手改这条断言。
 Task 4: 实施 — Lua 由计划 Task 4 的 5 个代码块程序化提取装入（非手抄），116 条 vms 与工作稿 §3 逐字比对 0 差异、无需转义；fin-70 收尾按 Pre-flight 裁定；luac -p 通过。corpus 20 passed；check exit 0，消息 17211→17327，告警仍为基线 32、无 178xx/179xx；--show 17831 第 2 行「AI 助手账号一键登出了」」；17927/17888/17896 均 2 行无掰断。build_disc release lua,font,members：9 张新 gim 编码（无撞名/无对应成员报错），最大损耗 sel_fin2_sel_a_on MSE 11.72（阈 15）；字集重建含 U+0393/22A2/03C6（lxgw17 有字形）；pluto：snr_finale 24.7%（HEAD 版 21.4%；计划写的「现 18.1%」是旧口径），<35%。
 Task 4: note — 说话人名「女学生（寓言家 饰）」等 158 px，为全库最宽（此前最宽 ≦红背心的少女≧ 136 px）；名牌层 192×22、从 x=5 画，放得下；名牌底图视觉宽度留待 Task 6 截图目检。
+Task 4: complete (commits 1ce719a..e35d07f, tests: uv run pytest tests/test_layers_corpus.py -q → 20 passed in 2.16s)
+
+Task 5: 实施如计划（3a–3d、build_disc CLI＋mode_opts）。RED：finale_read TypeError（缺省测试本即通过，属回归护栏）；GREEN：test_testboot＋test_build_disc 47 passed。21 条 pytest 告警全部来自 test_build_disc 的量化测试（build_disc.py 用了 Pillow 弃用的 getdata），既有、与本改动无关。

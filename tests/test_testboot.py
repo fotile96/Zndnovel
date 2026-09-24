@@ -144,3 +144,22 @@ def test_movie_mode_defaults_to_op_like_the_real_call(out_dir):
 def test_movie_mode_rejects_unknown_movie(out_dir):
     with pytest.raises(SystemExit, match="op/ed"):
         generate("movie", out_dir, movie="xx")
+
+
+def test_finale_read_preset_lands_before_menu_and_scene_entry(out_dir):
+    """--finale-read：测试盘开机就把 systemSave.finaleReadFlag 置 true（布尔新键，不碰原有数字字段），
+    主菜单 encore 会出『声』选择画面、题名 logo 为中文；直入场景同样带上。"""
+    generate("mainmenu", out_dir, finale_read=True)
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+    assert "    systemSave.finaleReadFlag = true\n" in src
+    assert src.index("systemSave.finaleReadFlag = true") < src.index('run(cGetFileName("script", "snr_mainmenu"))')
+    generate("scene", out_dir, scene="fin-10", finale_read=True)
+    src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+    assert src.index("systemSave.finaleReadFlag = true") < src.index('doScriptScene = "fin-10"')
+
+
+def test_finale_read_preset_is_off_by_default(out_dir):
+    for mode, opts in (("mainmenu", {}), ("scene", {"scene": "fin-10"})):
+        generate(mode, out_dir, **opts)
+        src = (out_dir / "scripts" / "snr_test.lua").read_text(encoding="utf-8")
+        assert "finaleReadFlag" not in src

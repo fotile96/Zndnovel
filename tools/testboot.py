@@ -192,7 +192,7 @@ main = function()
     -- 「attempt to perform arithmetic on a boolean」当场卡死（日志表现为
     -- sceAudioOutputPannedBlocking channel not reserved 无限刷屏）。
     -- 何况这两个字段跟「解锁」无关，本就不该设。设置项交给 option 画面自己去改。
-    run(cGetFileName("script", "snr_mainmenu"))
+{preset}    run(cGetFileName("script", "snr_mainmenu"))
     quit()
 end
 '''
@@ -280,7 +280,7 @@ main = function()
     gameSave.tutorial.firstFragment = 1
     gameSave.ayanoTime = 0
     cInitStoryRoute()
-    doScriptScene = "{scene}"
+{preset}    doScriptScene = "{scene}"
     run(cGetFileName("script", "{script}"))
     quit()
 end
@@ -485,15 +485,17 @@ _MODES = ("font", "scene", "ruby", "card", "cutin", "mainmenu", "choices", "map"
 
 def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
                  hold: int = 180, no_cards: bool = False, movie: str = "op",
-                 skippable: bool = False) -> str:
+                 skippable: bool = False, finale_read: bool = False) -> str:
     """按模式渲染 `scripts/snr_test.lua` 的源码。原 main() 里的 if/elif 链搬到这里，
     返回值取代模块级变量；未知模式硬失败——没有 argparse 的 choices= 替它把关了。
     """
+    # --finale-read：预置「已读过谢幕第一个故事」（布尔新键，缺省 false；不碰 systemSave 原有数字字段）
+    preset = "    systemSave.finaleReadFlag = true\n" if finale_read else ""
     if mode == "mainmenu":
         print("[testboot] 全解锁主菜单（195 卡 + startMenuState=2 + 预置记忆路线）")
         # --no-cards：全卡不持有。全卡持有时 Story 一进就是「要跳过吗」对话框、Fragment 提示
         # 「没有可以制作梗概的故事」，两条时间轴都看不到（2026-09-07 实测）；看缩略图要用它。
-        return MAINMENU_TEMPLATE.format(route=story_route(), hold=-1 if no_cards else 1)
+        return MAINMENU_TEMPLATE.format(route=story_route(), hold=-1 if no_cards else 1, preset=preset)
     if mode == "choices":
         calls = scan_calls(DLG_CALL)
         pages = "".join(CHOICES_PAGE.format(tag=t, args=a, bg=CHOICE_BG)
@@ -542,7 +544,7 @@ def _render_mode(mode: str, *, scene: str = "s1s_20", card: int | None = None,
         return FONT_TEMPLATE.format(pages="\n".join(pages), hold=hold)
     if mode == "scene":
         return SCENE_TEMPLATE.format(scene=scene, script=scene_to_script(scene),
-                                     hold=-1 if no_cards else 1)
+                                     hold=-1 if no_cards else 1, preset=preset)
     if mode == "movie":
         # 第二参 = 可否按键跳过：真调用 OP（snr_crd_2）与 s7f 的 ED 是 false，s8f 的 ED 是 true
         if movie not in ("op", "ed"):
@@ -658,10 +660,12 @@ def main() -> None:
     ap.add_argument("--no-cards", action="store_true", help="scene 模式不预置全卡")
     ap.add_argument("--hold", type=int, default=180, help="font/cutin 模式每页停留帧数")
     ap.add_argument("--out", type=Path, default=OUT_DIR, help="层文件输出目录")
+    ap.add_argument("--finale-read", action="store_true",
+                    help="mainmenu/scene 模式预置 systemSave.finaleReadFlag = true（谢幕『声』选择画面、中文题名）")
     args = ap.parse_args()
 
     result = generate(args.mode, args.out, scene=args.scene, card=args.card,
-                      hold=args.hold, no_cards=args.no_cards)
+                      hold=args.hold, no_cards=args.no_cards, finale_read=args.finale_read)
     print(f"[testboot] 模式 {args.mode} -> {args.out}")
     for rel in result["scripts"] + result["overlays"]:
         print(f"[testboot]   {rel}")

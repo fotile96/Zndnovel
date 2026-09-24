@@ -29,3 +29,6 @@ Task 2: Ruling: bake_finale_voice 缺省输出目录走 `bake_out.out_dir(FACE)`
 Task 2: Ruling: 测试里两处 `Image.open(原图).convert("RGB")` 改为 `.convert("RGBA").convert("RGB")` — 原图是带 tRNS 的 P 图，直转触发 PIL UserWarning；RGB 值相同，断言强度不变 — cost if wrong: 无。
 Task 2: Ruling: 计划「layers.py check 零错误零告警」按「exit 0、错误 0、且本计划消息（17800–17999）不产生告警」执行 — 基线在任何改动之前就有 32 条告警（hang-deep 31、narrow-glyph 1，全在既有正文 snr_crd_*/snr_s1_10_s），与本计划无关；后续每次过闸核对告警数仍为 32 且无 178xx/179xx 条目 — cost if wrong: 若用户要求清零既有告警，那是另一项工作。
 Task 2: 目检 — eve_0_j「你的声音是——」居中（w=136）；六张拼成真实画面三帧（提示／选 1／选 2）：标题带「」、21 字标题墨迹在 8..472 内、副题居中；eve_0_k 脚注两端无竖缝无浅色块（4× 与 3× 对比度对照老烤法）。
+Task 2: complete (commits f795323..e4a3347, tests: uv run pytest tests/test_bake_finale_voice.py tests/test_bake_finale_event.py -q → 12 passed in 1.61s)
+
+Task 3: 编码 — at3p encode：增益 −5.2 dB（源 −15.8 LUFS、峰值 −3.9 dBFS → −21.0 LUFS、−9.1 dBFS，未限幅），loop_start 0、无 trim_end，196.63 s／4234 帧，产物 sha256 d34f0f61…bcaf；inspect ✓（ch=2 frame=744 S=0）；verify ncc 0.9988；prepared_wav＝build/sound/work/bgm_fin_2.44k.wav（T6 的 BGM_REF 路径与计划一致）。反证：清单 sha256 改错一位 → `[sound] … sha256 与清单不符`、check exit 1，已复原。check 告警仍为基线 32。

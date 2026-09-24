@@ -72,3 +72,12 @@ sha256        = "e47d45e857258bc6330363d7e42710fdfcb2f411ed97dce4931262e31f105f9
 loop_start    = 0.0                          # 秒（源 PCM 时基）；整曲循环——用户 2026-09-21 裁定回绕到 8bit 开头
 trim_end      = 196.0                        # 3:16 裁尾：3:16–3:18 数字静音后的 3 秒残段不要
 target_lufs   = -21.0                        # 源 −14.5 LUFS → 增益 −6.5 dB，峰值 −6.5 dBFS
+
+[[sound.tracks]]
+member        = "bgm/bgm_fin_2.at3"          # cGetFileName("bgm", "bgm_fin_2")：谢幕第二段 fin-80『全屏窗口』
+source        = "assets/audio/bgm_5_x_edit2.wav"  # 用户自供第二支 bgm_5_x remix（口哨配 8bit 鼓点，48 kHz 立体声 3:16.6），不入库
+source_sha256 = "ed9ae2e899cfbeb08e89f0f573e8178fe270c46a95b7d24fe85480b608941492"
+artifact      = "audio/bgm_fin_2.at3"        # layers/ 相对路径；发布字节的唯一真源，入库
+sha256        = "d34f0f61b605bfea56d538fb8ca87fbb2085a31ff1485c09cab901d57918bcaf"
+loop_start    = 0.0                          # 整曲循环——用户 2026-09-25 裁定不琢磨循环点
+target_lufs   = -21.0                        # 源 −15.8 LUFS → 增益 −5.2 dB，峰值 −9.1 dBFS；与 bgm_fin_1 同响度

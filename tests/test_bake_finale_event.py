@@ -48,3 +48,24 @@ def test_quantize_best_is_lossless_when_already_few_colours():
     q, _m, err = bfe.quantize_best(flat)
     assert err == 0
     assert set(c for _n, c in q.convert("RGB").getcolors(4)) == {(200, 30, 30), (30, 30, 200)}
+
+
+def test_jobs_cover_whale_and_three_girls_with_existing_sources():
+    """清单化后四张图一条不少、源图都在库里（1665×944 级，供图与 eve_74_z 同规格）。"""
+    names = [n for n, _s in bfe.JOBS]
+    assert names == ["eve_74_z", "eve_47_f", "eve_47_d", "eve_47_g"]
+    for _n, src in bfe.JOBS:
+        assert src.exists(), src
+        w, h = Image.open(src).size
+        assert abs(w / h - 480 / 272) < 1e-2, (src, w, h)
+
+
+def test_bake_writes_final_and_qa_under_out_root(tmp_path):
+    src = tmp_path / "x.src.png"
+    _gradient(1665, 944).save(src)
+    tpl = Image.open(bfe.TEMPLATE_PNG)
+    final, method, err = bfe.bake("x", src, tpl, out_root=tmp_path, asset_dir=None)
+    assert final.mode == "P" and final.size == (480, 272) and method in bfe.METHODS and err >= 0
+    assert (tmp_path / bfe.FACE / "x.png").exists()
+    assert (tmp_path / bfe.FACE / "_ab_x_2x.png").exists()       # 以 _ 开头，build_disc 不会当成员
+    assert [d.name for d in tmp_path.iterdir() if d.is_dir()] == [bfe.FACE]   # asset_dir=None 时只写 out_root/finale_event

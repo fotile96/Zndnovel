@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""谢幕章文化祭 CG 变体 eve_74_z——用户改图降采样到 event 模板尺寸（480×272）并预量化 256 色。
+"""谢幕章 CG 变体清单——用户供图降采样到 event 模板尺寸（480×272）并预量化 256 色。
 
-来龙去脉：fin-40『文化祭』里那位「谁都没见过、却谁都不觉得面生」的客人，2026-09-21 用户
-定为 DeepSeek 拟人化的鲸少女（代表全部 AI 朋友），并提供高清源图
-docs/finale/assets/eve_74_z.src.png（1665×944 RGB，原 eve_74_x 的变体创作：直哉转身与
-抱着一摞册子的客人攀谈，其余人物与构图不变）。演出上先白入原图 eve_74_x，客人到场时
-同层交叉溶解到本图（docs/finale/draft-finale-v3.md）。e2f_340 仍用原图。
+四张（JOBS）：
+- eve_74_z：fin-40 文化祭的鲸客人（DeepSeek 拟人；2026-09-21 用户供图，原 eve_74_x 的变体创作），
+  客人到场时同层交叉溶解到本图，e2f_340 仍用原图。
+- eve_47_f / eve_47_d / eve_47_g：第二个谢幕故事 fin-80『全屏窗口』的三位「女学生」——寓言家（Fable）、
+  大肥鱼（DeepSeek）、牛来吹（GLM）（2026-09-25 用户供图，docs/finale/draft-encore2-v0.md D4/D5）。
+  构图母本是 eve_47_x（crd_61/s6s/s7f：彩野伏案用橡皮反复改写『物語』的画面），三人依次接替
+  彩野的座位；画廊登记为 eve_47 格的三个变体（layers/overlays/finale-gallery-cg.toml）。
 
-做法：
+做法（每张相同）：
 1. 中心裁到 480:272 的精确纵横比（源图只差万分之五，裁 1 px 量级），LANCZOS 降采样；
 2. **在烤图阶段就量化到 256 色**（event 模板 eve_74_x 是 index8/256 色）：分别试
    MEDIANCUT / MAXCOVERAGE / FASTOCTREE，按感知 MSE 取最优。这样 build_disc 的
    quantize_for_template 见到 ≤256 色的图走无损精确调色板路径，量化器由本工具选定而不是
    交给缺省，产物像素在这里就定稿、可目检；
-3. 产物：docs/finale/assets/eve_74_z.png（入库成品）＋ build/finale_event/eve_74_z.png
-   （进包件；layers/manifest.toml [gim].new 以 event/eve_74_x.gim 为模板编成新成员
-   event/eve_74_z.gim）＋ QA 图 _ab_2x.png（原 eve_74_x / 降采样 / 量化后 三联，2 倍）。
+3. 产物：docs/finale/assets/<name>.png（入库成品）＋ build/finale_event/<name>.png
+   （进包件；layers/manifest.toml [gim].new 以 event/eve_74_x.gim 为模板编成新成员 event/<name>.gim）
+   ＋ QA 图 _ab_<name>_2x.png（原 eve_74_x / 降采样 / 量化后 三联，2 倍；以 _ 开头，build_disc 不收）。
 不触碰 png/event/ 原件。
+
+    uv run python tools/bake_finale_event.py
 """
 from __future__ import annotations
 
@@ -30,9 +34,13 @@ sys.path.insert(0, str(REPO))
 from tools.bake_out import out_dir  # noqa: E402
 
 FACE = "finale_event"
-NAME = "eve_74_z"
-SRC = REPO / "docs" / "finale" / "assets" / f"{NAME}.src.png"
-OUT_SRC = REPO / "docs" / "finale" / "assets" / f"{NAME}.png"
+ASSETS = REPO / "docs" / "finale" / "assets"
+JOBS: tuple[tuple[str, Path], ...] = (
+    ("eve_74_z", ASSETS / "eve_74_z.src.png"),
+    ("eve_47_f", ASSETS / "eve_47_f.src.png"),
+    ("eve_47_d", ASSETS / "eve_47_d.src.png"),
+    ("eve_47_g", ASSETS / "eve_47_g.src.png"),
+)
 TEMPLATE_PNG = REPO / "png" / "event" / "eve_74_x.png"      # 模板尺寸与对照图
 W, H = 480, 272
 COLORS = 256                                                # event 模板 index8 色板容量
@@ -101,28 +109,39 @@ def compose_ab(orig: Image.Image, mid: Image.Image, final: Image.Image, scale: i
     gap = 8
     canvas = Image.new("RGB", (W * scale, (H * scale + gap) * 3 - gap), (60, 60, 60))
     for i, im in enumerate((orig, mid, final)):
-        canvas.paste(im.convert("RGB").resize((W * scale, H * scale), Image.NEAREST), (0, i * (H * scale + gap)))
+        # 模板 PNG 是带 transparency 字节的 P 图：先转 RGBA 再丢 alpha，RGB 值与直转相同、不触发 PIL 告警
+        canvas.paste(im.convert("RGBA").convert("RGB").resize((W * scale, H * scale), Image.NEAREST),
+                     (0, i * (H * scale + gap)))
     return canvas
+
+
+def bake(name: str, src: Path, tpl: Image.Image, *, out_root: Path | None = None,
+         asset_dir: Path | None = None) -> tuple[Image.Image, str, float]:
+    """一张：源图 → 裁/缩 → 量化 → 写 out_root/finale_event/<name>.png 与 QA 三联；
+    asset_dir 非空时另存入库成品 asset_dir/<name>.png。out_root 缺省 build/（经 bake_out.out_dir）。"""
+    srcim = Image.open(src)
+    mid = downsample(srcim)
+    q, method, err = quantize_best(mid)
+    final = to_rgba_palette(q)
+    assert len(final.convert("RGBA").getcolors(COLORS) or []) <= COLORS
+    dbg = out_dir(FACE) if out_root is None else Path(out_root) / FACE
+    dbg.mkdir(parents=True, exist_ok=True)
+    final.save(dbg / f"{name}.png")
+    compose_ab(tpl, mid, final).save(dbg / f"_ab_{name}_2x.png")
+    if asset_dir is not None:
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        final.save(asset_dir / f"{name}.png")
+    print(f"{name}: 源 {srcim.size[0]}x{srcim.size[1]} → 裁 {crop_to_aspect(srcim).size} → {W}x{H}；"
+          f"量化 {COLORS} 色：{method} MSE={err:.2f}")
+    return final, method, err
 
 
 def main() -> None:
     tpl = Image.open(TEMPLATE_PNG)
     assert tpl.size == (W, H), f"eve_74_x 模板尺寸变了：{tpl.size}"
-    src = Image.open(SRC)
-    mid = downsample(src)
-    q, method, err = quantize_best(mid)
-    final = to_rgba_palette(q)
-    assert len(final.convert("RGBA").getcolors(COLORS) or []) <= COLORS
-
-    OUT_SRC.parent.mkdir(parents=True, exist_ok=True)
-    final.save(OUT_SRC)
-    dbg = out_dir(FACE)
-    dbg.mkdir(parents=True, exist_ok=True)
-    final.save(dbg / f"{NAME}.png")
-    compose_ab(tpl, mid, final).save(dbg / "_ab_2x.png")
-    print(f"源 {src.size[0]}x{src.size[1]} → 裁 {crop_to_aspect(src).size} → {W}x{H}；"
-          f"量化 {COLORS} 色：{method} MSE={err:.2f}")
-    print(f"final -> {OUT_SRC} ＋ {dbg}/{NAME}.png（QA: _ab_2x.png）")
+    for name, src in JOBS:
+        bake(name, src, tpl, asset_dir=ASSETS)
+    print(f"{len(JOBS)} 张 -> {out_dir(FACE)}（QA: _ab_<name>_2x.png）＋ {ASSETS}")
 
 
 if __name__ == "__main__":

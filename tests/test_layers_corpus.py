@@ -326,7 +326,7 @@ def test_boot_dedication_member_is_registered_with_ipl01_as_template(manifest):
 
 def test_second_story_is_wired(manifest):
     """谢幕第二段『远方的朋友』（docs/finale/draft-encore2-v0.md）：入口只读旗标、四个场景可分发、
-    资产登记齐、读完不写系统数据、直入 fin-80 自给、纸箱特写撤干净、画廊四变体。"""
+    资产登记齐、读完不动旗标但落盘画廊/已读（autoSystemSave）、直入 fin-80 自给、纸箱特写撤干净、画廊四变体。"""
     import re
     sources, _, _ = build_final_sources("release")
     fin = sources["snr_finale.lua"]
@@ -342,9 +342,16 @@ def test_second_story_is_wired(manifest):
         assert f'cGetFileName("event", "{name}")' in fin, name
     assert 'cGetFileName("cutin", "cut_62")' in fin
     assert 'cGetFileName("bgm", "bgm_fin_2")' in fin
-    # 第二个故事读完不置旗标、不写系统数据：两句都只在 fin-50 出现一次
+    # 旗标只在 fin-50 置一次；第二个故事读完不动旗标，但要 autoSystemSave(0) 把 fin-80 置位的画廊 cgFlag
+    # （eve_47_f/_d/_g）与已读标记落盘——否则要等下次存档/改设置才写，关机即丢（D5「读过才可见」）
     assert code.count("systemSave.finaleReadFlag = true") == 1
-    assert code.count("autoSystemSave(0)") == 1
+    assert code.count("autoSystemSave(0)") == 2
+    branch90 = re.search(r'elseif doScriptScene == "fin-90" then\n(.*?)\n        elseif|'
+                         r'elseif doScriptScene == "fin-90" then\n(.*?)\n        end', fin, re.S)
+    body90 = next(g for g in branch90.groups() if g is not None)
+    assert body90.index("scene_fin_90(") < body90.index("autoSystemSave(0)") < body90.index('doScriptScene = "end"')
+    assert not any("finaleReadFlag" in l for l in body90.splitlines()
+                   if not l.lstrip().startswith("--"))                # 注释外不碰旗标
     # BGM 在 fin-70 末「全屏窗口跳了出来」的白闪同一拍起播（spec D7），先于白场
     body70 = fin[fin.index("scene_fin_70 = function"):fin.index("scene_fin_80 = function")]
     bgm_at = body70.index('cPlayBGMWrap(cGetFileName("bgm", "bgm_fin_2"))')

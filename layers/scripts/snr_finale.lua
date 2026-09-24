@@ -3,7 +3,8 @@
 --   读过第一个故事（systemSave.finaleReadFlag）之后再点 encore，先出序章同款『声』选择画面（finChooseStory），
 --   选二进 fin-60。vms 17800–17999（fin-60 17800–17804、fin-70 17820–17855、fin-80 17856–17858 与 17880–17949、
 --   fin-90 17960–17961）。新成员：event/eve_0_j、eve_0_k、select/sel_fin1/2_sel_a_{on,off}（tools/bake_finale_voice.py）、
---   event/eve_47_f/_d/_g（tools/bake_finale_event.py）、bgm/bgm_fin_2（[sound]）。读完不置旗标、不写系统数据。
+--   event/eve_47_f/_d/_g（tools/bake_finale_event.py）、bgm/bgm_fin_2（[sound]）。读完不置旗标，只 autoSystemSave(0)
+--   落盘画廊 cgFlag 与已读标记。
 -- 文稿：docs/finale/draft-finale-v2.md（fin-0/10/20/30/50 底稿）＋ draft-finale-v3.md（2026-09-21 改稿：
 --       fin-35 千秋转述七张卡、fin-40 鲸客人 CG 与文化祭段全文、fin-50 增补、新 BGM）；
 --       演出设计：docs/finale/stage-design-v1.md；
@@ -846,7 +847,7 @@ scene_fin_80 = function(scene_id, scene_title)
     v0()
 end
 
--- ── 场景 9『模拟器』——收束：回到房间，两句，回主菜单。不置任何旗标、不写系统数据。
+-- ── 场景 9『模拟器』——收束：回到房间，两句，回主菜单。不置任何旗标（系统数据落盘在 main() 的 fin-90 分支）。
 scene_fin_90 = function(scene_id, scene_title)
     local v0
     v0 = function()
@@ -908,7 +909,7 @@ main = function()
             autoSystemSave(0)
             doScriptScene = "end"
         elseif doScriptScene == "fin-60" then
-            -- 第二个故事『远方的朋友』（docs/finale/draft-encore2-v0.md）；读完不置旗标、不写系统数据
+            -- 第二个故事『远方的朋友』（docs/finale/draft-encore2-v0.md）；读完不置旗标（见 fin-90 分支）
             scene_fin_60(doScriptScene, "还笔")
             doScriptScene = "fin-70"
         elseif doScriptScene == "fin-70" then
@@ -919,6 +920,9 @@ main = function()
             doScriptScene = "fin-90"
         elseif doScriptScene == "fin-90" then
             scene_fin_90(doScriptScene, "模拟器")
+            -- 读完第二个故事：旗标不动，只把 fin-80 置位的画廊 cgFlag（eve_47_f/_d/_g）与已读标记写进系统数据
+            -- （fin-50 / e2f-complete 同款 autoSystemSave(0)）。不写的话要等下次存档或改设置才落盘，关机即丢
+            autoSystemSave(0)
             doScriptScene = "end"
         end
         wait(5)

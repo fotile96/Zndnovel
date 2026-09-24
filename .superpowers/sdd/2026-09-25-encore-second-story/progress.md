@@ -53,3 +53,25 @@ Task 7: 全量 pytest 首跑 1 failed / 2040 passed：test_font_advances::test_c
 Task 7: Ruling: 步进表更正后窄字形规则对 17927 报「['Γ','φ'] 会挤在一起」，处理为收窄规则——字母类（unicodedata category L*：希腊/西里尔/带附加符号的拉丁）不报，只报窄符号/标点（× “” · …）；新增 `test_narrow_glyph_skips_letters_they_are_proportional_like_latin`（先红后绿，且钉住 Γ×φ 里的 × 照报）— 实拍 p051 里按比例宽排的「Γ⊢φ」读作一个紧凑公式，模拟撑成 17 px 格则散成「Γ ⊢ φ」；字母按比例宽与 ASCII 拉丁同理（é 等多字节拉丁同样会被旧规则误报），不改用户定稿文字；全库告警回到基线 32（narrow-glyph 仍只有 s1s 7596 的 ×）— cost if wrong: 将来正文若出现本该全宽的字母类字符（极少见）不再被此规则提示。
 Task 7: release 出盘（缺省 --stage all）exit 0：stage 覆盖 809、新增 23 成员；发布断言①–⑤全过（SOUND.BIN 101 成员、原成员未动）；game_zh.iso 649992192 B、game_zh_ios.iso 652181504 B 同出。release_iso 冒烟：三帧均为初始形态标题（Prologue/load/option），ERROR 1（ILLEGAL_THID）；题名为中文是因为本机模拟器系统数据带旗标（见 Task 6）。模拟器 SAVEDATA 指纹仍为跑前原值（GAME00 a9ad1d6f…、SYSTEM ac3ab73c…）。
 Task 7: 文档 — CLAUDE.md 谢幕章条目追加第二个故事子段（含 BGM 落位、Γφ 排法、finale_choice 的系统数据注意事项）；disc-pipeline.md id 段落补 17600–17799、17800–17999；工作稿题注改「已落地」并追加落地记录。
+Task 7: complete (commits 73f8cec..dac1d34, tests: uv run pytest -q → 2042 passed, 5 skipped, 2317 warnings in 425.75s (0:07:05))
+
+Final: review — fresh reviewer（model fable，general-purpose，只读）评审 2f6da56..dac1d34：Critical 0、Important 1、Minor 7；Ready to merge: With fixes。对全部 Setup/Pre-flight/Task Ruling 表示同意（Task 7 窄字形规则方向同意、判据建议收窄）。
+Final: re-grade — Important 1（第二个故事读完不写系统数据 → eve_47_f/d/g 的画廊 cgFlag 只在内存，关机即丢）维持 Important：玩家看得见的缺失，且与第一个故事（fin-50 的 autoSystemSave 顺带落盘 eve_74_z）不一致；spec D8 只要求「不置任何旗标」，「不写系统数据」是计划 Review Focus #3 自行扩大的，与 D5「画廊登记…读过才可见」冲突 → 进修复轮。
+Final: minor (deferred): spec §2/§3 把 17856–17858 排在 fin-70 段，实现（按计划）放在 fin-80 白入之后——应把工作稿段落归属改成 fin-80。
+Final: minor (deferred): fin-70 五处 SE（se_131/se_66/se_92/se_96/se_102）按全库语境选定，未按 spec §2 用 se_probe.py「听定」，台账无听音证据——需人耳试听（se_probe 只能证明起播时刻）。
+Final: minor (deferred): spec §6.4 画廊四变体未在模拟器里进画廊截图验证（叠加层断言＋eve_46 同型既有路径兜底）。
+Final: minor (deferred): msg_layout_check 窄字形豁免判据 category L* 过宽——连 CJK 表意/假名/全角拉丁（W/F 宽）一并放行，今天无实害（adv<17 的字母类 83 个全是 Na/A/N 宽）；建议改 `unicodedata.east_asian_width(ch) in ("W","F")` 照报。
+Final: minor (deferred): bake_event_voice._toned_patch 拟合分母无零保护（环带内某通道恒定时 ZeroDivisionError；真实 CG 不触发）。
+Final: minor (deferred): 驾驶脚本重复常量——SYSTEM_SAVE 在 finale_choice.py/title_logo.py 各一份，cursor_index/BANDS/ORDER 与 finale_full.py 重复，宜上提 _common.py。
+Final: minor (deferred): 计划文本自身——「零错误零告警」未核基线（改前已 32 条）、Task 4 的 count 断言会误计注释行；两处执行时已裁定，属写计划时的经验。
+Final: Ruling: [declined] 116 条用户执笔文本的文学质量 — 用户原稿，逐字一致即可，不在评审/执行权限内 — cost if wrong: 无。
+Final: Ruling: [declined] commit 署名 Opus 5.5 — 如实署名 — cost if wrong: 无。
+Final: Ruling: [declined] 工作树他人未提交改动 — 不属本计划，一律未碰 — cost if wrong: 无。
+Final: Ruling: [declined] bgm_fin_2 主观听感／−21 LUFS／整曲循环 — 用户已裁定不琢磨循环点，bgm_probe 回绕实证通过 — cost if wrong: 用户试听后调响度或裁点。
+Final: Ruling: [declined] 评审者未重跑驾驶、采信台账截图证据 — 驾驶会写模拟器存档，只读评审不该跑；证据帧在 build/emu/drives/ 可复看 — cost if wrong: 无。
+Final: Ruling: [declined] 实机／iOS 变体盘表现 — 本机无法验证，须用户实机试 — cost if wrong: 实机上才暴露的问题（如 PSP 实机名牌/字形）要回炉。
+Final: Ruling: [declined] 既有 32 条告警 — 改动前基线，与本计划无关 — cost if wrong: 无。
+Final: Ruling: [declined] analysis/ 未重生成 — 该规约针对 lua_scripts/ 基座，编外脚本从不入 digest — cost if wrong: 无。
+Final: Ruling: [declined] 九张新图的美术逐张复核 — 台账有 MSE 与 2×/3×/4× 目检记录 — cost if wrong: 用户目检发现瑕疵再回烤。
+Final: fixed 第二个故事解锁的画廊 cgFlag 不落盘（Important 1）— main() 的 fin-90 分支在 scene_fin_90 之后加 `autoSystemSave(0)`（旗标不动；fin-50 同款）；test_second_story_is_wired 改为钉「autoSystemSave(0) 共 2 处、fin-90 分支内 scene_fin_90 → autoSystemSave(0) → end 的顺序、分支内不碰旗标」RED(1≠2)→GREEN；运行时：修复前 fin-80 直入跑完系统数据指纹不变（ac3ab73c…，Task 6 pick2 开跑前的备份即其状态），修复后同流程跑完指纹变为 c131364f…（07:05 写入）、正常回主菜单无对话框卡住、ERROR 2（ILLEGAL_THID）；随后从 build/emu/_savedata_backup_t6 恢复模拟器两份存档并核指纹；check exit 0 告警仍 32；suite 2042/2042 passed（5 skipped）。
+Final: Ruling: 按 Important 1 修复时偏离了计划 Review Focus #3「第二个故事读完…不得写系统数据」— spec D8 只写「不置任何旗标」，计划把它扩成「不写系统数据」，与 D5「画廊登记…读过才可见」冲突；写盘不改旗标值、只落盘既有 cgFlag 机制与已读标记，D8 已补记 — cost if wrong: 读完第二个故事会多一次系统数据自动存档（与第一个故事一致）；若用户不要，删 main() 一行并把测试计数改回 1。

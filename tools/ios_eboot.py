@@ -5,12 +5,14 @@
   E2 洞（sceGumLookAt 0x624C8，零引用死代码）里写加载例程：bal 取 PC、addiu 算导入桩地址 jalr，
      依次 sceKernelLoadModule/StartModule disc0:/PSP_GAME/USRDIR/module/{mp4msv,libmp4}.prx；
      sub_B444 里 0xB470 的 jal sceUtilityLoadModule(0x308) 改指向这里；洞内被新代码覆盖的 HI16/LO16
-     两个重定位条目（表项文件偏移 0x84188、0x84198）改 R_MIPS_NONE。
+     两个重定位条目（表项文件偏移 0x84188、0x84198）改 R_MIPS_NONE，与它们共用那个 LO16 的死代码 HI16
+     （0x62B74，表项 0x84190）一并改 NONE——否则它成了悬空 HI16（见 RELOC_NONE 注释）。
   E3 sceMpegCreate 条件包装（0x6262C）：$a6（DecTopAddr）== 0x10000000（1.20.x HLE 伪值）才把 ringbuffer
      设为 mpeg 工作区 +0x7000；0xB4F4 的 jal 改指向它。
   E4 sceMpegAvcDecode 保 pts 包装（0x625D8）：存/恢复 AU 前 8 字节；0xEA94 的 jal 改指向它。
 依据与实测：docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」。代码逐条移植自实测通过的实验盘
-（build/movie_debug/iosdisc），洞区与四处改动与之逐字节相同（tests/test_ios_eboot.py 另核重定位）。
+（build/movie_debug/iosdisc），洞区与四处改动与之逐字节相同；重定位表比实验盘多 NONE 一条（0x84190，
+悬空 HI16，2026-09-24 产品化驾驶时发现）。tests/test_ios_eboot.py 另核重定位。
 
 用法：uv run python tools/ios_eboot.py      # 写 layers/eboot/ios-movie.toml
 """
@@ -31,7 +33,11 @@ CAVE, WRAP_AVC, WRAP_CREATE = 0x624C8, 0x625D8, 0x6262C
 STUB_LOAD, STUB_START, STUB_AVCDEC, STUB_CREATE = 0x65170, 0x65160, 0x65520, 0x65578
 CALLS = {0xB470: CAVE, 0xB4F4: WRAP_CREATE, 0xEA94: WRAP_AVC}
 CALL_OLD = {0xB470: 0x65230, 0xB4F4: STUB_CREATE, 0xEA94: STUB_AVCDEC}   # 0x65230 = sceUtilityLoadModule 桩
-RELOC_NONE = (0x84188, 0x84198)            # r_offset 0x62570（HI16）/0x62574（LO16）
+# 原表是 [HI16 0x62570, HI16 0x62B74, LO16 0x62574]：两个 HI16 共用一个 LO16。洞覆盖了 0x62570/0x62574，
+# 这两条必须 NONE（否则装载器往新指令里加基址，实测砸过 lw 偏移）；0x62B74 在 sceGumLookAt 死代码里，
+# 它的 LO16 一 NONE 就成了悬空 HI16——PPSSPP 记 ERROR 后拿后面别的 LO16 凑进位，实机装载器行为未知，
+# 现行盘一个悬空 HI16 都没有，这里也不留：一并 NONE（死代码字不重定位，无害）。
+RELOC_NONE = (0x84188, 0x84190, 0x84198)   # r_offset 0x62570（HI16）/0x62B74（HI16）/0x62574（LO16）
 IMPORT_NAME_VA = 0x657D0
 PATHS = (b"disc0:/PSP_GAME/USRDIR/module/mp4msv.prx\0", b"disc0:/PSP_GAME/USRDIR/module/libmp4.prx\0")
 
@@ -117,8 +123,9 @@ def _hex(b: bytes) -> str:
 
 WHY = """iOS 变体（仅推荐 iOS 商店版 PPSSPP 1.20.x）播放 OP/ED：配合 tools/ios_fwmod.py 改过库名的固件
 libmp4/mp4msv（EBOOT 自行从盘上加载）与 tools/ios_movie.py 的 44.1k 影片。E1 导入改名、E2 洞内加载例程
-（sceGumLookAt 死代码，洞内两个 HI16/LO16 条目改 NONE）、E3 sceMpegCreate 条件假 ringbuffer（仅 1.20.x
-HLE 的 DecTopAddr 伪值 0x10000000 生效）、E4 sceMpegAvcDecode 保 pts。只在 build_disc.py --ios 施加。
+（sceGumLookAt 死代码；洞内 HI16/LO16 及共用该 LO16 的死代码 HI16 共三条重定位改 NONE）、E3 sceMpegCreate
+条件假 ringbuffer（仅 1.20.x HLE 的 DecTopAddr 伪值 0x10000000 生效）、E4 sceMpegAvcDecode 保 pts。
+只在 build_disc.py --ios 施加。
 生成器 tools/ios_eboot.py；依据 docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」。"""
 
 
@@ -143,7 +150,7 @@ def render_layer(pristine: bytes) -> str:
     for fo in RELOC_NONE:
         entry = pristine[fo:fo + 8]
         assert entry[4] in (5, 6), f"表项 {fo:#x} 不是 HI16/LO16"
-        patch("off", fo, entry, entry[:4] + b"\0" + entry[5:], "洞内被覆盖字的重定位条目 → R_MIPS_NONE")
+        patch("off", fo, entry, entry[:4] + b"\0" + entry[5:], "洞内被覆盖字（及共用其 LO16 的死代码 HI16）的重定位条目 → R_MIPS_NONE")
     return "".join(parts)
 
 

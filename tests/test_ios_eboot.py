@@ -53,3 +53,22 @@ def test_ios_build_neutralizes_every_reloc_in_used_cave_and_keeps_call_relocs():
         w = struct.unpack_from("<I", out, site + 0xC0)[0]
         assert w == 0x0C000000 | (target >> 2)
     assert out[ie.IMPORT_NAME_VA + 0xC0: ie.IMPORT_NAME_VA + 0xC0 + 7] == b"zndMp4\0"
+
+
+@needs_src
+def test_ios_build_leaves_no_hi16_without_its_lo16():
+    """洞内 LO16（0x62574）改 NONE 后，与它共用的死代码 HI16（0x62B74）若还留着，就成了没有配对 LO16 的
+    悬空 HI16：PPSSPP 记 ERROR 并拿后面别的 LO16 凑数，实机装载器行为未知。现行盘一个都没有，iOS 盘也不许有。"""
+    m = layers.load_manifest()["eboot"]
+    out, _ = ep.apply(SRC.read_bytes(), ep.load_layers(m["order"], profile="release", ios=True))
+    rs = list(_relocs(out))
+    dangling = []
+    for i, (fo, r_off, typ) in enumerate(rs):
+        if typ != 5:
+            continue
+        j = i + 1
+        while j < len(rs) and rs[j][2] == 5:
+            j += 1
+        if j >= len(rs) or rs[j][2] != 6:
+            dangling.append(hex(r_off))
+    assert dangling == []

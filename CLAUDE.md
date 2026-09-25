@@ -213,6 +213,8 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
    - ~~`novel/` 993 张~~ ❌ **已出本项目范围**（用户 2026-08-30 裁定，不烤、不立项）。玩家侧说明已就位（2026-09-21）：章节 1 读完的原作 novel 介绍之后接八条【■汉化说明】、文库入口一次性两条（`layers/overlays/novel-notice-{s1f,entry}.toml`，vms 17500–17511，守卫键 `systemSave.novelNoticeSeen`；docs/ops/novel-notice-2026-09-21.md）。存档记录：5 本竖排小说整页渲染，**存储时顺时针旋转 90°**（PSP 横持阅读），novel05 长达 452 页。作为剧情参考读图时仍需先旋转（见「常用操作」）。
    - `music/` `graphic/` 画廊框文字；`bg/` 少量含字（黑板板书等）；`event/` CG 个别含字。
 3. **音频**（不在本仓库）：voice/*.at3 按 ID 对应 vms；无字幕外文本。
+4. **影片**：OP（`movie/op.mp4`）已换成用户压制的中文字幕版（歌词原文＋译文，文字卡「「…うそ。」」配译；2026-09-26，
+   `[[movies]]`，素材 `assets/movie/op_zh.mp4` 不入库），两张盘都用；ED 仍是原片（iOS 盘为 44.1k 重采样）。
 
 ## 剧情 DAG 组装规则（给翻译工具）
 
@@ -238,7 +240,9 @@ pyproject.toml + uv.lock                      uv 项目定义（Python ≥3.12�
   `tools/eboot_patch.py`；研究/改引擎的完整走法与陷阱见 `docs/ops/eboot-hacking-runbook.md`）；
   新增音频 → `tools/at3p.py encode` 产 `layers/audio/<名>.at3` + `manifest.toml` 的 `[[sound.tracks]]`
   登记（成员名/两侧 sha256/循环起点/裁尾/响度；原 99 成员不改不撞名），`build_disc` 的 `sound`
-  阶段装进 SOUND.BIN，`tools/emu/drives/bgm_probe.py` 听回绕；永远不要手改 `lua_scripts/`。
+  阶段装进 SOUND.BIN，`tools/emu/drives/bgm_probe.py` 听回绕；替换影片（如中文字幕版 OP）→ 成片放
+  `assets/movie/`（不入库）+ `manifest.toml` 的 `[[movies]]` 登记 sha256/why，两张盘都用、音轨须 44.1k、编码对齐原片
+  PSP 参数（无 B 帧、weightp=0 等，见 `docs/ops/disc-pipeline.md`）；永远不要手改 `lua_scripts/`。
   加层后先 `tools/layers.py check` 过闸再出盘，完整走查见 `docs/ops/disc-pipeline.md`。
 - **analysis/ 同步**：改动 lua 的 commit 必须同时重跑 `tools/extract_*.py` 并包含产物更新，保证 analysis/ 永远可信。
 - **分支（轻量制）**：主分支 `main`，日常改动（工具代码/文档/analysis 再生成/翻译数据积累）直接提交。三类操作强制开分支：①改写 lua_scripts//png/ 原件 ②大规模批量替换/迁移 ③实验性重构或 prompt 策略试验。命名 `feat/` `fix/` `data/` `exp/`，验证后 merge 即删分支。

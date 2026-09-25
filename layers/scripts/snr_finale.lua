@@ -640,8 +640,8 @@ end
 -- ── 场景 7『储藏间』——儿子这一层。写手层带背景（用户 2026-09-25 裁定不用黑屏）：
 -- 通学路 bg_20_a_0 → 彩野的房间 bg_25_a_0（空调间）→ 储藏室段不换背景：纸箱特写 cutin/cut_62 直接盖在房间上
 -- （s5f_80 同款语法；用户 2026-09-25 实机复看后更正：不引入换鞋处 bg_18_a_0）→ 撤特写回房间接笔记本 → 全屏窗口跳出（se_102 + 白场）。
--- SE 依据（全库脚本语境）：se_131＝电话呼び出し音（e2s「もしもし」「何回鳴らせば」旁）、
--- se_66＝家里的拖鞋声/冲出去（s1f 妈妈折返、s2s 冲出教室）、se_92＝「よいしょっと」搬箱（e2s 彩野母、s5f 由加里）、
+-- SE 依据（全库脚本语境＋包络分析，2026-09-26）：se_133＝座机呼び出し音、se_131＝拿起听筒的咔哒（e2s「もしもし」旁）、
+-- se_66＝家里的拖鞋声/冲出去（s1f 妈妈折返、s2s 冲出教室）、se_101＝翻纸（s5f 纸箱里翻到信）、
 -- se_96＝敲键盘（e2s_20_3 老教师打电脑）、se_102＝提示音（s2f『新しい物語が届きました』、序章『声』选项出现）。
 scene_fin_70 = function(scene_id, scene_title)
     local v0
@@ -661,9 +661,13 @@ scene_fin_70 = function(scene_id, scene_title)
     vms(17822, "NONVOICE", "得在空调间里赶 ddl。")
     vms(17823, "NONVOICE", "和人不人挨不挨的 reviewer 搏斗。")
     vms(17824, "NONVOICE", "……")
-    -- 来电
+    -- 来电：se_133 是座机呼び出し音（400 Hz、16 Hz 调制的プルルル，e2s 每通电话开头；6 s），响两秒后
+    -- se_131 拿起听筒的咔哒（0.3 s 轻响；载入 0 号槽即顶掉铃声），再进妈妈的话。
+    -- 首版只放 se_131，用户实机听不到「铃声」——它本来就不是铃声。
+    cLoadPlaySE(cGetFileName("se", "se_133"), false)
+    wait(120)
     cLoadPlaySE(cGetFileName("se", "se_131"), false)
-    wait(60)
+    wait(30)
     vms(17825, "NONVOICE", "【≦妈妈≧】「——小肥，爸比来电话——让你去储藏间把他的、PSP？……找出来」")
     vms(17826, "NONVOICE", "【≦妈妈≧】「叫个顺丰寄到酒店」")
     vms(17827, "NONVOICE", "【≦妈妈≧】「——好像要和群友聚会的时候吹逼，嘻嘻」")
@@ -684,9 +688,11 @@ scene_fin_70 = function(scene_id, scene_title)
     layerLoad(layerName.pose3, cGetFileName("cutin", "cut_62"))
     switchScreen(0, "", 60)
     wait(60)
-    cLoadPlaySE(cGetFileName("se", "se_92"), false)
+    -- 翻找：se_101 翻纸（s5f 直哉在纸箱里翻到信那一下同款；特写画的正是一箱信）。首版用 se_92
+    -- 「よいしょっと」放箱的闷响，基频约 105 Hz，小喇叭上听不见。
+    cLoadPlaySE(cGetFileName("se", "se_101"), false)
     vms(17836, "NONVOICE", "……")
-    cLoadPlaySE(cGetFileName("se", "se_92"), false)
+    cLoadPlaySE(cGetFileName("se", "se_101"), false)
     vms(17837, "NONVOICE", "……")
     vms(17838, "NONVOICE", "找到了。白色钢琴烤漆的外壳，比两只手一起摊开的宽度短一点。")
     vms(17839, "NONVOICE", "原来是长这个样子的啊。")
@@ -766,7 +772,7 @@ scene_fin_80 = function(scene_id, scene_title)
     vms(17900, "NONVOICE", "【男学生】「最后，她说，尽管她（和一众主流 LLM）的 1M 输入窗口足够装下整部原文，」")
     vms(17901, "NONVOICE", "【男学生】「输出窗口是不足以一次性输出全部译文的，也一定会遇到严重的注意力涣散问题」")
     vms(17902, "NONVOICE", "【男学生】「所以还是建议把线序化的剧情文本分成若干 batch，每段带上足够的额外上下文，」")
-    vms(17903, "NONVOICE", "【男学生】「然后做 subagent 派发，让我们分段完成翻译以及各种后处理」")
+    vms(17903, "NONVOICE", "【男学生】「然后做 subagent 派发来分段完成翻译以及各种后处理」")
     vms(17904, "NONVOICE", "【男学生】「『这么一想，我们简直就像故事里的彩野一样呢。』」")
     vms(17905, "NONVOICE", "【男学生】「稍有 LLM 使用经验的人都知道，这是一个很显然的技术判断」")
     vms(17906, "NONVOICE", "【男学生】「但她的最后一句话在那一刻完全地击穿了我」")

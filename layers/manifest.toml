@@ -55,6 +55,19 @@ modules    = ["mp4msv.prx", "libmp4.prx"]       # tools/ios_fwmod.py 产物（�
 [ios.movies]                                     # tools/ios_movie.py 产物指纹（FFmpeg 9.0.1，bitexact）
 "op.mp4" = "01ce192fbc40cc93e8d691d39a83f5d5c1f756d1822cf37847c800635fc161cb"
 "ed.mp4" = "be97c0d1708aaf57b1c3a1cc6409c523f687f5c32ce3408e2591d239a89a7446"
+# ↑ [[movies]] 已换成用户素材的成员（现为 op.mp4）不再从原片重采样，对应指纹闲置；撤掉该条登记即自动退回。
+
+[[movies]]
+# 盘内 /PSP_GAME/USRDIR/movie/ 成员换成用户压制的影片——两张盘（game_zh.iso 与 game_zh_ios.iso）都用；因为也进 iOS 盘，
+# 音轨必须是 44.1k（闸 layers._check_movies 与出盘阶段都核）。素材是原盘影片的衍生物：放 assets/movie/（版权物不入库），
+# sha256 钉在这里；换素材 = 换文件 + 改 sha256。
+member = "op.mp4"
+source = "assets/movie/op_zh.mp4"
+sha256 = "4da553b21056d44fa4307e30311b6873ab7c13735650aeebb8c5aecdc88c90e3"
+why    = """中文字幕版 OP（歌词原文 + 译文；文字卡「「…うそ。」」配译）：用户 2026-09-26 交付的 op_v3_44100.mp4 第三版（第二版基础上
+调整字幕描边）。按原片 PSP 参数重压（x264 Main L2.1、ref=3、无 B 帧、weightp=0、VBV 2000k/2000k），480×272 SAR 161:160、
+29.97、6085 帧，音轨 AAC-LC 44.1k 立体声；画面逐帧、音频零偏移对齐原片。第二版（与本版只差字幕描边、音轨逐包相同）
+在 iOS 目录盘上驾驶 PPSSPP 1.20.4 与最新 master 均 PASS；本版按用户意见未再驾驶。"""
 
 [sound]
 # 新增曲目进 SOUND.BIN（pack 容器，原 99 成员逐字节不动，新成员按名有序插入；引擎只吃带 smpl 的 AT3+，

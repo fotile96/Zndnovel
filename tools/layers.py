@@ -120,7 +120,9 @@ LAYERS = REPO / "layers"
 PROFILES = ("release", "test")
 CARD_MSG_RESERVED = range(18001, 18196)   # oCard.show 动态 id = 18000 + 卡号（卡 1..195）
 
-_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot", "sound", "ios"}
+_MANIFEST_KEYS = {"base", "lane", "compiler", "overlays", "scripts", "gim", "fonts", "eboot", "sound", "ios",
+                  "movies"}
+MOVIE_MEMBERS = ("op.mp4", "ed.mp4")      # 盘内 /PSP_GAME/USRDIR/movie/ 下仅有的两部影片
 _OVERLAY_KEYS = {"target", "profile", "why", "switch", "ops"}
 
 
@@ -194,7 +196,23 @@ def load_manifest(root: Path = LAYERS) -> dict:
             if missing:
                 raise OverlayError(f"manifest.toml [[sound.tracks]] {t.get('member')} 缺 {sorted(missing)}")
     man.setdefault("sound", None)
+    man.setdefault("movies", [])
+    _validate_movies(man["movies"])
     return man
+
+
+def _validate_movies(entries: list[dict]) -> None:
+    """[[movies]] 的结构校验（不碰文件）：键齐全、成员只能是盘上已有的两部影片、不重复登记。"""
+    seen = set()
+    for e in entries:
+        missing = {"member", "source", "sha256", "why"} - set(e)
+        if missing:
+            raise OverlayError(f"manifest.toml [[movies]] {e.get('member')} 缺 {sorted(missing)}")
+        if e["member"] not in MOVIE_MEMBERS:
+            raise OverlayError(f"[[movies]] 成员 {e['member']!r} 不对——只能替换盘上已有的 {MOVIE_MEMBERS}")
+        if e["member"] in seen:
+            raise OverlayError(f"[[movies]] {e['member']} 登记了两次")
+        seen.add(e["member"])
 
 
 def overlays_for(manifest: dict, root: Path, profile: str, switches: dict) -> list[dict]:
@@ -425,6 +443,8 @@ def provenance(profile: str, manifest: dict, root: Path, applied: list[dict],
     # 但改的正是「哪些 lua 字节被编译进盘」，漏了它两次不同基座的构建会指纹撞车。
     base_dir = manifest["base"]["dir"]
     inputs[base_dir] = _tree_sha256(REPO / base_dir)
+    for e in manifest.get("movies") or []:              # [[movies]] 素材在 assets/，不在 layers/ 子树里
+        inputs[e["source"]] = _sha256(REPO / e["source"])
     # SNDL_LUAC / SNDL_TTF_PGF：与 tools/inject_lua.py、tools/build_font.py 同一惯例
     # （环境变量覆盖，manifest / 硬编码默认路径兜底）。ttf_pgf 平时活在 /tmp 下，
     # 重启即失，构建者常须重新指到别处；不认这个环境变量，"absent" 记的就是假话——
@@ -576,6 +596,7 @@ def main(argv=None) -> int:
     print("[layers] 全部层命中 ✓")
     _check_eboot(manifest, args.profile)
     _check_sound(manifest)
+    _check_movies(manifest)
     _check_msg_layout(sources, hard=True)
     return 0
 
@@ -622,6 +643,26 @@ def _check_sound(manifest: dict, root: Path = LAYERS) -> None:
             raise OverlayError(f"[sound] {artifact.name} 循环起点 {info['loop_start_src']} ≠ 清单 {want}")
         seen.add(member)
     print(f"[layers] sound: {len(seen)} 首新曲——指纹、头部规则、循环起点、成员名全部核对 ✓")
+
+
+def _check_movies(manifest: dict) -> None:
+    """[[movies]] 的闸：素材在就核对指纹、音轨必须是 44.1k（两张盘都用，iOS 盘绕开 1.20.x 的 48k 破音靠它）。
+    素材在 assets/（版权物不入库），本机没有只告警——云端/无资产环境本来也出不了盘。"""
+    from tools import ios_movie
+    n = 0
+    for e in manifest.get("movies") or []:
+        src = REPO / e["source"]
+        if not src.is_file():
+            print(f"[layers] ⚠ [[movies]] {e['member']} 的素材 {src} 不在本机，跳过指纹核对")
+            continue
+        if _sha256(src) != e["sha256"]:
+            raise OverlayError(f"[[movies]] {src.name} 的 sha256 与清单不符——换了素材要同时更新清单")
+        rate = ios_movie.audio_rate(src)
+        if rate != 44100:
+            raise OverlayError(f"[[movies]] {src.name} 音轨 {rate} Hz——两张盘都用，必须是 44100（iOS 盘 48k 会破音）")
+        n += 1
+    if manifest.get("movies"):
+        print(f"[layers] movies: {n} 部影片素材指纹、44.1k 音轨核对 ✓")
 
 
 def _check_eboot(manifest: dict, profile: str) -> None:

@@ -36,12 +36,12 @@
            指纹钉在 manifest）施加 layers/eboot/*.toml 的字节补丁 →
            build/<profile>/EBOOT.BIN（tools/eboot_patch.py；无 [eboot] 节则空转）。
   disc     刷新 build/<profile>/game/（首次自 assets/orig.iso 解出）+ 覆入
-           DATA.BIN 与（若有）EBOOT.BIN，供 PPSSPP 目录引导。
+           DATA.BIN 与（若有）EBOOT.BIN、SOUND.BIN、[[movies]] 影片素材，供 PPSSPP 目录引导。
   iso      仅 release：三道断言（stage 树指纹与 DATA.BIN 对应同一次 pack、
            lua/final 独立重编译后与 stage/script 逐字节核对、成员集合与测试
            引导成员检查；有 [eboot] 时第四道：EBOOT.BIN 与「对登记的纯净源
            重新施加当前层」逐字节相同）全过，才把 DATA.BIN/EBOOT.BIN 拷到
-           build/dist/、umdiso 就地替换 → build/dist/game_zh.iso + provenance
+           build/dist/、umdiso 就地替换（连同 [[movies]] 影片素材）→ build/dist/game_zh.iso + provenance
            副本；任一断言不过就拒绝出盘，不写任何 build/dist/ 文件。
   ios      iOS 变体（只推荐 iOS 商店版 PPSSPP 1.20.x，见
            docs/ops/movie-playback-ppsspp-2026-09-24.md「追记：iOS」）。release：只要跑了 iso
@@ -894,7 +894,42 @@ def stage_disc(ctx: BuildContext) -> dict:
             die(f"缺 {sound}（先跑 sound 阶段）")
         shutil.copyfile(sound, game / "PSP_GAME" / "USRDIR" / "SOUND.BIN")
         log(f"disc: SOUND.BIN（含新曲）已覆入 {game}")
+    _refresh_movies(ctx, game)
     return {"game": str(game)}
+
+
+def _layer_movies(ctx: BuildContext) -> dict[str, Path]:
+    """[[movies]]：用户压制的影片素材（assets/，版权物不入库）→ {成员名: 路径}。两张盘都用。
+    缺素材或指纹与清单不符立刻失败——出盘不许拿一份没登记过的影片。"""
+    out = {}
+    for e in ctx.manifest.get("movies") or []:
+        src = REPO / e["source"]
+        if not src.is_file():
+            die(f"缺影片素材 {src}（[[movies]] {e['member']}；素材不入库，放回 assets/ 再出盘）")
+        if hashlib.sha256(src.read_bytes()).hexdigest() != e["sha256"]:
+            die(f"{src} 的 sha256 与 manifest [[movies]] 登记不符——换了素材要同时更新清单")
+        out[e["member"]] = src
+    return out
+
+
+def _refresh_movies(ctx: BuildContext, game: Path) -> None:
+    """目录盘的 movie/：登记了的换成素材；没登记的若尺寸与原盘不同（上次覆入过、后来撤了登记）就还原原片。"""
+    from tools import ios_movie
+    from tools.umdiso import Iso
+    movie_dir = game / "PSP_GAME" / "USRDIR" / "movie"
+    layer = _layer_movies(ctx)
+    for member in layers.MOVIE_MEMBERS:
+        dst = movie_dir / member
+        if member in layer:
+            shutil.copyfile(layer[member], dst)
+            log(f"disc: movie/{member}（[[movies]] 素材）已覆入 {game}")
+            continue
+        inner = ios_movie.MOVIES[member]
+        with Iso(str(ORIG_ISO)) as iso:
+            want = iso.find(inner).size
+        if not dst.exists() or dst.stat().st_size != want:
+            ios_movie._extract(ORIG_ISO, inner, dst)
+            log(f"disc: movie/{member} 还原为原片")
 
 
 # ---------- F2 实机盘（ISO 就地替换，release only）----------
@@ -980,6 +1015,11 @@ def stage_iso(ctx: BuildContext) -> dict:
         log("iso: 断言⑤通过（SOUND.BIN 与音频层重算结果逐字节相同，原成员未动）")
         pairs.append((snd["iso_path"], str(sound)))
 
+    movies = _layer_movies(ctx)
+    pairs += [(f"/PSP_GAME/USRDIR/movie/{m}", str(p)) for m, p in movies.items()]
+    if movies:
+        log(f"iso: 影片替换 {sorted(movies)}（[[movies]] 素材指纹已核）")
+
     DIST.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, DIST / "DATA.BIN")     # Finding 1：只有闸过了才能发布
     if cfg:
@@ -1021,8 +1061,23 @@ def _preflight_ios(ctx: BuildContext) -> None:
     if missing:
         die(f"iOS 盘需要解密固件模块 {', '.join(str(p) for p in missing)}——取得方法见 "
             "docs/ops/movie-playback-ppsspp-2026-09-24.md「固件模块的取得」")
-    if not ios_movie.cached(IOS_BUILD / "movie", ctx.manifest["ios"]["movies"]):
+    layer = _layer_movies(ctx)
+    todo = [m for m in ios_movie.MOVIES if m not in layer]
+    if not ios_movie.cached(IOS_BUILD / "movie", ctx.manifest["ios"]["movies"], members=todo):
         ios_movie.require_ffmpeg()
+
+
+def _ios_movie_set(ctx: BuildContext, built: dict[str, Path]) -> dict[str, Path]:
+    """iOS 盘的影片：[[movies]] 素材优先（用户已压成 44.1k），其余用 ios_movie 从原片重采样的版本。
+    素材音轨不是 44.1k 就拒绝——1.20.x 混音器对 48k 重采样会破音，那正是 iOS 盘要绕开的。"""
+    from tools import ios_movie
+    out = dict(built)
+    for member, src in _layer_movies(ctx).items():
+        rate = ios_movie.audio_rate(src)
+        if rate != 44100:
+            die(f"[[movies]] {member} 音轨 {rate} Hz——iOS 盘要 44100（1.20.x 混音器 48k 会破音）")
+        out[member] = src
+    return out
 
 
 def stage_ios(ctx: BuildContext, results: dict) -> dict:
@@ -1047,7 +1102,9 @@ def stage_ios(ctx: BuildContext, results: dict) -> dict:
     eb_path = ctx.root / "EBOOT.ios.BIN"
     eb_path.write_bytes(eb)
     mods = ios_fwmod.build(IOS_BUILD / "module", fw_dir=IOS_FW)
-    movies = ios_movie.build(IOS_BUILD / "movie", ios["movies"], ORIG_ISO)
+    layer = _layer_movies(ctx)
+    movies = _ios_movie_set(ctx, ios_movie.build(IOS_BUILD / "movie", ios["movies"], ORIG_ISO,
+                                                 members=[m for m in ios_movie.MOVIES if m not in layer]))
     log(f"ios: EBOOT.ios.BIN（{eboot_patch.sha256(eb)[:12]}…）、模块 {list(mods)}、影片 {list(movies)}")
 
     if ctx.profile == "test":

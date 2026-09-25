@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -36,9 +37,42 @@ def require_ffmpeg() -> None:
         raise SystemExit("缺 ffmpeg/ffprobe（本机用 Homebrew：brew install ffmpeg）——iOS 盘要从原盘影片重采样 44.1k 音轨")
 
 
-def cached(out_dir: Path, pins: dict[str, str]) -> bool:
-    """op/ed 产物都在且指纹与登记相符（build 会直接复用，不需要 ffmpeg）。"""
-    return all((out_dir / n).exists() and _sha(out_dir / n) == pins[n] for n in MOVIES)
+def cached(out_dir: Path, pins: dict[str, str], members=None) -> bool:
+    """要的影片（缺省 op/ed 全部）产物都在且指纹与登记相符（build 会直接复用，不需要 ffmpeg）。"""
+    return all((out_dir / n).exists() and _sha(out_dir / n) == pins[n] for n in (members or MOVIES))
+
+
+def audio_rate(mp4: Path) -> int:
+    """音轨（hdlr=soun）的 mdhd timescale——ffmpeg 封装的 AAC 即采样率。纯 stdlib，不依赖 ffprobe。"""
+    data = mp4.read_bytes()
+
+    def boxes(off: int, end: int):
+        while off + 8 <= end:
+            size, kind = struct.unpack_from(">I4s", data, off)
+            hdr = 8
+            if size == 1:
+                size, hdr = struct.unpack_from(">Q", data, off + 8)[0], 16
+            elif size == 0:
+                size = end - off
+            if size < hdr:
+                return
+            yield kind, off + hdr, off + size
+            off += size
+
+    for kind, s, e in boxes(0, len(data)):
+        if kind != b"moov":
+            continue
+        for _k, s2, e2 in (b for b in boxes(s, e) if b[0] == b"trak"):
+            for _k, s3, e3 in (b for b in boxes(s2, e2) if b[0] == b"mdia"):
+                handler = timescale = None
+                for k4, s4, _e4 in boxes(s3, e3):
+                    if k4 == b"hdlr":
+                        handler = data[s4 + 8:s4 + 12]
+                    elif k4 == b"mdhd":
+                        timescale = struct.unpack_from(">I", data, s4 + (20 if data[s4] == 1 else 12))[0]
+                if handler == b"soun" and timescale:
+                    return timescale
+    raise ValueError(f"{mp4} 里找不到音轨")
 
 
 def ffmpeg_version() -> str:
@@ -74,12 +108,14 @@ def video_md5(mp4: Path) -> str:
     return out.strip()
 
 
-def build(out_dir: Path, pins: dict[str, str], orig_iso: Path) -> dict[str, Path]:
-    """从原盘抽 op/ed → 重采样 → 核验（44.1k AAC 立体声、视频流与原片逐包相同）→ 核对 pins 指纹。
-    产物已存在且指纹相符则直接复用。"""
+def build(out_dir: Path, pins: dict[str, str], orig_iso: Path, members=None) -> dict[str, Path]:
+    """从原盘抽 op/ed（members 缺省两部都要；已由 [[movies]] 换成用户素材的不必再做）→ 重采样 → 核验
+    （44.1k AAC 立体声、视频流与原片逐包相同）→ 核对 pins 指纹。产物已存在且指纹相符则直接复用。"""
     out_dir.mkdir(parents=True, exist_ok=True)
     res = {}
     for name, inner in MOVIES.items():
+        if members is not None and name not in members:
+            continue
         dst = out_dir / name
         if dst.exists() and _sha(dst) == pins[name]:
             res[name] = dst

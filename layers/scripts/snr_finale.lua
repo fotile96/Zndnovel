@@ -638,8 +638,8 @@ scene_fin_60 = function(scene_id, scene_title)
 end
 
 -- ── 场景 7『储藏间』——儿子这一层。写手层带背景（用户 2026-09-25 裁定不用黑屏）：
--- 通学路 bg_20_a_0 → 彩野的房间 bg_25_a_0（空调间）→ 储物柜间 bg_18_a_0（当储藏室）→ 纸箱特写
--- cutin/cut_62（s5f_80 同款语法）→ 回房间接笔记本 → 全屏窗口跳出（se_102 + 白场）。
+-- 通学路 bg_20_a_0 → 彩野的房间 bg_25_a_0（空调间）→ 储藏室段不换背景：纸箱特写 cutin/cut_62 直接盖在房间上
+-- （s5f_80 同款语法；用户 2026-09-25 实机复看后更正：不引入换鞋处 bg_18_a_0）→ 撤特写回房间接笔记本 → 全屏窗口跳出（se_102 + 白场）。
 -- SE 依据（全库脚本语境）：se_131＝电话呼び出し音（e2s「もしもし」「何回鳴らせば」旁）、
 -- se_66＝家里的拖鞋声/冲出去（s1f 妈妈折返、s2s 冲出教室）、se_92＝「よいしょっと」搬箱（e2s 彩野母、s5f 由加里）、
 -- se_96＝敲键盘（e2s_20_3 老教师打电脑）、se_102＝提示音（s2f『新しい物語が届きました』、序章『声』选项出现）。
@@ -675,11 +675,13 @@ scene_fin_70 = function(scene_id, scene_title)
     vms(17833, "NONVOICE", "【≦小用户≧】「——卧槽！别！爹！！」")
     vms(17834, "NONVOICE", "【≦妈妈≧】「还说看一下电池有没有亏电，TF 卡有没有死掉。都捯饬好再寄」")
     vms(17835, "NONVOICE", "我一溜烟跑进储藏室。")
+    -- 纸箱特写：s5f_80 同款（淡出 → pose3 载 cutin → 淡入），从翻找的两句「……」一直盖到「新盘符跳了出来」；
+    -- 背景不换（bg1 仍是彩野的房间），撤掉特写就回到房间
     cLoadPlaySE(cGetFileName("se", "se_66"), false)
     wait(1)
     comEffectFadeOut(60)
     wait(1)
-    layerLoad(layerName.bg1, cGetFileName("bg", "bg_18_a_0"))
+    layerLoad(layerName.pose3, cGetFileName("cutin", "cut_62"))
     switchScreen(0, "", 60)
     wait(60)
     cLoadPlaySE(cGetFileName("se", "se_92"), false)
@@ -691,23 +693,15 @@ scene_fin_70 = function(scene_id, scene_title)
     vms(17840, "NONVOICE", "虽然说我们这一代经常被揶揄已经不认识光盘了，但眼前的这一产品还是偶尔能听到提起的。")
     vms(17841, "NONVOICE", "端详了几圈，我找到正面右下方的开关，推动了一下。")
     vms(17842, "NONVOICE", "果然毫无反应。不过后盖至少没有翘起来。")
-    -- 纸箱特写：s5f_80 同款（淡出 → pose3 载 cutin → 淡入）
-    wait(1)
-    comEffectFadeOut(60)
-    wait(1)
-    layerLoad(layerName.pose3, cGetFileName("cutin", "cut_62"))
-    switchScreen(0, "", 60)
-    wait(60)
     vms(17843, "NONVOICE", "箱子里好像就有根 USB 充电线。把存储卡拿出来以后就插上丢一边充着，几秒后充电灯亮了起来。")
     vms(17844, "NONVOICE", "仔细一看这存储卡还是 TF 卡插在一个转接套里。花里胡哨的。")
     vms(17845, "NONVOICE", "哎，如果不是被恐吓了真是不想管。")
     vms(17846, "NONVOICE", "我把 TF 卡插进同样是箱子里早就准备好的读卡器里，然后再插上笔记本。一个新盘符顺利跳了出来。")
-    -- 撤掉特写，回房间接笔记本
+    -- 撤掉特写，回房间接笔记本（bg1 一直是 bg_25_a_0，清掉 pose3 淡入即回到房间）
     wait(1)
     comEffectFadeOut(60)
     wait(1)
     layerLoad(layerName.pose3, "")
-    layerLoad(layerName.bg1, cGetFileName("bg", "bg_25_a_0"))
     switchScreen(0, "", 60)
     wait(60)
     vms(17847, "NONVOICE", "来都来了，看看老登都玩些啥吧。")

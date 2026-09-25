@@ -77,3 +77,5 @@ Final: fixed 第二个故事解锁的画廊 cgFlag 不落盘（Important 1）—
 Final: Ruling: 按 Important 1 修复时偏离了计划 Review Focus #3「第二个故事读完…不得写系统数据」— spec D8 只写「不置任何旗标」，计划把它扩成「不写系统数据」，与 D5「画廊登记…读过才可见」冲突；写盘不改旗标值、只落盘既有 cgFlag 机制与已读标记，D8 已补记 — cost if wrong: 读完第二个故事会多一次系统数据自动存档（与第一个故事一致）；若用户不要，删 main() 一行并把测试计数改回 1。
 Final: release 按最终 HEAD e6eb73a 重出（provenance head 一致）：发布断言①–⑤全过，game_zh.iso 649992192 B、game_zh_ios.iso 同出；release_iso 冒烟 ERROR 1（ILLEGAL_THID）；模拟器存档指纹仍为原值。
 Final: Ruling: 不删本计划工作区，改为把其中 *.md（progress 台账＋task-1..7-brief）git add -f 入库 — CLAUDE.md「SDD 工作台」条规定这些 md 是不可再生的执行证据须入库，优先于技能的「删工作区」；*.log 与 review-*.diff 保持忽略（可由 git 历史再生）— cost if wrong: 仓库多 8 个小 md 文件。
+
+Hotfix (2026-09-25, session Fable 5.1): 用户人工跑 release 盘复看后指出 fin-70 储藏室段误解了「箱子不是 BG 是 cutin/cut_62」——本意是不引入换鞋处 bg_18_a_0，纸箱特写直接盖在彩野房间 bg_25_a_0 上。改 scene_fin_70：去掉 bg_18_a_0 切换，cutin 从「我一溜烟跑进储藏室」后的淡出起载入（盖住两句「……」到「新盘符跳了出来」），撤特写时不再重载 bg1；spec 补 D15、§2/§7 同步。按用户指示跳过 PPSSPP 驾驶，重出 release 盘交用户人工复测。

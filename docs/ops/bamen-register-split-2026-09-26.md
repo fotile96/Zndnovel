@@ -58,7 +58,11 @@
 
 - `tools/layers.py check --profile release`：清关后 0 错误（32 条既有 hang-deep／narrow-glyph 警告与本次无关）；v26 落地后复跑见提交说明。
 - `check_voices_anchors.py`、pytest（read_commit／read_server／add_patch／compare_lanes／build_context）见提交说明。
-- 出盘：lua 文本改动只需 `build_disc.py`（无卡面重烤）。
+- 全量 pytest：2045 passed / 5 skipped，唯二红的是 `tests/test_measure_ui_terms.py`——`config/ui_terms.yaml` 把 場面 当
+  单值术语量正文（v26 后 45/320）。处理：場面 除名进 `not_terms`（语域分立后「压倒性用法」前提不成立；改 zh 成段族
+  会反过来要求 UI 面写「一段」），`measure_ui_terms.py --write` 刷新 お話／選択肢／千秋 的证据串；`check_ui_terms` 对
+  sysgim/cutin/mode_frame 文本 0 条不一致（展開／放課後／約束 3 条未登记提示为既有）。
+- 出盘：`build_disc.py` release 全阶段通过，`build/dist/game_zh.iso` 与 `game_zh_ios.iso` 已重出（无卡面重烤）。
 
 ## 五、遗留
 

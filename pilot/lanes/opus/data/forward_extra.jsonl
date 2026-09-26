@@ -1078,3 +1078,4 @@
 {"key":"plotTitle:131","kind":"plot_title","zh":"和那个女孩见面的约定","source":"cards.zh:card=131","glossary_v":22,"ts":"2026-09-07T17:00:29+00:00"}
 {"key":"snr_s7_10_f:2247","kind":"scene_title","zh":"End Roll","source":"model+review:data/extra_translated.jsonl","glossary_v":24,"ts":"2026-09-20T17:43:55+00:00"}
 {"key":"snr_s8_10_f:626","kind":"scene_title","zh":"End Roll 2","source":"model+review:data/extra_translated.jsonl","glossary_v":24,"ts":"2026-09-20T17:43:55+00:00"}
+{"key":"snr_s7_10_f:2124","kind":"dispatch_text","zh":"只要给她看章节６最后一段的『梗概』，就能知道这一点。","source":"model+review:data/extra_translated.jsonl","glossary_v":26,"ts":"2026-09-26T14:27:19+00:00"}

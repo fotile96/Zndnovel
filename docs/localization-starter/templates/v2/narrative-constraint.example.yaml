@@ -1,0 +1,39 @@
+# 虚构示例，用于区分已经确认的回声关系和尚未定稿的中文。
+schema_version: 1
+example_only: true
+constraint_id: echo-doorway-demo
+type: exact_repetition
+status: reviewed  # proposed / reviewed / binding
+scope:
+  routes: [route-a]
+  narrative_layers: [present]
+members:
+  - text_id: scene01.line12
+    source_hash: REPLACE_WITH_SHA256
+    selector:
+      source_span: また、明日。
+      occurrence_in_text: 1
+    role: setup
+  - text_id: scene09.line31
+    source_hash: REPLACE_WITH_SHA256
+    selector:
+      source_span: また、明日。
+      occurrence_in_text: 1
+    role: payoff
+relation:
+  claim: 后一处再次说出前一处的原句，两处中文应保持回声关系。
+  evidence_refs: [REPLACE_WITH_SOURCE_AND_SCENE_EVIDENCE]
+target:
+  status: provisional  # provisional / binding
+  candidate: 明天见。
+  binding_text: null
+  binding_decision_ref: null
+enforcement:
+  replace_scope: selected_span_only
+  exact_target_check: after_target_binding
+  conflict_action: request_editorial_review
+exceptions: []
+supersedes: []
+recall:
+  related_text_ids: []
+  related_asset_ids: []

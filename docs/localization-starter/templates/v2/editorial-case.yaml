@@ -1,0 +1,30 @@
+# 每个实际编辑取舍一条；保留被拒绝的润色，便于学到边界。
+schema_version: 1
+case_id: replace-me
+source_revision: null
+scene_id: null
+text_ids: []
+evidence_refs: []
+source_excerpt: null
+prior_target: null
+candidate: null
+decision: null  # keep / adopt / edit / defer
+final_target: null
+reason: null
+rejected_interpretation: null
+scope:
+  characters: []
+  narrative_layers: []
+  registers: []
+  routes: []
+  applicable_conditions: null
+  exceptions: null
+generalization:
+  status: case_only  # case_only / proposed_rule / binding_rule
+  rule: null
+  supporting_case_ids: []
+  conflicting_case_ids: []
+  supersedes: []
+editor: null
+decided_at: null
+recall_targets: []

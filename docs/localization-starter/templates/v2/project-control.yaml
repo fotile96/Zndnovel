@@ -1,0 +1,100 @@
+# 第二版 runbook 的填写模板；尚无通用执行器读取此文件。
+schema_version: 2
+project_id: replace-me
+phase: orientation
+mode: research  # research / pilot / production / release_candidate
+languages:
+  source: ja
+  target: zh-Hans
+editor: null
+engine:
+  family: null
+  exact_version: null
+  adapter_revision: null
+source:
+  revision: null
+  tree_hash: null
+  scripts_path: null
+  assets_path: null
+  runtime_available: false
+  original_start_command: null
+  fidelity_evidence: []
+scope_manifest: null
+platforms: []
+budgets:
+  # 起始试译规模，可按项目改；此单元上限不限制原作阅读覆盖。
+  # 金额带币种，时间按实际编辑时间计。
+  pilot_max_source_units: 400
+  research_max_editor_minutes: null
+  pilot_max_calls_cost: null
+  currency: null
+  production_editor_minutes_per_100_units_limit: null
+  same_failure_repair_attempts: 2
+first_slice:
+  scene_ids: []
+  normal_entry: null
+  fixture_entry: null
+  isolated_save_directory: null
+  required_checks:
+    - source_roundtrip
+    - chinese_rendering
+    - choice_behavior
+    - format_or_dynamic_text
+    - save_load_continue
+  evidence: []
+narrative:
+  coverage_map: null
+  constraints: null
+  separate_facts_inferences_unknowns: true
+  separate_player_character_translator_knowledge: true
+  chinese_wording_default: provisional
+editorial:
+  workbench: null
+  cases: null
+  binding_rules_revision: null
+  calibration_scene_ids: []
+  holdout_scene_ids: []
+  source_first_review: true
+  hide_translator_rationale_in_first_review: true
+channels:
+  translator:
+    provider: null
+    requested_model: null
+    reported_model: null
+    prompt_revision: null
+    tool_policy: null
+  reviewer:
+    provider: null
+    requested_model: null
+    reported_model: null
+    prompt_revision: null
+    tool_policy: null
+production:
+  unit: scene
+  single_writer: true
+  effective_data_path: null
+  record_actual_inputs: true
+  require_sealed_revision: true
+  require_source_and_baseline_hash: true
+  semantic_autoclear: false
+  accepted_transaction_log: null
+  pending_evidence_queue: null
+  recall_queue: null
+build:
+  test_output: build/test
+  release_output: build/release
+  dependency_manifest: null
+  normal_route_checkpoints: []
+pilot:
+  record: null
+  decision: pending  # pending / proceed / revise / limited_research
+  reason: null
+  evidence: []
+release:
+  required_route_and_state_coverage: null
+  required_platform_matrix: null
+  full_read_record: null
+  blockers: []
+  accepted_limitations: []
+  decision: pending
+next_action: null

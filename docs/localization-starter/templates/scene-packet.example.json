@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "packet_id": "sample-scene-03",
+  "source_revision": "REPLACE_WITH_SOURCE_REVISION",
+  "text_id": "map003.event007.page02.command018.text00",
+  "source_hash": "REPLACE_WITH_SHA256",
+  "source_template": "……もういい。",
+  "occurrence": {
+    "id": "run-demo:occurrence-31",
+    "run_id": "run-demo",
+    "entry_kind": "normal_route",
+    "checkpoint_hash": "REPLACE_WITH_SHA256",
+    "route": "quest-before-handover",
+    "frame": 1820,
+    "interpreter_instance": "main-0",
+    "call_stack": ["map003/event007/page02"],
+    "rendered_source": "……もういい。"
+  },
+  "speaker": {
+    "visible_label": "少女",
+    "entity_candidates": ["entity.girl_at_door"],
+    "identity_status": "unconfirmed",
+    "addressee_candidates": ["player"],
+    "evidence_refs": ["ev-message"]
+  },
+  "relevant_state": {
+    "quest_handover_done": false,
+    "page_activation": "REPLACE_WITH_ACTUAL_CONDITIONS_AND_EVIDENCE"
+  },
+  "timeline": [
+    {"id": "t1", "frame": 1700, "type": "move_issued", "actor": "event007", "route": "face_down, move_down_2", "wait": true, "evidence_refs": ["ev-log"]},
+    {"id": "t2", "frame": 1810, "type": "move_completed", "actor": "event007", "position": [8, 9], "evidence_refs": ["ev-log", "ev-frame"]},
+    {"id": "t3", "frame": 1820, "type": "show_text", "text_id": "map003.event007.page02.command018.text00", "evidence_refs": ["ev-message"]}
+  ],
+  "happens_before": [["t1", "t2"], ["t2", "t3"]],
+  "claims": [
+    {"id": "c1", "status": "observed", "claim": "少女在对白出现前完成向下移动两格。", "evidence_refs": ["ev-log", "ev-frame"]},
+    {"id": "c2", "status": "inferred", "claim": "可能是在结束当前交涉。", "evidence_refs": ["ev-message", "ev-frame"], "alternatives": ["可能只是表示不再需要帮助。"]},
+    {"id": "c3", "status": "unknown", "claim": "她是否感到失望，现有证据不足。", "evidence_refs": []}
+  ],
+  "knowledge": {
+    "player_observed": ["少女在门附近等待，随后走开。"],
+    "character_known": [],
+    "translator_only": [],
+    "must_not_reveal": ["未证实的实名", "未被表达的心理动机"]
+  },
+  "translation_constraints": {
+    "preserve": ["省略号", "未明身份"],
+    "do_not_add": ["失望地", "替角色解释离开的原因"],
+    "format_profile": "REPLACE_WITH_ADAPTER_PROFILE"
+  },
+  "evidence": [
+    {"id": "ev-log", "kind": "runtime_trace", "path": "REPLACE_WITH_TRACE_PATH", "hash": "REPLACE_WITH_SHA256"},
+    {"id": "ev-frame", "kind": "frame_sequence", "path": "REPLACE_WITH_CONTACT_SHEET_PATH", "hash": "REPLACE_WITH_SHA256"},
+    {"id": "ev-message", "kind": "source_and_display_trace", "path": "REPLACE_WITH_MESSAGE_TRACE_PATH", "hash": "REPLACE_WITH_SHA256"}
+  ],
+  "open_questions": ["需要前面数句对白来决定是结束交涉还是拒绝帮助；现有走位不能单独定译。"]
+}

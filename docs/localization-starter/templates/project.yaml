@@ -1,0 +1,73 @@
+schema_version: 1
+project_id: replace-me
+status: draft
+languages:
+  source: ja
+  target: zh-Hans
+engine:
+  family: null
+  exact_version: null
+  runtime_hash: null
+  plugins_manifest: null
+  adapter_version: null
+base:
+  source_revision: null
+  source_tree_hash: null
+  original_package_hash: null
+  source_encoding: null
+  read_only: true
+  roundtrip_evidence: null
+scope:
+  # 每项填 include / exclude / deferred；排除必须记理由和玩家侧说明。
+  dialogue: {status: null, reason: null}
+  choices: {status: null, reason: null}
+  ui: {status: null, reason: null}
+  database_text: {status: null, reason: null}
+  image_text: {status: null, reason: null}
+  movie_text: {status: null, reason: null}
+  voice_only_content: {status: null, reason: null}
+  embedded_books: {status: null, reason: null}
+  unreachable_content: {status: null, reason: null}
+identity:
+  strategy: null
+  distinguish_text_and_occurrence: true
+  require_source_hash: true
+  ambiguous_migration: manual_review
+context:
+  unit: scene
+  preserve_branch_conditions: true
+  separate_player_character_translator_knowledge: true
+  unknown_effect: request_evidence
+  max_input_tokens: null
+  max_output_tokens: null
+  scene_evidence_manifest: null
+language:
+  glossary_revision: null
+  voice_revision: null
+  editorial_decisions_revision: null
+  family_relations: null
+format:
+  placeholder_grammar: null
+  control_code_semantics: null
+  font_recipe: null
+  render_constraints: null
+  timing_and_wait_rules: null
+production:
+  translator_channel: null
+  reviewer_channel: null
+  automatic_semantic_acceptance: false
+  single_writer: true
+  require_sealed_output_hash: true
+  reject_stale_baseline: true
+build:
+  test_output: build/test
+  release_output: build/release
+  overlays_manifest: null
+  include_debug_features_in_release: false
+verification:
+  reference_checkpoints: []
+  target_platforms: []
+  unknowns: []
+  count_not_run_separately: true
+  require_normal_route_evidence: true
+  unresolved_release_blockers: []
